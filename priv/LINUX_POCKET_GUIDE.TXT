@@ -1,0 +1,112 @@
+LINUX POCKET GUIDE
+
+This is meant to be a cheat sheet and a starter for navigating the Unix-like terminal environment. Understanding how to talk to your machine is awesome.
+
+César Anthony Moreno						Tue 10 Mar 2026 11:31:29 PM PDT 
+
+[NOTE: Commands available in this faux web terminal are displayed in INVERTED COLOR.]
+
+Parenthetical Key: for filing viewing (ffv)
+
+Standard Symbols: ^: press and hold CTRL key
+		  ^D: press and hold CTRL, type D
+		  ESC: escape key
+		  TAB: auto-complete commands and files
+
+COMMANDS OF NOTE
+	$$ls$$ / $$dir$$ 	(list files)
+	grep 		(search for text in a file)
+	xmms 		(play audio files)
+	df 		(measure disk space)
+	$$read$$ 		(ffv short text files)
+	od 		(ffv binary files)
+	ghostview 	(ffv postscript)
+	bash 		(Bourne Again Shell)
+	wc 		(word count)
+	echo 		(prints the stdout of a conversation)
+	$$exit$$		(exits terminal)
+	$$cd$$ 		(changes directory)
+	$$pwd$$		(print working directory)
+	who		(list of users on a server with timestamps)
+	$$view$$		(display image file)
+	$$play$$		(play audio file)
+	$$help$$		(display terminal manual)
+	$$clear$$		(refresh terminal)
+
+--------------------------------------------------------------------------------
+
+Genesis
+	El Carnal: the low level operating system
+	Supplied programs: let's you do things easier
+	La Anima: UI (user interface) for typing commands
+	X: Composed of GUI (graphical user interface) elements
+	
+	Commands, Options, Arguments: {[program name] [adaptations] [conversations]}
+
+--------------------------------------------------------------------------------
+
+$$ls$$ [adaptations][files]
+	
+	stdin: reads standard inputs
+	stdout: leads standard outputs
+	--opt: "--" || "./" indicates end of adaptations
+	--help: Just ask
+	--version: prints version number; exits
+
+--------------------------------------------------------------------------------
+
+The Filesystem (directory paths)
+
+	directory: essentially folders; may form hierarchical trees
+	root directory: denoted by slash (/)
+
+	'.': current directory 
+	'..': parent directory
+
+Categories: Types of files found in a directory
+
+	Programs:	bin, sbin, lib, libexec
+	Documentation:	doc, info, man, share
+	Configuration:	etc, init.d
+	Programming: 	include, src
+	Web Files:	cgi-bin, html, public_html, www
+	Display:	fonts, X11
+	Hardware: 	dev, mnt, misc
+	Runtime Files:	var, lock, log, mail, run, spool, tmp, proc
+
+--------------------------------------------------------------------------------
+
+LA ANIMA
+
+Anima or Program?
+	type [who] -> program
+	type [cd] -> anima
+
+Variables
+	$ printenv (reveals true variable values)
+	
+	DISPLAY 	(name of your X window display)
+	HOME 		(name of home directory)
+	LOGNAME 	(login name)
+	PATH		(shell search path)
+	PWD		(shell's current directory)
+	USER		(your login name)
+
+Basic File Operations
+	$$ls$$		(lists files in a directory)
+	cp		(copies)
+	mv		(renames a file ("moves"))
+	rm		(deletes a file("removes"))
+	ln		(generates links to a file)
+
+Directory Operations:
+	$$cd$$		(change directory)
+	$$pwd$$		(prints current directory)
+	mkdir		(creates a directory)
+	rmdir		(deletes a directory)
+
+File Viewing:
+	$$read$$		view entire file (simulates cat)
+	less		view single pages
+	head		view first line
+	tail		view last line

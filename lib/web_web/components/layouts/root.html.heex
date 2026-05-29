@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Permanent+Marker&display=swap"
+      rel="stylesheet"
+    />
+    
+<!-- Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/preview_logo.png"} />
+    <link rel="icon" type="image/png" sizes="16x16" href={~p"/images/preview_logo.png"} />
+    <link rel="apple-touch-icon" href={~p"/images/preview_logo.png"} />
+
+    <meta property="og:title" content="streetscissors" />
+    <meta property="og:description" content="A space for reflections, manuscripts, and more." />
+    <meta property="og:image" content={~p"/images/preview_logo.png"} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <.live_title default="streetscissors" suffix="">
+      {assigns[:page_title]}
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <link rel="stylesheet" href="/assets/css/app.css?v=202603102242" />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    <script>
+      (() => {
+        const setTheme = (theme) => {
+          if (theme === "system") {
+            localStorage.removeItem("phx:theme");
+            document.documentElement.removeAttribute("data-theme");
+          } else {
+            localStorage.setItem("phx:theme", theme);
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+        };
+        if (!document.documentElement.hasAttribute("data-theme")) {
+          setTheme(localStorage.getItem("phx:theme") || "system");
+        }
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        
+        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+      })();
+    </script>
+    <style>
+      /* Home page specific overrides handled in landing.css */
+    </style>
+  </head>
+  <body>
+    <div id="main-content-wrapper" class="main-content-wrapper">
+      {@inner_content}
+    </div>
+    <style>
+      .main-content-wrapper { padding-top: 1rem; }
+      @media (max-width: 800px) {
+        .main-content-wrapper { padding-top: 0 !important; }
+      }
+    </style>
+
+    <%= if assigns[:admin_mode] do %>
+      <!-- Admin Mode Indicator -->
+      <div
+        id="admin-indicator"
+        style="
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 102, 0, 0.5);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-family: var(--font-heading);
+        font-size: 0.8rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      "
+      >
+        <span style="color: #ff6600; display: flex; align-items: center; gap: 0.4rem;">
+          <i class="fas fa-user-shield" style="font-size: 0.9rem;"></i>
+          <span style="text-transform: uppercase; letter-spacing: 1px;">Admin</span>
+        </span>
+        <span style="color: #444;">|</span>
+        <a
+          href="/admin/dashboard"
+          style="color: #888; text-decoration: none; transition: color 0.2s;"
+          onmouseover="this.style.color='#fff'"
+          onmouseout="this.style.color='#888'"
+        >
+          <i class="fas fa-tachometer-alt"></i>
+        </a>
+        <form action="/admin/logout" method="post" style="display: inline; margin: 0; padding: 0;">
+          <input type="hidden" name="_method" value="delete" />
+          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+          <button
+            type="submit"
+            style="background: none; border: none; color: #888; cursor: pointer; padding: 0; font-size: inherit; transition: color 0.2s;"
+            onmouseover="this.style.color='#ff6b6b'"
+            onmouseout="this.style.color='#888'"
+          >
+            <i class="fas fa-sign-out-alt"></i>
+          </button>
+        </form>
+      </div>
+    <% end %>
+    {live_render(
+      Map.get(assigns, :socket) || Map.get(assigns, :conn),
+      WebWeb.NewsletterOverlayLive,
+      id: "newsletter-overlay",
+      sticky: true,
+      layout: false
+    )}
+  </body>
+</html>

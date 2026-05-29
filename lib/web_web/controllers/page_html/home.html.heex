@@ -1,0 +1,120 @@
+<div class="home-wrapper">
+  <!-- Top Bar: Guestbook (left) | Spotify (center) | Newsletter (right) -->
+  <nav class="home-top-bar">
+    <div class="mobile-brand-wrapper-home" style="display: none;">
+      <a href="/" class="sensus-mobile-brand-link">
+        <h1>streetscissors</h1>
+      </a>
+    </div>
+
+    <div class="desktop-top-bar-contents" style="display: contents;">
+      <a
+        href={~p"/guestbook"}
+        class="top-bar-link"
+        style="background: none; border: none; cursor: pointer;"
+      >
+        <i class="fas fa-book-open"></i> Guestbook
+      </a>
+
+      <div class="top-bar-center">
+        <div class="spotify-hover-wrapper">
+          <div class="spotify-pill-main" style="cursor: default;">
+            <i class="fab fa-spotify" style="color: #1DB954;"></i>
+            <span>Latest Playlist</span>
+          </div>
+          <div class="spotify-player-dropdown">
+            <iframe
+              src={"https://open.spotify.com/embed/playlist/#{@spotify_playlist_id}?utm_source=generator&theme=0"}
+              width="100%"
+              height="152"
+              frameBorder="0"
+              allowfullscreen=""
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              style="border-radius: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.6);"
+            >
+            </iframe>
+          </div>
+        </div>
+
+        <a
+          href="https://open.spotify.com/user/moreno90042"
+          target="_blank"
+          class="spotify-pill-profile"
+          title="Spotify Profile"
+        >
+          <img src={~p"/images/spotify_profile.jpg"} alt="Spotify Profile" />
+        </a>
+      </div>
+
+      <button
+        onclick="window.dispatchEvent(new CustomEvent('trigger-dispatch'))"
+        class="top-bar-link"
+        style="background: none; border: none; cursor: pointer;"
+      >
+        Newsletter and Contact <i class="fas fa-envelope"></i>
+      </button>
+    </div>
+  </nav>
+  
+<!-- Bento Section: Two blog boxes with overlapping title -->
+  <section class="bento-section">
+    <!-- The streetscissors title with Minecraft splash text -->
+    <div class="site-title-container">
+      <h1 class="site-title-overlay">streetscissors</h1>
+      <div class="minecraft-splash">beta: the sequel</div>
+    </div>
+
+    <div class="bento-row">
+      <a href={~p"/blog/latent-sensus"} class="bento-card bento-card-blog">
+        <span class="bento-label">Latent Sensus</span>
+      </a>
+      <a href={~p"/blog/another-blog"} class="bento-card bento-card-blog">
+        <span class="bento-label">Another Blog</span>
+      </a>
+    </div>
+    
+<!-- César's Machine box -->
+    <a href="/pc" class="bento-card bento-card-pc">
+      <div class="pc-inner">
+        <i class="fas fa-terminal pc-icon"></i>
+        <span class="pc-title">César's Machine</span>
+        <span class="pc-prompt">C:\> <span class="blink-cursor">_</span></span>
+      </div>
+    </a>
+    
+<!-- Fitness box -->
+    <a href="/fitness" class="bento-card bento-card-fitness">
+      <span class="bento-label">Fitness</span>
+    </a>
+    
+<!-- Fitness Sub-row: Three skinny boxes -->
+    <div class="bento-fitness-sub-row">
+      <a href={~p"/audio?from=home"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">Captain's Logs</span>
+      </a>
+      <a href={~p"/about?from=home"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">About Me</span>
+      </a>
+      <a href={~p"/manuscripts?from=home"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">All Manuscripts</span>
+      </a>
+    </div>
+  </section>
+  
+<!-- Blank space for now -->
+  <div class="blank-space"></div>
+
+  <footer class="home-footer">
+    &copy; 2026 streetscissors.
+    <a
+      href={~p"/admin/login"}
+      title="Admin Dashboard"
+      style="opacity: 0.4; margin-left: 0.5rem; font-size: 1.2rem; text-decoration: none; transition: opacity 0.2s;"
+      onmouseover="this.style.opacity='1'"
+      onmouseout="this.style.opacity='0.4'"
+    >
+      ☧
+    </a>
+  </footer>
+</div>

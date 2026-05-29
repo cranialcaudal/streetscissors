@@ -1,0 +1,44 @@
+/* Physical Section Specifics */
+.physical-header {
+    padding: 2rem 0;
+    text-align: left;
+}
+
+.physical-back {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    text-transform: lowercase;
+    display: inline-block;
+    color: inherit;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+
+.physical-back:hover {
+    transform: translateX(-5px);
+    color: #ccff00;
+}
+
+.physical-title {
+    margin-top: 1rem;
+    font-size: 3rem;
+    color: #ccff00;
+    font-family: var(--font-heading);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.physical-subtitle {
+    border-bottom: 2px solid #ccff00;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    color: #ccff00;
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+}
+
+.physical-list-icon {
+    color: #ccff00;
+    margin-right: 0.5rem;
+    font-size: 1.2rem;
+}

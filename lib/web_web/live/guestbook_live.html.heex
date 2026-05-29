@@ -1,0 +1,125 @@
+<div class="container">
+  <header class="guestbook-header" style="padding: 1rem 0; text-align: left;">
+    <h1 style="margin: 0; font-size: 3rem; color: #ff6600; font-family: var(--font-heading); text-transform: lowercase;">
+      guestbook
+    </h1>
+  </header>
+
+  <div class="glass-panel" style="padding: 2rem; min-height: 60vh; position: relative;">
+    <div
+      class="guestbook-form"
+      style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,102,0,0.3); margin-bottom: 3rem;"
+    >
+      <h3 style="color: white; margin-bottom: 1rem; font-family: var(--font-heading);">
+        Sign the Guestbook
+      </h3>
+      <.form for={@form} phx-change="validate" phx-submit="save">
+        <div style="margin-bottom: 1rem;">
+          <.input
+            field={@form[:name]}
+            type="text"
+            placeholder="Your Name"
+            style="width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid #333; color: white;"
+          />
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <.input
+            field={@form[:message]}
+            type="textarea"
+            placeholder="Your Message"
+            style="width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid #333; color: white; min-height: 100px;"
+          />
+          <div style="text-align: right; margin-top: 0.5rem;">
+            <WebWeb.CoreComponents.grammar_button class="btn-xs" />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <WebWeb.CaptchaHTML.simple_text text={@captcha_question} />
+          <input
+            name="captcha"
+            type="text"
+            placeholder="Answer..."
+            style="width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid #333; color: white;"
+            required
+            autocomplete="off"
+          />
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <button
+            type="submit"
+            phx-disable-with="Signing..."
+            style="background: #ff6600; color: black; border: none; padding: 0.5rem 1.5rem; font-weight: bold; cursor: pointer; font-family: var(--font-heading); text-transform: uppercase;"
+          >
+            Sign
+          </button>
+          <!-- Check button moved to be near textarea for better context, or here? I put it near textarea above -->
+        </div>
+      </.form>
+    </div>
+
+    <div class="guestbook-entries" style="margin-bottom: 2rem; position: relative; z-index: 1;">
+      <h3 style="color: white; margin-bottom: 1rem; font-family: var(--font-heading);">
+        Recent Signatures
+      </h3>
+      <%= if Enum.empty?(@entries) do %>
+        <p style="text-align: center; color: #888; font-style: italic;">
+          Be the first to sign the guestbook.
+        </p>
+      <% else %>
+        <%= for entry <- @entries do %>
+          <div
+            class="guestbook-entry"
+            style="margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; position: relative;"
+          >
+            <div style="font-weight: bold; color: #ff6600; margin-bottom: 0.5rem;">
+              {entry.name}
+              <span style="font-weight: normal; font-size: 0.8em; color: #666;">says:</span>
+              <%= if @admin_mode do %>
+                <span style="font-size: 0.7em; color: #aaa; margin-left: 1rem;">
+                  IP: {entry.ip_address || "N/A"}
+                  <button
+                    phx-click="delete_entry"
+                    phx-value-id={entry.id}
+                    data-confirm="Delete this entry?"
+                    style="background: red; color: white; border: none; padding: 2px 5px; font-size: 0.7em; margin-left: 5px; cursor: pointer;"
+                  >
+                    Delete
+                  </button>
+                </span>
+              <% end %>
+            </div>
+            <div style="color: #eee; white-space: pre-wrap;">{entry.message}</div>
+            <div style="font-size: 0.8rem; color: #555; margin-top: 0.5rem; text-align: right;">
+              {Calendar.strftime(entry.inserted_at, "%Y-%m-%d")}
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div style="margin-top: 3rem; text-align: center; opacity: 0.3;">
+      <%= if @admin_mode do %>
+        <button
+          phx-click="logout"
+          style="background: transparent; border: 1px solid #555; color: #888; padding: 5px 10px; cursor: pointer;"
+        >
+          Logout Admin
+        </button>
+      <% else %>
+        <form phx-submit="admin_login" style="display: inline-block;">
+          <input
+            type="password"
+            name="password"
+            placeholder="admin password"
+            style="background: rgba(0,0,0,0.5); border: 1px solid #333; color: white; padding: 5px; font-size: 0.8em; width: 120px;"
+          />
+          <button type="submit" style="display: none;">Login</button>
+        </form>
+      <% end %>
+    </div>
+
+    <WebWeb.CoreComponents.grammar_panel matches={@grammar_matches} />
+  </div>
+</div>

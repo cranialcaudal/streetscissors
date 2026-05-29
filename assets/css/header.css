@@ -1,0 +1,77 @@
+/* ==============================================
+   UNIVERSAL HEADER — Absolute Centering Fix
+   ============================================== */
+
+.blog-universal-header {
+    display: grid !important;
+    grid-template-columns: 33.33% 33.33% 33.33% !important; /* Forces absolute viewport centering */
+    align-items: center !important;
+    width: 100% !important;
+    padding: 1rem 2rem !important;
+    background: #000 !important;
+    border-bottom: 2px solid rgba(255, 102, 0, 0.4) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10000 !important;
+    box-sizing: border-box !important;
+    left: 0 !important;
+    right: 0 !important;
+    min-height: 120px;
+}
+
+/* 1. Return Button (Pinned Far Left) */
+.header-left {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+}
+
+/* 2. StreetScissors Logo (Absolute Center of Viewport) */
+.header-center {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+}
+
+.blog-universal-header .site-title-overlay {
+    font-size: 5rem !important;
+    color: #fff !important;
+    text-shadow: 4px 4px 0px rgba(255, 102, 0, 0.8) !important;
+    margin: 0 !important;
+    transform: none !important; /* Level 0/180 degrees */
+    animation: title-pulse 2s infinite alternate ease-in-out !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+}
+
+/* 3. Newsletter Button (Pinned Far Right) */
+.header-right {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+}
+
+/* Portal Rail Adjustment */
+.sensus-portal { margin-top: 0 !important; }
+.sensus-rail, .sensus-aside {
+    top: 120px !important; 
+    height: calc(100vh - 120px) !important;
+}
+
+@media (max-width: 1200px) {
+    .blog-universal-header .site-title-overlay { font-size: 3.5rem !important; }
+}
+
+@media (max-width: 900px) {
+    .blog-universal-header {
+        grid-template-columns: 1fr 1fr 1fr !important;
+        padding: 0.5rem 1rem !important;
+        min-height: 80px;
+    }
+    .blog-universal-header .site-title-overlay { font-size: 2.2rem !important; }
+    .header-left .theme-back { font-size: 0 !important; padding: 0.5rem !important; }
+    .header-left .theme-back::before { content: '←' !important; font-size: 1.2rem !important; }
+    .sensus-rail, .sensus-aside { top: 80px !important; height: calc(100vh - 80px) !important; }
+}

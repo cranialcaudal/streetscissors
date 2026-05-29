@@ -1,0 +1,165 @@
+/* Standard Theme */
+:root {
+    --theme-color: #ff6600;
+    /* Default Orange */
+}
+
+/* Theme Header - Standard page headers */
+.theme-header {
+    padding: 2rem 0;
+    text-align: left;
+    position: relative;
+}
+
+.theme-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 0;
+    text-align: left;
+}
+
+/* Return Button - Minimal modern style */
+.theme-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    text-transform: lowercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.25s ease;
+}
+
+.theme-back:hover {
+    color: var(--theme-color);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 102, 0, 0.3);
+    transform: translateX(-3px);
+    text-shadow: none;
+}
+/* Glass Buttons */
+.theme-btn,
+.theme-action-btn,
+button {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    color: white;
+    padding: 0.5rem 1rem;
+    /* Standard Padding */
+    border-radius: 6px;
+    /* Slightly more rounded */
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-btn:hover,
+.theme-action-btn:hover,
+button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(255, 102, 0, 0.3);
+    transform: translateY(-2px);
+    color: white;
+}
+
+/* Specific button styles for context */
+.btn-submit {
+    border-color: var(--color-jade);
+}
+
+.btn-submit:hover {
+    border-color: var(--color-jade);
+    box-shadow: 0 0 15px rgba(0, 168, 107, 0.3);
+}
+
+.btn-cancel {
+    border-color: #f87171;
+    /* red-400 */
+}
+
+.btn-cancel:hover {
+    border-color: #f87171;
+    box-shadow: 0 0 15px rgba(248, 113, 113, 0.3);
+}
+
+.theme-title {
+    margin-top: 1rem;
+    font-size: 3rem;
+    color: var(--theme-color);
+    font-family: var(--font-heading);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.theme-subtitle {
+    border-bottom: 2px solid var(--theme-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--theme-color);
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    text-transform: capitalize;
+}
+
+/* List Standardization */
+.theme-list {
+    list-style: none;
+    padding: 0;
+}
+
+.theme-list-item {
+    margin-bottom: 0.5rem;
+}
+
+.theme-link {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.theme-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--theme-color);
+    transform: translateX(5px);
+}
+
+.theme-icon {
+    margin-right: 1rem;
+    color: var(--theme-color);
+    font-size: 1.2rem;
+}
+
+.theme-text {
+    color: #e0e0e0;
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+}
+
+/* Grid for Cards (Recipes/Categories) */
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}

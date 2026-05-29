@@ -1,0 +1,28 @@
+<div class="container">
+  <header class="theme-header">
+    <h1 class="theme-title">Archives</h1>
+  </header>
+
+  <div class="glass-panel" style="padding: 2rem; min-height: 80vh;">
+    <div class="theme-grid">
+      <%= for category <- @categories do %>
+        <div class="category-block">
+          <h2 class="theme-subtitle">
+            {category |> String.replace("-", " ")}
+          </h2>
+
+          <ul class="theme-list">
+            <%= for file <- @manuscripts[category] do %>
+              <li class="theme-list-item">
+                <a href={~p"/manuscripts/#{category}/#{file.slug}"} class="theme-link">
+                  <i class="fas fa-file-alt theme-icon"></i>
+                  <span class="file-title theme-text">{file.title}</span>
+                </a>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

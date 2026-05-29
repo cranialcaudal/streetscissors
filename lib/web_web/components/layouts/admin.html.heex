@@ -1,0 +1,40 @@
+<main class="admin-layout" style="display: flex; min-height: 100vh;">
+  <!-- Sidebar Navigation -->
+  <aside style="width: 250px; background: rgba(0,0,0,0.4); border-right: 1px solid #333; padding: 2rem 1rem; display: flex; flex-direction: column;">
+    <h1 style="color: var(--theme-color); font-size: 1.5rem; margin-bottom: 2rem; text-align: center; font-weight: bold;">Admin Panel</h1>
+    
+    <nav style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+      <.link href={~p"/admin/dashboard"} class="theme-btn" style="text-align: left; background: transparent; border-color: #333; color: #ccc;">
+        <.icon name="hero-home" class="w-5 h-5 mr-2 inline-block"/> Dashboard
+      </.link>
+      <.link href={~p"/admin/content"} class="theme-btn" style="text-align: left; background: transparent; border-color: #333; color: #ccc;">
+        <.icon name="hero-document-text" class="w-5 h-5 mr-2 inline-block"/> Content
+      </.link>
+      <.link href={~p"/admin/fitness"} class="theme-btn" style="text-align: left; background: transparent; border-color: #333; color: #ccc;">
+        <.icon name="hero-heart" class="w-5 h-5 mr-2 inline-block"/> Fitness
+      </.link>
+      <.link href={~p"/admin/guestbook"} class="theme-btn" style="text-align: left; background: transparent; border-color: #333; color: #ccc;">
+        <.icon name="hero-book-open" class="w-5 h-5 mr-2 inline-block"/> Guestbook
+      </.link>
+      <.link href={~p"/admin/newsletter"} class="theme-btn" style="text-align: left; background: transparent; border-color: #333; color: #ccc;">
+        <.icon name="hero-envelope" class="w-5 h-5 mr-2 inline-block"/> Newsletter
+      </.link>
+    </nav>
+
+    <div style="margin-top: auto;">
+      <hr style="border-color: #333; margin: 1rem 0;" />
+      <.link href={~p"/"} class="theme-btn" style="text-align: left; background: transparent; border-color: transparent; color: #888; display: block; margin-bottom: 0.5rem;">
+        <.icon name="hero-arrow-left" class="w-5 h-5 mr-2 inline-block"/> Back to Site
+      </.link>
+      <.link href={~p"/admin/logout"} method="delete" class="theme-btn" style="text-align: left; background: #5a2525; border-color: transparent; color: #ffadad; display: block;">
+        <.icon name="hero-arrow-right-on-rectangle" class="w-5 h-5 mr-2 inline-block"/> Log Out
+      </.link>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div style="flex: 1; padding: 2rem; overflow-y: auto; height: 100vh;">
+    <.flash_group flash={@flash} />
+    {@inner_content}
+  </div>
+</main>

@@ -1,0 +1,510 @@
+/* ═══════════════════════════════════════════════════════════
+   THE LATENT SENSUS — PORTAL INFRASTRUCTURE v3
+   "Easier to navigate" — 3-column dashboard architecture.
+   Inspired by: GitHub, Wired 2003, and Jekyll Chirpy.
+   Updated with Elixir/StreetScissors sleekness.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ---- Color Tokens ---- */
+:root {
+  --sensus-bg: #090909;
+  --sensus-rail: #050505;
+  --sensus-border: rgba(255, 255, 255, 0.08);
+  --sensus-accent: #ff6600; /* StreetScissors Orange */
+  --sensus-jade: #00a86b;
+  --sensus-text-dim: #666;
+  --sensus-text-main: #ccc;
+  --sensus-font-mono: 'Cascadia Code', 'Courier New', monospace;
+}
+
+/* ---- Shell ---- */
+.sensus-portal {
+  display: grid;
+  grid-template-areas: 
+    "nav top meta"
+    "nav main sidebar";
+  grid-template-columns: 260px 1fr 300px;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  background: var(--sensus-bg);
+  border-left: 1px solid var(--sensus-border);
+  border-right: 1px solid var(--sensus-border);
+  margin: 0 auto;
+}
+
+/* ---- Rail (Left Sidebar) ---- */
+.sensus-rail {
+  grid-area: nav;
+  background: var(--sensus-rail);
+  border-right: 1px solid var(--sensus-border);
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sensus-brand {
+  text-align: center;
+}
+
+.sensus-brand-icon {
+  width: 110px;
+  height: 110px;
+  margin: 0 auto 1.5rem;
+  border: 1px solid var(--sensus-border);
+  padding: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.02);
+  display: block;
+}
+
+.sensus-rail h1 {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.sensus-rail-sub {
+  font-size: 0.75rem;
+  color: var(--sensus-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 0.25rem;
+}
+
+.sensus-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sensus-nav-link {
+  display: flex !important;
+  align-items: center;
+  gap: 0.75rem;
+  color: #888;
+  text-decoration: none !important;
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.sensus-nav-link:hover {
+  background: rgba(255, 102, 0, 0.08);
+  color: var(--sensus-accent);
+}
+
+.sensus-nav-link.active {
+  background: rgba(255, 102, 0, 0.12);
+  color: var(--sensus-accent);
+  border-right: 3px solid var(--sensus-accent);
+}
+
+/* ---- Top Header (Center Column) ---- */
+.sensus-top-bar {
+  grid-area: top;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--sensus-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sensus-breadcrumbs {
+  font-size: 0.8rem;
+  color: #555;
+  font-family: var(--sensus-font-mono);
+}
+
+.sensus-breadcrumbs a {
+  color: #888;
+  text-decoration: none;
+}
+.sensus-breadcrumbs a:hover { color: #fff; }
+
+/* ---- Center Content (Posts) ---- */
+.sensus-main {
+  grid-area: main;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.sensus-content-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.sensus-post-card {
+  padding: 2rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--sensus-border);
+  border-radius: 12px;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.sensus-post-card:hover {
+  background: rgba(255,255,255,0.035);
+  border-color: rgba(255, 102, 0, 0.4);
+  transform: translateY(-2px);
+}
+
+.sensus-post-ribbon {
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  background: var(--sensus-accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 2px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-family: var(--sensus-font-mono);
+}
+
+.sensus-post-title {
+  font-size: 1.6rem;
+  margin: 0 0 1rem 0;
+  font-family: var(--font-serif);
+}
+
+.sensus-post-title a {
+  color: #eee;
+  text-decoration: none !important;
+}
+
+.sensus-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  font-size: 0.75rem;
+  color: #555;
+  margin-bottom: 1.5rem;
+  font-family: var(--sensus-font-mono);
+}
+
+.sensus-post-meta i { margin-right: 4px; }
+
+.sensus-post-excerpt {
+  color: #999;
+  line-height: 1.65;
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+}
+
+/* ---- Action Buttons ---- */
+.sensus-post-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sensus-play-btn {
+  background: #222 !important;
+  border: 1px solid #333 !important;
+  color: var(--sensus-jade) !important;
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sensus-play-btn:hover {
+  background: #333 !important;
+  color: #fff !important;
+  border-color: var(--sensus-jade) !important;
+  box-shadow: 0 0 15px rgba(0, 168, 107, 0.15);
+}
+
+.sensus-play-btn.playing {
+  border-color: var(--sensus-accent) !important;
+  color: var(--sensus-accent) !important;
+}
+
+.sensus-more-link {
+  font-size: 0.85rem;
+  color: var(--sensus-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ---- Right Sidebar (Metadata) ---- */
+.sensus-aside {
+  grid-area: sidebar;
+  background: var(--sensus-rail);
+  border-left: 1px solid var(--sensus-border);
+  padding: 2rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sensus-aside-block {
+  margin-bottom: 2.5rem;
+}
+
+.sensus-aside-block h3 {
+  font-size: 0.7rem;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--sensus-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sensus-archive-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sensus-archive-item {
+  margin-bottom: 0.75rem;
+}
+
+.sensus-archive-link {
+  font-size: 0.85rem;
+  color: #777;
+  text-decoration: none;
+  display: flex;
+  justify-content: space-between;
+}
+
+.sensus-archive-link:hover { color: #fff; }
+
+.sensus-archive-count {
+  font-family: var(--sensus-font-mono);
+  font-size: 0.7rem;
+  color: #333;
+}
+
+/* ---- Sticky Player Bottom Bar ---- */
+.sensus-player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 260px; /* Offset by left sidebar width */
+  right: 0;
+  height: 60px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 2px solid var(--sensus-accent);
+  padding: 0 2rem;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1000;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.8);
+}
+
+.sensus-player-bar.active { display: flex; }
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-label {
+  font-size: 0.6rem;
+  color: var(--sensus-accent);
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.player-title-text {
+  font-size: 0.9rem;
+  color: #eee;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sensus-player-bar audio {
+  height: 32px;
+  filter: invert(1);
+}
+
+/* ---- "Another Blog" Variant ---- */
+.blog-portal .sensus-nav-link.active {
+  background: rgba(0, 168, 107, 0.12);
+  color: var(--sensus-jade);
+  border-right-color: var(--sensus-jade);
+}
+
+.blog-portal .sensus-nav-link:hover {
+  background: rgba(0, 168, 107, 0.08);
+  color: var(--sensus-jade);
+}
+
+.blog-brand-icon {
+  width: 110px;
+  height: 110px;
+  margin: 0 auto 1.5rem;
+  border: 1px solid var(--sensus-border);
+  border-radius: 50%;
+  background: rgba(0, 168, 107, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+  color: var(--sensus-jade);
+}
+
+.blog-ribbon {
+  background: var(--sensus-jade) !important;
+}
+
+.blog-portal .sensus-more-link {
+  color: var(--sensus-jade);
+}
+
+.blog-brand-icon,
+.blog-portal .sensus-post-title,
+.blog-portal .sensus-post-excerpt,
+.blog-prose,
+.blog-post-view-title,
+.sensus-post-ribbon {
+  font-family: var(--font-ui) !important;
+  font-size: 1.15rem;
+  letter-spacing: 0px;
+}
+
+.blog-post-view-title {
+  font-size: 2.8rem;
+  color: #fff;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--sensus-border);
+  padding-bottom: 1rem;
+}
+
+.blog-prose {
+  font-family: var(--font-serif) !important;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: #ddd;
+}
+
+.blog-prose p {
+  margin-bottom: 1.5rem;
+}
+
+.blog-portal .sensus-post-title a {
+  color: #fff;
+}
+
+.blog-portal .sensus-post-title {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.blog-portal .sensus-post-excerpt {
+  color: #999;
+  line-height: 1.6;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1200px) {
+  .sensus-portal {
+    grid-template-areas: 
+      "nav top"
+      "nav main";
+    grid-template-columns: 240px 1fr;
+  }
+  .sensus-aside { display: none; }
+  .sensus-player-bar { left: 240px; }
+}
+
+.portal-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 1rem;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 800px) {
+  .portal-header {
+    padding: 2.5rem 1rem;
+    margin-bottom: 1rem;
+  }
+  .sensus-portal {
+    grid-template-areas: 
+      "mobnav"
+      "top"
+      "main";
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  .sensus-rail { display: none; }
+  .sensus-player-bar { left: 0; }
+
+  /* Mobile Branding Header: Centered & Pulsing */
+  .sensus-mobile-brand-header {
+    grid-area: mobnav;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1rem;
+    background: transparent;
+    border: none;
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 2000;
+  }
+
+  .sensus-mobile-brand-link {
+    text-decoration: none !important;
+  }
+
+  .sensus-mobile-brand-link h1 {
+    font-size: 2rem !important;
+    margin: 0 !important;
+    color: #fff !important;
+    font-family: var(--font-heading);
+    text-transform: lowercase;
+    letter-spacing: -2px;
+    font-weight: 900;
+    animation: logo-pulse 2s infinite alternate ease-in-out;
+    text-align: center;
+  }
+
+  @keyframes logo-pulse {
+    0% { transform: scale(0.98); opacity: 0.7; }
+    100% { transform: scale(1.05); opacity: 1; }
+  }
+
+  /* Prevent portal overflow */
+  .sensus-portal {
+    overflow-x: hidden;
+    width: 100%;
+    margin: 0;
+  }
+}

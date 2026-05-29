@@ -1,0 +1,153 @@
+defmodule WebWeb.ManuscriptController do
+  use WebWeb, :controller
+
+  alias Web.Manuscripts
+
+  def index(conn, params) do
+    # Filter categories as requested: Fiction, Reflections, Sensus
+    allowed = ["fiction", "reflections", "sensus"]
+
+    categories =
+      Manuscripts.list_categories()
+      |> Enum.filter(&(&1 in allowed))
+
+    manuscripts =
+      Map.new(categories, fn category ->
+        {category, Manuscripts.list_files(category)}
+      end)
+
+    {return_to, return_label} = get_return_context(params["from"])
+
+    render(conn, :index,
+      categories: categories,
+      manuscripts: manuscripts,
+      return_to: return_to,
+      return_label: return_label
+    )
+  end
+
+  def show(conn, %{"category" => category, "slug" => slug} = params) do
+    case Manuscripts.get_manuscript(category, slug) do
+      {:ok, content} ->
+        html_content = Earmark.as_html!(content)
+        title = Manuscripts.get_title_from_slug(slug)
+
+        # Context for portal UI if applicable
+        recent_files =
+          if category in ["sensus", "reflections"] do
+            Manuscripts.list_files(category) |> Enum.take(10)
+          else
+            []
+          end
+
+        {return_to, return_label} = get_return_context(params["from"] || category)
+
+        render(conn, :show,
+          content: html_content,
+          category: category,
+          slug: slug,
+          title: title,
+          recent_files: recent_files,
+          return_to: return_to,
+          return_label: return_label
+        )
+
+      {:error, _} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(WebWeb.ErrorHTML)
+        |> render("404.html")
+    end
+  end
+
+  def category_index(conn, %{"category" => category} = params) do
+    folder =
+      case category do
+        "latent-sensus" -> "sensus"
+        "another-blog" -> "reflections"
+        _ -> category
+      end
+
+    files = Manuscripts.list_files_with_audio(folder)
+    popular_files = Manuscripts.list_popular_files(folder, 7)
+    {return_to, return_label} = get_return_context(params["from"])
+
+    title =
+      case category do
+        "latent-sensus" -> "The Latent Sensus"
+        "another-blog" -> "Another Blog"
+        _ -> String.capitalize(category)
+      end
+
+    template =
+      case category do
+        "latent-sensus" -> :latent_sensus
+        "another-blog" -> :another_blog
+        _ -> :index
+      end
+
+    conn
+    |> assign(:page_title, title)
+    |> render(template,
+      files: files,
+      popular_files: popular_files,
+      return_to: return_path(return_to),
+      return_label: return_label,
+      category: category
+    )
+  end
+
+  defp return_path(path), do: path
+
+  defp get_return_context(from) do
+    case from do
+      "latent-sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
+      "sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
+      "another-blog" -> {"/blog/another-blog", "return to another blog"}
+      "reflections" -> {"/blog/another-blog", "return to another blog"}
+      _ -> {"/", "return to homepage"}
+    end
+  end
+
+  def upload(conn, %{"file" => upload}) do
+    extension = Path.extname(upload.filename)
+    filename = "upload_#{DateTime.utc_now() |> DateTime.to_unix()}#{extension}"
+    dest = Path.join([:code.priv_dir(:web), "static", "uploads", filename])
+
+    # Ensure directory exists
+    File.mkdir_p!(Path.dirname(dest))
+
+    case File.cp(upload.path, dest) do
+      :ok ->
+        json(conn, %{status: "ok", path: "/uploads/#{filename}"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: inspect(reason)})
+    end
+  end
+
+  def serve_audio(conn, %{"category" => category, "filename" => filename}) do
+    # Only allow .mp3 files from the audio subdirectory
+    if String.ends_with?(filename, ".mp3") do
+      path =
+        Path.join([
+          "/home/cesar/Documents/Obsidian Vault/manuscripts",
+          category,
+          "audio",
+          filename
+        ])
+
+      if File.exists?(path) do
+        conn
+        |> put_resp_content_type("audio/mpeg")
+        |> send_file(200, path)
+      else
+        conn |> put_status(:not_found) |> text("Not found")
+      end
+    else
+      conn |> put_status(:bad_request) |> text("Invalid file type")
+    end
+  end
+end

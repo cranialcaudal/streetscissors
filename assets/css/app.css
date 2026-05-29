@@ -1,0 +1,110 @@
+/* Street Scissors Main CSS */
+/* We are keeping standard Phoenix imports but adding our custom styles */
+@import "tailwindcss" source(none);
+@plugin "../vendor/heroicons";
+
+/* Custom Styles */
+@import "./sensus.css";
+@import "./custom.css";
+@import "./glass.css";
+@import "./landing.css";
+@import "./manuscripts.css";
+@import "./physical.css";
+@import "./theme.css";
+@import "./darkroom.css";
+@import "./markdown.css";
+@import "./pc.css";
+@import "./header.css";
+
+/* Setup standard Phoenix overrides if necessary */
+
+:root {
+    /* Colors */
+    --bg-color: #000000;
+    --text-color: #ffffff;
+
+    /* Updated Palette */
+    --color-orange: #ff6600;
+    --color-jade: #00a86b;
+    --color-dodger: #1e90ff;
+
+    --accent-color: var(--color-orange);
+    --accent-secondary: var(--color-jade);
+    --accent-tertiary: var(--color-dodger);
+
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    /* Made more subtle */
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    /* Darker shadow */
+
+    /* Fonts */
+    --font-heading: 'Futura', 'Trebuchet MS', sans-serif;
+    --font-ui: 'Futura', 'Trebuchet MS', sans-serif;
+    --font-serif: 'Futura', 'Trebuchet MS', sans-serif;
+    --font-body: var(--font-ui);
+
+    /* Spacing */
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 2rem;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    background-image: none;
+    color: var(--text-color);
+    font-family: var(--font-ui);
+    /* UI Elements default to Futura */
+}
+
+/* Explicit text heavy areas use serif */
+.markdown-content,
+.manuscript-content,
+article,
+p {
+    font-family: var(--font-serif);
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+nav,
+header,
+footer,
+button,
+.theme-btn,
+.theme-link,
+label,
+input,
+.card-content {
+    font-family: var(--font-ui);
+}
+
+/* Global Selection Color */
+::selection {
+    background: var(--color-jade);
+    color: white;
+}
+
+input::selection,
+textarea::selection {
+    background: var(--color-dodger);
+    color: white;
+}
+
+.font-homoglyph {
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 1px;
+    font-weight: bold;
+}

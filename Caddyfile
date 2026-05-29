@@ -1,0 +1,52 @@
+# Production Caddyfile
+#
+# IMPORTANT: Replace 'email@example.com' with your actual email for Let's Encrypt notifications!
+#
+
+# Redirect www to non-www
+www.streetscissors.com {
+    redir https://streetscissors.com{uri}
+}
+
+streetscissors.com, 10.0.0.187, 100.100.33.116 {
+    # Replace with your email address to avoid rate limits
+    tls admin@streetscissors.com
+
+    # Reverse Proxy to the Phoenix App
+    reverse_proxy localhost:4000
+
+    # Compression
+    encode gzip zstd
+
+    # Security Headers
+    header {
+        # Keep referrer data secure
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent sniffing MIME types
+        X-Content-Type-Options "nosniff"
+        # HSTS (Strict-Transport-Security) - Uncomment after testing!
+        # Strict-Transport-Security "max-age=31536000;"
+        # Remove Server header for obscurity
+        -Server
+    }
+
+    # Block Bad Bots
+    @bad_bots {
+        header User-Agent *DotBot*
+        header User-Agent *PetalBot*
+        header User-Agent *MJ12bot*
+        header User-Agent *AhrefsBot* 
+        header User-Agent *SemrushBot*
+        header User-Agent *GPTBot*
+        header User-Agent *ClaudeBot*
+        header User-Agent *Bytespider*
+    }
+    respond @bad_bots "Access Denied" 403
+
+    # Logging (Optional but recommended)
+    log {
+        output file ./caddy_access.log
+    }
+}

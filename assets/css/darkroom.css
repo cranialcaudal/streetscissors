@@ -1,0 +1,153 @@
+/* Darkroom Specific Styling */
+
+/* Layout Container */
+.darkroom-split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3rem;
+    margin-top: 3rem;
+}
+
+/* Left Column: The Darkroom (Blog) */
+.darkroom-blog-section {
+    flex: 1.5;
+    min-width: 350px;
+}
+
+/* Blog Post as a Photo Print */
+.darkroom-print {
+    background: #ffffff;
+    /* White paper */
+    padding: 1rem 1rem 3rem 1rem;
+    /* Bottom padding for 'caption' feel */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transform: rotate(-1deg);
+    transition: all 0.3s ease;
+    margin-bottom: 2rem;
+    position: relative;
+    border: 1px solid #ddd;
+}
+
+.darkroom-print:nth-child(even) {
+    transform: rotate(1deg);
+}
+
+.darkroom-print:hover {
+    transform: rotate(0deg) scale(1.02);
+    z-index: 10;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+}
+
+/* The actual link/content area inside the 'print' */
+.darkroom-print-content {
+    background: #000;
+    /* Negative/Darkroom feel */
+    aspect-ratio: 3/2;
+    /* Photo landscape */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    overflow: hidden;
+    text-decoration: none;
+    border: 15px solid #000;
+    position: relative;
+    box-shadow: inset 0 0 50px rgba(255, 102, 0, 0.1);
+}
+
+/* Pseudo-elements for negative sprocket holes */
+.darkroom-print-content::before,
+.darkroom-print-content::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background-image: radial-gradient(circle, #333 30%, transparent 35%);
+    background-size: 20px 20px;
+    background-repeat: repeat-x;
+}
+
+.darkroom-print-content::before {
+    top: -12px;
+}
+
+.darkroom-print-content::after {
+    bottom: -12px;
+}
+
+.darkroom-print-title {
+    color: white;
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    text-transform: lowercase;
+    text-align: center;
+    margin-bottom: 1rem;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+.darkroom-print-meta {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 1rem;
+    right: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #444;
+    /* Dark gray on white paper */
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+}
+
+/* Right Column: The Latent Sensus (Manuscripts) */
+.darkroom-manuscript-section {
+    flex: 1;
+    min-width: 300px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 2rem;
+}
+
+.manuscript-scroll-item {
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 1.5rem 0.5rem;
+    transition: all 0.3s ease;
+    display: block;
+    text-decoration: none;
+}
+
+.manuscript-scroll-item:hover {
+    background: rgba(255, 102, 0, 0.05);
+    padding-left: 1.5rem;
+}
+
+.manuscript-scroll-title {
+    font-family: 'Georgia', serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: #e0e0e0;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.manuscript-scroll-subtitle {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #666;
+    letter-spacing: 2px;
+}
+
+/* Admin Overrides for Darkroom */
+.darkroom-print .actions {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 8px;
+    border-radius: 4px;
+    z-index: 20;
+}
