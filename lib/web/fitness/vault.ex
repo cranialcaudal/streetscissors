@@ -4,22 +4,22 @@ defmodule Web.Fitness.Vault do
   Source of truth: /home/cesar/Documents/Obsidian Vault/fitness/
   """
 
-  @base "/home/cesar/Documents/Obsidian Vault/fitness"
+  @default_base "/home/cesar/streetscissors/content/fitness"
 
-  @day_order ~w[monday tuesday wednesday thursday friday saturday sunday one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module]
+  defp base_path, do: Application.get_env(:web, :fitness_path, @default_base)
+
+  @day_order ~w[monday tuesday wednesday thursday friday saturday sunday one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module baseball-5k-module]
 
   # ── Weekly Regimen ────────────────────────────────────────────────────
 
-  @doc "Returns ordered list of day metadata from weekly-regimen/ folder."
+  @doc "Returns ordered list of day metadata from weekly/ or additional/ folders."
   def list_days do
-    dir = Path.join(@base, "weekly-regimen")
-
     @day_order
     |> Enum.filter(fn slug ->
-      File.exists?(Path.join(dir, slug <> ".md"))
+      File.exists?(find_day_path(slug))
     end)
     |> Enum.map(fn slug ->
-      path = Path.join(dir, slug <> ".md")
+      path = find_day_path(slug)
       meta = parse_frontmatter(path)
 
       %{
@@ -33,11 +33,39 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns {:ok, html} for a given day slug, or :error."
   def get_day(slug) do
-    path = Path.join([@base, "weekly-regimen", slug <> ".md"])
+    path = find_day_path(slug)
 
     case File.read(path) do
       {:ok, content} ->
+        meta = parse_frontmatter(path)
         body = strip_frontmatter(content)
+
+        # Check for modules
+        body =
+          case Map.get(meta, "modules") do
+            nil ->
+              body
+
+            "" ->
+              body
+
+            mods_str ->
+              mods = String.split(mods_str, ",") |> Enum.map(&String.trim/1)
+
+              modules_body =
+                Enum.map(mods, fn m_slug ->
+                  m_path = Path.join([base_path(), "modules", m_slug <> ".md"])
+
+                  case File.read(m_path) do
+                    {:ok, m_content} -> strip_frontmatter(m_content)
+                    _ -> ""
+                  end
+                end)
+                |> Enum.join("\n\n")
+
+              body <> "\n\n" <> modules_body
+          end
+
         html = render_markdown(body)
         {:ok, html}
 
@@ -48,7 +76,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns {:ok, content} for a given day slug, or :error."
   def get_day_raw(slug) do
-    path = Path.join([@base, "weekly-regimen", slug <> ".md"])
+    path = find_day_path(slug)
 
     if File.exists?(path) do
       content = File.read!(path)
@@ -62,7 +90,7 @@ defmodule Web.Fitness.Vault do
   def active_slugs do
     @day_order
     |> Enum.map(fn day ->
-      path = Path.join([@base, "weekly-regimen", day <> ".md"])
+      path = find_day_path(day)
 
       case File.read(path) do
         {:ok, content} ->
@@ -79,7 +107,8 @@ defmodule Web.Fitness.Vault do
 
   @doc "Updates a weekly regimen day."
   def update_day(slug, params) do
-    dir = Path.join(@base, "weekly-regimen")
+    path = find_day_path(slug)
+    dir = Path.dirname(path)
     File.mkdir_p!(dir)
 
     frontmatter = %{
@@ -96,7 +125,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns sorted list of muscle group folder names."
   def list_muscle_groups do
-    dir = Path.join(@base, "exercise-wiki")
+    dir = Path.join(base_path(), "exercise-wiki")
 
     case File.ls(dir) do
       {:ok, entries} ->
@@ -111,7 +140,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns list of exercises in a muscle group folder."
   def list_exercises(group) do
-    dir = Path.join([@base, "exercise-wiki", group])
+    dir = Path.join([base_path(), "exercise-wiki", group])
 
     case File.ls(dir) do
       {:ok, files} ->
@@ -151,7 +180,7 @@ defmodule Web.Fitness.Vault do
   def get_exercise_by_slug(slug) do
     list_muscle_groups()
     |> Enum.find_value(:error, fn group ->
-      path = Path.join([@base, "exercise-wiki", group, slug <> ".md"])
+      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
 
       if File.exists?(path) do
         meta = parse_frontmatter(path)
@@ -163,11 +192,67 @@ defmodule Web.Fitness.Vault do
            muscle_group: meta["muscle_group"] || group,
            anatomy: meta["anatomy"],
            functional_category: meta["functional_category"],
-           video_url: meta["video_url"],
+           video_url: normalize_video_url(meta["video_url"]),
            thumbnail_url: meta["thumbnail_url"],
            short_description: meta["short_description"],
+           references: resolve_references(meta["references"]),
            html: strip_frontmatter(File.read!(path)) |> render_markdown()
          }}
+      end
+    end)
+  end
+
+  @doc """
+  Loads the shared citation bibliography (content/fitness/references.md) as a map
+  of `id => %{"authors" => ..., "year" => ..., ...}`. Citations are verified against
+  PubMed before being added to that file; see its header.
+  """
+  def list_references do
+    path = Path.join(base_path(), "references.md")
+
+    case File.read(path) do
+      {:ok, content} -> parse_bibliography(content)
+      _ -> %{}
+    end
+  end
+
+  # Resolve an exercise's comma-separated `references:` ids into ordered citation
+  # maps. Unknown ids are dropped silently so a typo can never crash the page.
+  defp resolve_references(nil), do: []
+
+  defp resolve_references(csv) do
+    bib = list_references()
+
+    csv
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn id -> bib[id] && Map.put(bib[id], "id", id) end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # Bibliography format: blocks introduced by a `### <id>` heading, each followed by
+  # `- key: value` lines. Anything outside a block (intro prose) is ignored.
+  defp parse_bibliography(content) do
+    content
+    |> String.split(~r/^###[ \t]+/m, trim: true)
+    |> Enum.reduce(%{}, fn block, acc ->
+      case String.split(block, "\n", trim: true) do
+        [id_line | rest] ->
+          id = String.trim(id_line)
+
+          fields =
+            Enum.reduce(rest, %{}, fn line, m ->
+              case Regex.run(~r/^-\s*([a-zA-Z_]+):\s*(.*)$/, String.trim(line)) do
+                [_, k, v] -> Map.put(m, k, String.trim(v))
+                _ -> m
+              end
+            end)
+
+          if id == "" or fields == %{}, do: acc, else: Map.put(acc, id, fields)
+
+        _ ->
+          acc
       end
     end)
   end
@@ -176,7 +261,7 @@ defmodule Web.Fitness.Vault do
   def get_exercise_raw(slug) do
     list_muscle_groups()
     |> Enum.find_value(:error, fn group ->
-      path = Path.join([@base, "exercise-wiki", group, slug <> ".md"])
+      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
 
       if File.exists?(path) do
         meta = parse_frontmatter(path)
@@ -201,12 +286,12 @@ defmodule Web.Fitness.Vault do
   def update_exercise(slug, old_muscle_group, params) do
     # Ensure muscle group folder exists
     new_group = params["muscle_group"] || old_muscle_group || "uncategorized"
-    dir = Path.join([@base, "exercise-wiki", new_group])
+    dir = Path.join([base_path(), "exercise-wiki", new_group])
     File.mkdir_p!(dir)
 
     # If the muscle group changed and it's not a new exercise, remove the old file
     if old_muscle_group && old_muscle_group != new_group do
-      old_path = Path.join([@base, "exercise-wiki", old_muscle_group, slug <> ".md"])
+      old_path = Path.join([base_path(), "exercise-wiki", old_muscle_group, slug <> ".md"])
       if File.exists?(old_path), do: File.rm!(old_path)
     end
 
@@ -227,7 +312,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Deletes an exercise."
   def delete_exercise(slug, muscle_group) do
-    path = Path.join([@base, "exercise-wiki", muscle_group, slug <> ".md"])
+    path = Path.join([base_path(), "exercise-wiki", muscle_group, slug <> ".md"])
     if File.exists?(path), do: File.rm!(path)
   end
 
@@ -235,7 +320,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns list of fitness blog posts sorted by date descending."
   def list_blog_posts do
-    dir = Path.join(@base, "fitness-blog")
+    dir = Path.join(base_path(), "fitness-blog")
 
     case File.ls(dir) do
       {:ok, files} ->
@@ -270,7 +355,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns {:ok, html} for a fitness blog post slug."
   def get_blog_post(slug) do
-    path = Path.join([@base, "fitness-blog", slug <> ".md"])
+    path = Path.join([base_path(), "fitness-blog", slug <> ".md"])
 
     case File.read(path) do
       {:ok, content} ->
@@ -285,7 +370,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns raw data for a blog post."
   def get_blog_post_raw(slug) do
-    path = Path.join([@base, "fitness-blog", slug <> ".md"])
+    path = Path.join([base_path(), "fitness-blog", slug <> ".md"])
 
     if File.exists?(path) do
       content = File.read!(path)
@@ -297,7 +382,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Updates a fitness blog post."
   def update_blog_post(slug, params) do
-    dir = Path.join(@base, "fitness-blog")
+    dir = Path.join(base_path(), "fitness-blog")
     File.mkdir_p!(dir)
 
     frontmatter = %{
@@ -311,11 +396,21 @@ defmodule Web.Fitness.Vault do
 
   @doc "Deletes a fitness blog post."
   def delete_blog_post(slug) do
-    path = Path.join([@base, "fitness-blog", slug <> ".md"])
+    path = Path.join([base_path(), "fitness-blog", slug <> ".md"])
     if File.exists?(path), do: File.rm!(path)
   end
 
   # ── Private Helpers ───────────────────────────────────────────────────
+
+  defp find_day_path(slug) do
+    weekly_path = Path.join([base_path(), "weekly", slug <> ".md"])
+    additional_path = Path.join([base_path(), "additional", slug <> ".md"])
+
+    cond do
+      File.exists?(additional_path) -> additional_path
+      true -> weekly_path
+    end
+  end
 
   defp parse_frontmatter(path) do
     case File.read(path) do
@@ -326,7 +421,7 @@ defmodule Web.Fitness.Vault do
             |> String.split("\n")
             |> Enum.reduce(%{}, fn line, acc ->
               case String.split(line, ": ", parts: 2) do
-                [k, v] -> Map.put(acc, String.trim(k), String.trim(v))
+                [k, v] -> Map.put(acc, String.trim(k), v |> String.trim() |> strip_quotes())
                 _ -> acc
               end
             end)
@@ -337,6 +432,22 @@ defmodule Web.Fitness.Vault do
 
       _ ->
         %{}
+    end
+  end
+
+  # Frontmatter values are often written quoted (e.g. `title: "Farmer's Walk"`).
+  # YAML quotes are delimiters, not part of the value — strip one matching
+  # surrounding pair so they never leak into rendered titles, tags, or links.
+  defp strip_quotes(v) do
+    cond do
+      String.length(v) >= 2 and String.starts_with?(v, "\"") and String.ends_with?(v, "\"") ->
+        String.slice(v, 1..-2//1)
+
+      String.length(v) >= 2 and String.starts_with?(v, "'") and String.ends_with?(v, "'") ->
+        String.slice(v, 1..-2//1)
+
+      true ->
+        v
     end
   end
 
@@ -365,6 +476,31 @@ defmodule Web.Fitness.Vault do
     File.write!(path, full_content)
   end
 
+  # Lightweight per-slug metadata for [[wiki-link]] expansion: frontmatter only,
+  # never renders the exercise body. render_markdown MUST use this instead of
+  # get_exercise_by_slug/1 — that one renders the body, which expands its own
+  # [[links]], which would recurse forever on a cycle (e.g. pull-ups <->
+  # scapular-pull-ups). The hover card only needs these fields, never the HTML.
+  defp exercise_meta(slug) do
+    list_muscle_groups()
+    |> Enum.find_value(:error, fn group ->
+      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
+
+      if File.exists?(path) do
+        meta = parse_frontmatter(path)
+
+        {:ok,
+         %{
+           muscle_group: meta["muscle_group"] || group,
+           anatomy: meta["anatomy"],
+           functional_category: meta["functional_category"],
+           thumbnail_url: meta["thumbnail_url"],
+           short_description: meta["short_description"]
+         }}
+      end
+    end)
+  end
+
   defp render_markdown(md) do
     html =
       case Earmark.as_html(md, gfm: true) do
@@ -378,7 +514,7 @@ defmodule Web.Fitness.Vault do
       Regex.replace(~r/\[\[(.*?)(?:\|(.*?))?\]\]/, html, fn _, slug, display ->
         disp = if display == "", do: format_name(slug), else: display
 
-        case get_exercise_by_slug(slug) do
+        case exercise_meta(slug) do
           {:ok, ex} ->
             thumb_attr = if ex.thumbnail_url, do: " data-thumb=\"#{ex.thumbnail_url}\"", else: ""
 
@@ -388,12 +524,12 @@ defmodule Web.Fitness.Vault do
                 else: ex.muscle_group
 
             """
-            <a href="/fitness/#{slug}" class="gym-link hover-exercise"#{thumb_attr} data-muscle="#{muscle_cat}" data-desc="#{String.replace(ex.short_description || "", "\"", "&quot;")}">#{disp}</a>
+            <a href="/fitness/wiki/#{slug}" class="gym-link hover-exercise"#{thumb_attr} data-muscle="#{muscle_cat}" data-desc="#{String.replace(ex.short_description || "", "\"", "&quot;")}">#{disp}</a>
             """
             |> String.trim()
 
           _ ->
-            "<a href=\"/fitness/#{slug}\" class=\"gym-link hover-exercise\">#{disp}</a>"
+            "<a href=\"/fitness/wiki/#{slug}\" class=\"gym-link hover-exercise\">#{disp}</a>"
         end
       end)
 
@@ -410,6 +546,24 @@ defmodule Web.Fitness.Vault do
       )
 
     html
+  end
+
+  # YouTube `watch?v=` and `youtu.be/` links cannot be loaded inside an <iframe>;
+  # only the `/embed/<id>` form can. Normalize known share URLs to the embed form
+  # so stored links render regardless of which format was pasted.
+  defp normalize_video_url(nil), do: nil
+
+  defp normalize_video_url(url) do
+    cond do
+      String.contains?(url, "/embed/") ->
+        url
+
+      match = Regex.run(~r/(?:youtu\.be\/|[?&]v=)([\w-]{11})/, url) ->
+        "https://www.youtube.com/embed/" <> Enum.at(match, 1)
+
+      true ->
+        url
+    end
   end
 
   defp format_name(slug) do

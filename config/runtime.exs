@@ -28,6 +28,10 @@ if manuscripts_path = System.get_env("MANUSCRIPTS_PATH") do
   config :web, :manuscripts_path, manuscripts_path
 end
 
+if fitness_path = System.get_env("FITNESS_PATH") do
+  config :web, :fitness_path, fitness_path
+end
+
 if config_env() == :prod do
   database_path =
     System.get_env("DATABASE_PATH") ||

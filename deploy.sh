@@ -27,6 +27,7 @@ podman run -d --name web --restart always \
   -e PHX_SERVER=true \
   --env-file .env \
   -v sqlite_data:/data:Z \
+  -v ./content:/app/content:Z \
   --network host \
   streetscissors_web
 
