@@ -107,7 +107,6 @@ defmodule WebWeb.AdminLive.Dashboard do
               Last 28 bi-weekly periods
             </div>
           </div>
-
         </div>
 
         <div style="margin-bottom: 2rem;">

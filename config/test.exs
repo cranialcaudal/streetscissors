@@ -10,6 +10,10 @@ config :web, Web.Repo,
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 
+# Oban runs no queues, plugins, or notifier during tests; enqueue jobs are
+# asserted manually instead of executed against the Ecto sandbox.
+config :web, Oban, testing: :manual
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :web, WebWeb.Endpoint,
@@ -19,6 +23,9 @@ config :web, WebWeb.Endpoint,
 
 # In test we don't send emails
 config :web, Web.Mailer, adapter: Swoosh.Adapters.Test
+
+# Admin dashboard password used in tests
+config :web, :admin_password, "test-admin"
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

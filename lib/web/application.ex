@@ -18,10 +18,12 @@ defmodule Web.Application do
       # Start a worker by calling: Web.Worker.start_link(arg)
       # {Web.Worker, arg},
       {Task.Supervisor, name: Web.TaskSupervisor},
+      # Oban background job processing (mailers queue). Must start after Repo.
+      {Oban, Application.fetch_env!(:web, Oban)},
 
-      # Start to serve requests, typically the last entry
-      # Start to serve requests, typically the last entry
+      # Quantum scheduled (cron) jobs
       Web.Scheduler,
+      # Start to serve requests, typically the last entry
       WebWeb.Endpoint
     ]
 

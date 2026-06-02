@@ -1,0 +1,392 @@
+/* Homepage (landing) styles — recovered from a prior compiled bundle.
+   Classes used by lib/web_web/controllers/page_html/home.html.heex. */
+
+.home-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 80vh;
+}
+.home-top-bar {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  gap: 1rem;
+}
+.top-bar-link {
+  font-family: var(--font-ui), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-color, #ff6600) !important;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid rgba(255, 102, 0, 0.2);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+.top-bar-link:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: var(--accent-color, #ff6600);
+}
+.top-bar-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.spotify-hover-wrapper {
+  position: relative;
+  display: flex;
+}
+.spotify-player-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  width: 320px;
+  margin-top: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+.spotify-hover-wrapper:hover .spotify-player-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.spotify-pill-main {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  border-radius: 50px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  backdrop-filter: blur(8px);
+  color: white !important;
+  text-decoration: none !important;
+  font-family: var(--font-ui), sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+.spotify-pill-main:hover, .spotify-hover-wrapper:hover .spotify-pill-main {
+  border-color: #1DB954;
+  box-shadow: 0 0 12px rgba(29, 185, 84, 0.25);
+  background: rgba(0, 0, 0, 0.8);
+}
+.spotify-pill-profile {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  background: rgba(0, 0, 0, 0.6);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  text-decoration: none !important;
+}
+.spotify-pill-profile:hover {
+  border-color: #1DB954;
+  box-shadow: 0 0 10px rgba(29, 185, 84, 0.3);
+  background: rgba(0, 0, 0, 0.8);
+}
+.spotify-pill-profile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bento-section {
+  position: relative;
+  margin-top: 1rem;
+}
+.site-title-container {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: block;
+  pointer-events: none;
+}
+.site-title-overlay {
+  font-family: var(--font-heading, 'Futura'), 'Trebuchet MS', sans-serif;
+  font-size: 6rem;
+  font-weight: bold;
+  text-transform: lowercase;
+  letter-spacing: -3px;
+  color: white;
+  text-shadow: 4px 4px 0px rgba(255, 102, 0, 0.8);
+  white-space: nowrap;
+  line-height: 1;
+  display: inline-block;
+  transform: rotate(-2deg) scale(1.05);
+  animation: pulse-title 1.5s infinite alternate ease-in-out;
+}
+.minecraft-splash {
+  position: absolute;
+  bottom: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffff00;
+  font-family: 'Permanent Marker', cursive, sans-serif;
+  font-size: 1.5rem;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  z-index: -1;
+}
+@keyframes pulse-title {
+  0% {
+    transform: rotate(-2deg) scale(1.05);
+    text-shadow: 4px 4px 0px rgba(255, 102, 0, 0.8);
+  }
+  100% {
+    transform: rotate(-2deg) scale(1.12);
+    text-shadow: 12px 12px 0px rgba(255, 102, 0, 1);
+  }
+}
+@keyframes zoom-squish {
+  0% {
+    transform: rotate(-15deg) translate(80px, -20px) scale(0.9);
+  }
+  100% {
+    transform: rotate(-15deg) translate(80px, -20px) scale(1.05);
+  }
+}
+.bento-row {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.bento-card {
+  display: flex !important;
+  text-decoration: none !important;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.bento-card-blog {
+  min-height: 350px;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  padding: 2rem;
+  padding-bottom: 3rem;
+  background: #0a0a0a !important;
+  border: 1px solid rgba(255, 102, 0, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.bento-card-blog:hover {
+  box-shadow: 0 0 30px rgba(255, 102, 0, 0.15) !important;
+  border-color: rgba(255, 102, 0, 0.6) !important;
+}
+.bento-label {
+  text-align: center;
+  width: 100%;
+  font-family: var(--font-ui, 'Futura'), 'Trebuchet MS', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--accent-color, #ff6600) !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.3s ease;
+  display: block;
+}
+.bento-card-blog:hover .bento-label {
+  transform: translateY(-4px);
+}
+.bento-card-pc {
+  margin-top: 1.5rem;
+  min-height: 180px;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(0, 5, 0, 0.9) !important;
+  border: 1px solid #1a3a1a !important;
+  border-radius: 16px;
+  backdrop-filter: none;
+}
+.bento-card-pc:hover {
+  box-shadow: 0 0 25px rgba(74, 246, 38, 0.15) !important;
+  border-color: #4af626 !important;
+}
+.bento-card-fitness {
+  margin-top: 1.5rem;
+  min-height: 40px;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #0a0a0a !important;
+  border: 1px solid rgba(255, 102, 0, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 10px 0;
+}
+.bento-card-fitness:hover {
+  box-shadow: 0 0 30px rgba(255, 102, 0, 0.15) !important;
+  border-color: rgba(255, 102, 0, 0.6) !important;
+}
+.bento-card-fitness:hover .bento-label {
+  transform: translateY(-4px);
+}
+.pc-inner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pc-icon {
+  font-size: 2.5rem;
+  color: #4af626;
+}
+.pc-title {
+  font-family: 'Courier New', monospace !important;
+  font-size: 1.5rem;
+  color: #4af626 !important;
+  font-weight: normal;
+  letter-spacing: 2px;
+}
+.pc-prompt {
+  font-family: 'Courier New', monospace !important;
+  font-size: 1rem;
+  color: #4af626 !important;
+}
+@keyframes blink-cursor {
+  0%, 50% {
+    opacity: 1;
+  }
+  50.1%, 100% {
+    opacity: 0;
+  }
+}
+.blink-cursor {
+  animation: blink-cursor 1s step-end infinite;
+}
+.blank-space {
+  flex-grow: 1;
+  min-height: 8rem;
+}
+.home-footer {
+  text-align: center;
+  font-family: monospace;
+  opacity: 0.5;
+  padding: 2rem 0;
+  font-size: 0.85rem;
+}
+@media (max-width: 768px) {
+  .site-title-overlay {
+    font-size: 10vw;
+  }
+  .bento-card-blog {
+    min-height: 250px;
+  }
+  .home-top-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .top-bar-link {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+  .spotify-pill-main {
+    font-size: 0.7rem;
+  }
+  .spotify-pill-main span {
+    display: none;
+  }
+}
+@media (max-width: 550px) {
+  .bento-row {
+    grid-template-columns: 1fr !important;
+  }
+  .site-title-container {
+    top: 25%;
+  }
+  .site-title-overlay {
+    font-size: 14vw;
+  }
+  .minecraft-splash {
+    font-size: 1rem;
+    right: auto;
+    bottom: -20px;
+  }
+  .bento-card-blog {
+    min-height: 200px;
+  }
+  .bento-label {
+    font-size: 1.3rem;
+  }
+}
+
+/* Sub-row: three equal skinny cards below the Fitness card */
+.bento-fitness-sub-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* Skinny card variant — short height, centered label */
+.bento-card-skinny {
+  min-height: 70px;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #0a0a0a !important;
+  border: 1px solid rgba(255, 102, 0, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 1rem;
+}
+.bento-card-skinny:hover {
+  box-shadow: 0 0 20px rgba(255, 102, 0, 0.2) !important;
+  border-color: rgba(255, 102, 0, 0.6) !important;
+}
+.bento-card-skinny:hover .bento-label-small {
+  transform: translateY(-2px);
+}
+
+/* Small label for the skinny cards */
+.bento-card .bento-label-small {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-ui, 'Futura'), 'Trebuchet MS', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-color, #ff6600) !important;
+  text-shadow: none;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+@media (max-width: 550px) {
+  .bento-fitness-sub-row {
+    grid-template-columns: 1fr;
+  }
+  .bento-card-skinny {
+    min-height: 55px;
+  }
+}

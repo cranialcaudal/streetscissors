@@ -326,7 +326,7 @@ defmodule WebWeb.AdminLive.ContentManager do
   def render(assigns) do
     ~H"""
     <div class="mission-control" style="border-radius: 8px;">
-    <!-- Main Workspace -->
+      <!-- Main Workspace -->
       <main class="workspace">
         <%= if @editor_mode do %>
           {render_editor(assigns)}
@@ -344,10 +344,18 @@ defmodule WebWeb.AdminLive.ContentManager do
             </div>
 
             <div class="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
-              <button phx-click="switch_tab" phx-value-tab="writing" class={["action-btn", @active_tab == "writing" && "accent"]}>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="writing"
+                class={["action-btn", @active_tab == "writing" && "accent"]}
+              >
                 <i class="fas fa-pen-nib"></i> Writing Desk
               </button>
-              <button phx-click="switch_tab" phx-value-tab="audio" class={["action-btn", @active_tab == "audio" && "accent"]}>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="audio"
+                class={["action-btn", @active_tab == "audio" && "accent"]}
+              >
                 <i class="fas fa-microphone-lines"></i> Audiologs
               </button>
               <%= if @active_tab == "audio" do %>

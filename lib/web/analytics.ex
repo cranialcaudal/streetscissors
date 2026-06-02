@@ -169,4 +169,17 @@ defmodule Web.Analytics do
       {slug, count}
     end)
   end
+
+  def all_hits_by_prefix(prefix) do
+    from(h in Hit,
+      where: like(h.path, ^prefix),
+      group_by: h.path,
+      select: {h.path, count(h.id)}
+    )
+    |> Repo.all()
+    |> Map.new(fn {path, count} ->
+      slug = path |> String.split("/") |> List.last()
+      {slug, count}
+    end)
+  end
 end

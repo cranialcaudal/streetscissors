@@ -3,7 +3,31 @@ defmodule Web.Manuscripts do
   Context for listing and reading markdown manuscripts.
   """
 
-  @base_path "/home/cesar/Documents/Obsidian Vault/manuscripts"
+  @default_base_path "/home/cesar/Documents/Obsidian Vault/manuscripts"
+
+  @doc """
+  Root directory on disk where manuscript markdown and audio live.
+
+  Configurable via `config :web, :manuscripts_path` (sourced from the
+  `MANUSCRIPTS_PATH` env var in `config/runtime.exs`). Falls back to a local
+  development default when unset.
+  """
+  def base_path, do: Application.get_env(:web, :manuscripts_path, @default_base_path)
+
+  @doc """
+  Resolves an audio file path inside a category's `audio/` directory, guarding
+  against directory-traversal. Returns `{:ok, absolute_path}` only when the
+  resolved path is a real `.mp3` file that stays within the manuscripts root.
+  """
+  def audio_path(category, filename) do
+    with true <- String.ends_with?(filename, ".mp3"),
+         {:ok, rel} <- Path.safe_relative(Path.join([category, "audio", filename])) do
+      path = Path.join(base_path(), rel)
+      if File.regular?(path), do: {:ok, path}, else: :error
+    else
+      _ -> :error
+    end
+  end
 
   def list_categories do
     # Only these categories for manuscripts
@@ -11,7 +35,7 @@ defmodule Web.Manuscripts do
   end
 
   def list_files(category) do
-    path = Path.join([@base_path, category])
+    path = Path.join([base_path(), category])
 
     if File.exists?(path) do
       path
@@ -39,7 +63,7 @@ defmodule Web.Manuscripts do
   Audio files should live in priv/manuscripts/<category>/audio/<slug>.mp3
   """
   def list_files_with_audio(category) do
-    base = Path.join([@base_path, category])
+    base = Path.join([base_path(), category])
     audio_dir = Path.join(base, "audio")
 
     audio_set =
@@ -103,7 +127,7 @@ defmodule Web.Manuscripts do
 
   def get_manuscript(category, slug) do
     filename = slug <> ".md"
-    path = Path.join([@base_path, category, filename])
+    path = Path.join([base_path(), category, filename])
 
     if File.exists?(path) do
       content = File.read!(path)
@@ -123,7 +147,7 @@ defmodule Web.Manuscripts do
   end
 
   def create_manuscript(category, slug, content) do
-    dir = Path.join([@base_path, category])
+    dir = Path.join([base_path(), category])
     File.mkdir_p!(dir)
 
     path = Path.join(dir, slug <> ".md")
@@ -135,7 +159,7 @@ defmodule Web.Manuscripts do
   end
 
   def delete_manuscript(category, slug) do
-    path = Path.join([@base_path, category, slug <> ".md"])
+    path = Path.join([base_path(), category, slug <> ".md"])
     File.rm(path)
   end
 

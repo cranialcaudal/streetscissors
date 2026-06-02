@@ -69,6 +69,30 @@ defmodule WebWeb.ManuscriptController do
       end
 
     files = Manuscripts.list_files_with_audio(folder)
+    hit_counts = Web.Analytics.all_hits_by_prefix("/manuscripts/#{folder}/%")
+
+    files =
+      Enum.map(files, fn file ->
+        Map.put(file, :hit_count, Map.get(hit_counts, file.slug, 0))
+      end)
+
+    sort = params["sort"] || "recent"
+
+    sorted_files =
+      case sort do
+        "most-read" ->
+          Enum.sort_by(files, & &1.hit_count, :desc)
+
+        "least-read" ->
+          Enum.sort_by(files, & &1.hit_count, :asc)
+
+        "recent" ->
+          Enum.sort_by(files, & &1.mtime, :desc)
+
+        _ ->
+          Enum.sort_by(files, & &1.mtime, :desc)
+      end
+
     popular_files = Manuscripts.list_popular_files(folder, 7)
     {return_to, return_label} = get_return_context(params["from"])
 
@@ -89,11 +113,12 @@ defmodule WebWeb.ManuscriptController do
     conn
     |> assign(:page_title, title)
     |> render(template,
-      files: files,
+      files: sorted_files,
       popular_files: popular_files,
       return_to: return_path(return_to),
       return_label: return_label,
-      category: category
+      category: category,
+      sort: sort
     )
   end
 
@@ -129,25 +154,16 @@ defmodule WebWeb.ManuscriptController do
   end
 
   def serve_audio(conn, %{"category" => category, "filename" => filename}) do
-    # Only allow .mp3 files from the audio subdirectory
-    if String.ends_with?(filename, ".mp3") do
-      path =
-        Path.join([
-          "/home/cesar/Documents/Obsidian Vault/manuscripts",
-          category,
-          "audio",
-          filename
-        ])
-
-      if File.exists?(path) do
+    # Manuscripts.audio_path validates the extension and guards against
+    # directory-traversal before touching the filesystem.
+    case Manuscripts.audio_path(category, filename) do
+      {:ok, path} ->
         conn
         |> put_resp_content_type("audio/mpeg")
         |> send_file(200, path)
-      else
+
+      :error ->
         conn |> put_status(:not_found) |> text("Not found")
-      end
-    else
-      conn |> put_status(:bad_request) |> text("Invalid file type")
     end
   end
 end

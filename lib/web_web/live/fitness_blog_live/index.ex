@@ -4,58 +4,181 @@ defmodule WebWeb.FitnessBlogLive.Index do
   alias Web.Fitness.Vault
 
   @impl true
-  def mount(_params, _session, socket) do
-    posts = Vault.list_blog_posts()
+  def mount(_params, session, socket) do
+    is_admin = session["admin_user"] == true
 
     {:ok,
      socket
-     |> assign(:page_title, "Fitness Intelligence")
-     |> assign(:return_to, "/fitness")
-     |> assign(:return_label, "return to fitness")
-     |> assign(:posts, posts)}
+     |> assign(:is_admin, is_admin)
+     |> assign(:page_title, "Fitness & Sport")
+     |> assign(:return_to, "/")
+     |> assign(:return_label, "return to home")}
+  end
+
+  @impl true
+  def handle_params(params, _url, socket) do
+    posts = Vault.list_blog_posts()
+    hit_counts = Web.Analytics.all_hits_by_prefix("/fitness-blog/%")
+
+    posts =
+      Enum.map(posts, fn post ->
+        Map.put(post, :hit_count, Map.get(hit_counts, post.slug, 0))
+      end)
+
+    sort = params["sort"] || "recent"
+
+    sorted_posts =
+      case sort do
+        "most-read" ->
+          Enum.sort_by(posts, & &1.hit_count, :desc)
+
+        "least-read" ->
+          Enum.sort_by(posts, & &1.hit_count, :asc)
+
+        "recent" ->
+          Enum.sort_by(posts, & &1.date, :desc)
+
+        _ ->
+          Enum.sort_by(posts, & &1.date, :desc)
+      end
+
+    {:noreply,
+     socket
+     |> assign(:posts, sorted_posts)
+     |> assign(:sort, sort)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="container">
-      <header class="theme-header" style="margin-bottom: 2rem; display: none;">
-        <h1 class="theme-title">Fitness Intelligence</h1>
-      </header>
-      <h1 class="theme-title" style="margin-bottom: 2rem;">Fitness Intelligence</h1>
 
-      <%= if @posts == [] do %>
-        <p style="color: #666; text-align: center; padding: 3rem;">No reports filed yet.</p>
-      <% else %>
-        <div style="display: flex; flex-direction: column; gap: 2rem;">
-          <%= for post <- @posts do %>
-            <article class="glass-panel" style="padding: 2rem; border-radius: 12px;">
-              <h2 style="font-size: 1.6rem; font-family: var(--font-heading); margin-bottom: 0.5rem;">
-                <.link
-                  navigate={~p"/fitness-blog/#{post.slug}"}
-                  style="color: #fff; text-decoration: none;"
-                >
-                  {post.title}
-                </.link>
-              </h2>
-              <%= if post.date do %>
-                <p style="color: #555; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">
-                  {post.date}
-                </p>
-              <% end %>
-              <p style="color: #888; line-height: 1.7;">{post.excerpt}...</p>
-              <.link
-                navigate={~p"/fitness-blog/#{post.slug}"}
-                class="sensus-more-link"
-                style="margin-top: 1.5rem; display: inline-block; color: var(--theme-color); text-decoration: none; font-weight: bold; font-size: 0.9rem; text-transform: uppercase; border: 1px solid rgba(255,102,0,0.3); padding: 0.5rem 1rem; border-radius: 4px;"
+      <div class="blog-bento-wrapper" style="--blog-accent: #ff6b6b;">
+        
+    <!-- Header -->
+        <header class="blog-header-card">
+          <h1 class="blog-header-title">Fitness & Sport</h1>
+          <div class="blog-header-subtitle">Pro sports, amateur training & movement science</div>
+        </header>
+        
+    <!-- Section Navigation -->
+        <div class="bento-fitness-sub-row" style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+          <a
+            href="/fitness/wiki"
+            class="bento-card bento-card-skinny"
+            style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
+          >
+            <span
+              class="bento-label-small"
+              style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
+            >
+              📖 Wiki
+            </span>
+          </a>
+          <a
+            href="/fitness/regimen"
+            class="bento-card bento-card-skinny"
+            style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
+          >
+            <span
+              class="bento-label-small"
+              style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
+            >
+              📅 Regimen
+            </span>
+          </a>
+          <%= if @is_admin do %>
+            <a
+              href="/fitness/biometrics"
+              class="bento-card bento-card-skinny"
+              style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
+            >
+              <span
+                class="bento-label-small"
+                style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
               >
-                Read Report →
-              </.link>
-            </article>
+                📊 Biometrics
+              </span>
+            </a>
           <% end %>
         </div>
-      <% end %>
-    </div>
+        
+    <!-- Sorting -->
+        <div class="blog-sort-bar">
+          <span class="blog-sort-label">Sort By:</span>
+          <div class="blog-sort-options">
+            <.link
+              patch={~p"/fitness?sort=recent"}
+              class={["blog-sort-pill", @sort == "recent" && "active"]}
+            >
+              Most Recent
+            </.link>
+            <.link
+              patch={~p"/fitness?sort=most-read"}
+              class={["blog-sort-pill", @sort == "most-read" && "active"]}
+            >
+              Most Read
+            </.link>
+            <.link
+              patch={~p"/fitness?sort=least-read"}
+              class={["blog-sort-pill", @sort == "least-read" && "active"]}
+            >
+              Least Read
+            </.link>
+          </div>
+        </div>
+        
+    <!-- Feed -->
+        <%= if Enum.empty?(@posts) do %>
+          <div style="text-align: center; padding: 4rem 2rem; color: #444;">
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem; font-family: var(--font-heading, 'Futura');">
+              No reports filed yet.
+            </p>
+          </div>
+        <% else %>
+          <div class="blog-feed">
+            <%= for {post, index} <- Enum.with_index(@posts) do %>
+              <article class={[
+                "blog-bento-card",
+                (index == 0 and @sort == "recent") && "bento-span-full"
+              ]}>
+                <%= if index == 0 and @sort == "recent" do %>
+                  <div class="blog-bento-card-ribbon">NEW!</div>
+                <% end %>
+
+                <h2 class="blog-bento-title">
+                  <.link navigate={~p"/fitness/#{post.slug}"}>{post.title}</.link>
+                </h2>
+
+                <div class="blog-bento-meta">
+                  <%= if post.date do %>
+                    <span class="blog-bento-meta-item">
+                      <i class="far fa-calendar-alt"></i> {post.date}
+                    </span>
+                  <% end %>
+                  <span class="blog-bento-meta-item">
+                    <i class="fas fa-chart-line"></i> {post.hit_count} views
+                  </span>
+                </div>
+
+                <p class="blog-bento-excerpt">
+                  {post.excerpt}...
+                </p>
+
+                <div class="blog-bento-actions">
+                  <.link
+                    navigate={~p"/fitness/#{post.slug}"}
+                    class="top-bar-link"
+                    style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
+                  >
+                    Read Report →
+                  </.link>
+                </div>
+              </article>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
     """
   end
 end

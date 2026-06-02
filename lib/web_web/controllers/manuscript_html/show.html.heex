@@ -1,119 +1,52 @@
-<%= if @category in ["sensus", "reflections"] do %>
-  <div
-    class={["sensus-portal", @category == "reflections" && "blog-portal"]}
-    style="grid-template-areas: 'nav main sidebar'; grid-template-rows: 1fr;"
-  >
-    
-<!-- LEFT RAIL: FIXED NAVIGATION -->
-    <nav class="sensus-rail">
-      <div class="sensus-brand">
-        <%= if @category == "sensus" do %>
-          <img
-            src={~p"/images/latent_sensus_icon.png"}
-            alt="Latent Sensus"
-            class="sensus-brand-icon"
-          />
-          <h1>The Latent Sensus</h1>
-        <% else %>
-          <div class="blog-brand-icon"><i class="fas fa-pen-nib"></i></div>
-          <h1>Another Blog</h1>
-        <% end %>
-        <div class="sensus-rail-sub">
-          {if @category == "sensus",
-            do: "Blog & Podcast Archive",
-            else: "Personal Thoughts & Physical Drafts"}
-        </div>
+<% accent = if @category == "another-blog", do: "#00a86b", else: "#ff6600" %>
+
+<div class="blog-bento-wrapper" style={"--blog-accent: #{accent};"}>
+  <div class="blog-post-panel">
+    <header class="blog-post-header">
+      <div style="margin-bottom: 1rem;">
+        <a
+          href={@return_to}
+          class="top-bar-link"
+          style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
+        >
+          <i class="fas fa-arrow-left"></i> back to {@return_label}
+        </a>
       </div>
 
-      <div
-        class="sensus-bio"
-        style="font-size: 0.8rem; color: #555; line-height: 1.5; border-bottom: 1px solid var(--sensus-border); padding-bottom: 1.5rem;"
-      >
-        <%= if @category == "sensus" do %>
-          An honest exploration of complex ideas through AI-assisted drafts, human editing, and long-form readings. Finding the "latent sense" of philosophy, politics, and culture.
-        <% else %>
-          Handwritten Cesar-slop. No artificial sweeteners or preservatives. No LLM guiding or coercion. My reflections, thoughts, and prayers.
-        <% end %>
-      </div>
+      <h1 class="blog-post-title">{@file.title}</h1>
 
-      <ul class="sensus-nav-list">
-        <li>
-          <a
-            href={if @category == "sensus", do: ~p"/blog/latent-sensus", else: ~p"/blog/another-blog"}
-            class="sensus-nav-link"
-          >
-            <i class="fas fa-layer-group"></i> Latest
-          </a>
-        </li>
-        <li>
-          <a href={~p"/manuscripts"} class="sensus-nav-link">
-            <i class="fas fa-file-alt"></i> All Manuscripts
-          </a>
-        </li>
-        <li>
-          <a
-            href={if @category == "sensus", do: ~p"/blog/another-blog", else: ~p"/blog/latent-sensus"}
-            class="sensus-nav-link"
-          >
-            <i class={
-              if @category == "sensus", do: "fas fa-pen-nib", else: "fas fa-microphone-alt"
-            }>
-            </i>
-            {if @category == "sensus", do: "Another Blog", else: "Latent Sensus"}
-          </a>
-        </li>
-      </ul>
+      <div class="blog-post-meta">
+        <span class="blog-bento-meta-item">
+          <i class="far fa-calendar-alt"></i> {Calendar.strftime(@file.mtime, "%B %d, %Y")}
+        </span>
+        <span class="blog-bento-meta-item">
+          <i class="far fa-clock"></i> {@file.read_min} min read
+        </span>
+        <span class="blog-bento-meta-item">
+          <i class="fas fa-chart-line"></i> {Map.get(@file, :hit_count, 0)} views
+        </span>
+        <span class="blog-bento-meta-item">
+          <i class="fas fa-paragraph"></i> {@file.word_count} words
+        </span>
+      </div>
+    </header>
 
-      <div style="flex-grow: 1;"></div>
-      <div style="font-size: 0.7rem; color: #333; font-family: var(--sensus-font-mono);">
-        v3.2.0-ELIXIR-SLEEK
-      </div>
-    </nav>
-    
-<!-- MAIN CONTENT -->
-    <main class="sensus-main">
-      <div
-        class={["glass-panel", @category == "reflections" && "blog-prose"]}
-        style="padding: 3rem; min-height: 80vh; position: relative;"
-      >
-        <div class="prose">
-          {Phoenix.HTML.raw(@content)}
-        </div>
-      </div>
-    </main>
-    
-<!-- SIDEBAR -->
-    <aside class="sensus-aside">
-      <div class="sensus-aside-block">
-        <h3>Recent Posts</h3>
-        <ul class="sensus-archive-list">
-          <%= for file <- @recent_files do %>
-            <li class="sensus-archive-item">
-              <a
-                href={
-                  ~p"/manuscripts/#{@category}/#{if @category == "sensus" and file.slug == "the-good-citizen", do: "good_citizen", else: file.slug}"
-                }
-                class="sensus-archive-link"
-                style={
-                  if file.slug == @slug,
-                    do: "color: var(--sensus-accent); font-weight: bold;",
-                    else: ""
-                }
-              >
-                <span>{file.title}</span>
-              </a>
-            </li>
-          <% end %>
-        </ul>
-      </div>
-    </aside>
-  </div>
-<% else %>
-  <div class="container" style="padding-top: 2rem;">
-    <div class="glass-panel" style="padding: 3rem; min-height: 80vh;">
-      <div class="prose">
-        {Phoenix.HTML.raw(@content)}
-      </div>
+    <div class="blog-post-content prose prose-invert">
+      {raw(@file.html)}
     </div>
+
+    <%= if Map.get(@file, :audio_url) do %>
+      <div style="margin-top: 3rem; padding-top: 2rem; border-top: 2px dashed rgba(255,255,255,0.2);">
+        <h3 style="font-family: var(--font-heading); color: #fff; margin-bottom: 1rem;">
+          Audio Recording
+        </h3>
+        <audio
+          controls
+          src={@file.audio_url}
+          style="width: 100%; max-width: 400px; outline: 2px solid var(--blog-accent);"
+        >
+        </audio>
+      </div>
+    <% end %>
   </div>
-<% end %>
+</div>

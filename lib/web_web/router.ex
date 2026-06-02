@@ -55,19 +55,21 @@ defmodule WebWeb.Router do
       # Other features
       live "/pc", PcLive
       live "/guestbook", GuestbookLive
-      live "/fitness", FitnessLive.Index, :index
+      live "/fitness", FitnessBlogLive.Index, :index
+      live "/fitness/wiki", FitnessLive.Wiki, :index
+      live "/fitness/wiki/:slug", FitnessLive.Show, :show
+      live "/fitness/regimen", FitnessLive.Regimen, :index
+
       get "/fitness/export/csv", FitnessController, :export_csv
       live "/fitness/biometrics", FitnessLive.Biometrics, :index
       get "/fitness/biometrics/export", FitnessController, :export_biometrics_csv
-      live "/fitness/wiki", FitnessLive.Wiki, :index
-      live "/fitness/:slug", FitnessLive.Show, :show
 
-      live "/fitness-blog", FitnessBlogLive.Index
-      live "/fitness-blog/:slug", FitnessBlogLive.Show
-
+      live "/fitness/:slug", FitnessBlogLive.Show, :show
     end
 
-    live_session :admin, layout: {WebWeb.Layouts, :admin} do
+    live_session :admin,
+      layout: {WebWeb.Layouts, :admin},
+      on_mount: {WebWeb.AdminAuth, :ensure_admin} do
       # Admin
       live "/admin/dashboard", AdminLive.Dashboard
       live "/admin/content", AdminLive.ContentManager

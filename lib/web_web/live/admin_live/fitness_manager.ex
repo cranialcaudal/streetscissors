@@ -13,7 +13,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
       {:ok,
        assign(socket,
          page_title: "Fitness Manager | Streetscissors",
-         active_tab: "exercises", # "days", "exercises", "posts"
+         # "days", "exercises", "posts"
+         active_tab: "exercises",
          days: days,
          exercises: exercises,
          posts: posts,
@@ -39,11 +40,44 @@ defmodule WebWeb.AdminLive.FitnessManager do
   def handle_event("new_item", %{"type" => type}, socket) do
     case type do
       "day" ->
-        {:noreply, assign(socket, editor_mode: :day, form_data: %{"slug" => "", "title" => "", "description" => "", "tab" => "", "content" => ""})}
+        {:noreply,
+         assign(socket,
+           editor_mode: :day,
+           form_data: %{
+             "slug" => "",
+             "title" => "",
+             "description" => "",
+             "tab" => "",
+             "content" => ""
+           }
+         )}
+
       "exercise" ->
-        {:noreply, assign(socket, editor_mode: :exercise, form_data: %{"slug" => "", "title" => "", "muscle_group" => "", "anatomy" => "", "functional_category" => "", "short_description" => "", "content" => ""})}
+        {:noreply,
+         assign(socket,
+           editor_mode: :exercise,
+           form_data: %{
+             "slug" => "",
+             "title" => "",
+             "muscle_group" => "",
+             "anatomy" => "",
+             "functional_category" => "",
+             "short_description" => "",
+             "content" => ""
+           }
+         )}
+
       "post" ->
-        {:noreply, assign(socket, editor_mode: :post, form_data: %{"slug" => "", "title" => "", "date" => Date.to_string(Date.utc_today()), "content" => ""})}
+        {:noreply,
+         assign(socket,
+           editor_mode: :post,
+           form_data: %{
+             "slug" => "",
+             "title" => "",
+             "date" => Date.to_string(Date.utc_today()),
+             "content" => ""
+           }
+         )}
     end
   end
 
@@ -57,7 +91,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
           "tab" => meta["tab"] || "",
           "content" => content
         }
-        {:noreply, assign(socket, editor_mode: :day, editing_item: %{slug: slug}, form_data: form)}
+
+        {:noreply,
+         assign(socket, editor_mode: :day, editing_item: %{slug: slug}, form_data: form)}
+
       :error ->
         {:noreply, put_flash(socket, :error, "Day not found.")}
     end
@@ -76,9 +113,13 @@ defmodule WebWeb.AdminLive.FitnessManager do
           "video_url" => raw_data.video_url || "",
           "short_description" => raw_data.short_description || "",
           "content" => content,
-          "original_muscle_group" => raw_data.muscle_group # Track for folder moves
+          # Track for folder moves
+          "original_muscle_group" => raw_data.muscle_group
         }
-        {:noreply, assign(socket, editor_mode: :exercise, editing_item: %{slug: slug}, form_data: form)}
+
+        {:noreply,
+         assign(socket, editor_mode: :exercise, editing_item: %{slug: slug}, form_data: form)}
+
       :error ->
         {:noreply, put_flash(socket, :error, "Exercise not found.")}
     end
@@ -93,7 +134,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
           "date" => meta["date"] || "",
           "content" => content
         }
-        {:noreply, assign(socket, editor_mode: :post, editing_item: %{slug: slug}, form_data: form)}
+
+        {:noreply,
+         assign(socket, editor_mode: :post, editing_item: %{slug: slug}, form_data: form)}
+
       :error ->
         {:noreply, put_flash(socket, :error, "Post not found.")}
     end
@@ -101,47 +145,69 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   def handle_event("save_day", %{"day" => params}, socket) do
     slug = params["slug"]
+
     if slug == "" do
       {:noreply, put_flash(socket, :error, "Slug is required.")}
     else
       Vault.update_day(slug, params)
-      {:noreply, socket |> put_flash(:info, "Day saved.") |> assign(editor_mode: nil, days: Vault.list_days())}
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Day saved.")
+       |> assign(editor_mode: nil, days: Vault.list_days())}
     end
   end
 
   def handle_event("save_exercise", %{"exercise" => params}, socket) do
     slug = params["slug"]
+
     if slug == "" do
       {:noreply, put_flash(socket, :error, "Slug is required.")}
     else
       old_group = params["original_muscle_group"]
       Vault.update_exercise(slug, old_group, params)
-      
+
       # Reload exercises and muscle groups
-      {:noreply, socket 
-       |> put_flash(:info, "Exercise saved.") 
-       |> assign(editor_mode: nil, exercises: Vault.list_all_exercises(), muscle_groups: Vault.list_muscle_groups())}
+      {:noreply,
+       socket
+       |> put_flash(:info, "Exercise saved.")
+       |> assign(
+         editor_mode: nil,
+         exercises: Vault.list_all_exercises(),
+         muscle_groups: Vault.list_muscle_groups()
+       )}
     end
   end
 
   def handle_event("save_post", %{"post" => params}, socket) do
     slug = params["slug"]
+
     if slug == "" do
       {:noreply, put_flash(socket, :error, "Slug is required.")}
     else
       Vault.update_blog_post(slug, params)
-      {:noreply, socket |> put_flash(:info, "Post saved.") |> assign(editor_mode: nil, posts: Vault.list_blog_posts())}
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Post saved.")
+       |> assign(editor_mode: nil, posts: Vault.list_blog_posts())}
     end
   end
 
   def handle_event("delete_exercise", %{"slug" => slug, "group" => group}, socket) do
     Vault.delete_exercise(slug, group)
-    {:noreply, socket |> put_flash(:info, "Exercise deleted.") |> assign(exercises: Vault.list_all_exercises())}
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Exercise deleted.")
+     |> assign(exercises: Vault.list_all_exercises())}
   end
 
   def handle_event("delete_post", %{"slug" => slug}, socket) do
     Vault.delete_blog_post(slug)
-    {:noreply, socket |> put_flash(:info, "Post deleted.") |> assign(posts: Vault.list_blog_posts())}
+
+    {:noreply,
+     socket |> put_flash(:info, "Post deleted.") |> assign(posts: Vault.list_blog_posts())}
   end
 
   # --- Rendering ---
@@ -159,13 +225,25 @@ defmodule WebWeb.AdminLive.FitnessManager do
             </div>
 
             <div class="header-actions">
-              <button phx-click="switch_tab" phx-value-tab="exercises" class={["action-btn", @active_tab == "exercises" && "accent"]}>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="exercises"
+                class={["action-btn", @active_tab == "exercises" && "accent"]}
+              >
                 <i class="fas fa-dumbbell"></i> Wiki
               </button>
-              <button phx-click="switch_tab" phx-value-tab="days" class={["action-btn", @active_tab == "days" && "accent"]}>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="days"
+                class={["action-btn", @active_tab == "days" && "accent"]}
+              >
                 <i class="fas fa-calendar-alt"></i> Regimen
               </button>
-              <button phx-click="switch_tab" phx-value-tab="posts" class={["action-btn", @active_tab == "posts" && "accent"]}>
+              <button
+                phx-click="switch_tab"
+                phx-value-tab="posts"
+                class={["action-btn", @active_tab == "posts" && "accent"]}
+              >
                 <i class="fas fa-newspaper"></i> Intelligence
               </button>
             </div>
@@ -173,9 +251,12 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
           <div class="workspace-content">
             <%= case @active_tab do %>
-              <% "exercises" -> %> {render_exercises(assigns)}
-              <% "days" -> %> {render_days(assigns)}
-              <% "posts" -> %> {render_posts(assigns)}
+              <% "exercises" -> %>
+                {render_exercises(assigns)}
+              <% "days" -> %>
+                {render_days(assigns)}
+              <% "posts" -> %>
+                {render_posts(assigns)}
             <% end %>
           </div>
         <% end %>
@@ -218,7 +299,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
         .icon-btn { width: 36px; height: 36px; border-radius: 10px; background: #000; border: 1px solid #222; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
         .icon-btn:hover { color: #fff; border-color: #444; background: #111; }
         .icon-btn.delete:hover { border-color: #f00; color: #f00; }
-        
+
         .list-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
         .list-header-row h2 { margin: 0; font-size: 1.4rem; color: var(--accent-primary); }
 
@@ -248,23 +329,39 @@ defmodule WebWeb.AdminLive.FitnessManager do
     ~H"""
     <div class="list-header-row">
       <h2>Exercise Wiki</h2>
-      <button phx-click="new_item" phx-value-type="exercise" class="action-btn accent">+ New Exercise</button>
+      <button phx-click="new_item" phx-value-type="exercise" class="action-btn accent">
+        + New Exercise
+      </button>
     </div>
     <%= for {group, exercises} <- @exercises do %>
-      <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: #888; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 2px;">{group}</h3>
+      <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: #888; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 2px;">
+        {group}
+      </h3>
       <div class="items-list">
         <%= for ex <- exercises do %>
           <div class="writing-item manuscript">
             <div class="item-main">
-              <div class="item-type"><i class="fas fa-dumbbell"></i> {ex.functional_category || "Uncategorized"}</div>
+              <div class="item-type">
+                <i class="fas fa-dumbbell"></i> {ex.functional_category || "Uncategorized"}
+              </div>
               <h3 class="item-title">{ex.name}</h3>
               <div class="item-meta">
                 <span class="tag pill-sm">{ex.anatomy || "Unknown Anatomy"}</span>
               </div>
             </div>
             <div class="item-actions">
-              <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="icon-btn"><i class="fas fa-edit"></i></button>
-              <button phx-click="delete_exercise" phx-value-slug={ex.slug} phx-value-group={group} class="icon-btn delete" phx-confirm="Delete exercise?"><i class="fas fa-trash"></i></button>
+              <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="icon-btn">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button
+                phx-click="delete_exercise"
+                phx-value-slug={ex.slug}
+                phx-value-group={group}
+                class="icon-btn delete"
+                phx-confirm="Delete exercise?"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </div>
         <% end %>
@@ -290,7 +387,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
             </div>
           </div>
           <div class="item-actions">
-            <button phx-click="edit_day" phx-value-slug={day.slug} class="icon-btn"><i class="fas fa-edit"></i></button>
+            <button phx-click="edit_day" phx-value-slug={day.slug} class="icon-btn">
+              <i class="fas fa-edit"></i>
+            </button>
           </div>
         </div>
       <% end %>
@@ -315,8 +414,17 @@ defmodule WebWeb.AdminLive.FitnessManager do
             </div>
           </div>
           <div class="item-actions">
-            <button phx-click="edit_post" phx-value-slug={post.slug} class="icon-btn"><i class="fas fa-edit"></i></button>
-            <button phx-click="delete_post" phx-value-slug={post.slug} class="icon-btn delete" phx-confirm="Delete post?"><i class="fas fa-trash"></i></button>
+            <button phx-click="edit_post" phx-value-slug={post.slug} class="icon-btn">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button
+              phx-click="delete_post"
+              phx-value-slug={post.slug}
+              class="icon-btn delete"
+              phx-confirm="Delete post?"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         </div>
       <% end %>
@@ -331,9 +439,12 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <div class="meta">
           <span class="label">
             <%= case @editor_mode do %>
-              <% :exercise -> %> EXERCISE
-              <% :day -> %> DAY
-              <% :post -> %> REPORT
+              <% :exercise -> %>
+                EXERCISE
+              <% :day -> %>
+                DAY
+              <% :post -> %>
+                REPORT
             <% end %>
           </span>
           <span class="title">{@form_data["title"] || "New Item"}</span>
@@ -349,35 +460,70 @@ defmodule WebWeb.AdminLive.FitnessManager do
           <div class="editor-controls">
             <div class="input-group">
               <label>SLUG (filename)</label>
-              <input name={"#{@editor_mode}[slug]"} value={@form_data["slug"]} class="sc-input" required />
+              <input
+                name={"#{@editor_mode}[slug]"}
+                value={@form_data["slug"]}
+                class="sc-input"
+                required
+              />
             </div>
             <div class="input-group">
               <label>TITLE</label>
-              <input name={"#{@editor_mode}[title]"} value={@form_data["title"]} class="sc-input" required />
+              <input
+                name={"#{@editor_mode}[title]"}
+                value={@form_data["title"]}
+                class="sc-input"
+                required
+              />
             </div>
 
             <%= if @editor_mode == :exercise do %>
               <div class="input-group">
                 <label>MUSCLE GROUP (FOLDER)</label>
-                <input name="exercise[muscle_group]" value={@form_data["muscle_group"]} list="muscle-groups" class="sc-input" placeholder="e.g. chest" required />
+                <input
+                  name="exercise[muscle_group]"
+                  value={@form_data["muscle_group"]}
+                  list="muscle-groups"
+                  class="sc-input"
+                  placeholder="e.g. chest"
+                  required
+                />
                 <datalist id="muscle-groups">
                   <%= for group <- @muscle_groups do %>
                     <option value={group}></option>
                   <% end %>
                 </datalist>
-                <input type="hidden" name="exercise[original_muscle_group]" value={@form_data["original_muscle_group"]} />
+                <input
+                  type="hidden"
+                  name="exercise[original_muscle_group]"
+                  value={@form_data["original_muscle_group"]}
+                />
               </div>
               <div class="input-group">
                 <label>ANATOMY</label>
-                <input name="exercise[anatomy]" value={@form_data["anatomy"]} class="sc-input" placeholder="e.g. Pectoralis Major" />
+                <input
+                  name="exercise[anatomy]"
+                  value={@form_data["anatomy"]}
+                  class="sc-input"
+                  placeholder="e.g. Pectoralis Major"
+                />
               </div>
               <div class="input-group">
                 <label>FUNCTIONAL CATEGORY</label>
-                <input name="exercise[functional_category]" value={@form_data["functional_category"]} class="sc-input" placeholder="e.g. Absolute Strength" />
+                <input
+                  name="exercise[functional_category]"
+                  value={@form_data["functional_category"]}
+                  class="sc-input"
+                  placeholder="e.g. Absolute Strength"
+                />
               </div>
               <div class="input-group">
                 <label>THUMBNAIL URL</label>
-                <input name="exercise[thumbnail_url]" value={@form_data["thumbnail_url"]} class="sc-input" />
+                <input
+                  name="exercise[thumbnail_url]"
+                  value={@form_data["thumbnail_url"]}
+                  class="sc-input"
+                />
               </div>
               <div class="input-group">
                 <label>VIDEO URL</label>
@@ -385,7 +531,11 @@ defmodule WebWeb.AdminLive.FitnessManager do
               </div>
               <div class="input-group" style="grid-column: 1 / -1;">
                 <label>SHORT DESCRIPTION</label>
-                <input name="exercise[short_description]" value={@form_data["short_description"]} class="sc-input" />
+                <input
+                  name="exercise[short_description]"
+                  value={@form_data["short_description"]}
+                  class="sc-input"
+                />
               </div>
             <% end %>
 
@@ -407,7 +557,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
               </div>
             <% end %>
           </div>
-          
+
           <div class="markdown-workspace">
             <textarea name={"#{@editor_mode}[content]"} class="main-textarea"><%= @form_data["content"] %></textarea>
           </div>

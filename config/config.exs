@@ -70,7 +70,8 @@ config :web, Oban,
   repo: Web.Repo,
   plugins: [Oban.Plugins.Pruner],
   queues: [default: 10, mailers: 20],
-  notifier: Oban.Notifiers.Poll
+  # SQLite has no LISTEN/NOTIFY; use the process-group notifier (no DB dependency).
+  notifier: Oban.Notifiers.PG
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

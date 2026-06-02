@@ -6,7 +6,7 @@ defmodule WebWeb.AdminSessionController do
   end
 
   def create(conn, %{"password" => password}) do
-    if password == "TunaOn@Bike95811" do
+    if valid_password?(password) do
       conn
       |> put_session("admin_user", true)
       |> configure_session(renew: true)
@@ -17,6 +17,20 @@ defmodule WebWeb.AdminSessionController do
       |> redirect(to: "/admin/login")
     end
   end
+
+  # Constant-time comparison against the configured password to avoid
+  # leaking information via timing. Returns false if no password is configured.
+  defp valid_password?(password) when is_binary(password) do
+    case Application.get_env(:web, :admin_password) do
+      expected when is_binary(expected) and expected != "" ->
+        Plug.Crypto.secure_compare(password, expected)
+
+      _ ->
+        false
+    end
+  end
+
+  defp valid_password?(_), do: false
 
   def delete(conn, params) do
     conn

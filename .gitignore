@@ -47,3 +47,4 @@ npm-debug.log
 # Local backups of vault and database
 /backup/
 
+.env

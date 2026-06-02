@@ -10,15 +10,22 @@ defmodule WebWeb.Plugs.MediaServe do
 
   def init(opts), do: opts
 
-  def call(%Plug.Conn{path_info: ["uploads" | rest]} = conn, _opts) do
-    # Build the file path
-    filename = Path.join(rest)
-    file_path = Path.join(["priv", "static", "uploads", filename])
+  def call(%Plug.Conn{path_info: ["uploads" | rest]} = conn, _opts) when rest != [] do
+    # Path.safe_relative rejects any path that would traverse outside the
+    # uploads directory (e.g. "../../etc/passwd"), guarding against
+    # directory-traversal attacks via the URL.
+    case Path.safe_relative(Path.join(rest)) do
+      {:ok, filename} ->
+        file_path = Path.join(["priv", "static", "uploads", filename])
 
-    if File.exists?(file_path) do
-      serve_file(conn, file_path, filename)
-    else
-      conn
+        if File.regular?(file_path) do
+          serve_file(conn, file_path, filename)
+        else
+          conn
+        end
+
+      :error ->
+        conn
     end
   end
 

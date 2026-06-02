@@ -1,151 +1,90 @@
-<div
-  class="sensus-portal blog-portal"
-  style="grid-template-areas: 'nav main sidebar'; grid-template-rows: 1fr;"
->
-  <!-- MOBILE HEADER: Fixed at top when rail is hidden -->
-
-  <!-- LEFT RAIL: FIXED NAVIGATION -->
-  <nav class="sensus-rail">
-    <div class="sensus-brand">
-      <div class="blog-brand-icon">
-        <i class="fas fa-pen-nib"></i>
-      </div>
-      <h1>Another Blog</h1>
-      <div class="sensus-rail-sub">Personal Thoughts & Physical Drafts</div>
-    </div>
-
-    <div
-      class="sensus-bio"
-      style="font-size: 0.8rem; color: #555; line-height: 1.5; border-bottom: 1px solid var(--sensus-border); padding-bottom: 1.5rem;"
-    >
+<div class="blog-bento-wrapper" style="--blog-accent: #00a86b;">
+  
+<!-- Header -->
+  <header class="blog-header-card">
+    <h1 class="blog-header-title">Another Blog</h1>
+    <div class="blog-header-subtitle">Personal Thoughts & Physical Drafts</div>
+    <div class="blog-header-bio">
       Handwritten Cesar-slop. No artificial sweeteners or preservatives. No LLM guiding or coercion. My reflections, thoughts, and prayers.
     </div>
-
-    <ul class="sensus-nav-list">
-      <li>
-        <a href={~p"/blog/another-blog"} class="sensus-nav-link active">
-          <i class="fas fa-layer-group"></i> Latest Posts
-        </a>
-      </li>
-      <li>
-        <a href={~p"/manuscripts?from=another-blog"} class="sensus-nav-link">
-          <i class="fas fa-file-alt"></i> All Manuscripts
-        </a>
-      </li>
-      <li>
-        <a href={~p"/blog/latent-sensus"} class="sensus-nav-link">
-          <i class="fas fa-microphone-alt"></i> Latent Sensus
-        </a>
-      </li>
-      <li>
-        <a href={~p"/about?from=another-blog"} class="sensus-nav-link">
-          <i class="fas fa-user"></i> The Author
-        </a>
-      </li>
-    </ul>
-
-    <div style="flex-grow: 1;"></div>
-
-    <div style="font-size: 0.7rem; color: #333; font-family: var(--sensus-font-mono);">
-      v3.2.0-ELIXIR-SLEEK<br /> © 2026 STREETSCISSORS
-    </div>
-  </nav>
+  </header>
   
-<!-- CENTER: MAIN FEED -->
-  <main class="sensus-main">
-    <header class="portal-header">
-      <a href="/" class="sensus-mobile-brand-link">
-        <h1>streetscissors</h1>
+<!-- Sorting Bar -->
+  <div class="blog-sort-bar">
+    <span class="blog-sort-label">Sort By:</span>
+    <div class="blog-sort-options">
+      <a href="?sort=recent" class={["blog-sort-pill", @sort == "recent" && "active"]}>
+        Most Recent
       </a>
-    </header>
-
-    <div class="sensus-content-list">
-      <%= if Enum.empty?(@files) do %>
-        <div style="text-align: center; padding: 4rem 2rem; color: #444;">
-          <i
-            class="fas fa-feather-alt"
-            style="font-size: 3rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"
-          >
-          </i>
-          <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">No posts yet.</p>
-          <p style="font-size: 0.85rem;">Writing is underway. Check back soon.</p>
-        </div>
-      <% else %>
-        <%= for {file, index} <- Enum.with_index(@files) do %>
-          <article class="sensus-post-card">
-            <%= if index == 0 do %>
-              <div class="sensus-post-ribbon blog-ribbon">NEW!</div>
-            <% end %>
-
-            <h2 class="sensus-post-title">
-              <a href={~p"/manuscripts/reflections/#{file.slug}"}>{file.title}</a>
-            </h2>
-
-            <div class="sensus-post-meta">
-              <span>
-                <i class="far fa-calendar-alt"></i> {Calendar.strftime(file.mtime, "%B %d, %Y")}
-              </span>
-              <span><i class="far fa-clock"></i> {file.read_min} min read</span>
-              <span><i class="fas fa-paragraph"></i> {file.word_count} words</span>
-            </div>
-
-            <p class="sensus-post-excerpt">
-              {file.excerpt}
-            </p>
-
-            <footer class="sensus-post-actions">
-              <a href={~p"/manuscripts/reflections/#{file.slug}"} class="sensus-more-link">
-                Read full essay →
-              </a>
-            </footer>
-          </article>
-        <% end %>
-      <% end %>
+      <a href="?sort=most-read" class={["blog-sort-pill", @sort == "most-read" && "active"]}>
+        Most Read
+      </a>
+      <a href="?sort=least-read" class={["blog-sort-pill", @sort == "least-read" && "active"]}>
+        Least Read
+      </a>
     </div>
-  </main>
+  </div>
   
-<!-- RIGHT SIDEBAR: METADATA -->
-  <aside class="sensus-aside">
-    <div class="sensus-aside-block">
-      <h3>
-        Quick Jumps
-        <span style="font-size: 0.6rem; opacity: 0.5; vertical-align: middle;">(MOST READ)</span>
-      </h3>
-      <ul class="sensus-archive-list">
-        <%= for file <- @popular_files do %>
-          <li class="sensus-archive-item">
-            <a href={~p"/manuscripts/reflections/#{file.slug}"} class="sensus-archive-link">
-              <span>{file.title}</span>
-              <span class="sensus-archive-count">
-                <i class="fas fa-chart-line" style="font-size: 0.6rem; margin-right: 2px;"></i> {Map.get(
-                  file,
-                  :hit_count,
-                  "---"
-                )}
-              </span>
-            </a>
-          </li>
-        <% end %>
-      </ul>
-    </div>
-
-    <div class="sensus-aside-block">
-      <h3>Elsewhere</h3>
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <a
-          href={~p"/blog/latent-sensus"}
-          style="font-size: 0.8rem; color: #888; text-decoration: none;"
+<!-- Feed -->
+  <div class="blog-feed">
+    <%= if Enum.empty?(@files) do %>
+      <div style="text-align: center; padding: 4rem 2rem; color: #444;">
+        <i
+          class="fas fa-feather-alt"
+          style="font-size: 3rem; margin-bottom: 1.5rem; display: block; opacity: 0.3;"
         >
-          <i class="fas fa-microphone-alt" style="color: var(--sensus-accent);"></i>
-          Latent Sensus Podcast
-        </a>
-        <a href={~p"/guestbook"} style="font-size: 0.8rem; color: #888; text-decoration: none;">
-          <i class="fas fa-book-open" style="color: var(--sensus-jade);"></i> Guestbook
-        </a>
-        <a href={~p"/contact"} style="font-size: 0.8rem; color: #888; text-decoration: none;">
-          <i class="fas fa-envelope" style="color: #888;"></i> Contact
-        </a>
+        </i>
+        <p style="font-size: 1.1rem; margin-bottom: 0.5rem; font-family: var(--font-heading);">
+          No posts yet.
+        </p>
+        <p style="font-size: 0.85rem; font-family: var(--sensus-font-mono);">
+          Writing is underway. Check back soon.
+        </p>
       </div>
-    </div>
-  </aside>
+    <% else %>
+      <%= for {file, index} <- Enum.with_index(@files) do %>
+        <article class={[
+          "blog-bento-card",
+          (index == 0 and @sort == "recent") && "bento-span-full"
+        ]}>
+          <%= if index == 0 and @sort == "recent" do %>
+            <div class="blog-bento-card-ribbon">NEW!</div>
+          <% end %>
+
+          <h2 class="blog-bento-title">
+            <a href={~p"/manuscripts/reflections/#{file.slug}"}>{file.title}</a>
+          </h2>
+
+          <div class="blog-bento-meta">
+            <span class="blog-bento-meta-item">
+              <i class="far fa-calendar-alt"></i> {Calendar.strftime(file.mtime, "%B %d, %Y")}
+            </span>
+            <span class="blog-bento-meta-item">
+              <i class="far fa-clock"></i> {file.read_min} min read
+            </span>
+            <span class="blog-bento-meta-item">
+              <i class="fas fa-chart-line"></i> {file.hit_count} views
+            </span>
+            <span class="blog-bento-meta-item">
+              <i class="fas fa-paragraph"></i> {file.word_count} words
+            </span>
+          </div>
+
+          <p class="blog-bento-excerpt">
+            {file.excerpt}
+          </p>
+
+          <footer class="blog-bento-actions">
+            <a
+              href={~p"/manuscripts/reflections/#{file.slug}"}
+              class="top-bar-link"
+              style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
+            >
+              Read full essay →
+            </a>
+          </footer>
+        </article>
+      <% end %>
+    <% end %>
+  </div>
 </div>

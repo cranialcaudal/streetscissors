@@ -25,7 +25,7 @@ defmodule WebWeb.FitnessLive.Show do
         {:noreply,
          socket
          |> assign(:page_title, exercise.name)
-         |> assign(:return_to, "/fitness?view=wiki")
+         |> assign(:return_to, "/fitness/wiki")
          |> assign(:return_label, "return to exercise wiki")
          |> assign(:exercise, exercise)
          |> assign(:tag_overlay, tag_overlay)
@@ -36,7 +36,7 @@ defmodule WebWeb.FitnessLive.Show do
         {:noreply,
          socket
          |> put_flash(:error, "Exercise not found.")
-         |> push_navigate(to: "/fitness")}
+         |> push_navigate(to: "/fitness/wiki")}
     end
   end
 
@@ -75,7 +75,7 @@ defmodule WebWeb.FitnessLive.Show do
   @impl true
   def handle_event("close_tag_overlay", _, socket) do
     slug = socket.assigns.exercise.slug
-    {:noreply, push_patch(socket, to: ~p"/fitness/#{slug}")}
+    {:noreply, push_patch(socket, to: ~p"/fitness/wiki/#{slug}")}
   end
 
   defp format_group(slug) do
@@ -129,7 +129,7 @@ defmodule WebWeb.FitnessLive.Show do
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem;">
         <%= if @exercise.anatomy do %>
           <.link
-            patch={~p"/fitness/#{@exercise.slug}?tag_type=group&tag=#{@exercise.muscle_group}"}
+            patch={~p"/fitness/wiki/#{@exercise.slug}?tag_type=group&tag=#{@exercise.muscle_group}"}
             style="
               display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;
               background: rgba(255,102,0,0.1); border: 1px solid rgba(255,102,0,0.3);
@@ -145,7 +145,7 @@ defmodule WebWeb.FitnessLive.Show do
         <%= if @exercise.functional_category do %>
           <.link
             patch={
-              ~p"/fitness/#{@exercise.slug}?tag_type=category&tag=#{@exercise.functional_category}"
+              ~p"/fitness/wiki/#{@exercise.slug}?tag_type=category&tag=#{@exercise.functional_category}"
             }
             style="
               display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;
@@ -161,7 +161,7 @@ defmodule WebWeb.FitnessLive.Show do
         <% end %>
         <%= if @show_blue_tag do %>
           <.link
-            patch={~p"/fitness/#{@exercise.slug}?tag_type=group&tag=#{@exercise.muscle_group}"}
+            patch={~p"/fitness/wiki/#{@exercise.slug}?tag_type=group&tag=#{@exercise.muscle_group}"}
             style="
               display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;
               background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.25);
@@ -257,7 +257,7 @@ defmodule WebWeb.FitnessLive.Show do
                 <%= for ex <- exercises do %>
                   <li>
                     <.link
-                      navigate={~p"/fitness/#{ex.slug}"}
+                      navigate={~p"/fitness/wiki/#{ex.slug}"}
                       style={"
                       display: flex; justify-content: space-between; align-items: center;
                       padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02);

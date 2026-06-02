@@ -67,6 +67,10 @@ config :web, WebWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :web, dev_routes: true
 
+# Admin dashboard password for local development only.
+# In production this is supplied via the ADMIN_PASSWORD env var (see runtime.exs).
+config :web, :admin_password, System.get_env("ADMIN_PASSWORD") || "dev-admin"
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

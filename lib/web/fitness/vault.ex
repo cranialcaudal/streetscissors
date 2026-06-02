@@ -49,6 +49,7 @@ defmodule Web.Fitness.Vault do
   @doc "Returns {:ok, content} for a given day slug, or :error."
   def get_day_raw(slug) do
     path = Path.join([@base, "weekly-regimen", slug <> ".md"])
+
     if File.exists?(path) do
       content = File.read!(path)
       {:ok, parse_frontmatter(path), strip_frontmatter(content)}
@@ -285,6 +286,7 @@ defmodule Web.Fitness.Vault do
   @doc "Returns raw data for a blog post."
   def get_blog_post_raw(slug) do
     path = Path.join([@base, "fitness-blog", slug <> ".md"])
+
     if File.exists?(path) do
       content = File.read!(path)
       {:ok, parse_frontmatter(path), strip_frontmatter(content)}

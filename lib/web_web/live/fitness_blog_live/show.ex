@@ -7,6 +7,9 @@ defmodule WebWeb.FitnessBlogLive.Show do
   def mount(%{"slug" => slug}, _session, socket) do
     case Vault.get_blog_post(slug) do
       {:ok, meta, html} ->
+        hit_counts = Web.Analytics.all_hits_by_prefix("/fitness-blog/#{slug}")
+        hit_count = Map.get(hit_counts, slug, 0)
+
         {:ok,
          socket
          |> assign(:page_title, meta["title"] || slug)
@@ -14,6 +17,7 @@ defmodule WebWeb.FitnessBlogLive.Show do
          |> assign(:return_label, "return to fitness intelligence")
          |> assign(:title, meta["title"] || slug)
          |> assign(:date, meta["date"])
+         |> assign(:hit_count, hit_count)
          |> assign(:html, html)}
 
       :error ->
@@ -27,23 +31,40 @@ defmodule WebWeb.FitnessBlogLive.Show do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="container">
-      <header class="theme-header" style="margin-bottom: 2rem; display: none;">
-        <h1 class="theme-title">{@title}</h1>
-      </header>
-      <div style="margin-bottom: 2rem;">
-        <h1 class="theme-title">{@title}</h1>
-        <%= if @date do %>
-          <p style="color: #555; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5rem;">
-            {@date}
-          </p>
-        <% end %>
-      </div>
+    <Layouts.app flash={@flash} current_scope={assigns[:current_scope]}>
+      <div class="blog-bento-wrapper" style="--blog-accent: #1e90ff;">
+        <div class="blog-post-panel">
+          <header class="blog-post-header">
+            <div style="margin-bottom: 1rem;">
+              <.link
+                navigate={@return_to}
+                class="top-bar-link"
+                style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
+              >
+                <i class="fas fa-arrow-left"></i> back to {@return_label}
+              </.link>
+            </div>
 
-      <div class="glass-panel markdown-body" style="padding: 2rem; min-height: 60vh;">
-        {raw(@html)}
+            <h1 class="blog-post-title">{@title}</h1>
+
+            <div class="blog-post-meta">
+              <%= if @date do %>
+                <span class="blog-bento-meta-item">
+                  <i class="far fa-calendar-alt"></i> {@date}
+                </span>
+              <% end %>
+              <span class="blog-bento-meta-item">
+                <i class="fas fa-chart-line"></i> {@hit_count} views
+              </span>
+            </div>
+          </header>
+
+          <div class="blog-post-content prose prose-invert">
+            {raw(@html)}
+          </div>
+        </div>
       </div>
-    </div>
+    </Layouts.app>
     """
   end
 end

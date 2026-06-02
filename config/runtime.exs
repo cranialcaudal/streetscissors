@@ -22,6 +22,12 @@ end
 
 config :web, WebWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# Root directory Web.Manuscripts reads markdown + audio from. When unset,
+# Web.Manuscripts falls back to its local development default.
+if manuscripts_path = System.get_env("MANUSCRIPTS_PATH") do
+  config :web, :manuscripts_path, manuscripts_path
+end
+
 if config_env() == :prod do
   database_path =
     System.get_env("DATABASE_PATH") ||
@@ -47,6 +53,14 @@ if config_env() == :prod do
       """
 
   host = System.get_env("PHX_HOST") || "streetscissors.com"
+
+  config :web,
+         :admin_password,
+         System.get_env("ADMIN_PASSWORD") ||
+           raise("""
+           environment variable ADMIN_PASSWORD is missing.
+           This is the password used to log into the /admin dashboard.
+           """)
 
   config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
