@@ -6,42 +6,39 @@ defmodule WebWeb.AdminLive.ContentManager do
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
-      legacy_categories = ["fiction", "reflections", "sensus", "physical", "faith", "non-fiction"]
-
-      manuscripts = load_manuscripts(legacy_categories)
-      logs = Audio.list_logs()
-
-      writing_categories = [
-        "fitness intelligence",
-        "latent sensus",
-        "another blog"
+      destinations = [
+        "Latent Sensus (Blog)",
+        "Fitness Intelligence (Blog)",
+        "Another Blog",
+        "Audio Logs",
+        "Image Gallery"
       ]
 
       {:ok,
        assign(socket,
-         page_title: "Control Center | Streetscissors",
-         manuscripts: manuscripts,
-         writing_categories: writing_categories,
-         selected_category: "all",
-         logs: logs,
-         upload_categories: %{}
+         page_title: "Ingestion Hub | Streetscissors",
+         destinations: destinations,
+         selected_destination: hd(destinations),
+         manuscripts: load_manuscripts(),
+         logs: Audio.list_logs(),
+         images: list_images(),
+         recent_uploads: []
        )
-       |> allow_upload(:markdown,
-         accept: ~w(.md),
-         max_entries: 20,
-         max_file_size: 10_000_000
-       )
-       |> allow_upload(:audio,
-         accept: ~w(.mp3 .wav .m4a .webm),
-         max_entries: 5,
-         max_file_size: 50_000_000
+       |> allow_upload(:file,
+         accept: ~w(.md .mp3 .wav .m4a .webm .jpg .jpeg .png .gif .webp),
+         max_entries: 10,
+         max_file_size: 50_000_000,
+         auto_upload: true,
+         progress: &handle_progress/3
        )}
     else
       {:ok, push_navigate(socket, to: "/")}
     end
   end
 
-  defp load_manuscripts(legacy_categories) do
+  defp load_manuscripts do
+    legacy_categories = ["fiction", "reflections", "sensus", "physical", "faith", "non-fiction"]
+
     Enum.flat_map(legacy_categories, fn legacy_cat ->
       Manuscripts.list_files(legacy_cat)
       |> Enum.map(fn m ->
@@ -57,93 +54,39 @@ defmodule WebWeb.AdminLive.ContentManager do
         |> Map.put(:category_folder, legacy_cat)
       end)
     end)
+    |> Enum.sort_by(& &1.mtime, {:desc, Date})
   end
 
-  def handle_event("filter_category", %{"category" => category}, socket) do
-    {:noreply, assign(socket, selected_category: category)}
+  defp list_images do
+    images_dir = Path.join(["priv", "static", "images", "uploads"])
+    File.mkdir_p!(images_dir)
+
+    case File.ls(images_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.match?(&1, ~r/\.(jpg|jpeg|png|gif|webp)$/i))
+        |> Enum.map(fn f ->
+          stat = File.stat!(Path.join(images_dir, f))
+          %{name: f, path: "/images/uploads/#{f}", mtime: stat.mtime}
+        end)
+        |> Enum.sort_by(& &1.mtime, :desc)
+
+      _ ->
+        []
+    end
+  end
+
+  def handle_event("select_destination", %{"destination" => dest}, socket) do
+    {:noreply, assign(socket, selected_destination: dest)}
+  end
+
+  def handle_event("validate", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("delete_manuscript", %{"category" => cat, "slug" => slug}, socket) do
     Manuscripts.delete_manuscript(cat, slug)
-    legacy_categories = ["fiction", "reflections", "sensus", "physical", "faith", "non-fiction"]
-
-    {:noreply,
-     assign(socket, manuscripts: load_manuscripts(legacy_categories))
-     |> put_flash(:info, "Redacted.")}
-  end
-
-  def handle_event("validate_upload", %{"upload_categories" => cats}, socket) do
-    {:noreply, assign(socket, upload_categories: cats)}
-  end
-
-  def handle_event("validate_upload", _params, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref, "type" => "markdown"}, socket) do
-    {:noreply, cancel_upload(socket, :markdown, ref)}
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref, "type" => "audio"}, socket) do
-    {:noreply, cancel_upload(socket, :audio, ref)}
-  end
-
-  def handle_event("ingest_files", _params, socket) do
-    consume_uploaded_entries(socket, :markdown, fn %{path: path}, entry ->
-      content = File.read!(path)
-      clean_name = Path.basename(entry.client_name, ".md")
-      slug = slugify(clean_name)
-
-      category = Map.get(socket.assigns.upload_categories, entry.ref) || "latent sensus"
-
-      folder =
-        case category do
-          "latent sensus" -> "sensus"
-          "fitness intelligence" -> "physical"
-          _ -> "reflections"
-        end
-
-      Manuscripts.create_manuscript(folder, slug, content)
-      {:ok, :created}
-    end)
-
-    consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
-      uploads_dir = Path.join(["priv", "static", "uploads"])
-      File.mkdir_p!(uploads_dir)
-
-      # Extract original extension securely
-      ext = Path.extname(entry.client_name) |> String.downcase()
-      clean_name = Path.basename(entry.client_name, ext) |> slugify()
-      filename = "#{clean_name}-#{System.unique_integer([:positive])}#{ext}"
-      dest_path = Path.join(uploads_dir, filename)
-
-      File.cp!(path, dest_path)
-      web_path = "/uploads/#{filename}"
-
-      stardate = calculate_stardate()
-
-      Audio.create_log(%{
-        title: entry.client_name,
-        stardate: stardate,
-        file_path: web_path,
-        duration: 0,
-        description: "Uploaded via terminal.",
-        published: true
-      })
-
-      {:ok, :created}
-    end)
-
-    legacy_categories = ["fiction", "reflections", "sensus", "physical", "faith", "non-fiction"]
-
-    {:noreply,
-     socket
-     |> put_flash(:info, "Intel Ingested.")
-     |> assign(
-       manuscripts: load_manuscripts(legacy_categories),
-       logs: Audio.list_logs(),
-       upload_categories: %{}
-     )}
+    {:noreply, assign(socket, manuscripts: load_manuscripts()) |> put_flash(:info, "Redacted.")}
   end
 
   def handle_event("toggle_audio_status", %{"id" => id}, socket) do
@@ -156,6 +99,93 @@ defmodule WebWeb.AdminLive.ContentManager do
     log = Audio.get_log!(id)
     Audio.delete_log(log)
     {:noreply, assign(socket, logs: Audio.list_logs())}
+  end
+
+  def handle_event("delete_image", %{"name" => name}, socket) do
+    path = Path.join(["priv", "static", "images", "uploads", name])
+    File.rm(path)
+    {:noreply, assign(socket, images: list_images()) |> put_flash(:info, "Image purged.")}
+  end
+
+  defp handle_progress(:file, entry, socket) do
+    if entry.done? do
+      destination = socket.assigns.selected_destination
+
+      consumed =
+        consume_uploaded_entries(socket, :file, fn %{path: path}, meta ->
+          process_file(path, meta.client_name, destination)
+        end)
+
+      socket =
+        socket
+        |> assign(
+          manuscripts: load_manuscripts(),
+          logs: Audio.list_logs(),
+          images: list_images(),
+          recent_uploads: consumed ++ socket.assigns.recent_uploads
+        )
+        |> put_flash(:info, "Intel successfully routed to #{destination}.")
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp process_file(path, client_name, destination) do
+    ext = Path.extname(client_name) |> String.downcase()
+    clean_name = Path.basename(client_name, ext) |> slugify()
+
+    cond do
+      ext == ".md" ->
+        content = File.read!(path)
+
+        folder =
+          case destination do
+            "Latent Sensus (Blog)" -> "sensus"
+            "Fitness Intelligence (Blog)" -> "physical"
+            _ -> "reflections"
+          end
+
+        Manuscripts.create_manuscript(folder, clean_name, content)
+        {:ok, %{type: :markdown, name: clean_name, folder: folder}}
+
+      ext in [".mp3", ".wav", ".m4a", ".webm"] ->
+        uploads_dir = Path.join(["priv", "static", "uploads"])
+        File.mkdir_p!(uploads_dir)
+        filename = "#{clean_name}-#{System.unique_integer([:positive])}#{ext}"
+        dest_path = Path.join(uploads_dir, filename)
+        File.cp!(path, dest_path)
+
+        web_path = "/uploads/#{filename}"
+        stardate = calculate_stardate()
+
+        Audio.create_log(%{
+          title: client_name,
+          stardate: stardate,
+          file_path: web_path,
+          duration: 0,
+          description: "Uploaded via hub.",
+          published: true
+        })
+
+        {:ok, %{type: :audio, name: client_name}}
+
+      ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"] ->
+        images_dir = Path.join(["priv", "static", "images", "uploads"])
+        File.mkdir_p!(images_dir)
+        filename = "#{clean_name}-#{System.unique_integer([:positive])}#{ext}"
+        dest_path = Path.join(images_dir, filename)
+        File.cp!(path, dest_path)
+
+        web_path = "/images/uploads/#{filename}"
+
+        {:ok,
+         %{type: :image, name: filename, url: web_path, markdown: "![#{clean_name}](#{web_path})"}}
+
+      true ->
+        {:ok, %{type: :error, message: "Unknown file type."}}
+    end
   end
 
   defp slugify(string) do
@@ -178,67 +208,80 @@ defmodule WebWeb.AdminLive.ContentManager do
       <main class="workspace">
         <header class="workspace-header">
           <div class="header-info">
-            <h1 class="workspace-title">Ingestion Terminal</h1>
-            <p class="workspace-subtitle">Syncing frequencies with the collective.</p>
+            <h1 class="workspace-title">Central Upload Hub</h1>
+            <p class="workspace-subtitle">Drop files to instantly route them to their destination.</p>
           </div>
         </header>
 
         <div class="workspace-content">
           <div class="ingestion-terminal">
-            <form id="mkdn-upload-form" phx-change="validate_upload" phx-submit="ingest_files">
+            <form id="upload-form" phx-change="validate">
               <div class="terminal-shell">
-                <div class="terminal-header">
-                  <div class="dots"><span></span><span></span><span></span></div>
-                  <div class="command-title">INGEST_INTELLIGENCE_V3.sh</div>
+                <div class="terminal-header" style="justify-content: space-between;">
+                  <div style="display: flex; gap: 1.5rem; align-items: center;">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <div class="command-title">AUTO_ROUTER.sh</div>
+                  </div>
+
+                  <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span style="color: #888; font-size: 0.8rem; font-family: 'JetBrains Mono';">
+                      TARGET DESTINATION:
+                    </span>
+                    <select
+                      name="destination"
+                      phx-change="select_destination"
+                      class="minimal-select"
+                      style="font-size: 0.9rem; padding: 0.5rem 2rem 0.5rem 1rem; border-color: var(--accent-primary); color: #fff;"
+                    >
+                      <%= for dest <- @destinations do %>
+                        <option value={dest} selected={@selected_destination == dest}>
+                          {String.upcase(dest)}
+                        </option>
+                      <% end %>
+                    </select>
+                  </div>
                 </div>
 
-                <div class="terminal-body" phx-drop-target={@uploads.markdown.ref}>
-                  <div
-                    class="drop-zones"
-                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;"
-                  >
-                    <!-- Markdown Drop Zone -->
-                    <div class="drop-zone" phx-drop-target={@uploads.markdown.ref}>
-                      <div style="margin-bottom: 1rem; color: var(--accent-primary);"><.icon name="hero-document-text" class="size-8" /></div>
-                      <h3>MARKDOWN</h3>
-                      <p>
-                        Drag .md here or
-                        <label class="action-link">
-                          PICK FILES<.live_file_input upload={@uploads.markdown} class="hidden-input" />
-                        </label>
+                <div
+                  class="terminal-body drop-zone-master"
+                  phx-drop-target={@uploads.file.ref}
+                >
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
+                    <div style="color: var(--accent-primary);"><.icon name="hero-cloud-arrow-up" class="size-12 primary-pulse" /></div>
+                    <div>
+                      <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: #fff; text-align: center; margin-bottom: 0.5rem;">
+                        DROP SECURE FILES HERE
+                      </h2>
+                      <p style="color: #888; text-align: center; font-family: 'JetBrains Mono'; font-size: 0.9rem;">
+                        Routing to:
+                        <strong style="color: var(--accent-primary);">
+                          {String.upcase(@selected_destination)}
+                        </strong>
                       </p>
                     </div>
-                    
-    <!-- Audio Drop Zone -->
-                    <div class="drop-zone" phx-drop-target={@uploads.audio.ref}>
-                      <div style="margin-bottom: 1rem; color: #a78bfa;"><.icon name="hero-microphone" class="size-8" /></div>
-                      <h3>AUDIO LOGS</h3>
-                      <p>
-                        Drag audio here or
-                        <label class="action-link" style="color: #a78bfa;">
-                          PICK FILES<.live_file_input upload={@uploads.audio} class="hidden-input" />
-                        </label>
-                      </p>
-                    </div>
+
+                    <p style="color: #555; font-size: 0.8rem;">
+                      Accepts: .md, .mp3, .wav, .jpg, .png, .gif
+                    </p>
+
+                    <label class="launch-btn" style="cursor: pointer; display: inline-block;">
+                      <span class="btn-text">BROWSE FILES</span>
+                      <div class="btn-glow"></div>
+                      <.live_file_input upload={@uploads.file} class="hidden-input" />
+                    </label>
                   </div>
                   
-    <!-- Staged Files -->
+    <!-- Upload Progress -->
                   <div
-                    :if={
-                      !Enum.empty?(@uploads.markdown.entries) || !Enum.empty?(@uploads.audio.entries)
-                    }
+                    :if={!Enum.empty?(@uploads.file.entries)}
                     class="staged-queue"
-                    style="margin-top: 2rem; border-top: 1px solid #222; padding-top: 2rem;"
+                    style="margin-top: 3rem; border-top: 1px solid #222; padding-top: 2rem;"
                   >
-                    <h4 style="color: #888; font-size: 0.8rem; margin-bottom: 1rem; letter-spacing: 1px;">
-                      STAGED FOR INGESTION
-                    </h4>
-
-                    <%= for entry <- @uploads.markdown.entries do %>
+                    <%= for entry <- @uploads.file.entries do %>
                       <div class="staged-card">
                         <div class="card-info">
                           <span class="file-icon">
-                            <.icon name="hero-document-text" class="size-4" />
+                            <.icon name="hero-document-arrow-up" class="size-5" />
                           </span>
                           <div class="file-details">
                             <span class="file-name">{entry.client_name}</span>
@@ -248,188 +291,199 @@ defmodule WebWeb.AdminLive.ContentManager do
                           </div>
                         </div>
                         <div class="card-config">
-                          <select name={"upload_categories[#{entry.ref}]"} class="minimal-select">
-                            <option
-                              value="latent sensus"
-                              selected={Map.get(@upload_categories, entry.ref) == "latent sensus"}
-                            >
-                              LATENT SENSUS
-                            </option>
-                            <option
-                              value="fitness intelligence"
-                              selected={
-                                Map.get(@upload_categories, entry.ref) == "fitness intelligence"
-                              }
-                            >
-                              FITNESS INTEL
-                            </option>
-                            <option
-                              value="another blog"
-                              selected={Map.get(@upload_categories, entry.ref) == "another blog"}
-                            >
-                              ANOTHER BLOG
-                            </option>
-                          </select>
-                          <button
-                            type="button"
-                            phx-click="cancel_upload"
-                            phx-value-ref={entry.ref}
-                            phx-value-type="markdown"
-                            class="purge-btn"
-                          >
-                            <.icon name="hero-trash" class="size-4" />
-                          </button>
+                          <span style="color: var(--accent-primary); font-size: 0.8rem; font-family: monospace;">
+                            UPLOADING...
+                          </span>
                         </div>
                       </div>
                     <% end %>
-
-                    <%= for entry <- @uploads.audio.entries do %>
-                      <div class="staged-card" style="border-left: 2px solid #a78bfa;">
+                  </div>
+                  
+    <!-- Upload Results / Copy Links -->
+                  <div
+                    :if={!Enum.empty?(@recent_uploads)}
+                    class="results-queue"
+                    style="margin-top: 2rem;"
+                  >
+                    <h4 style="color: #4ade80; font-size: 0.8rem; margin-bottom: 1rem; letter-spacing: 1px; font-family: 'JetBrains Mono';">
+                      RECENTLY ROUTED:
+                    </h4>
+                    <%= for result <- @recent_uploads do %>
+                      <div
+                        class="staged-card"
+                        style="border-left: 2px solid #4ade80; background: rgba(74, 222, 128, 0.05);"
+                      >
                         <div class="card-info">
-                          <span class="file-icon" style="color: #a78bfa;">
-                            <.icon name="hero-microphone" class="size-4" />
+                          <span class="file-icon" style="color: #4ade80;">
+                            <.icon name="hero-check-circle" class="size-5" />
                           </span>
                           <div class="file-details">
-                            <span class="file-name">{entry.client_name}</span>
-                            <div class="progress-wrap">
-                              <div
-                                class="progress-bar"
-                                style={"width: #{entry.progress}%; background: #a78bfa;"}
-                              >
-                              </div>
-                            </div>
+                            <%= case result do %>
+                              <% %{type: :image, markdown: md} -> %>
+                                <span class="file-name">Image Uploaded</span>
+                                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
+                                  <input
+                                    type="text"
+                                    value={md}
+                                    readonly
+                                    class="minimal-select"
+                                    style="flex: 1; color: #fff; border-color: #333;"
+                                    onclick="this.select(); document.execCommand('copy');"
+                                  />
+                                  <span style="color: #888; font-size: 0.7rem;">
+                                    (Click to copy markdown)
+                                  </span>
+                                </div>
+                              <% %{type: :markdown, name: name} -> %>
+                                <span class="file-name">Markdown '{name}' routed successfully.</span>
+                              <% %{type: :audio, name: name} -> %>
+                                <span class="file-name">
+                                  Audio log '{name}' archived successfully.
+                                </span>
+                              <% _ -> %>
+                                <span class="file-name">Processing complete.</span>
+                            <% end %>
                           </div>
-                        </div>
-                        <div class="card-config">
-                          <span style="color: #888; font-size: 0.8rem; font-family: monospace;">
-                            AUDIO
-                          </span>
-                          <button
-                            type="button"
-                            phx-click="cancel_upload"
-                            phx-value-ref={entry.ref}
-                            phx-value-type="audio"
-                            class="purge-btn"
-                          >
-                            <.icon name="hero-trash" class="size-4" />
-                          </button>
                         </div>
                       </div>
                     <% end %>
-
-                    <div class="launch-sequence">
-                      <button type="submit" class="launch-btn">
-                        <span class="btn-text">
-                          INITIALIZE COMMIT ({length(@uploads.markdown.entries) +
-                            length(@uploads.audio.entries)} UNITS)
-                        </span>
-                        <div class="btn-glow"></div>
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
             </form>
           </div>
           
-    <!-- Tabs for Viewing Content -->
-          <div style="display: flex; gap: 2rem; margin-bottom: 2rem; border-bottom: 1px solid #222; padding-bottom: 1rem;">
-            <h2 style="font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">ARCHIVES</h2>
-          </div>
-          
-    <!-- Markdown Filter -->
-          <div class="filters-bar" style="margin-bottom: 1rem;">
-            <div class="category-pills">
-              <button
-                phx-click="filter_category"
-                phx-value-category="all"
-                class={["pill", @selected_category == "all" && "active"]}
-              >
-                All MD
-              </button>
-              <%= for cat <- @writing_categories do %>
-                <button
-                  phx-click="filter_category"
-                  phx-value-category={cat}
-                  class={["pill", @selected_category == cat && "active"]}
-                >
-                  {String.capitalize(cat)}
-                </button>
-              <% end %>
-            </div>
+    <!-- Archives Below -->
+          <div style="display: flex; gap: 2rem; margin-bottom: 2rem; border-bottom: 1px solid #222; padding-bottom: 1rem; margin-top: 4rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
+              ARCHIVES EXPLORER
+            </h2>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;">
-            <!-- Manuscripts -->
-            <div class="items-list" style="display: flex; flex-direction: column; gap: 1rem;">
-              <%= for man <- Enum.filter(@manuscripts, fn m -> @selected_category == "all" or m.category == @selected_category end) do %>
-                <div class="writing-item manuscript" style="padding: 1.5rem; min-height: auto;">
-                  <div class="item-main">
-                    <div class="item-type"><i class="fas fa-scroll"></i> MARKDOWN</div>
-                    <h3 class="item-title" style="font-size: 1.1rem; margin-bottom: 0.5rem;">
-                      {man.title}
-                    </h3>
-                    <div class="item-meta" style="padding-top: 0; border: none; margin-top: 0;">
-                      <span class="tag pill-sm">{man.category}</span>
-                      <span class="mtime">{Calendar.strftime(man.mtime, "%b %d")}</span>
-                    </div>
-                  </div>
-                  <div class="item-actions">
-                    <button
-                      phx-click="delete_manuscript"
-                      phx-value-category={man.category_folder}
-                      phx-value-slug={man.slug}
-                      class="icon-btn delete"
-                      phx-confirm="Purge?"
-                    >
-                      <.icon name="hero-trash" class="size-4" />
-                    </button>
-                  </div>
-                </div>
-              <% end %>
-            </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
             
-    <!-- Audio Logs -->
-            <div class="items-list" style="display: flex; flex-direction: column; gap: 1rem;">
-              <%= for log <- @logs do %>
-                <div
-                  class="writing-item"
-                  style="padding: 1.5rem; min-height: auto; border-left: 2px solid #a78bfa;"
-                >
-                  <div class="item-main">
-                    <div class="item-type" style="color: #a78bfa;">
-                      <i class="fas fa-microphone"></i> AUDIO LOG
+    <!-- Markdown Column -->
+            <div class="archive-column">
+              <h3 style="color: #888; font-size: 0.9rem; letter-spacing: 2px; margin-bottom: 1.5rem;">
+                MARKDOWN POSTS
+              </h3>
+              <div class="items-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <%= for man <- Enum.take(@manuscripts, 10) do %>
+                  <div class="writing-item manuscript" style="padding: 1.5rem; min-height: auto;">
+                    <div class="item-main">
+                      <div class="item-type">
+                        <i class="fas fa-scroll"></i> {String.upcase(man.category)}
+                      </div>
+                      <h3 class="item-title" style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+                        {man.title}
+                      </h3>
+                      <div class="item-meta" style="padding-top: 0; border: none; margin-top: 0;">
+                        <span class="mtime">{Calendar.strftime(man.mtime, "%b %d, %Y")}</span>
+                      </div>
                     </div>
-                    <h3 class="item-title" style="font-size: 1.1rem; margin-bottom: 0.5rem;">
-                      {log.title}
-                    </h3>
-                    <div
-                      class="item-meta"
-                      style="padding-top: 0; border: none; margin-top: 0; display: flex; gap: 1rem;"
-                    >
-                      <span class="mtime">STARDATE {log.stardate}</span>
+                    <div class="item-actions">
                       <button
-                        phx-click="toggle_audio_status"
-                        phx-value-id={log.id}
-                        class="text-link"
-                        style={"font-size: 0.7rem; color: " <> if(log.published, do: "#4ade80", else: "#ff6b6b")}
+                        phx-click="delete_manuscript"
+                        phx-value-category={man.category_folder}
+                        phx-value-slug={man.slug}
+                        class="icon-btn delete"
+                        phx-confirm="Purge?"
                       >
-                        {if log.published, do: "LIVE", else: "HIDDEN"}
+                        <.icon name="hero-trash" class="size-4" />
                       </button>
                     </div>
                   </div>
-                  <div class="item-actions">
+                <% end %>
+              </div>
+            </div>
+            
+    <!-- Audio Column -->
+            <div class="archive-column">
+              <h3 style="color: #a78bfa; font-size: 0.9rem; letter-spacing: 2px; margin-bottom: 1.5rem;">
+                AUDIO LOGS
+              </h3>
+              <div class="items-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <%= for log <- Enum.take(@logs, 10) do %>
+                  <div
+                    class="writing-item"
+                    style="padding: 1.5rem; min-height: auto; border-left: 2px solid #a78bfa;"
+                  >
+                    <div class="item-main">
+                      <h3 class="item-title" style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+                        {log.title}
+                      </h3>
+                      <div
+                        class="item-meta"
+                        style="padding-top: 0; border: none; margin-top: 0; display: flex; gap: 1rem; align-items: center;"
+                      >
+                        <span class="mtime">SD {log.stardate}</span>
+                        <button
+                          phx-click="toggle_audio_status"
+                          phx-value-id={log.id}
+                          class="text-link"
+                          style={"font-size: 0.7rem; color: " <> if(log.published, do: "#4ade80", else: "#ff6b6b")}
+                        >
+                          {if log.published, do: "LIVE", else: "HIDDEN"}
+                        </button>
+                      </div>
+                    </div>
+                    <div class="item-actions">
+                      <button
+                        phx-click="delete_log"
+                        phx-value-id={log.id}
+                        class="icon-btn delete"
+                        phx-confirm="Purge?"
+                      >
+                        <.icon name="hero-trash" class="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+            
+    <!-- Image Column -->
+            <div class="archive-column">
+              <h3 style="color: #60a5fa; font-size: 0.9rem; letter-spacing: 2px; margin-bottom: 1.5rem;">
+                IMAGE GALLERY
+              </h3>
+              <div class="items-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <%= for img <- Enum.take(@images, 10) do %>
+                  <div
+                    class="writing-item"
+                    style="padding: 1rem; min-height: auto; border-left: 2px solid #60a5fa; display: flex; flex-direction: row; align-items: center; gap: 1rem;"
+                  >
+                    <img
+                      src={img.path}
+                      style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; background: #222;"
+                    />
+                    <div class="item-main" style="flex: 1; min-width: 0;">
+                      <h3
+                        class="item-title"
+                        style="font-size: 0.9rem; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                      >
+                        {img.name}
+                      </h3>
+                      <input
+                        type="text"
+                        value={"![img](#{img.path})"}
+                        readonly
+                        style="width: 100%; background: #000; border: 1px solid #333; color: #888; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px;"
+                        onclick="this.select(); document.execCommand('copy');"
+                      />
+                    </div>
                     <button
-                      phx-click="delete_log"
-                      phx-value-id={log.id}
+                      phx-click="delete_image"
+                      phx-value-name={img.name}
                       class="icon-btn delete"
+                      style="position: static; opacity: 1;"
                       phx-confirm="Purge?"
                     >
                       <.icon name="hero-trash" class="size-4" />
                     </button>
                   </div>
-                </div>
-              <% end %>
+                <% end %>
+              </div>
             </div>
           </div>
         </div>
@@ -448,51 +502,41 @@ defmodule WebWeb.AdminLive.ContentManager do
 
         .ingestion-terminal { max-width: 1200px; margin: 0 auto 2rem; width: 100%; }
         .terminal-shell { background: #0a0a0c; border: 1px solid #1a1a1c; border-radius: 12px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
-        .terminal-header { background: #151518; padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 1.5rem; border-bottom: 1px solid #1a1a1c; }
+        .terminal-header { background: #151518; padding: 0.8rem 1.5rem; display: flex; align-items: center; border-bottom: 1px solid #1a1a1c; }
         .dots { display: flex; gap: 0.4rem; } .dots span { width: 8px; height: 8px; border-radius: 50%; background: #333; }
         .command-title { font-family: 'JetBrains Mono'; font-size: 0.7rem; color: #555; letter-spacing: 1px; }
 
-        .terminal-body { padding: 3rem; min-height: 240px; }
-        .drop-zone { background: rgba(255,255,255,0.02); border: 2px dashed #333; border-radius: 12px; padding: 3rem 2rem; text-align: center; transition: all 0.3s; }
-        .drop-zone:hover { border-color: #666; background: rgba(255,255,255,0.04); }
-        .drop-zone h3 { font-size: 0.9rem; font-weight: 800; letter-spacing: 2px; margin-bottom: 0.5rem; color: #fff; }
-        .drop-zone p { color: #555; font-size: 0.8rem; }
+        .terminal-body { padding: 4rem; min-height: 300px; transition: background 0.3s; }
+        .drop-zone-master { background: rgba(255, 102, 0, 0.02); }
+        .drop-zone-master[phx-drop-target] { cursor: copy; }
 
-        .action-link { cursor: pointer; text-decoration: underline; text-underline-offset: 4px; font-weight: 800; color: var(--accent-primary); }
+        .primary-pulse { animation: icon-wiggle 3s infinite; }
+        @keyframes icon-wiggle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
         .hidden-input { display: none; }
-
         .staged-queue { display: flex; flex-direction: column; gap: 1.2rem; }
         .staged-card { background: #000; border: 1px solid #111; padding: 1rem 1.5rem; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
-        .card-info { display: flex; align-items: center; gap: 1.5rem; flex: 1; }
+        .card-info { display: flex; align-items: center; gap: 1.5rem; flex: 1; min-width: 0; }
         .file-icon { font-size: 1.4rem; color: var(--accent-primary); }
-        .file-details { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
-        .file-name { font-family: 'JetBrains Mono'; font-size: 0.85rem; color: #fff; }
+        .file-details { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+        .file-name { font-family: 'JetBrains Mono'; font-size: 0.85rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .progress-wrap { height: 3px; background: #111; border-radius: 2px; overflow: hidden; width: 100%; max-width: 250px; }
         .progress-bar { height: 100%; background: var(--accent-primary); transition: width 0.3s; }
 
         .card-config { display: flex; align-items: center; gap: 1.5rem; }
-        .minimal-select { background: #111; border: 1px solid #222; color: #888; padding: 0.5rem 1rem; border-radius: 6px; font-family: 'JetBrains Mono'; font-size: 0.7rem; cursor: pointer; outline: none; }
+        .minimal-select { background: #000; border: 1px solid #222; color: #888; border-radius: 6px; font-family: 'JetBrains Mono'; cursor: pointer; outline: none; }
         .minimal-select:focus { border-color: var(--accent-primary); color: #fff; }
-        .purge-btn { background: none; border: none; color: #333; cursor: pointer; transition: color 0.2s; font-size: 1rem; }
-        .purge-btn:hover { color: #f00; }
 
-        .launch-sequence { margin-top: 2rem; border-top: 1px solid #111; padding-top: 2rem; display: flex; justify-content: center; }
         .launch-btn { background: #fff; color: #000; border: none; padding: 1rem 2.5rem; border-radius: 8px; font-weight: 900; font-size: 0.8rem; letter-spacing: 2px; position: relative; cursor: pointer; overflow: hidden; transition: all 0.3s; }
         .launch-btn:hover { transform: scale(1.02); }
         .btn-glow { position: absolute; inset: 0; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent); animation: sweep 2s infinite; }
         @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-
-        .filters-bar { padding: 0; border-radius: 20px; }
-        .category-pills { display: flex; gap: 1rem; }
-        .pill { padding: 0.4rem 1.2rem; border-radius: 30px; background: transparent; color: #666; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); font-weight: 500; transition: all 0.3s; font-size: 0.8rem; }
-        .pill.active { background: #fff; color: #000; border-color: #fff; }
 
         .writing-item { background: #080808; border: 1px solid var(--border-color); border-radius: 12px; display: flex; flex-direction: column; position: relative; transition: all 0.3s; }
         .writing-item:hover { border-color: rgba(255, 102, 0, 0.3); background: #0c0c0e; }
         .item-type { font-size: 0.65rem; color: #444; margin-bottom: 0.5rem; letter-spacing: 2px; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; }
         .item-title { font-size: 1.1rem; font-weight: 500; color: #fff; line-height: 1.25; }
         .item-meta { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-        .pill-sm { font-size: 0.65rem; color: #888; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
         .mtime { font-size: 0.65rem; color: #555; font-family: 'JetBrains Mono'; }
 
         .item-actions { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; opacity: 0; transition: opacity 0.3s; }
