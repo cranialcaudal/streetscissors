@@ -72,9 +72,10 @@ config :web, dev_routes: true
 # In production this is supplied via the ADMIN_PASSWORD env var (see runtime.exs).
 config :web, :admin_password, System.get_env("ADMIN_PASSWORD") || "dev-admin"
 
-# Overland GPS ingestion token for local development only.
-# In production this is supplied via the OVERLAND_TOKEN env var (see runtime.exs).
-config :web, :overland_token, System.get_env("OVERLAND_TOKEN") || "dev-token"
+# Komoot auto-sync credentials (optional — sync is disabled when unset).
+config :web, :komoot,
+  email: System.get_env("KOMOOT_EMAIL"),
+  password: System.get_env("KOMOOT_PASSWORD")
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

@@ -2,89 +2,64 @@ defmodule WebWeb.RidesLive.Index do
   use WebWeb, :live_view
 
   alias Web.Rides
+  alias Web.SiteSettings
   alias WebWeb.RidesLive.Format
 
-  def mount(_params, _session, socket) do
-    if connected?(socket), do: Rides.subscribe()
-
-    socket =
-      socket
-      |> assign(page_title: "Rides")
-      |> load_rides()
-      |> push_active_trail()
-
-    {:ok, socket}
+  def mount(_params, session, socket) do
+    {:ok,
+     assign(socket,
+       page_title: "Rides",
+       is_admin: session["admin_user"] == true,
+       planned: Rides.list_planned_rides(),
+       rides: Rides.list_recorded_rides(),
+       komoot_embed: komoot_embed_url()
+     )}
   end
 
-  def handle_info({:ride_points, ride_id, points}, socket) do
-    case socket.assigns.active_ride do
-      %{id: ^ride_id} ->
-        {:noreply, push_event(socket, "ride:append", %{points: Format.encode_points(points)})}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_info({:ride_started, _ride}, socket) do
-    {:noreply, socket |> load_rides() |> push_active_trail()}
-  end
-
-  def handle_info({:ride_stopped, _ride}, socket) do
-    {:noreply, load_rides(socket)}
-  end
-
-  defp load_rides(socket) do
-    assign(socket,
-      active_ride: Rides.get_active_ride(),
-      rides: Rides.list_completed_rides()
-    )
-  end
-
-  defp push_active_trail(socket) do
-    with true <- connected?(socket),
-         %{} = ride <- socket.assigns.active_ride do
-      points = Rides.list_points(ride)
-      push_event(socket, "ride:init", %{points: Format.encode_points(points)})
-    else
-      _ -> socket
+  defp komoot_embed_url do
+    case SiteSettings.get_setting("komoot_embed_url") do
+      "https://www.komoot." <> _ = url -> url
+      _ -> nil
     end
   end
 
   def render(assigns) do
     ~H"""
     <div class="rides-container">
+      <WebWeb.FitnessSubnav.subnav active={:rides} is_admin={@is_admin} />
+
       <header class="rides-header">
         <h1 class="rides-title">Rides</h1>
-        <p class="rides-sub">GPS tracks, live from the road when one is rolling</p>
+        <p class="rides-sub">GPS tracks synced from Komoot</p>
       </header>
 
-      <%= if @active_ride do %>
-        <section class="ride-live-frame">
-          <div class="ride-live-banner">
-            <span class="live-dot" aria-hidden="true"></span>
-            Live — {@active_ride.name || "ride in progress"}
-            <span class="live-since">since {Format.time(@active_ride.started_at)} UTC</span>
+      <section :if={@planned != []} class="ride-planned">
+        <h2 class="ride-archive-heading">Planned routes</h2>
+
+        <.link
+          :for={ride <- @planned}
+          navigate={~p"/fitness/rides/#{ride.id}"}
+          class="ride-card ride-card--planned"
+        >
+          <div class="ride-card-main">
+            <span class="ride-card-name">{ride.name || "Untitled route"}</span>
+            <span class="ride-card-date">planned</span>
           </div>
-          <div
-            id="live-ride-map"
-            class="ride-map"
-            phx-hook="RideMap"
-            phx-update="ignore"
-            data-mode="live"
-          >
+          <div class="ride-card-stats">
+            <span>{Format.distance(ride.distance_m)}</span>
+            <span>{Format.elevation(ride.ascent_m)} ↑</span>
           </div>
-        </section>
-      <% end %>
+        </.link>
+      </section>
 
       <section class="ride-archive">
-        <h2 :if={@active_ride} class="ride-archive-heading">Past rides</h2>
+        <h2 :if={@planned != []} class="ride-archive-heading">Rides</h2>
 
-        <p :if={@rides == [] && !@active_ride} class="rides-empty">
-          No rides logged yet. The next one will show up here — live.
+        <p :if={@rides == []} class="rides-empty">
+          No rides logged yet. The next one will land here straight from Komoot.
         </p>
 
-        <.link :for={ride <- @rides} navigate={~p"/rides/#{ride.id}"} class="ride-card">
+        <.link :for={ride <- @rides} navigate={~p"/fitness/rides/#{ride.id}"} class="ride-card">
           <div class="ride-card-main">
             <span class="ride-card-name">{ride.name || "Untitled ride"}</span>
             <span class="ride-card-date">{Format.date(ride.started_at)}</span>
@@ -96,6 +71,17 @@ defmodule WebWeb.RidesLive.Index do
             <span>{Format.elevation(ride.ascent_m)} ↑</span>
           </div>
         </.link>
+      </section>
+
+      <section :if={@komoot_embed}>
+        <h2 class="ride-archive-heading">On Komoot</h2>
+        <iframe
+          src={@komoot_embed}
+          class="ride-komoot-embed"
+          title="Komoot profile"
+          loading="lazy"
+        >
+        </iframe>
       </section>
     </div>
     """

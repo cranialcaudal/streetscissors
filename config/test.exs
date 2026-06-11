@@ -27,8 +27,9 @@ config :web, Web.Mailer, adapter: Swoosh.Adapters.Test
 # Admin dashboard password used in tests
 config :web, :admin_password, "test-admin"
 
-# Overland GPS ingestion token used in tests
-config :web, :overland_token, "test-overland-token"
+# Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
+config :web, :komoot, email: "test@example.com", password: "test-password"
+config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

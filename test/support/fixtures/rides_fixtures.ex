@@ -3,32 +3,6 @@ defmodule Web.RidesFixtures do
   Test helpers for the `Web.Rides` context.
   """
 
-  @doc """
-  An Overland GeoJSON feature with sensible defaults. The default timestamp
-  is now + 1s so the point lands after any just-started ride's `started_at`.
-  """
-  def overland_feature(attrs \\ %{}) do
-    props =
-      Map.merge(
-        %{
-          "timestamp" => iso_in(1),
-          "speed" => 5.0,
-          "altitude" => 12.0,
-          "horizontal_accuracy" => 5.0
-        },
-        Map.get(attrs, "properties", %{})
-      )
-
-    %{
-      "type" => "Feature",
-      "geometry" => %{
-        "type" => "Point",
-        "coordinates" => Map.get(attrs, "coordinates", [-121.49, 38.58])
-      },
-      "properties" => props
-    }
-  end
-
   @doc "ISO8601 timestamp `seconds` from now."
   def iso_in(seconds) do
     DateTime.utc_now()

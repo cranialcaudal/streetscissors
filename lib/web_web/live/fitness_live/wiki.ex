@@ -35,46 +35,7 @@ defmodule WebWeb.FitnessLive.Wiki do
       </header>
       
     <!-- Section Navigation -->
-      <div class="bento-fitness-sub-row" style="display: flex; gap: 1rem; margin-bottom: 2rem;">
-        <a
-          href="/fitness"
-          class="bento-card bento-card-skinny"
-          style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
-        >
-          <span
-            class="bento-label-small"
-            style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
-          >
-            📰 Blog
-          </span>
-        </a>
-        <a
-          href="/fitness/regimen"
-          class="bento-card bento-card-skinny"
-          style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
-        >
-          <span
-            class="bento-label-small"
-            style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
-          >
-            📅 Regimen
-          </span>
-        </a>
-        <%= if @is_admin do %>
-          <a
-            href="/fitness/biometrics"
-            class="bento-card bento-card-skinny"
-            style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
-          >
-            <span
-              class="bento-label-small"
-              style="color: #fff; font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
-            >
-              📊 Biometrics
-            </span>
-          </a>
-        <% end %>
-      </div>
+      <WebWeb.FitnessSubnav.subnav active={:wiki} is_admin={@is_admin} />
 
       <div class="blog-bento-card bento-span-full" style="padding: 2rem;">
         <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--theme-color); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem;">

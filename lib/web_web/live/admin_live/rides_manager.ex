@@ -2,8 +2,10 @@ defmodule WebWeb.AdminLive.RidesManager do
   use WebWeb, :live_view
 
   alias Web.Rides
-  alias Web.Rides.Privacy
+  alias Web.Rides.{KomootSync, Privacy}
   alias WebWeb.RidesLive.Format
+
+  @embed_setting "komoot_embed_url"
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -11,7 +13,9 @@ defmodule WebWeb.AdminLive.RidesManager do
      |> assign(
        page_title: "Rides | Admin",
        zones_json: Web.SiteSettings.get_setting(Privacy.setting_key(), "[]"),
-       overland_url: overland_url(),
+       embed_url: Web.SiteSettings.get_setting(@embed_setting, ""),
+       komoot_enabled: KomootSync.enabled?(),
+       sync_running: false,
        gpx_results: []
      )
      |> load_rides()
@@ -26,24 +30,47 @@ defmodule WebWeb.AdminLive.RidesManager do
 
   defp load_rides(socket) do
     assign(socket,
-      active_ride: Rides.get_active_ride(),
-      rides: Rides.list_completed_rides()
+      rides: Rides.list_recorded_rides() ++ Rides.list_planned_rides()
     )
   end
 
-  def handle_event("start_ride", %{"name" => name}, socket) do
-    {:ok, _ride} = Rides.start_ride(%{"name" => name})
-    {:noreply, socket |> load_rides() |> put_flash(:info, "Ride started — tracker is live.")}
+  def handle_event("sync_komoot", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(sync_running: true)
+     |> start_async(:komoot_sync, fn -> KomootSync.sync() end)}
   end
 
-  def handle_event("stop_ride", _params, socket) do
-    case socket.assigns.active_ride do
-      nil ->
+  def handle_event("save_embed", %{"url" => url}, socket) do
+    url = String.trim(url)
+
+    if url == "" or String.starts_with?(url, "https://www.komoot.") do
+      {:ok, _setting} = Web.SiteSettings.put_setting(@embed_setting, url)
+      {:noreply, assign(socket, embed_url: url) |> put_flash(:info, "Komoot embed saved.")}
+    else
+      {:noreply, put_flash(socket, :error, "Embed URL must start with https://www.komoot.")}
+    end
+  end
+
+  def handle_event("attach_komoot", %{"id" => id, "value" => value}, socket) do
+    ride = Rides.get_ride!(id)
+
+    case String.trim(value) do
+      "" ->
         {:noreply, socket}
 
-      ride ->
-        {:ok, _ride} = Rides.stop_ride(ride)
-        {:noreply, socket |> load_rides() |> put_flash(:info, "Ride completed and archived.")}
+      value ->
+        case Rides.attach_komoot(ride, value) do
+          {:ok, _ride} ->
+            {:noreply, socket |> load_rides() |> put_flash(:info, "Komoot tour attached.")}
+
+          {:error, :invalid_komoot_id} ->
+            {:noreply, put_flash(socket, :error, "Expected a komoot tour URL or numeric id.")}
+
+          {:error, _changeset} ->
+            {:noreply,
+             put_flash(socket, :error, "That komoot tour is already attached to another ride.")}
+        end
     end
   end
 
@@ -73,6 +100,39 @@ defmodule WebWeb.AdminLive.RidesManager do
     {:noreply, socket}
   end
 
+  def handle_async(:komoot_sync, {:ok, result}, socket) do
+    socket = assign(socket, sync_running: false)
+
+    case result do
+      {:ok, %{imported: imported, skipped: skipped, failed: failed}} ->
+        {:noreply,
+         socket
+         |> load_rides()
+         |> put_flash(
+           :info,
+           "Komoot sync: #{imported} imported, #{skipped} known, #{failed} failed."
+         )}
+
+      :disabled ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Komoot sync is disabled — set KOMOOT_EMAIL and KOMOOT_PASSWORD."
+         )}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Komoot sync failed: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_async(:komoot_sync, {:exit, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(sync_running: false)
+     |> put_flash(:error, "Komoot sync crashed: #{inspect(reason)}")}
+  end
+
   defp handle_progress(:gpx, entry, socket) do
     if entry.done? do
       results =
@@ -94,57 +154,45 @@ defmodule WebWeb.AdminLive.RidesManager do
     end
   end
 
-  defp overland_url do
-    WebWeb.Endpoint.url() <>
-      "/api/overland?token=" <> to_string(Application.get_env(:web, :overland_token))
-  end
-
   def render(assigns) do
     ~H"""
     <div class="rides-admin">
-      <h1 class="rides-admin-title">Ride Tracking</h1>
+      <h1 class="rides-admin-title">Rides</h1>
 
       <section class="rides-admin-panel">
-        <h2>Live ride</h2>
-        <%= if @active_ride do %>
-          <p class="rides-admin-live">
-            <span class="live-dot" aria-hidden="true"></span>
-            <strong>{@active_ride.name || "Unnamed ride"}</strong>
-            active since {Format.time(@active_ride.started_at)} UTC · {@active_ride.point_count} points
+        <h2>Komoot sync</h2>
+        <%= if @komoot_enabled do %>
+          <p class="rides-admin-hint">
+            New recorded and planned tours are pulled hourly. Already-imported tours are
+            skipped — to refresh one, delete it below and sync again.
           </p>
-          <button phx-click="stop_ride" class="theme-btn rides-admin-stop">
-            Stop &amp; archive ride
+          <button phx-click="sync_komoot" class="theme-btn" disabled={@sync_running}>
+            {if @sync_running, do: "Syncing…", else: "Sync now"}
           </button>
         <% else %>
-          <form phx-submit="start_ride" class="rides-admin-start">
-            <input
-              type="text"
-              name="name"
-              placeholder="Ride name (e.g. Fred Whitton Challenge)"
-              autocomplete="off"
-            />
-            <button type="submit" class="theme-btn">Start ride</button>
-          </form>
           <p class="rides-admin-hint">
-            Start the ride here, then begin tracking in Overland. Stale rides auto-close
-            after 3 hours without points.
+            Disabled — set <code>KOMOOT_EMAIL</code> and <code>KOMOOT_PASSWORD</code> in the
+            environment to enable auto-sync. Manual GPX import below always works.
           </p>
         <% end %>
       </section>
 
       <section class="rides-admin-panel">
-        <h2>Phone setup</h2>
+        <h2>Komoot embed</h2>
         <p class="rides-admin-hint">
-          Overland &rarr; Settings &rarr; Receiver Endpoint URL:
+          Profile or collection embed URL shown on the rides page (komoot &rarr; share &rarr;
+          embed &rarr; copy the iframe <code>src</code>). Leave empty to hide.
         </p>
-        <input
-          type="text"
-          readonly
-          value={@overland_url}
-          class="rides-admin-url"
-          onclick="this.select(); document.execCommand('copy');"
-        />
-        <p class="rides-admin-hint">(click to copy — contains the secret token)</p>
+        <form phx-submit="save_embed" class="rides-admin-embed">
+          <input
+            type="text"
+            name="url"
+            value={@embed_url}
+            placeholder="https://www.komoot.com/…/embed"
+            autocomplete="off"
+          />
+          <button type="submit" class="theme-btn">Save</button>
+        </form>
       </section>
 
       <section class="rides-admin-panel">
@@ -175,6 +223,8 @@ defmodule WebWeb.AdminLive.RidesManager do
         <p class="rides-admin-hint">
           Points inside these zones are stored but never shown publicly. JSON list:
           <code>{~s|[{"lat": 38.58, "lon": -121.49, "radius_m": 1000}]|}</code>
+          Note: an attached komoot embed shows komoot's own map — rely on komoot's
+          account privacy zones there.
         </p>
         <form phx-submit="save_zones">
           <textarea name="zones" rows="4" class="rides-admin-zones">{@zones_json}</textarea>
@@ -189,9 +239,10 @@ defmodule WebWeb.AdminLive.RidesManager do
             <tr>
               <th>Name</th>
               <th>Date</th>
+              <th>Kind</th>
               <th>Distance</th>
-              <th>Points</th>
               <th>Source</th>
+              <th>Komoot</th>
               <th></th>
             </tr>
           </thead>
@@ -207,11 +258,20 @@ defmodule WebWeb.AdminLive.RidesManager do
                 />
               </td>
               <td>{Format.date(ride.started_at)}</td>
+              <td>{ride.kind}</td>
               <td>{Format.distance(ride.distance_m)}</td>
-              <td>{ride.point_count}</td>
               <td>{ride.source}</td>
               <td>
-                <.link navigate={~p"/rides/#{ride.id}"} class="rides-admin-view">view</.link>
+                <input
+                  type="text"
+                  value={ride.komoot_id}
+                  phx-blur="attach_komoot"
+                  phx-value-id={ride.id}
+                  placeholder="tour URL or id"
+                />
+              </td>
+              <td>
+                <.link navigate={~p"/fitness/rides/#{ride.id}"} class="rides-admin-view">view</.link>
                 <button
                   phx-click="delete_ride"
                   phx-value-id={ride.id}
@@ -232,17 +292,12 @@ defmodule WebWeb.AdminLive.RidesManager do
         .rides-admin-panel { background: rgba(255,255,255,0.03); border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
         .rides-admin-panel h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; color: #999; margin-bottom: 1rem; }
         .rides-admin-hint { color: #777; font-size: 0.85rem; margin: 0.5rem 0; }
-        .rides-admin-live { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-        .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #f43f5e; animation: live-pulse 1.5s infinite; display: inline-block; }
-        @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-        .rides-admin-start { display: flex; gap: 0.75rem; }
-        .rides-admin-start input, .rides-admin-url, .rides-admin-zones, .rides-admin-table input {
+        .rides-admin-embed { display: flex; gap: 0.75rem; }
+        .rides-admin-embed input { flex: 1; }
+        .rides-admin-embed input, .rides-admin-zones, .rides-admin-table input {
           background: #000; border: 1px solid #333; color: #eee; border-radius: 6px; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.85rem;
         }
-        .rides-admin-start input { flex: 1; }
-        .rides-admin-url { width: 100%; color: #9db8f0; }
         .rides-admin-zones { width: 100%; margin-bottom: 0.75rem; }
-        .rides-admin-stop { background: #5a2525 !important; color: #ffadad !important; }
         .rides-admin-results { margin-top: 1rem; font-size: 0.85rem; color: #9f9; list-style: none; }
         .rides-admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .rides-admin-table th { text-align: left; color: #777; padding: 0.4rem 0.5rem; border-bottom: 1px solid #2a2a2a; font-weight: 600; }

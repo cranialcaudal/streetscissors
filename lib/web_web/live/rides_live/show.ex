@@ -31,10 +31,15 @@ defmodule WebWeb.RidesLive.Show do
     ~H"""
     <div class="rides-container">
       <header class="rides-header ride-show-header">
-        <.link navigate={~p"/rides"} class="ride-back">&larr; all rides</.link>
+        <.link navigate={~p"/fitness/rides"} class="ride-back">&larr; all rides</.link>
         <h1 class="rides-title">{@ride.name || "Untitled ride"}</h1>
         <p class="rides-sub">
-          {Format.date(@ride.started_at)}
+          <%= if @ride.kind == "planned" do %>
+            planned route
+          <% else %>
+            {Format.date(@ride.started_at)}
+          <% end %>
+          <span :if={@ride.source == "komoot"} class="ride-source-tag">komoot</span>
           <span :if={@ride.source == "gpx"} class="ride-source-tag">imported</span>
         </p>
       </header>
@@ -44,18 +49,20 @@ defmodule WebWeb.RidesLive.Show do
           <span class="ride-stat-value">{Format.distance(@ride.distance_m)}</span>
           <span class="ride-stat-label">distance</span>
         </div>
-        <div class="ride-stat">
-          <span class="ride-stat-value">{Format.duration(@ride.duration_s)}</span>
-          <span class="ride-stat-label">moving time</span>
-        </div>
-        <div class="ride-stat">
-          <span class="ride-stat-value">{Format.speed(@ride.avg_speed_mps)}</span>
-          <span class="ride-stat-label">avg speed</span>
-        </div>
-        <div class="ride-stat">
-          <span class="ride-stat-value">{Format.speed(@ride.max_speed_mps)}</span>
-          <span class="ride-stat-label">max speed</span>
-        </div>
+        <%= if @ride.kind == "recorded" do %>
+          <div class="ride-stat">
+            <span class="ride-stat-value">{Format.duration(@ride.duration_s)}</span>
+            <span class="ride-stat-label">moving time</span>
+          </div>
+          <div class="ride-stat">
+            <span class="ride-stat-value">{Format.speed(@ride.avg_speed_mps)}</span>
+            <span class="ride-stat-label">avg speed</span>
+          </div>
+          <div class="ride-stat">
+            <span class="ride-stat-value">{Format.speed(@ride.max_speed_mps)}</span>
+            <span class="ride-stat-label">max speed</span>
+          </div>
+        <% end %>
         <div class="ride-stat">
           <span class="ride-stat-value">{Format.elevation(@ride.ascent_m)}</span>
           <span class="ride-stat-label">ascent</span>
@@ -71,7 +78,6 @@ defmodule WebWeb.RidesLive.Show do
         class="ride-map"
         phx-hook="RideMap"
         phx-update="ignore"
-        data-mode="static"
       >
       </div>
 
@@ -84,6 +90,15 @@ defmodule WebWeb.RidesLive.Show do
       </canvas>
 
       <p :if={@ride.description} class="ride-description">{@ride.description}</p>
+
+      <iframe
+        :if={@ride.komoot_id}
+        src={"https://www.komoot.com/tour/#{@ride.komoot_id}/embed?profile=1"}
+        class="ride-komoot-embed"
+        title="Komoot tour"
+        loading="lazy"
+      >
+      </iframe>
     </div>
     """
   end

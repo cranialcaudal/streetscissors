@@ -21,17 +21,6 @@ defmodule WebWeb.Router do
     put_session(conn, "csrf_token", token)
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
-
-  scope "/api", WebWeb do
-    pipe_through :api
-
-    # GPS ingestion from the Overland phone app (token-authenticated).
-    post "/overland", OverlandController, :create
-  end
-
   scope "/", WebWeb do
     pipe_through :browser
 
@@ -73,11 +62,15 @@ defmodule WebWeb.Router do
       live "/fitness/biometrics", FitnessLive.Biometrics, :index
       get "/fitness/biometrics/export", FitnessController, :export_biometrics_csv
 
+      # Rides — must stay above the /fitness/:slug catch-all
+      live "/fitness/rides", RidesLive.Index, :index
+      live "/fitness/rides/:id", RidesLive.Show, :show
+
       live "/fitness/:slug", FitnessBlogLive.Show, :show
 
-      # Rides (live tracking + archive)
-      live "/rides", RidesLive.Index, :index
-      live "/rides/:id", RidesLive.Show, :show
+      # Legacy ride paths (the section briefly lived at /rides)
+      get "/rides", RideRedirectController, :index
+      get "/rides/:id", RideRedirectController, :show
     end
 
     live_session :admin,

@@ -6,106 +6,25 @@ defmodule Web.RidesTest do
   alias Web.Rides
   alias Web.Rides.{Privacy, Stats}
 
-  defp feature_in(seconds, coordinates) do
-    overland_feature(%{
-      "coordinates" => coordinates,
-      "properties" => %{"timestamp" => iso_in(seconds)}
-    })
-  end
-
-  describe "ride lifecycle" do
-    test "start_ride/stop_ride computes stats from ingested points" do
-      {:ok, ride} = Rides.start_ride(%{"name" => "Test loop"})
-      assert ride.status == "active"
-      assert Rides.get_active_ride().id == ride.id
-
-      {:ok, 2} =
-        Rides.ingest_locations([
-          feature_in(1, [-121.49, 38.58]),
-          feature_in(61, [-121.48, 38.58])
-        ])
-
-      {:ok, completed} = Rides.stop_ride(Rides.get_active_ride())
-      assert completed.status == "completed"
-      assert completed.point_count == 2
-      assert completed.duration_s == 60
-      # ~0.01 degrees of longitude at this latitude is ~870 m
-      assert_in_delta completed.distance_m, 870, 30
-      assert Rides.get_active_ride() == nil
-      assert [%{id: id}] = Rides.list_completed_rides()
-      assert id == completed.id
-    end
-
-    test "starting a new ride closes the previous active one" do
-      {:ok, first} = Rides.start_ride(%{"name" => "First"})
-      {:ok, second} = Rides.start_ride(%{"name" => "Second"})
-
-      assert Rides.get_ride!(first.id).status == "completed"
-      assert Rides.get_active_ride().id == second.id
-    end
-
-    test "auto_close_stale_ride leaves fresh rides alone" do
-      {:ok, ride} = Rides.start_ride(%{"name" => "Fresh"})
-      assert :ok = Rides.auto_close_stale_ride()
-      assert Rides.get_active_ride().id == ride.id
-    end
-  end
-
-  describe "ingest_locations/1" do
-    test "without an active ride the batch is discarded but accepted" do
-      assert {:ok, 0} = Rides.ingest_locations([feature_in(1, [0.0, 0.0])])
-    end
-
-    test "duplicate batches do not duplicate points (Overland retries)" do
-      {:ok, _ride} = Rides.start_ride(%{})
-      batch = [feature_in(1, [-121.49, 38.58])]
-
-      {:ok, 1} = Rides.ingest_locations(batch)
-      {:ok, 1} = Rides.ingest_locations(batch)
-
-      assert Rides.get_active_ride().point_count == 1
-    end
-
-    test "malformed features and pre-ride timestamps are dropped" do
-      {:ok, _ride} = Rides.start_ride(%{})
-
-      {:ok, 1} =
-        Rides.ingest_locations([
-          %{"bogus" => true},
-          %{"geometry" => %{"coordinates" => [1.0, 2.0]}, "properties" => %{}},
-          feature_in(-3600, [-121.49, 38.58]),
-          feature_in(1, [-121.49, 38.58])
-        ])
-    end
-  end
-
   describe "privacy filtering" do
     test "points inside a zone are stored but hidden from public reads" do
-      zones = Jason.encode!([%{"lat" => 38.58, "lon" => -121.49, "radius_m" => 1000}])
+      zones = Jason.encode!([%{"lat" => 54.54, "lon" => -3.15, "radius_m" => 200}])
       {:ok, _setting} = Web.SiteSettings.put_setting(Privacy.setting_key(), zones)
 
-      {:ok, _ride} = Rides.start_ride(%{})
+      {:ok, ride} = Rides.import_gpx(gpx_fixture(), %{"name" => "Zoned"})
 
-      {:ok, 2} =
-        Rides.ingest_locations([
-          # inside the zone
-          feature_in(1, [-121.49, 38.58]),
-          # ~9 km east, well outside
-          feature_in(300, [-121.39, 38.58])
-        ])
-
-      ride = Rides.get_active_ride()
-      assert length(Rides.list_points(ride, public: false)) == 2
-      assert [public_point] = Rides.list_points(ride)
-      assert public_point.lon == -121.39
+      assert length(Rides.list_points(ride, public: false)) == 3
+      public = Rides.list_points(ride)
+      assert length(public) < 3
+      assert Enum.all?(public, &(Stats.haversine_m({54.54, -3.15}, {&1.lat, &1.lon}) > 200))
     end
   end
 
   describe "GPX import" do
-    test "creates a completed ride with stats" do
+    test "creates a recorded ride with stats" do
       {:ok, ride} = Rides.import_gpx(gpx_fixture(), %{"name" => "Komoot import"})
 
-      assert ride.status == "completed"
+      assert ride.kind == "recorded"
       assert ride.source == "gpx"
       assert ride.point_count == 3
       assert ride.duration_s == 120
@@ -113,12 +32,74 @@ defmodule Web.RidesTest do
       # 100 -> 110 -> 105: 10 m up, 5 m down
       assert_in_delta ride.ascent_m, 10.0, 0.01
       assert_in_delta ride.descent_m, 5.0, 0.01
+      assert [%{id: id}] = Rides.list_recorded_rides()
+      assert id == ride.id
     end
 
     @tag :capture_log
     test "rejects files without track points" do
       assert {:error, :no_track_points} = Rides.import_gpx("<gpx></gpx>", %{})
       assert {:error, :invalid_gpx} = Rides.import_gpx("not xml at all", %{})
+    end
+  end
+
+  describe "create_imported_ride/3" do
+    test "planned rides get distance and elevation but no duration or speeds" do
+      points =
+        Enum.with_index([{54.54, -3.15, 100.0}, {54.55, -3.15, 130.0}, {54.56, -3.15, 120.0}])
+        |> Enum.map(fn {{lat, lon, alt}, i} ->
+          %{
+            lat: lat,
+            lon: lon,
+            altitude_m: alt,
+            recorded_at: DateTime.add(~U[2026-07-08 08:00:00Z], i, :second)
+          }
+        end)
+
+      {:ok, ride} =
+        Rides.create_imported_ride(
+          points,
+          %{"name" => "Fred Whitton", "source" => "komoot", "komoot_id" => "123"},
+          kind: "planned"
+        )
+
+      assert ride.kind == "planned"
+      assert ride.distance_m > 2000
+      assert_in_delta ride.ascent_m, 30.0, 0.01
+      assert ride.duration_s == nil
+      assert ride.avg_speed_mps == nil
+      assert [%{id: id}] = Rides.list_planned_rides()
+      assert id == ride.id
+      assert Rides.list_recorded_rides() == []
+    end
+  end
+
+  describe "komoot helpers" do
+    test "known_komoot_ids returns the set of imported tour ids" do
+      assert Rides.known_komoot_ids() == MapSet.new()
+
+      {:ok, _ride} =
+        Rides.import_gpx(gpx_fixture(), %{"source" => "komoot", "komoot_id" => "42"})
+
+      assert Rides.known_komoot_ids() == MapSet.new(["42"])
+    end
+
+    test "attach_komoot accepts tour URLs and bare ids, rejects garbage" do
+      {:ok, ride} = Rides.import_gpx(gpx_fixture(), %{"name" => "Manual"})
+
+      assert {:ok, %{komoot_id: "987654321"}} =
+               Rides.attach_komoot(ride, "https://www.komoot.com/tour/987654321?ref=wtd")
+
+      assert {:ok, %{komoot_id: "555"}} = Rides.attach_komoot(ride, "555")
+      assert {:error, :invalid_komoot_id} = Rides.attach_komoot(ride, "not a tour")
+    end
+
+    test "attach_komoot enforces uniqueness across rides" do
+      {:ok, first} = Rides.import_gpx(gpx_fixture(), %{"name" => "First"})
+      {:ok, second} = Rides.import_gpx(gpx_fixture(), %{"name" => "Second"})
+
+      assert {:ok, _ride} = Rides.attach_komoot(first, "777")
+      assert {:error, %Ecto.Changeset{}} = Rides.attach_komoot(second, "777")
     end
   end
 

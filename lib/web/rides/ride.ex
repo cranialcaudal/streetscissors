@@ -5,8 +5,10 @@ defmodule Web.Rides.Ride do
   schema "rides" do
     field :name, :string
     field :description, :string
-    field :status, :string, default: "active"
-    field :source, :string, default: "overland"
+    field :source, :string, default: "gpx"
+    field :kind, :string, default: "recorded"
+    field :sport, :string
+    field :komoot_id, :string
     field :started_at, :utc_datetime
     field :ended_at, :utc_datetime
     field :distance_m, :float
@@ -25,8 +27,18 @@ defmodule Web.Rides.Ride do
   @doc false
   def changeset(ride, attrs) do
     ride
-    |> cast(attrs, [:name, :description, :status, :source, :started_at, :ended_at])
-    |> validate_inclusion(:status, ~w(active completed))
-    |> validate_inclusion(:source, ~w(overland gpx))
+    |> cast(attrs, [
+      :name,
+      :description,
+      :source,
+      :kind,
+      :sport,
+      :komoot_id,
+      :started_at,
+      :ended_at
+    ])
+    |> validate_inclusion(:source, ~w(gpx komoot))
+    |> validate_inclusion(:kind, ~w(recorded planned))
+    |> unique_constraint(:komoot_id)
   end
 end

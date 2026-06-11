@@ -68,8 +68,8 @@ config :web, Web.Scheduler,
   jobs: [
     # Run every Sunday at 8:23 PM (20:23)
     {"23 20 * * 0", {Web.Newsletter.Generator, :generate_weekly_draft, []}},
-    # Close a live ride that has stopped receiving GPS points
-    {"*/15 * * * *", {Web.Rides, :auto_close_stale_ride, []}}
+    # Pull new recorded/planned tours from Komoot (no-op without credentials)
+    {"7 * * * *", {Web.Rides.KomootSync, :run_scheduled, []}}
   ]
 
 config :web, Oban,

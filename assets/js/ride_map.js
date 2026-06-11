@@ -1,6 +1,6 @@
-// Leaflet map + elevation profile hooks for /rides.
-// Points arrive via push_event only ("ride:init", "ride:append",
-// "elevation:init") — never embedded in the DOM.
+// Leaflet map + elevation profile hooks for /fitness/rides.
+// Points arrive via push_event only ("ride:init", "elevation:init") —
+// never embedded in the DOM.
 import * as L from "../vendor/leaflet.js"
 
 const TRAIL_STYLE = { color: "#C8102E", weight: 3, opacity: 0.9 }
@@ -22,13 +22,11 @@ const topoLayer = () =>
 
 export const RideMap = {
   mounted() {
-    this.mode = this.el.dataset.mode || "static"
     this.map = L.map(this.el)
     this.osm = osmLayer().addTo(this.map)
     this.topo = topoLayer()
     this.map.setView([54.54, -3.15], 9) // placeholder view until points arrive
     this.polyline = L.polyline([], TRAIL_STYLE).addTo(this.map)
-    this.dot = null
     this.hoverDot = null
 
     this.addLayerToggle()
@@ -37,16 +35,6 @@ export const RideMap = {
       this.polyline.setLatLngs(points)
       if (points.length > 0) {
         this.map.fitBounds(this.polyline.getBounds(), { padding: [30, 30] })
-        if (this.mode === "live") this.moveDot(points[points.length - 1])
-      }
-    })
-
-    this.handleEvent("ride:append", ({ points }) => {
-      points.forEach((p) => this.polyline.addLatLng(p))
-      if (points.length > 0 && this.mode === "live") {
-        const last = points[points.length - 1]
-        this.moveDot(last)
-        this.map.panTo(last)
       }
     })
 
@@ -74,16 +62,6 @@ export const RideMap = {
   destroyed() {
     window.removeEventListener(HOVER_EVENT, this.onHover)
     this.map.remove()
-  },
-
-  moveDot(latlng) {
-    if (!this.dot) {
-      this.dot = L.circleMarker(latlng, {
-        radius: 7, color: "#fff", weight: 2, fillColor: "#f43f5e", fillOpacity: 1,
-      }).addTo(this.map)
-    } else {
-      this.dot.setLatLng(latlng)
-    }
   },
 
   // Custom street/topo button instead of L.control.layers: the stock control

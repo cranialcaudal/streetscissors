@@ -1,95 +1,32 @@
 defmodule Web.Rides do
   @moduledoc """
-  Ride tracking: live GPS ingestion from the Overland phone app, the ride
-  archive, and GPX imports.
+  The ride archive: rides imported from Komoot (auto-sync or manual GPX
+  upload), split into recorded rides and planned routes.
 
   Privacy rule: points inside a configured privacy zone are stored raw but
   filtered out of every public egress — `list_points/2` defaults to
-  `public: true`, and live broadcasts only carry filtered points. Admin
-  callers must explicitly pass `public: false` to see everything.
+  `public: true`. Admin callers must explicitly pass `public: false` to see
+  everything.
   """
 
   import Ecto.Query, warn: false
   alias Web.Repo
   alias Web.Rides.{Ride, RidePoint, Privacy, Stats, GPX}
 
-  @topic "rides:live"
   @insert_chunk 500
-  @stale_after_hours 3
-
-  def subscribe do
-    Phoenix.PubSub.subscribe(Web.PubSub, @topic)
-  end
 
   ## Rides
 
-  def get_active_ride do
-    from(r in Ride, where: r.status == "active", order_by: [desc: r.started_at], limit: 1)
-    |> Repo.one()
-  end
-
   def get_ride!(id), do: Repo.get!(Ride, id)
 
-  def list_completed_rides do
-    from(r in Ride, where: r.status == "completed", order_by: [desc: r.started_at])
+  def list_recorded_rides do
+    from(r in Ride, where: r.kind == "recorded", order_by: [desc: r.started_at])
     |> Repo.all()
   end
 
-  @doc "Starts a new active ride, closing any ride still active."
-  def start_ride(attrs \\ %{}) do
-    if ride = get_active_ride(), do: stop_ride(ride)
-
-    result =
-      %Ride{}
-      |> Ride.changeset(attrs)
-      |> Ecto.Changeset.put_change(:status, "active")
-      |> Ecto.Changeset.put_change(:started_at, now())
-      |> Repo.insert()
-
-    with {:ok, ride} <- result do
-      broadcast({:ride_started, ride})
-      {:ok, ride}
-    end
-  end
-
-  @doc "Completes a ride: computes and persists stats from its points."
-  def stop_ride(%Ride{} = ride) do
-    points = list_points(ride, public: false)
-    stats = Stats.compute(points)
-    ended_at = if last = List.last(points), do: last.recorded_at, else: now()
-
-    result =
-      ride
-      |> Ecto.Changeset.change(
-        status: "completed",
-        ended_at: ended_at,
-        point_count: length(points),
-        distance_m: stats.distance_m,
-        duration_s: stats.duration_s,
-        avg_speed_mps: stats.avg_speed_mps,
-        max_speed_mps: stats.max_speed_mps,
-        ascent_m: stats.ascent_m,
-        descent_m: stats.descent_m
-      )
-      |> Repo.update()
-
-    with {:ok, ride} <- result do
-      broadcast({:ride_stopped, ride})
-      {:ok, ride}
-    end
-  end
-
-  @doc "Closes the active ride if it has received no points for #{@stale_after_hours}h. Run by Quantum."
-  def auto_close_stale_ride do
-    with %Ride{} = ride <- get_active_ride() do
-      last_at = last_point_at(ride) || ride.started_at
-
-      if DateTime.diff(now(), last_at, :hour) >= @stale_after_hours do
-        stop_ride(ride)
-      end
-    end
-
-    :ok
+  def list_planned_rides do
+    from(r in Ride, where: r.kind == "planned", order_by: [desc: r.started_at])
+    |> Repo.all()
   end
 
   def update_ride(%Ride{} = ride, attrs) do
@@ -97,6 +34,34 @@ defmodule Web.Rides do
   end
 
   def delete_ride(%Ride{} = ride), do: Repo.delete(ride)
+
+  @doc "Set of komoot tour ids already imported — used by the sync for idempotency."
+  def known_komoot_ids do
+    from(r in Ride, where: not is_nil(r.komoot_id), select: r.komoot_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
+  Attaches a Komoot tour to an existing ride so its embed renders on the
+  detail page. Accepts a full tour URL or a bare numeric id.
+  """
+  def attach_komoot(%Ride{} = ride, url_or_id) do
+    case parse_komoot_id(url_or_id) do
+      nil -> {:error, :invalid_komoot_id}
+      id -> update_ride(ride, %{"komoot_id" => id})
+    end
+  end
+
+  defp parse_komoot_id(value) do
+    value = String.trim(to_string(value))
+
+    cond do
+      value =~ ~r/^\d+$/ -> value
+      match = Regex.run(~r{komoot\.[a-z.]+/tour/(\d+)}, value) -> Enum.at(match, 1)
+      true -> nil
+    end
+  end
 
   ## Points
 
@@ -112,103 +77,37 @@ defmodule Web.Rides do
     if Keyword.get(opts, :public, true), do: Privacy.filter(points), else: points
   end
 
-  @doc """
-  Ingests a batch of Overland GeoJSON features into the active ride.
-
-  Tolerates Overland's retry behavior: duplicate timestamps are dropped via
-  the `[ride_id, recorded_at]` unique index, and late out-of-order arrivals
-  after signal dead zones are fine because reads order by `recorded_at`.
-  Returns `{:ok, accepted_count}`; with no active ride the batch is
-  discarded (still a success — the phone must not requeue it).
-  """
-  def ingest_locations(locations) when is_list(locations) do
-    case get_active_ride() do
-      nil ->
-        {:ok, 0}
-
-      ride ->
-        rows =
-          locations
-          |> Enum.map(&parse_feature/1)
-          |> Enum.reject(&is_nil/1)
-          |> Enum.filter(&(DateTime.compare(&1.recorded_at, ride.started_at) != :lt))
-          |> Enum.uniq_by(& &1.recorded_at)
-          |> Enum.sort_by(& &1.recorded_at, DateTime)
-          |> Enum.map(&Map.put(&1, :ride_id, ride.id))
-
-        rows
-        |> Enum.chunk_every(@insert_chunk)
-        |> Enum.each(&Repo.insert_all(RidePoint, &1, on_conflict: :nothing))
-
-        update_point_count(ride)
-
-        case Privacy.filter(rows) do
-          [] -> :ok
-          public_rows -> broadcast({:ride_points, ride.id, public_rows})
-        end
-
-        {:ok, length(rows)}
-    end
-  end
-
-  defp parse_feature(%{"geometry" => %{"coordinates" => [lon, lat | _]}} = feature)
-       when is_number(lon) and is_number(lat) do
-    props = feature["properties"] || %{}
-
-    case DateTime.from_iso8601(to_string(props["timestamp"])) do
-      {:ok, dt, _offset} ->
-        %{
-          lat: lat / 1,
-          lon: lon / 1,
-          recorded_at: DateTime.truncate(dt, :second),
-          altitude_m: number_or_nil(props["altitude"]),
-          # Overland reports -1 for unknown speed/accuracy
-          speed_mps: non_negative_or_nil(props["speed"]),
-          accuracy_m: non_negative_or_nil(props["horizontal_accuracy"])
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  defp parse_feature(_), do: nil
-
-  defp number_or_nil(value) when is_number(value), do: value / 1
-  defp number_or_nil(_), do: nil
-
-  defp non_negative_or_nil(value) when is_number(value) and value >= 0, do: value / 1
-  defp non_negative_or_nil(_), do: nil
-
-  defp update_point_count(%Ride{} = ride) do
-    count = Repo.aggregate(from(p in RidePoint, where: p.ride_id == ^ride.id), :count)
-    from(r in Ride, where: r.id == ^ride.id) |> Repo.update_all(set: [point_count: count])
-  end
-
-  defp last_point_at(%Ride{} = ride) do
-    from(p in RidePoint, where: p.ride_id == ^ride.id, select: max(p.recorded_at))
-    |> Repo.one()
-  end
-
-  ## GPX import
+  ## Imports
 
   @doc """
-  Creates a completed ride from a GPX file's contents. Files without
-  timestamps still import (distance/elevation stats only).
+  Creates a ride from a GPX file's contents. Files without timestamps still
+  import (distance/elevation stats only).
   """
   def import_gpx(xml, attrs \\ %{}) do
-    with {:ok, points, has_time?} <- GPX.parse(xml),
-         {:ok, ride} <- insert_gpx_ride(points, has_time?, attrs) do
-      {:ok, ride}
+    with {:ok, points, has_time?} <- GPX.parse(xml) do
+      create_imported_ride(points, attrs, has_time?: has_time?)
     end
   end
 
-  defp insert_gpx_ride(points, has_time?, attrs) do
+  @doc """
+  Creates a ride from a list of point maps (`lat`, `lon`, `recorded_at`,
+  optional `altitude_m`/`speed_mps`/`accuracy_m`).
+
+  Options:
+
+    * `:has_time?` — whether `recorded_at` values are real timestamps;
+      duration and speed stats are skipped otherwise (default `true`)
+    * `:kind` — `"recorded"` or `"planned"`; planned routes never get
+      duration/speed stats (default `"recorded"`)
+  """
+  def create_imported_ride(points, attrs \\ %{}, opts \\ []) do
+    kind = Keyword.get(opts, :kind, "recorded")
+    timed? = Keyword.get(opts, :has_time?, true) and kind == "recorded"
+
     result =
       %Ride{}
       |> Ride.changeset(attrs)
-      |> Ecto.Changeset.put_change(:status, "completed")
-      |> Ecto.Changeset.put_change(:source, "gpx")
+      |> Ecto.Changeset.put_change(:kind, kind)
       |> Repo.insert()
 
     with {:ok, ride} <- result do
@@ -223,23 +122,17 @@ defmodule Web.Rides do
 
       ride
       |> Ecto.Changeset.change(
-        started_at: if(has_time?, do: List.first(stored).recorded_at),
-        ended_at: if(has_time?, do: List.last(stored).recorded_at),
+        started_at: ride.started_at || if(timed?, do: List.first(stored).recorded_at),
+        ended_at: if(timed?, do: List.last(stored).recorded_at),
         point_count: length(stored),
         distance_m: stats.distance_m,
         ascent_m: stats.ascent_m,
         descent_m: stats.descent_m,
-        duration_s: if(has_time?, do: stats.duration_s),
-        avg_speed_mps: if(has_time?, do: stats.avg_speed_mps),
-        max_speed_mps: if(has_time?, do: stats.max_speed_mps)
+        duration_s: if(timed?, do: stats.duration_s),
+        avg_speed_mps: if(timed?, do: stats.avg_speed_mps),
+        max_speed_mps: if(timed?, do: stats.max_speed_mps)
       )
       |> Repo.update()
     end
   end
-
-  defp broadcast(message) do
-    Phoenix.PubSub.broadcast(Web.PubSub, @topic, message)
-  end
-
-  defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 end

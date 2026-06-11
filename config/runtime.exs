@@ -66,14 +66,11 @@ if config_env() == :prod do
            This is the password used to log into the /admin dashboard.
            """)
 
-  config :web,
-         :overland_token,
-         System.get_env("OVERLAND_TOKEN") ||
-           raise("""
-           environment variable OVERLAND_TOKEN is missing.
-           This is the secret token the Overland phone app sends with GPS
-           batches to POST /api/overland for live ride tracking.
-           """)
+  # Komoot auto-sync credentials (optional — the hourly sync simply stays
+  # disabled when these are unset; manual GPX import always works).
+  config :web, :komoot,
+    email: System.get_env("KOMOOT_EMAIL"),
+    password: System.get_env("KOMOOT_PASSWORD")
 
   config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
