@@ -1,14 +1,14 @@
 defmodule Web.Fitness.Vault do
   @moduledoc """
-  Reads fitness content directly from the Obsidian Vault.
-  Source of truth: /home/cesar/Documents/Obsidian Vault/fitness/
+  Reads fitness content from the in-repo content directory.
+  Source of truth: content/fitness/ (override with the FITNESS_PATH env var).
   """
 
   @default_base "/home/cesar/streetscissors/content/fitness"
 
   defp base_path, do: Application.get_env(:web, :fitness_path, @default_base)
 
-  @day_order ~w[monday tuesday wednesday thursday friday saturday sunday one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module baseball-5k-module]
+  @day_order ~w[monday tuesday wednesday thursday friday saturday sunday one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module baseball-5k-module st-herberts-build]
 
   # ── Weekly Regimen ────────────────────────────────────────────────────
 

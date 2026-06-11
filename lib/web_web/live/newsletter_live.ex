@@ -213,7 +213,7 @@ defmodule WebWeb.NewsletterOverlayLive do
                 <%= if @newsletter_subscribed do %>
                   <div class="animate-fade-in" style="text-align: center; padding: 3rem 0;">
                     <div style="width: 80px; height: 80px; background: rgba(255,102,0,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; border: 1px solid #ff6600;">
-                      <i class="fas fa-check" style="font-size: 2.5rem; color: #ff6600;"></i>
+                      <.icon name="hero-check" class="size-10 text-[#ff6600]" />
                     </div>
                     <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: white; font-family: var(--font-heading);">
                       CONFIRMED

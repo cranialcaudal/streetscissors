@@ -247,7 +247,9 @@ defmodule WebWeb.AdminLive.ContentManager do
                   phx-drop-target={@uploads.file.ref}
                 >
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
-                    <div style="color: var(--accent-primary);"><.icon name="hero-cloud-arrow-up" class="size-12 primary-pulse" /></div>
+                    <div style="color: var(--accent-primary);">
+                      <.icon name="hero-cloud-arrow-up" class="size-12 primary-pulse" />
+                    </div>
                     <div>
                       <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: #fff; text-align: center; margin-bottom: 0.5rem;">
                         DROP SECURE FILES HERE

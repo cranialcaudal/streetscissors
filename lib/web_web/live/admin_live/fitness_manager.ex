@@ -237,14 +237,14 @@ defmodule WebWeb.AdminLive.FitnessManager do
                 phx-value-tab="days"
                 class={["action-btn", @active_tab == "days" && "accent"]}
               >
-                <i class="fas fa-calendar-alt"></i> Regimen
+                <.icon name="hero-calendar" class="size-4" /> Regimen
               </button>
               <button
                 phx-click="switch_tab"
                 phx-value-tab="posts"
                 class={["action-btn", @active_tab == "posts" && "accent"]}
               >
-                <i class="fas fa-newspaper"></i> Intelligence
+                <.icon name="hero-newspaper" class="size-4" /> Intelligence
               </button>
             </div>
           </header>
@@ -351,7 +351,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
             </div>
             <div class="item-actions">
               <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="icon-btn">
-                <i class="fas fa-edit"></i>
+                <.icon name="hero-pencil-square" class="size-4" />
               </button>
               <button
                 phx-click="delete_exercise"
@@ -360,7 +360,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
                 class="icon-btn delete"
                 phx-confirm="Delete exercise?"
               >
-                <i class="fas fa-trash"></i>
+                <.icon name="hero-trash" class="size-4" />
               </button>
             </div>
           </div>
@@ -380,7 +380,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
       <%= for day <- @days do %>
         <div class="writing-item manuscript">
           <div class="item-main">
-            <div class="item-type"><i class="fas fa-calendar-day"></i> MODULE</div>
+            <div class="item-type"><.icon name="hero-calendar-days" class="size-4" /> MODULE</div>
             <h3 class="item-title">{day.title}</h3>
             <div class="item-meta">
               <span class="tag pill-sm">{day.tab}</span>
@@ -388,7 +388,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
           </div>
           <div class="item-actions">
             <button phx-click="edit_day" phx-value-slug={day.slug} class="icon-btn">
-              <i class="fas fa-edit"></i>
+              <.icon name="hero-pencil-square" class="size-4" />
             </button>
           </div>
         </div>
@@ -407,7 +407,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
       <%= for post <- @posts do %>
         <div class="writing-item manuscript">
           <div class="item-main">
-            <div class="item-type"><i class="fas fa-newspaper"></i> REPORT</div>
+            <div class="item-type"><.icon name="hero-newspaper" class="size-4" /> REPORT</div>
             <h3 class="item-title">{post.title}</h3>
             <div class="item-meta">
               <span class="tag pill-sm">{post.date}</span>
@@ -415,7 +415,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
           </div>
           <div class="item-actions">
             <button phx-click="edit_post" phx-value-slug={post.slug} class="icon-btn">
-              <i class="fas fa-edit"></i>
+              <.icon name="hero-pencil-square" class="size-4" />
             </button>
             <button
               phx-click="delete_post"
@@ -423,7 +423,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
               class="icon-btn delete"
               phx-confirm="Delete post?"
             >
-              <i class="fas fa-trash"></i>
+              <.icon name="hero-trash" class="size-4" />
             </button>
           </div>
         </div>

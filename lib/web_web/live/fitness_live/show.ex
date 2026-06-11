@@ -109,22 +109,6 @@ defmodule WebWeb.FitnessLive.Show do
       </header>
       <h1 class="theme-title" style="margin-bottom: 2rem;">{@exercise.name}</h1>
 
-      <%!-- VIDEO LEAD --%>
-      <%= if @exercise.video_url do %>
-        <div style="width: 100%; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; margin-bottom: 1.5rem; border: 1px solid rgba(255,102,0,0.2);">
-          <iframe
-            width="100%"
-            height="100%"
-            src={@exercise.video_url}
-            title={@exercise.name}
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-          >
-          </iframe>
-        </div>
-      <% end %>
-
       <%!-- CONCEPT TAGS (clickable → pushes URL for proper back-button) --%>
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem;">
         <%= if @exercise.anatomy do %>
@@ -155,7 +139,7 @@ defmodule WebWeb.FitnessLive.Show do
               cursor: pointer; transition: background 0.2s, transform 0.15s;
             "
           >
-            <i class="fas fa-layer-group" style="font-size: 0.7rem;"></i>
+            <.icon name="hero-rectangle-stack" class="size-3" />
             {@exercise.functional_category}
           </.link>
         <% end %>
@@ -183,6 +167,55 @@ defmodule WebWeb.FitnessLive.Show do
       >
         {raw(@exercise.html)}
       </div>
+
+      <%!-- SOURCES (verified PubMed / DOI citations resolved from the shared bibliography) --%>
+      <%= if @exercise.references != [] do %>
+        <section
+          class="glass-panel"
+          style="margin-top: 1.75rem; padding: 1.75rem 2rem;"
+          aria-label="Sources"
+        >
+          <h3 style="color: var(--theme-color); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 1.25rem;">
+            Sources
+          </h3>
+          <ol style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+            <%= for ref <- @exercise.references do %>
+              <li style="color: #bbb; font-size: 0.9rem; line-height: 1.5;">
+                <span style="color: #ddd;">{ref["authors"]}</span>
+                <%= if ref["year"] && ref["year"] != "" do %>
+                  ({ref["year"]}).
+                <% end %>
+                <span style="color: #fff;">{ref["title"]}.</span>
+                <%= if ref["journal"] && ref["journal"] != "" do %>
+                  <em style="color: #999;">{ref["journal"]}.</em>
+                <% end %>
+                <div style="margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem;">
+                  <%= if ref["pmid"] && ref["pmid"] != "" do %>
+                    <a
+                      href={"https://pubmed.ncbi.nlm.nih.gov/#{ref["pmid"]}/"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="color: var(--theme-color); text-decoration: none; border-bottom: 1px dotted rgba(255,102,0,0.4);"
+                    >
+                      PubMed: {ref["pmid"]}
+                    </a>
+                  <% end %>
+                  <%= if ref["doi"] && ref["doi"] != "" do %>
+                    <a
+                      href={"https://doi.org/#{ref["doi"]}"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="color: var(--theme-color); text-decoration: none; border-bottom: 1px dotted rgba(255,102,0,0.4);"
+                    >
+                      DOI: {ref["doi"]}
+                    </a>
+                  <% end %>
+                </div>
+              </li>
+            <% end %>
+          </ol>
+        </section>
+      <% end %>
 
       <%!-- VHP FOOTER REFERENCE --%>
       <footer style="margin-top: 2.5rem; padding: 1.25rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 0.75rem;">

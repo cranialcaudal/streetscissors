@@ -29,6 +29,7 @@ import { GymRoutine } from "./gym_routine"
 import { AudioRecorder } from "./audio_recorder"
 import { MarkdownEditor } from "./markdown_editor"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
+import { RideMap, ElevationProfile } from "./ride_map"
 
 document.addEventListener("DOMContentLoaded", () => {
   initAudioPlayer()
@@ -51,7 +52,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, AudioRecorder, AudioPlayTracker, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay },
+  hooks: { ...colocatedHooks, GymRoutine, AudioRecorder, AudioPlayTracker, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, RideMap, ElevationProfile },
 })
 
 // Show progress bar on live navigation and form submits

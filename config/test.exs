@@ -27,6 +27,9 @@ config :web, Web.Mailer, adapter: Swoosh.Adapters.Test
 # Admin dashboard password used in tests
 config :web, :admin_password, "test-admin"
 
+# Overland GPS ingestion token used in tests
+config :web, :overland_token, "test-overland-token"
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

@@ -3,7 +3,7 @@ defmodule Web.Manuscripts do
   Context for listing and reading markdown manuscripts.
   """
 
-  @default_base_path "/home/cesar/Documents/Obsidian Vault/manuscripts"
+  @default_base_path "/home/cesar/streetscissors/content/blogs"
 
   @doc """
   Root directory on disk where manuscript markdown and audio live.
@@ -31,7 +31,7 @@ defmodule Web.Manuscripts do
 
   def list_categories do
     # Only these categories for manuscripts
-    ["fiction", "reflections", "sensus", "physical", "faith"]
+    ["latent-sensus", "another-blog", "fitness-blog", "sports-blog"]
   end
 
   def list_files(category) do

@@ -36,13 +36,7 @@ defmodule WebWeb.FitnessBlogLive.Show do
         <div class="blog-post-panel">
           <header class="blog-post-header">
             <div style="margin-bottom: 1rem;">
-              <.link
-                navigate={@return_to}
-                class="top-bar-link"
-                style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
-              >
-                <i class="fas fa-arrow-left"></i> back to {@return_label}
-              </.link>
+              <.back_link navigate={@return_to} label={@return_label} />
             </div>
 
             <h1 class="blog-post-title">{@title}</h1>
@@ -50,11 +44,11 @@ defmodule WebWeb.FitnessBlogLive.Show do
             <div class="blog-post-meta">
               <%= if @date do %>
                 <span class="blog-bento-meta-item">
-                  <i class="far fa-calendar-alt"></i> {@date}
+                  <.icon name="hero-calendar" class="size-4" /> {@date}
                 </span>
               <% end %>
               <span class="blog-bento-meta-item">
-                <i class="fas fa-chart-line"></i> {@hit_count} views
+                <.icon name="hero-chart-bar" class="size-4" /> {@hit_count} views
               </span>
             </div>
           </header>

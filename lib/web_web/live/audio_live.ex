@@ -1,6 +1,7 @@
 defmodule WebWeb.AudioLive do
   use WebWeb, :live_view
   alias Web.Audio
+  import WebWeb.Navigation, only: [return_context: 1]
 
   def mount(params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(Web.PubSub, "audio_logs")
@@ -14,14 +15,7 @@ defmodule WebWeb.AudioLive do
     # Get client IP from session or connection
     client_ip = get_connect_info(socket, :peer_data)[:address] |> format_ip()
 
-    from = Map.get(params, "from", "home")
-
-    {return_to, return_label} =
-      case from do
-        "latent-sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
-        "another-blog" -> {"/blog/another-blog", "return to another blog"}
-        _ -> {"/", "return to homepage"}
-      end
+    {return_to, return_label} = return_context(Map.get(params, "from"))
 
     socket =
       socket
@@ -73,7 +67,7 @@ defmodule WebWeb.AudioLive do
               </span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <span style="font-size: 0.7rem; color: #666; margin-right: 0.5rem;">
-                  <i class="fas fa-play"></i> {Map.get(@play_counts, log.id, 0)}
+                  <.icon name="hero-play" class="size-4" /> {Map.get(@play_counts, log.id, 0)}
                 </span>
                 <div style="width: 10px; height: 10px; border-radius: 50%; background: #999;"></div>
                 <div style="width: 10px; height: 10px; border-radius: 50%; background: #999;"></div>

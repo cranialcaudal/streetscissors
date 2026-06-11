@@ -66,6 +66,15 @@ if config_env() == :prod do
            This is the password used to log into the /admin dashboard.
            """)
 
+  config :web,
+         :overland_token,
+         System.get_env("OVERLAND_TOKEN") ||
+           raise("""
+           environment variable OVERLAND_TOKEN is missing.
+           This is the secret token the Overland phone app sends with GPS
+           batches to POST /api/overland for live ride tracking.
+           """)
+
   config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :web, WebWeb.Endpoint,

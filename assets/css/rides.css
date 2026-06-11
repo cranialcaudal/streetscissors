@@ -1,0 +1,238 @@
+/* ── /rides: live tracking + archive ───────────────────────────── */
+
+.rides-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1rem 5rem 1rem;
+}
+
+.rides-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.rides-title {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 2.6rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #fff;
+  margin: 0;
+}
+
+.rides-sub {
+  margin-top: 0.5rem;
+  color: #888;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 1px;
+  font-size: 0.85rem;
+}
+
+.ride-back {
+  display: inline-block;
+  color: #888;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.ride-back:hover {
+  color: #fff;
+}
+
+.ride-source-tag {
+  border: 1px solid #444;
+  color: #888;
+  border-radius: 3px;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
+/* ── Live banner ───────────────────────────────────────────────── */
+
+.ride-live-frame {
+  margin-bottom: 3rem;
+}
+
+.ride-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.85rem;
+  color: #fff;
+  margin-bottom: 0.75rem;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f43f5e;
+  animation: ride-live-pulse 1.5s infinite;
+}
+
+@keyframes ride-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-since {
+  color: #777;
+  letter-spacing: 1px;
+  text-transform: none;
+}
+
+/* ── Map + elevation ───────────────────────────────────────────── */
+
+/* Leaflet requires an explicit height on its container. */
+.ride-map {
+  height: 460px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111;
+  z-index: 0;
+}
+
+.ride-map-toggle {
+  background: #fff;
+  color: #000;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.ride-elevation {
+  display: block;
+  width: 100%;
+  height: 140px;
+  margin-top: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: crosshair;
+}
+
+/* ── Stats grid (ride detail) ──────────────────────────────────── */
+
+.ride-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.ride-stat {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.9rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ride-stat-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.ride-stat-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #777;
+}
+
+.ride-description {
+  margin-top: 2rem;
+  color: #ccc;
+  line-height: 1.6;
+}
+
+/* ── Archive list ──────────────────────────────────────────────── */
+
+.ride-archive-heading {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1.1rem;
+  color: #999;
+  margin-bottom: 1rem;
+}
+
+.rides-empty {
+  text-align: center;
+  color: #777;
+  font-family: var(--font-mono, monospace);
+  padding: 3rem 1rem;
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.ride-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #2a52be;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.15s ease-out;
+}
+
+.ride-card:hover {
+  transform: translateY(-2px);
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ride-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ride-card-name {
+  font-weight: 700;
+  color: #eee;
+}
+
+.ride-card-date {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.ride-card-stats {
+  display: flex;
+  gap: 1.25rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  color: #9db8f0;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .rides-title { font-size: 1.9rem; }
+  .ride-map { height: 320px; }
+  .ride-card-stats { gap: 0.75rem; font-size: 0.72rem; }
+}

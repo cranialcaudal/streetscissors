@@ -16,7 +16,8 @@ config :web, Web.Repo,
 config :web, WebWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {0, 0, 0, 0}, port: 4000],
+  # PORT override lets dev run alongside the prod container, which also binds 4000.
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -70,6 +71,10 @@ config :web, dev_routes: true
 # Admin dashboard password for local development only.
 # In production this is supplied via the ADMIN_PASSWORD env var (see runtime.exs).
 config :web, :admin_password, System.get_env("ADMIN_PASSWORD") || "dev-admin"
+
+# Overland GPS ingestion token for local development only.
+# In production this is supplied via the OVERLAND_TOKEN env var (see runtime.exs).
+config :web, :overland_token, System.get_env("OVERLAND_TOKEN") || "dev-token"
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

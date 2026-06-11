@@ -617,7 +617,7 @@ defmodule WebWeb.CoreComponents do
 
       <%= if Enum.empty?(@matches) do %>
         <div style="color: #4ade80; text-align: center; margin-top: 2rem;">
-          <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+          <.icon name="hero-check-circle" class="size-12 mb-4" />
           <p>No errors found! Great job.</p>
         </div>
       <% else %>
@@ -681,6 +681,24 @@ defmodule WebWeb.CoreComponents do
   end
 
   @doc """
+  In-content "back to ..." link used in blog post / manuscript bodies.
+
+  Standardizes the hand-rolled `<a>`/`<.link>` + Font Awesome arrow + pasted
+  inline-style variants that previously diverged across pages. Pair with the
+  `return_to`/`return_label` assigns produced by `WebWeb.Navigation.return_context/1`.
+  """
+  attr :navigate, :string, required: true, doc: "destination path (assign return_to)"
+  attr :label, :string, required: true, doc: "human label (assign return_label)"
+
+  def back_link(assigns) do
+    ~H"""
+    <.link navigate={@navigate} class="top-bar-link back-link">
+      <.icon name="hero-arrow-left" class="back-link-icon" /> back to {@label}
+    </.link>
+    """
+  end
+
+  @doc """
   Universal header for blog portals and manuscript pages.
   """
   attr :return_to, :string, default: "/"
@@ -721,7 +739,7 @@ defmodule WebWeb.CoreComponents do
           class="top-bar-link"
           style="background: none; border: none; cursor: pointer;"
         >
-          Newsletter and Contact <i class="fas fa-envelope"></i>
+          Newsletter and Contact <.icon name="hero-envelope" class="size-4" />
         </button>
       </div>
     </header>

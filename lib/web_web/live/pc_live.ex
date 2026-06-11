@@ -12,6 +12,8 @@ defmodule WebWeb.PcLive do
                   end)
 
   def mount(_params, _session, socket) do
+    fs = build_fs()
+
     welcome_message = """
     César's Machine - DOS Terminal
 
@@ -19,42 +21,42 @@ defmodule WebWeb.PcLive do
     Rather, the commands before you are presented as a cheat sheet, a starter. Knowing
     how to talk to your machine is awesome, I think.
 
-    César Anthony Moreno                        Tue 10 Mar 2026 11:31:29 PM PDT
+    César Anthony Moreno                        #{Calendar.strftime(DateTime.utc_now(), "%a %d %b %Y %I:%M:%S %p %Z")}
 
     COMMANDS OF NOTE:
       $$ls$$ / $$dir$$      (list files)
       $$cd$$            (changes directory)
-      $$read$$          (ffv short text files)
+      $$read$$ / $$cat$$    (ffv short text files)
       $$view$$          (ffv image files)
       $$play$$          (play audio files)
-      $$search$$        (keyword search)
+      $$search$$ / $$grep$$   (keyword search)
+      $$find$$          (locate any site asset)
       $$help$$          (more instructions)
       $$clear$$         (refresh terminal)
     """
 
-    fs = build_fs()
-
     {:ok,
      assign(socket,
        cwd: ["C:"],
-       history: [
-         %{type: :info, content: welcome_message}
-       ],
+       history: [%{type: :info, content: welcome_message}],
        fs: fs,
        command: ""
      ), layout: false}
   end
 
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
   def render(assigns) do
     ~H"""
     <div class="pc-container" id="pc-terminal" phx-hook="AutoScroll">
       <div class="pc-crt-overlay"></div>
+
       <div class="pc-header">
         <a href="/" class="pc-back-link">[← ESC to exit]</a>
         <div style="text-align: right;">
           <span style="opacity: 0.8; display: block;">MS-DOS Prompt - "César's Machine"</span>
           <span style="font-size: 0.85rem; opacity: 0.6;">
-            TYPE 'HELP' FOR INSTRUCTIONS PENDING VIRTUAL MOUNT
+            TERMINAL v2.0 - ASSET DISCOVERY MODE
           </span>
         </div>
       </div>
@@ -144,14 +146,29 @@ defmodule WebWeb.PcLive do
       "VIEW",
       "PLAY",
       "READ",
+      "CAT",
       "CLS",
       "CLEAR",
       "HELP",
       "PWD",
       "SEARCH",
       "GREP",
+      "FIND",
+      "PS",
+      "TOP",
+      "SYS",
+      "UNAME",
+      "DATE",
+      "WHOAMI",
+      "HISTORY",
+      "MAN",
       "EXIT",
-      "LOGOUT"
+      "LOGOUT",
+      "ECHO",
+      "HEAD",
+      "TAIL",
+      "CAL",
+      "UPTIME"
     ]
 
     # Initial command candidates if only one word
@@ -228,7 +245,7 @@ defmodule WebWeb.PcLive do
         if input == "" do
           {:noreply, assign(socket, history: new_history)}
         else
-          {output, new_cwd} = process_command(input, cwd, socket.assigns.fs)
+          {output, new_cwd} = process_command(input, cwd, socket)
 
           final_history =
             case output do
@@ -268,19 +285,88 @@ defmodule WebWeb.PcLive do
   end
 
   # Command Processor
-  defp process_command("clear", cwd, _fs) do
-    # Hack to just clear screen? Actually we can't easily clear list unless we reset history.
-    {%{type: :command, content: "", cwd: display_cwd(cwd), hidden: true}, cwd}
+  defp process_command(input, cwd, socket) do
+    parts = String.split(input, " ", parts: 2, trim: true)
+
+    case parts do
+      [cmd] -> handle_single_cmd(String.downcase(cmd), cwd, socket)
+      [cmd, arg] -> handle_arg_cmd(String.downcase(cmd), arg, cwd, socket)
+      _ -> {"Bad command or file name", cwd}
+    end
   end
 
-  defp process_command("cls", cwd, _fs) do
-    # Instructing frontend to clear could be complex with append-only, but since we re-render full history:
-    # We will just return a special output and handle clearing at the caller level later. For now, let's just make cls print a blank line.
-    {"", cwd}
+  defp handle_single_cmd("help", cwd, _socket), do: {get_help_text(), cwd}
+  defp handle_single_cmd("ls", cwd, socket), do: list_dir(cwd, cwd, socket.assigns.fs)
+  defp handle_single_cmd("dir", cwd, socket), do: list_dir(cwd, cwd, socket.assigns.fs)
+  defp handle_single_cmd("pwd", cwd, _socket), do: {display_cwd(cwd), cwd}
+  defp handle_single_cmd("ps", cwd, _socket), do: {simulated_ps(), cwd}
+  defp handle_single_cmd("top", cwd, _socket), do: {simulated_ps(), cwd}
+  defp handle_single_cmd("uname", cwd, _socket), do: {"EL CARNAL", cwd}
+  defp handle_single_cmd("sys", cwd, _socket), do: {simulated_sys(), cwd}
+
+  defp handle_single_cmd("date", cwd, _socket),
+    do: {Calendar.strftime(DateTime.utc_now(), "%a %d %b %Y %I:%M:%S %p %Z"), cwd}
+
+  defp handle_single_cmd("uptime", cwd, _socket),
+    do: {"up 2 days, 4:12, 1 user, load average: 0.05, 0.12, 0.08", cwd}
+
+  defp handle_single_cmd("whoami", cwd, _socket), do: {"cesar", cwd}
+  defp handle_single_cmd("cal", cwd, _socket), do: {simulated_cal(), cwd}
+
+  defp handle_single_cmd("history", cwd, socket),
+    do: {format_history(socket.assigns.history), cwd}
+
+  defp handle_single_cmd("man", cwd, _socket), do: {"What manual page do you want?", cwd}
+  defp handle_single_cmd("cd", cwd, _socket), do: {display_cwd(cwd), cwd}
+  defp handle_single_cmd("echo", cwd, _socket), do: {"", cwd}
+
+  defp handle_single_cmd(cmd, cwd, _socket)
+       when cmd in ["read", "cat", "view", "play", "search", "grep", "find", "head", "tail"] do
+    {"Usage: #{String.upcase(cmd)} <target>", cwd}
   end
 
-  defp process_command("help", cwd, _fs) do
-    help_text = """
+  defp handle_single_cmd(_, cwd, _socket), do: {"Bad command or file name", cwd}
+
+  defp handle_arg_cmd("ls", target, cwd, socket),
+    do: list_dir(parse_path(target, cwd), cwd, socket.assigns.fs)
+
+  defp handle_arg_cmd("dir", target, cwd, socket),
+    do: list_dir(parse_path(target, cwd), cwd, socket.assigns.fs)
+
+  defp handle_arg_cmd("cd", target, cwd, socket),
+    do: change_dir(parse_path(target, cwd), cwd, socket.assigns.fs)
+
+  defp handle_arg_cmd("view", target, cwd, socket),
+    do: view_file(parse_path(target, cwd), cwd, socket.assigns.fs, :image)
+
+  defp handle_arg_cmd("play", target, cwd, socket),
+    do: view_file(parse_path(target, cwd), cwd, socket.assigns.fs, :audio)
+
+  defp handle_arg_cmd("read", target, cwd, socket),
+    do: read_file(parse_path(target, cwd), cwd, socket.assigns.fs)
+
+  defp handle_arg_cmd("cat", target, cwd, socket),
+    do: read_file(parse_path(target, cwd), cwd, socket.assigns.fs)
+
+  defp handle_arg_cmd("head", target, cwd, socket),
+    do: read_file_partial(parse_path(target, cwd), cwd, socket.assigns.fs, :head)
+
+  defp handle_arg_cmd("tail", target, cwd, socket),
+    do: read_file_partial(parse_path(target, cwd), cwd, socket.assigns.fs, :tail)
+
+  defp handle_arg_cmd("search", query, cwd, _socket), do: search_manuscripts(query, cwd)
+  defp handle_arg_cmd("grep", query, cwd, _socket), do: search_manuscripts(query, cwd)
+  defp handle_arg_cmd("find", query, cwd, socket), do: find_assets(query, cwd, socket.assigns.fs)
+  defp handle_arg_cmd("man", cmd, cwd, _socket), do: {get_manual(cmd), cwd}
+  defp handle_arg_cmd("echo", text, cwd, _socket), do: {text, cwd}
+
+  defp handle_arg_cmd("uname", "-a", cwd, _socket),
+    do: {"EL CARNAL 1.0.0-STREETSCISSORS #1 SMP Tue Mar 10 2026 x86_64 GNU/Linux", cwd}
+
+  defp handle_arg_cmd(_, _, cwd, _socket), do: {"Bad command or file name", cwd}
+
+  defp get_help_text do
+    """
     Genesis
       El Carnal: the low level operating system (unix)
       La Anima: UI (user interface) for typing commands
@@ -296,36 +382,101 @@ defmodule WebWeb.PcLive do
       $$ls$$ / $$dir$$      (sets the working directory file list)
       $$cd$$ <dir>      (changes directory; e.g. cd IMAGES, cd ..)
       $$pwd$$           (print working directory line)
-      $$read$$ <file>   (ffv short text files; simulates cat)
-      $$view$$ <file>   (ffv image files directly in std output)
-      $$play$$ <file>   (play audio files natively via xmms)
-      $$search$$ <query> (search manuscripts for keywords)
+      $$read$$ / $$cat$$   (read text files; simulates cat)
+      $$view$$ <file>   (render image files)
+      $$play$$ <file>   (play audio files)
+      $$search$$ / $$grep$$ (search documents for keywords)
+      $$find$$ <query>  (locate any site asset by name)
+      $$sys$$ / $$ps$$      (hardware and process vitals)
       $$clear$$         (refresh terminal)
       $$help$$          (display this manual)
-      $$exit$$ / $$logout$$ (exits terminal / La Anima)
+      $$exit$$ / $$logout$$ (exits terminal)
     """
-
-    {help_text, cwd}
   end
 
-  defp process_command(cmd, cwd, fs) do
-    parts = String.split(cmd, " ", parts: 2, trim: true)
+  defp format_history(history) do
+    history
+    |> Enum.filter(&(&1.type == :command))
+    |> Enum.map_join("\n", & &1.content)
+  end
 
-    case parts do
-      ["dir"] -> list_dir(cwd, cwd, fs)
-      ["dir", target] -> list_dir(parse_path(target, cwd), cwd, fs)
-      ["ls"] -> list_dir(cwd, cwd, fs)
-      ["ls", target] -> list_dir(parse_path(target, cwd), cwd, fs)
-      ["cd"] -> {display_cwd(cwd), cwd}
-      ["cd", target] -> change_dir(parse_path(target, cwd), cwd, fs)
-      ["pwd"] -> {display_cwd(cwd), cwd}
-      ["view", target] -> view_file(parse_path(target, cwd), cwd, fs, :image)
-      ["play", target] -> view_file(parse_path(target, cwd), cwd, fs, :audio)
-      ["read", target] -> read_file(parse_path(target, cwd), cwd, fs)
-      ["search", query] -> search_manuscripts(query, cwd)
-      ["grep", query] -> search_manuscripts(query, cwd)
-      _ -> {"Bad command or file name", cwd}
+  defp get_manual(cmd) do
+    case String.downcase(cmd) do
+      "ls" -> "LS(1) - list directory contents"
+      "dir" -> "DIR(1) - list directory contents"
+      "cd" -> "CD(1) - change the working directory"
+      "read" -> "READ(1) - read file contents (cat-like)"
+      "cat" -> "CAT(1) - concatenate files and print on the standard output"
+      "view" -> "VIEW(1) - render image files in the terminal"
+      "play" -> "PLAY(1) - play audio files"
+      "ps" -> "PS(1) - report a snapshot of the current processes"
+      "sys" -> "SYS(1) - display system hardware vitals"
+      "whoami" -> "WHOAMI(1) - print effective userid"
+      "uname" -> "UNAME(1) - print system information"
+      "find" -> "FIND(1) - locate files in the virtual filesystem"
+      "echo" -> "ECHO(1) - display a line of text"
+      "head" -> "HEAD(1) - output the first part of files"
+      "tail" -> "TAIL(1) - output the last part of files"
+      "cal" -> "CAL(1) - display a calendar"
+      "date" -> "DATE(1) - print or set the system date and time"
+      "uptime" -> "UPTIME(1) - tell how long the system has been running"
+      "history" -> "HISTORY(1) - GNU History Library"
+      _ -> "No manual entry for #{cmd}"
     end
+  end
+
+  defp simulated_cal do
+    today = Date.utc_today()
+    month_name = Calendar.strftime(today, "%B %Y")
+
+    # Very simple static-ish calendar for the current month
+    """
+          #{month_name}
+    Su Mo Tu We Th Fr Sa
+                   1  2
+     3  4  5  6  7  8  9
+    10 11 12 13 14 15 16
+    17 18 19 20 21 22 23
+    24 25 26 27 28 29 30
+    31
+    """
+  end
+
+  defp read_file_partial(target_cwd, orig_cwd, fs, mode) do
+    case get_node(target_cwd, fs) do
+      {:file, contents} ->
+        lines = String.split(contents, "\n")
+        partial = if mode == :head, do: Enum.take(lines, 10), else: Enum.take(lines, -10)
+        {Enum.join(partial, "\n"), orig_cwd}
+
+      _ ->
+        read_file(target_cwd, orig_cwd, fs)
+    end
+  end
+
+  defp simulated_ps do
+    """
+    PID  TTY      TIME     CMD
+    1    ?        00:00:01 el_carnal_init
+    42   ?        00:00:15 la_anima_server
+    108  tty1     00:00:00 sh
+    109  tty1     00:00:00 ps
+    """
+  end
+
+  defp simulated_sys do
+    temp = Enum.random(42..58)
+    uptime = "2 days, 4 hours, 12 minutes"
+
+    """
+    SYSTEM STATUS:
+    --------------
+    CPU TEMP:    #{temp}C
+    LOAD AVG:    0.05, 0.12, 0.08
+    UPTIME:      #{uptime}
+    DISK USAGE:  [#####-----] 52%
+    PHOSPHOR:    STABLE
+    """
   end
 
   # File system traversal helpers
@@ -392,6 +543,29 @@ defmodule WebWeb.PcLive do
     end
   end
 
+  defp find_assets(query, cwd, fs) do
+    query_up = String.upcase(query)
+    results = search_fs_node(fs, query_up, ["C:"])
+
+    if Enum.empty?(results) do
+      {"No files found matching '#{query}'.", cwd}
+    else
+      {"Matches found:\n\n" <> Enum.join(results, "\n"), cwd}
+    end
+  end
+
+  defp search_fs_node(contents, query, path) do
+    Enum.flat_map(contents, fn {name, node} ->
+      current_path = path ++ [name]
+      matches = if String.contains?(name, query), do: [Enum.join(current_path, "\\")], else: []
+
+      case node do
+        {:dir, children} -> matches ++ search_fs_node(children, query, current_path)
+        _ -> matches
+      end
+    end)
+  end
+
   defp search_manuscripts(query, cwd) do
     query_down = String.downcase(query)
     # Filter categories as requested: exclude faith and physical
@@ -454,6 +628,24 @@ defmodule WebWeb.PcLive do
       end
 
     Map.put(base, "DOCS", {:dir, docs})
+    |> Map.put(
+      "TUTORIAL",
+      {:dir,
+       %{
+         "START.TXT" =>
+           {:file,
+            "LESSON 1: THE BASICS\n------------------\nWelcome. The terminal is about direct communication with the machine.\n\nType 'ls' to see what is around you.\nType 'cd <folder>' to enter a folder (e.g., cd DOCS).\nType 'cd ..' to go back to the previous folder.\nType 'cat <file>' to read a file.\n\nPRO TIP: Type 'clear' to wipe the screen at any time."},
+         "ASSETS.TXT" =>
+           {:file,
+            "LESSON 2: DISCOVERY\n--------------------\nCésar's Machine is a hub for everything on this site.\n\nType 'find .jpg' to see every image path.\nType 'view IMAGES/PORTRAIT.JPG' to see a file directly.\nType 'play AUDIO/TEST_AUDIO.MP3' to hear audio assets.\n\nPRO TIP: Use 'man <command>' to see detailed manuals."},
+         "POWER.TXT" =>
+           {:file,
+            "LESSON 3: EFFICIENCY\n--------------------\nLinux is built for speed.\n\nType 'grep ironman' to search all documents for a word.\nType 'history' to see your previous commands.\nType 'sys' to check hardware vitals.\n\nPRO TIP: Use the 'TAB' key to auto-complete filenames!"},
+         "EXERCISES.TXT" =>
+           {:file,
+            "PRACTICE EXERCISES\n------------------\nCan you 'solve' the machine? Try these tasks:\n\n1. [BASIC] Find the 'START.TXT' file and read it using 'cat'.\n2. [NAV] Go into the 'IMAGES' folder and 'view' the portrait.\n3. [SEARCH] Find every file on the machine that ends in '.MD'.\n4. [DATA] Check the current date using 'date' and the calendar using 'cal'.\n5. [EXPERT] Use 'grep' to find every mention of 'baseball' in the DOCS.\n6. [VITALS] Check 'uptime' to see how long the server has been active.\n\nType 'help' if you get stuck."}
+       }}
+    )
   end
 
   defp parse_path("/", _cwd), do: ["C:"]

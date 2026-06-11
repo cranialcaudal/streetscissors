@@ -39,6 +39,16 @@
   background: rgba(0, 0, 0, 0.8);
   border-color: var(--accent-color, #ff6600);
 }
+/* In-content back link (see WebWeb.CoreComponents.back_link/1) */
+.back-link {
+  padding: 0.35rem 0.8rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: none;
+}
+.back-link-icon {
+  width: 0.9em;
+  height: 0.9em;
+}
 .top-bar-center {
   display: flex;
   align-items: center;
@@ -258,6 +268,9 @@
 .pc-icon {
   font-size: 2.5rem;
   color: #4af626;
+  /* heroicon mask-span is sized by width/height, not font-size */
+  width: 2.5rem;
+  height: 2.5rem;
 }
 .pc-title {
   font-family: 'Courier New', monospace !important;

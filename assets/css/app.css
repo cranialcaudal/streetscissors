@@ -3,6 +3,16 @@
 @import "tailwindcss" source(none);
 @plugin "../vendor/heroicons";
 
+/*
+ * Content scanning is disabled (source(none)) because this site is styled by
+ * the hand-written CSS imported below, not Tailwind utilities. The heroicon
+ * plugin therefore only emits icons we explicitly safelist here. Keep this list
+ * in sync with the hero and size classes used in templates (e.g. back_link,
+ * the blog meta rows, admin manager buttons).
+ */
+@source inline("hero-arrow-left hero-calendar hero-calendar-days hero-clock hero-chart-bar hero-play hero-pause hero-arrow-path hero-trash hero-pencil-square hero-document-text hero-microphone hero-table-cells hero-newspaper hero-envelope hero-book-open hero-arrow-right-on-rectangle hero-rectangle-stack hero-chevron-down hero-cloud-arrow-up hero-command-line hero-check-circle hero-check hero-paper-airplane hero-map-pin");
+@source inline("size-3 size-4 size-10 size-12 mr-2 mb-4 text-[#ff6600]");
+
 /* Custom Styles */
 @import "./sensus.css";
 @import "./custom.css";
@@ -15,8 +25,11 @@
 @import "./darkroom.css";
 @import "./markdown.css";
 @import "./pc.css";
+@import "./archive.css";
 @import "./header.css";
 @import "./home.css";
+@import "../vendor/leaflet.css";
+@import "./rides.css";
 
 /* Setup standard Phoenix overrides if necessary */
 

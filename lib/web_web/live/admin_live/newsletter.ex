@@ -129,7 +129,7 @@ defmodule WebWeb.AdminLive.Newsletter do
             data-confirm="Are you sure you want to send this to all subscribers?"
             style="background: #a78bfa; color: white; padding: 1rem; border: none; font-size: 1.1rem; cursor: pointer;"
           >
-            <i class="fas fa-paper-plane" style="margin-right: 0.5rem;"></i> Broadcast Newsletter
+            <.icon name="hero-paper-airplane" class="size-4 mr-2" /> Broadcast Newsletter
           </button>
         </.form>
       </div>

@@ -49,13 +49,16 @@
 
           <div class="blog-bento-meta">
             <span class="blog-bento-meta-item">
-              <i class="far fa-calendar-alt"></i> {Calendar.strftime(file.mtime, "%B %d, %Y")}
+              <.icon name="hero-calendar" class="size-4" /> {Calendar.strftime(
+                file.mtime,
+                "%B %d, %Y"
+              )}
             </span>
             <span class="blog-bento-meta-item">
-              <i class="far fa-clock"></i> {file.read_min} min read
+              <.icon name="hero-clock" class="size-4" /> {file.read_min} min read
             </span>
             <span class="blog-bento-meta-item">
-              <i class="fas fa-chart-line"></i> {file.hit_count} views
+              <.icon name="hero-chart-bar" class="size-4" /> {file.hit_count} views
             </span>
             <span class="blog-bento-meta-item">
               <i class="fas fa-paragraph"></i> {file.word_count} words
@@ -74,11 +77,11 @@
                 data-title={file.title}
                 onclick="window.sensusPortalPlay(this)"
               >
-                <i class="fas fa-play"></i> Listen
+                <.icon name="hero-play" class="size-4" /> Listen
               </button>
             <% else %>
               <span style="font-size: 0.8rem; color: #666; font-family: var(--font-ui), sans-serif;">
-                <i class="fas fa-clock-rotate-left"></i> Audio pending
+                <.icon name="hero-arrow-path" class="size-4" /> Audio pending
               </span>
             <% end %>
 
@@ -124,7 +127,7 @@
     // Reset all buttons
     document.querySelectorAll('.blog-sort-pill').forEach(b => {
       if(b.hasAttribute('data-url')) {
-        b.innerHTML = '<i class="fas fa-play"></i> Listen';
+        b.innerHTML = '<.icon name="hero-play" class="size-4" /> Listen';
         b.classList.remove('active');
       }
     });
@@ -140,11 +143,11 @@
     player.classList.add('active');
     titleEl.textContent = title;
     
-    btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+    btn.innerHTML = '<.icon name="hero-pause" class="size-4" /> Pause';
     btn.classList.add('active');
 
     audio.onended = () => {
-      btn.innerHTML = '<i class="fas fa-play"></i> Listen';
+      btn.innerHTML = '<.icon name="hero-play" class="size-4" /> Listen';
       btn.classList.remove('active');
       player.classList.remove('active');
     };

@@ -1,0 +1,543 @@
+<div class="england-container">
+  <header class="england-header">
+    <div class="title-row">
+      <h1 class="page-title">England 2026</h1>
+    </div>
+    <p class="mission-sub">London &amp; the Lake District &middot; 5&ndash;17 July 2026</p>
+    <div class="abbey-crossing" aria-hidden="true"></div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" data-tab="calendar" onclick="showTab('calendar')">
+        <i class="fas fa-calendar-alt mr-2"></i> Calendar
+      </button>
+      <button class="tab-btn" data-tab="itinerary" onclick="showTab('itinerary')">
+        <i class="fas fa-folder-open mr-2"></i> Itinerary
+      </button>
+      <button class="tab-btn" data-tab="checklist" onclick="showTab('checklist')">
+        <i class="fas fa-briefcase mr-2"></i> Packing
+      </button>
+      <button class="tab-btn" data-tab="routes" onclick="showTab('routes')">
+        <i class="fas fa-map-marked-alt mr-2"></i> Routes
+      </button>
+    </div>
+  </header>
+
+  <div id="calendar" class="tab-content active">
+    <div class="cal-frame">
+      <div class="cal-month">July 2026</div>
+      <div class="cal-grid">
+        <div :for={dow <- ~w(SUN MON TUE WED THU FRI SAT)} class="cal-dow">{dow}</div>
+        <%= for week <- @calendar_weeks, day <- week do %>
+          <%= if day && @trip_days[day] do %>
+            <button class="cal-cell trip" onclick={"jumpToDay(#{@trip_days[day].num})"}>
+              <span class="cal-head">
+                <span class="cal-date">{day}</span>
+                <span class="cal-mission">Day {@trip_days[day].num}</span>
+              </span>
+              <span class="cal-icon">{@trip_days[day].icon}</span>
+              <span class="cal-title">{@trip_days[day].title}</span>
+              <span class="cal-song">&#9835; {@trip_days[day].song}</span>
+            </button>
+          <% else %>
+            <div class={["cal-cell", if(day, do: "off", else: "blank")]}>
+              <span :if={day} class="cal-date">{day}</span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="cal-legend">
+        <span class="legend-chip"></span> trip day &mdash; tap one for the day's plan
+      </div>
+    </div>
+  </div>
+
+  <div id="itinerary" class="tab-content">
+    <div class="markdown-content">
+      {raw(@itinerary)}
+    </div>
+  </div>
+
+  <div id="checklist" class="tab-content">
+    <div class="markdown-content">
+      {raw(@checklist)}
+    </div>
+  </div>
+
+  <div id="routes" class="tab-content">
+    <div class="komoot-placeholder">
+      <div class="placeholder-icon">
+        <i class="fas fa-bicycle"></i>
+      </div>
+      <h3>Routes</h3>
+      <p>
+        Rides are tracked live and archived as interactive maps on the <a
+          href="/rides"
+          class="routes-link"
+        >rides page</a>.
+      </p>
+
+      <div class="route-list">
+        <a href="/rides" class="route-item">
+          <div>
+            <i class="fas fa-mountain mr-2 text-red"></i>
+            <span class="route-name">Fred Whitton Challenge 2026</span>
+          </div>
+          <span class="route-status">Planned</span>
+        </a>
+        <a href="/rides" class="route-item">
+          <div>
+            <i class="fas fa-road mr-2 text-blue"></i>
+            <span class="route-name">London to Dover (The Long Way)</span>
+          </div>
+          <span class="route-status">Planned</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .england-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1rem 5rem 1rem;
+    --uj-red: #C8102E;
+    --uj-blue: #012169;
+    --uj-blue-bright: #2a52be;
+  }
+
+  .england-header {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 3.6rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: #fff;
+    margin: 0;
+  }
+
+  .mission-sub {
+    margin-top: 0.75rem;
+    color: #999;
+    font-family: var(--font-mono, monospace);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 0.85rem;
+  }
+
+  /* ── Abbey Road zebra-crossing divider ─────────────────────── */
+  .abbey-crossing {
+    height: 14px;
+    max-width: 480px;
+    margin: 1.5rem auto 2rem auto;
+    background: repeating-linear-gradient(90deg, #eee 0 36px, #0a0a0a 36px 72px);
+    border-top: 2px solid #222;
+    border-bottom: 2px solid #222;
+    border-radius: 2px;
+  }
+
+  .nav-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #888;
+    transition: all 0.2s;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .tab-btn:hover {
+    background: var(--uj-blue);
+    border-color: var(--uj-blue-bright);
+    color: #fff;
+  }
+
+  .tab-btn.active {
+    color: #fff;
+    background: var(--uj-red);
+    border-color: var(--uj-red);
+    box-shadow: 0 4px 15px rgba(200, 16, 46, 0.35);
+  }
+
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Calendar ──────────────────────────────────────────────── */
+  .cal-frame {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .cal-month {
+    text-align: center;
+    font-family: var(--font-heading);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    font-size: 1.4rem;
+    color: #fff;
+    margin-bottom: 1.25rem;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+
+  .cal-dow {
+    text-align: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: #777;
+    padding-bottom: 0.4rem;
+  }
+
+  .cal-dow:first-child,
+  .cal-dow:last-child {
+    color: var(--uj-red);
+  }
+
+  .cal-cell {
+    min-height: 108px;
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    text-align: left;
+    font-family: var(--font-ui);
+  }
+
+  .cal-cell.blank {
+    background: transparent;
+  }
+
+  .cal-cell.off {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .cal-cell.off .cal-date {
+    color: #444;
+  }
+
+  .cal-cell.trip {
+    cursor: pointer;
+    border: 1px solid rgba(42, 82, 190, 0.5);
+    border-left: 4px solid var(--uj-red);
+    background: linear-gradient(160deg, rgba(1, 33, 105, 0.55), rgba(1, 33, 105, 0.2));
+    transition: all 0.15s ease-out;
+  }
+
+  .cal-cell.trip:hover {
+    transform: translateY(-2px);
+    border-color: #fff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+
+  .cal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .cal-date {
+    font-weight: 800;
+    color: #ccc;
+    font-size: 0.95rem;
+    width: 1.7rem;
+    height: 1.7rem;
+    line-height: 1.7rem;
+    text-align: center;
+    border-radius: 50%;
+  }
+
+  .cal-cell.trip .cal-date {
+    color: #fff;
+  }
+
+  .cal-mission {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    color: #9db8f0;
+    border: 1px solid rgba(42, 82, 190, 0.5);
+    padding: 0 0.3rem;
+    border-radius: 3px;
+  }
+
+  .cal-icon {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .cal-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #eee;
+    line-height: 1.25;
+  }
+
+  .cal-song {
+    font-size: 0.68rem;
+    font-style: italic;
+    color: #8fa9e8;
+    line-height: 1.2;
+    margin-top: auto;
+  }
+
+  .cal-legend {
+    margin-top: 1.25rem;
+    text-align: center;
+    color: #777;
+    font-size: 0.8rem;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 1px;
+  }
+
+  .legend-chip {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    vertical-align: -2px;
+    margin-right: 0.4rem;
+    background: linear-gradient(160deg, rgba(1, 33, 105, 0.9), rgba(1, 33, 105, 0.4));
+    border-left: 3px solid var(--uj-red);
+  }
+
+  @media (max-width: 760px) {
+    .page-title { font-size: 2.2rem; }
+    .cal-frame { padding: 0.75rem; }
+    .cal-grid { gap: 3px; }
+    .cal-cell { min-height: 54px; padding: 0.25rem; }
+    .cal-title, .cal-song, .cal-mission { display: none; }
+    .cal-icon { font-size: 0.9rem; }
+  }
+
+  /* ── Itinerary (markdown) ──────────────────────────────────── */
+  .markdown-content strong {
+    color: #fff;
+  }
+
+  /* Target 24h times in tables and lists */
+  .markdown-content td:first-child strong,
+  .markdown-content li > strong:first-child {
+    display: inline-block;
+    background: rgba(1, 33, 105, 0.45);
+    color: #9db8f0;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    letter-spacing: 1px;
+    border: 1px solid rgba(42, 82, 190, 0.5);
+    min-width: 60px;
+    text-align: center;
+    margin-right: 0.5rem;
+  }
+
+  .markdown-content h2 {
+    scroll-margin-top: 2rem;
+  }
+
+  /* ── Packing checklist (Earmark GFM output) ────────────────── */
+  .tab-content#checklist ul {
+    list-style: none !important;
+    padding-left: 0.5rem !important;
+  }
+
+  .tab-content#checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem !important;
+    color: #ddd;
+    font-size: 1.1rem;
+  }
+
+  .tab-content#checklist input[type="checkbox"] {
+    accent-color: var(--uj-red);
+    width: 1.3rem;
+    height: 1.3rem;
+    cursor: pointer;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .tab-content#checklist li:has(input[type="checkbox"]:checked) {
+    color: #666;
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+  }
+
+  /* ── Routes placeholder ────────────────────────────────────── */
+  .komoot-placeholder {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    margin-top: 1rem;
+  }
+
+  .placeholder-icon {
+    font-size: 4rem;
+    color: rgba(255, 255, 255, 0.1);
+    margin-bottom: 1.5rem;
+  }
+
+  .komoot-placeholder h3 {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    color: #fff;
+    margin-bottom: 1rem;
+  }
+
+  .komoot-placeholder p {
+    color: #888;
+    margin-bottom: 2rem;
+  }
+
+  .route-list {
+    text-align: left;
+    max-width: 500px;
+    margin: 0 auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .routes-link {
+    color: var(--uj-blue-bright);
+    text-decoration: underline;
+  }
+
+  .route-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s;
+  }
+
+  a.route-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .route-item:last-child {
+    border-bottom: none;
+  }
+
+  .route-name {
+    font-weight: 600;
+    color: #ddd;
+  }
+
+  .route-status {
+    font-size: 0.7rem;
+    background: rgba(200, 16, 46, 0.12);
+    color: var(--uj-red);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid rgba(200, 16, 46, 0.3);
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .mr-2 { margin-right: 0.5rem; }
+  .text-red { color: var(--uj-red); }
+  .text-blue { color: var(--uj-blue-bright); }
+</style>
+
+<script>
+  function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function jumpToDay(n) {
+    showTab('itinerary');
+    const target = document.getElementById('day-' + n);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Tag each "Day N" heading in the rendered brief so calendar cells can link to it.
+    document.querySelectorAll('#itinerary h2').forEach((h, i) => {
+      h.id = 'day-' + (i + 1);
+    });
+
+    // Persistent checklist state
+    const checklist = document.getElementById('checklist');
+    const STORAGE_KEY = 'england_checklist_state';
+
+    function initChecklist() {
+      const checkboxes = checklist.querySelectorAll('input[type="checkbox"]');
+      if (checkboxes.length === 0) return;
+
+      const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      checkboxes.forEach((cb, index) => {
+        if (savedState[index]) {
+          cb.checked = true;
+        }
+
+        cb.addEventListener('change', () => {
+          const currentState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          currentState[index] = cb.checked;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
+        });
+      });
+    }
+
+    initChecklist();
+  });
+</script>

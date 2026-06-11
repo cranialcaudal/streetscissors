@@ -60,18 +60,30 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+config :mime, :types, %{
+  "audio/mp4" => ["m4a"]
+}
+
 config :web, Web.Scheduler,
   jobs: [
     # Run every Sunday at 8:23 PM (20:23)
-    {"23 20 * * 0", {Web.Newsletter.Generator, :generate_weekly_draft, []}}
+    {"23 20 * * 0", {Web.Newsletter.Generator, :generate_weekly_draft, []}},
+    # Close a live ride that has stopped receiving GPS points
+    {"*/15 * * * *", {Web.Rides, :auto_close_stale_ride, []}}
   ]
 
 config :web, Oban,
   repo: Web.Repo,
+  # SQLite-native engine: stock Oban (and the Pruner) emit Postgres-only SQL
+  # (table prefixes, DELETE ... JOIN) that ecto_sqlite3 rejects. The Lite engine
+  # generates SQLite-compatible queries for the whole job lifecycle.
+  engine: Oban.Engines.Lite,
   plugins: [Oban.Plugins.Pruner],
   queues: [default: 10, mailers: 20],
   # SQLite has no LISTEN/NOTIFY; use the process-group notifier (no DB dependency).
-  notifier: Oban.Notifiers.PG
+  notifier: Oban.Notifiers.PG,
+  # Single node, no DB-backed leadership election (which uses prefixes/locks).
+  peer: Oban.Peers.Isolated
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

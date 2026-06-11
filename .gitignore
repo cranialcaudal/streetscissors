@@ -42,7 +42,11 @@ npm-debug.log
 
 # Runtime logs and pids
 *.log
+*.log.gz
 *.pid
+
+# Obsidian workspace files inside the content vault
+content/.obsidian/
 
 # Local backups of vault and database
 /backup/

@@ -1,6 +1,8 @@
 defmodule WebWeb.PageController do
   use WebWeb, :controller
 
+  import WebWeb.Navigation, only: [return_context: 1]
+
   def home(conn, _params) do
     conn
     |> assign(:is_home, true)
@@ -8,12 +10,13 @@ defmodule WebWeb.PageController do
   end
 
   def about(conn, params) do
-    vault_path = "/home/cesar/Documents/Obsidian Vault/About.md"
+    # Internal path within the project repository
+    path = "content/about.md"
 
     markdown =
-      case File.read(vault_path) do
+      case File.read(path) do
         {:ok, content} -> content
-        {:error, _} -> "Could not find About.md in Obsidian Vault at: " <> vault_path
+        {:error, _} -> "Could not find about.md in the content directory."
       end
 
     html_content =
@@ -22,20 +25,12 @@ defmodule WebWeb.PageController do
         {:error, html, _} -> html
       end
 
-    {return_to, return_label} = get_return_context(params["from"])
+    {return_to, return_label} = return_context(params["from"])
 
     render(conn, :about,
       return_to: return_to,
       return_label: return_label,
       html_content: html_content
     )
-  end
-
-  defp get_return_context(from) do
-    case from do
-      "latent-sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
-      "another-blog" -> {"/blog/another-blog", "return to another blog"}
-      _ -> {"/", "return to homepage"}
-    end
   end
 end

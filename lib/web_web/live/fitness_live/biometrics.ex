@@ -83,7 +83,7 @@ defmodule WebWeb.FitnessLive.Biometrics do
         </div>
         <%= if @is_admin do %>
           <.link href={~p"/fitness/biometrics/export"} class="theme-btn" style="font-size: 0.9rem;">
-            <i class="fas fa-file-csv"></i> Export CSV
+            <.icon name="hero-table-cells" class="size-4" /> Export CSV
           </.link>
         <% end %>
       </header>
@@ -241,7 +241,7 @@ defmodule WebWeb.FitnessLive.Biometrics do
                         data-confirm="Are you sure?"
                         style="color: #ff3366; background: none; border: none; cursor: pointer;"
                       >
-                        <i class="fas fa-trash"></i>
+                        <.icon name="hero-trash" class="size-4" />
                       </button>
                     </td>
                   <% end %>

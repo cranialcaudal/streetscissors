@@ -2,10 +2,11 @@ defmodule WebWeb.ManuscriptController do
   use WebWeb, :controller
 
   alias Web.Manuscripts
+  import WebWeb.Navigation, only: [return_context: 1]
 
   def index(conn, params) do
-    # Filter categories as requested: Fiction, Reflections, Sensus
-    allowed = ["fiction", "reflections", "sensus"]
+    # Filter categories as requested:
+    allowed = ["latent-sensus", "another-blog", "fitness-blog", "sports-blog"]
 
     categories =
       Manuscripts.list_categories()
@@ -16,7 +17,7 @@ defmodule WebWeb.ManuscriptController do
         {category, Manuscripts.list_files(category)}
       end)
 
-    {return_to, return_label} = get_return_context(params["from"])
+    {return_to, return_label} = return_context(params["from"])
 
     render(conn, :index,
       categories: categories,
@@ -40,7 +41,7 @@ defmodule WebWeb.ManuscriptController do
             []
           end
 
-        {return_to, return_label} = get_return_context(params["from"] || category)
+        {return_to, return_label} = return_context(params["from"] || category)
 
         render(conn, :show,
           content: html_content,
@@ -61,12 +62,7 @@ defmodule WebWeb.ManuscriptController do
   end
 
   def category_index(conn, %{"category" => category} = params) do
-    folder =
-      case category do
-        "latent-sensus" -> "sensus"
-        "another-blog" -> "reflections"
-        _ -> category
-      end
+    folder = category
 
     files = Manuscripts.list_files_with_audio(folder)
     hit_counts = Web.Analytics.all_hits_by_prefix("/manuscripts/#{folder}/%")
@@ -94,7 +90,7 @@ defmodule WebWeb.ManuscriptController do
       end
 
     popular_files = Manuscripts.list_popular_files(folder, 7)
-    {return_to, return_label} = get_return_context(params["from"])
+    {return_to, return_label} = return_context(params["from"])
 
     title =
       case category do
@@ -115,23 +111,11 @@ defmodule WebWeb.ManuscriptController do
     |> render(template,
       files: sorted_files,
       popular_files: popular_files,
-      return_to: return_path(return_to),
+      return_to: return_to,
       return_label: return_label,
       category: category,
       sort: sort
     )
-  end
-
-  defp return_path(path), do: path
-
-  defp get_return_context(from) do
-    case from do
-      "latent-sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
-      "sensus" -> {"/blog/latent-sensus", "return to latent sensus"}
-      "another-blog" -> {"/blog/another-blog", "return to another blog"}
-      "reflections" -> {"/blog/another-blog", "return to another blog"}
-      _ -> {"/", "return to homepage"}
-    end
   end
 
   def upload(conn, %{"file" => upload}) do

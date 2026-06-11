@@ -57,13 +57,16 @@
 
           <div class="blog-bento-meta">
             <span class="blog-bento-meta-item">
-              <i class="far fa-calendar-alt"></i> {Calendar.strftime(file.mtime, "%B %d, %Y")}
+              <.icon name="hero-calendar" class="size-4" /> {Calendar.strftime(
+                file.mtime,
+                "%B %d, %Y"
+              )}
             </span>
             <span class="blog-bento-meta-item">
-              <i class="far fa-clock"></i> {file.read_min} min read
+              <.icon name="hero-clock" class="size-4" /> {file.read_min} min read
             </span>
             <span class="blog-bento-meta-item">
-              <i class="fas fa-chart-line"></i> {file.hit_count} views
+              <.icon name="hero-chart-bar" class="size-4" /> {file.hit_count} views
             </span>
             <span class="blog-bento-meta-item">
               <i class="fas fa-paragraph"></i> {file.word_count} words

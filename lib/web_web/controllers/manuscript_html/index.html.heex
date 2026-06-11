@@ -15,7 +15,7 @@
             <%= for file <- @manuscripts[category] do %>
               <li class="theme-list-item">
                 <a href={~p"/manuscripts/#{category}/#{file.slug}"} class="theme-link">
-                  <i class="fas fa-file-alt theme-icon"></i>
+                  <.icon name="hero-document-text" class="theme-icon" />
                   <span class="file-title theme-text">{file.title}</span>
                 </a>
               </li>

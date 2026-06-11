@@ -4,26 +4,23 @@
   <div class="blog-post-panel">
     <header class="blog-post-header">
       <div style="margin-bottom: 1rem;">
-        <a
-          href={@return_to}
-          class="top-bar-link"
-          style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
-        >
-          <i class="fas fa-arrow-left"></i> back to {@return_label}
-        </a>
+        <.back_link navigate={@return_to} label={@return_label} />
       </div>
 
       <h1 class="blog-post-title">{@file.title}</h1>
 
       <div class="blog-post-meta">
         <span class="blog-bento-meta-item">
-          <i class="far fa-calendar-alt"></i> {Calendar.strftime(@file.mtime, "%B %d, %Y")}
+          <.icon name="hero-calendar" class="size-4" /> {Calendar.strftime(
+            @file.mtime,
+            "%B %d, %Y"
+          )}
         </span>
         <span class="blog-bento-meta-item">
-          <i class="far fa-clock"></i> {@file.read_min} min read
+          <.icon name="hero-clock" class="size-4" /> {@file.read_min} min read
         </span>
         <span class="blog-bento-meta-item">
-          <i class="fas fa-chart-line"></i> {Map.get(@file, :hit_count, 0)} views
+          <.icon name="hero-chart-bar" class="size-4" /> {Map.get(@file, :hit_count, 0)} views
         </span>
         <span class="blog-bento-meta-item">
           <i class="fas fa-paragraph"></i> {@file.word_count} words

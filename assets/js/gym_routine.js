@@ -9,47 +9,29 @@ export const GymRoutine = {
         const STORAGE_KEY = 'vault_gym_v1';
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         const resetWeekBtn = this.el.querySelector('#reset-week');
-        const dayWrapper = this.el.querySelector('.vault-day');
+        const dayDetails = this.el.querySelectorAll('.day-details');
         
-        if (!dayWrapper) return;
-        
-        const currentDay = dayWrapper.dataset.day;
-        const checkboxes = dayWrapper.querySelectorAll('input[type="checkbox"]');
+        dayDetails.forEach((details) => {
+            const currentDay = details.dataset.day;
+            const checkboxes = details.querySelectorAll('input[type="checkbox"]');
 
-        checkboxes.forEach((cb, index) => {
-            // Uniquely identify each checkbox by day and its dom index on that day
-            const key = `vault_gym_${currentDay}_${index}`;
-            if (saved[key]) cb.checked = true;
-            
-            cb.onchange = () => {
-                saved[key] = cb.checked;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-            };
-        });
-
-        // Day resets
-        this.el.querySelectorAll('.day-reset').forEach(btn => {
-            btn.onclick = () => {
-                const dayToReset = btn.dataset.reset;
-                // We wipe out all keys starting with `vault_gym_dayToReset_`
-                Object.keys(saved).forEach(key => {
-                    if (key.startsWith(`vault_gym_${dayToReset}_`)) {
-                        saved[key] = false;
-                    }
-                });
+            checkboxes.forEach((cb, index) => {
+                // Uniquely identify each checkbox by day and its dom index on that day
+                const key = `vault_gym_${currentDay}_${index}`;
+                if (saved[key]) cb.checked = true;
                 
-                if (currentDay === dayToReset) {
-                    checkboxes.forEach(cb => cb.checked = false);
-                }
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-            };
+                cb.onchange = () => {
+                    saved[key] = cb.checked;
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+                };
+            });
         });
 
         // Week reset
         if (resetWeekBtn) {
             resetWeekBtn.onclick = () => {
                 if (confirm("Clear all progress for the week?")) {
-                    checkboxes.forEach(cb => cb.checked = false);
+                    this.el.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
                     localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
                 }
             };

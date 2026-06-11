@@ -13,7 +13,7 @@
         class="top-bar-link"
         style="background: none; border: none; cursor: pointer;"
       >
-        <i class="fas fa-book-open"></i> Guestbook
+        <.icon name="hero-book-open" class="size-4" /> Guestbook
       </a>
 
       <div class="top-bar-center">
@@ -52,7 +52,7 @@
         class="top-bar-link"
         style="background: none; border: none; cursor: pointer;"
       >
-        Newsletter and Contact <i class="fas fa-envelope"></i>
+        Newsletter and Contact <.icon name="hero-envelope" class="size-4" />
       </button>
     </div>
   </nav>
@@ -77,16 +77,24 @@
 <!-- César's Machine box -->
     <a href="/pc" class="bento-card bento-card-pc">
       <div class="pc-inner">
-        <i class="fas fa-terminal pc-icon"></i>
+        <.icon name="hero-command-line" class="pc-icon" />
         <span class="pc-title">César's Machine</span>
         <span class="pc-prompt">C:\> <span class="blink-cursor">_</span></span>
       </div>
     </a>
-    
-<!-- Fitness box -->
-    <a href="/fitness" class="bento-card bento-card-fitness">
-      <span class="bento-label">Fitness & Sport</span>
-    </a>
+
+    <div class="bento-row" style="margin-top: 1.5rem;">
+      <a href="/fitness" class="bento-card bento-card-fitness" style="margin-top: 0;">
+        <span class="bento-label">Fitness & Sport</span>
+      </a>
+      <a
+        href={~p"/archive"}
+        class="bento-card bento-card-fitness"
+        style="margin-top: 0; background: linear-gradient(135deg, #111 0%, #000 100%); border: 1px solid rgba(255, 255, 255, 0.1);"
+      >
+        <span class="bento-label">The Archive</span>
+      </a>
+    </div>
     
 <!-- Fitness Sub-row: Three skinny boxes -->
     <div class="bento-fitness-sub-row">

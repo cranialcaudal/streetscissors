@@ -25,6 +25,13 @@ defmodule WebWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/api", WebWeb do
+    pipe_through :api
+
+    # GPS ingestion from the Overland phone app (token-authenticated).
+    post "/overland", OverlandController, :create
+  end
+
   scope "/", WebWeb do
     pipe_through :browser
 
@@ -41,6 +48,7 @@ defmodule WebWeb.Router do
 
       # Main pages
       get "/", PageController, :home
+      get "/england2026", EnglandController, :show
       live "/audio", AudioLive
       get "/about", PageController, :about
       live "/contact", NewsletterLive, :contact
@@ -54,6 +62,7 @@ defmodule WebWeb.Router do
 
       # Other features
       live "/pc", PcLive
+      live "/archive", ArchiveLive
       live "/guestbook", GuestbookLive
       live "/fitness", FitnessBlogLive.Index, :index
       live "/fitness/wiki", FitnessLive.Wiki, :index
@@ -65,6 +74,10 @@ defmodule WebWeb.Router do
       get "/fitness/biometrics/export", FitnessController, :export_biometrics_csv
 
       live "/fitness/:slug", FitnessBlogLive.Show, :show
+
+      # Rides (live tracking + archive)
+      live "/rides", RidesLive.Index, :index
+      live "/rides/:id", RidesLive.Show, :show
     end
 
     live_session :admin,
@@ -76,6 +89,7 @@ defmodule WebWeb.Router do
       live "/admin/fitness", AdminLive.FitnessManager
       live "/admin/guestbook", AdminLive.GuestbookManager
       live "/admin/newsletter", AdminLive.Newsletter
+      live "/admin/rides", AdminLive.RidesManager
     end
   end
 

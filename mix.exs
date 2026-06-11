@@ -70,7 +70,8 @@ defmodule Web.MixProject do
       {:quantum, "~> 3.0"},
       {:gen_smtp, "~> 1.2"},
       {:castore, ">= 0.0.0"},
-      {:oban, "~> 2.17"}
+      {:oban, "~> 2.17"},
+      {:sweet_xml, "~> 0.7"}
     ]
   end
 
