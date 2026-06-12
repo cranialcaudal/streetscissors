@@ -348,10 +348,12 @@
     font-size: 4vw;
     right: auto;
   }
+  /* Uniform card treatment on phones: every label dead-center, even
+     padding; only the heights and font sizes carry the hierarchy. */
   .bento-card-blog {
-    min-height: 56vw;
+    min-height: 48vw;
+    align-items: center !important;
     padding: 5vw;
-    padding-bottom: 7vw;
   }
   .bento-label {
     font-size: 6vw;
