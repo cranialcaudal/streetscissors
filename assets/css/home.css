@@ -330,25 +330,53 @@
     display: none;
   }
 }
+/* Phone layout: one column, every size in vw so the whole bento stack
+   scales in proportion to the 14vw logo. Blogs stay the dominant tier:
+   blog ≈ 4× the logo height, pc ≈ 2×, fitness/archive ≈ 1.5×, skinny ≈ 1×. */
 @media (max-width: 550px) {
   .bento-row {
     grid-template-columns: 1fr !important;
+    gap: 4vw;
   }
   .site-title-container {
-    padding-bottom: 2.5rem;
+    padding-bottom: 7vw;
   }
   .site-title-overlay {
     font-size: 14vw;
   }
   .minecraft-splash {
-    font-size: 1rem;
+    font-size: 4vw;
     right: auto;
   }
   .bento-card-blog {
-    min-height: 200px;
+    min-height: 56vw;
+    padding: 5vw;
+    padding-bottom: 7vw;
   }
   .bento-label {
-    font-size: 1.3rem;
+    font-size: 6vw;
+  }
+  .bento-card-pc {
+    margin-top: 4vw;
+    min-height: 28vw;
+  }
+  .pc-icon {
+    font-size: 7vw;
+    width: 7vw;
+    height: 7vw;
+  }
+  .pc-title {
+    font-size: 5vw;
+  }
+  .pc-prompt {
+    font-size: 3.5vw;
+  }
+  .bento-card-fitness {
+    margin-top: 4vw;
+    min-height: 21vw;
+  }
+  .bento-card-fitness .bento-label {
+    font-size: 5vw;
   }
 }
 
@@ -398,8 +426,14 @@
 @media (max-width: 550px) {
   .bento-fitness-sub-row {
     grid-template-columns: 1fr;
+    gap: 4vw;
+    margin-top: 4vw;
   }
   .bento-card-skinny {
-    min-height: 55px;
+    min-height: 14vw;
+    padding: 3vw;
+  }
+  .bento-card .bento-label-small {
+    font-size: 3.8vw;
   }
 }
