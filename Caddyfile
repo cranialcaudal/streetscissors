@@ -3,6 +3,14 @@
 # IMPORTANT: Replace 'email@example.com' with your actual email for Let's Encrypt notifications!
 #
 
+# HTTP/3 disabled: deploys SIGKILL caddy, leaving browsers (esp. Firefox) with
+# wedged QUIC connections — every page load then hangs until a browser restart.
+{
+    servers {
+        protocols h1 h2
+    }
+}
+
 # Redirect www to non-www
 www.streetscissors.com {
     redir https://streetscissors.com{uri}
