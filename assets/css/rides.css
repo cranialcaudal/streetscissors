@@ -140,6 +140,20 @@
 
 /* ── Archive list ──────────────────────────────────────────────── */
 
+/* Completed and planned rides side by side; single column on mobile. */
+.rides-columns--split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .rides-columns--split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ride-archive-heading {
   font-family: var(--font-heading);
   font-weight: 800;

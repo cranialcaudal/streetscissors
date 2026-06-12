@@ -33,45 +33,47 @@ defmodule WebWeb.RidesLive.Index do
         <p class="rides-sub">GPS tracks synced from Komoot</p>
       </header>
 
-      <section :if={@planned != []} class="ride-planned">
-        <h2 class="ride-archive-heading">Planned routes</h2>
+      <div class={["rides-columns", @planned != [] && "rides-columns--split"]}>
+        <section class="ride-archive">
+          <h2 :if={@planned != []} class="ride-archive-heading">Completed</h2>
 
-        <.link
-          :for={ride <- @planned}
-          navigate={~p"/fitness/rides/#{ride.id}"}
-          class="ride-card ride-card--planned"
-        >
-          <div class="ride-card-main">
-            <span class="ride-card-name">{ride.name || "Untitled route"}</span>
-            <span class="ride-card-date">planned</span>
-          </div>
-          <div class="ride-card-stats">
-            <span>{Format.distance(ride.distance_m)}</span>
-            <span>{Format.elevation(ride.ascent_m)} ↑</span>
-          </div>
-        </.link>
-      </section>
+          <p :if={@rides == []} class="rides-empty">
+            No rides logged yet. The next one will land here straight from Komoot.
+          </p>
 
-      <section class="ride-archive">
-        <h2 :if={@planned != []} class="ride-archive-heading">Rides</h2>
+          <.link :for={ride <- @rides} navigate={~p"/fitness/rides/#{ride.id}"} class="ride-card">
+            <div class="ride-card-main">
+              <span class="ride-card-name">{ride.name || "Untitled ride"}</span>
+              <span class="ride-card-date">{Format.date(ride.started_at)}</span>
+            </div>
+            <div class="ride-card-stats">
+              <span>{Format.distance(ride.distance_m)}</span>
+              <span>{Format.duration(ride.duration_s)}</span>
+              <span>{Format.speed(ride.avg_speed_mps)} avg</span>
+              <span>{Format.elevation(ride.ascent_m)} ↑</span>
+            </div>
+          </.link>
+        </section>
 
-        <p :if={@rides == []} class="rides-empty">
-          No rides logged yet. The next one will land here straight from Komoot.
-        </p>
+        <section :if={@planned != []} class="ride-planned">
+          <h2 class="ride-archive-heading">Planned routes</h2>
 
-        <.link :for={ride <- @rides} navigate={~p"/fitness/rides/#{ride.id}"} class="ride-card">
-          <div class="ride-card-main">
-            <span class="ride-card-name">{ride.name || "Untitled ride"}</span>
-            <span class="ride-card-date">{Format.date(ride.started_at)}</span>
-          </div>
-          <div class="ride-card-stats">
-            <span>{Format.distance(ride.distance_m)}</span>
-            <span>{Format.duration(ride.duration_s)}</span>
-            <span>{Format.speed(ride.avg_speed_mps)} avg</span>
-            <span>{Format.elevation(ride.ascent_m)} ↑</span>
-          </div>
-        </.link>
-      </section>
+          <.link
+            :for={ride <- @planned}
+            navigate={~p"/fitness/rides/#{ride.id}"}
+            class="ride-card ride-card--planned"
+          >
+            <div class="ride-card-main">
+              <span class="ride-card-name">{ride.name || "Untitled route"}</span>
+              <span class="ride-card-date">planned</span>
+            </div>
+            <div class="ride-card-stats">
+              <span>{Format.distance(ride.distance_m)}</span>
+              <span>{Format.elevation(ride.ascent_m)} ↑</span>
+            </div>
+          </.link>
+        </section>
+      </div>
 
       <section :if={@komoot_embed}>
         <h2 class="ride-archive-heading">On Komoot</h2>

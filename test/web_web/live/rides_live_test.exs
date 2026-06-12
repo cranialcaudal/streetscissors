@@ -27,7 +27,7 @@ defmodule WebWeb.RidesLiveTest do
     assert html =~ ~p"/fitness/rides/#{ride.id}"
   end
 
-  test "index shows planned routes in their own section", %{conn: conn} do
+  test "index shows planned routes beside completed rides", %{conn: conn} do
     points = [
       %{lat: 54.54, lon: -3.15, altitude_m: 100.0, recorded_at: ~U[2026-07-08 08:00:00Z]},
       %{lat: 54.55, lon: -3.15, altitude_m: 110.0, recorded_at: ~U[2026-07-08 08:00:01Z]}
@@ -37,8 +37,17 @@ defmodule WebWeb.RidesLiveTest do
       Rides.create_imported_ride(points, %{"name" => "Fred Whitton"}, kind: "planned")
 
     {:ok, _view, html} = live(conn, ~p"/fitness/rides")
+    assert html =~ "rides-columns--split"
     assert html =~ "Planned routes"
+    assert html =~ "Completed"
     assert html =~ "Fred Whitton"
+  end
+
+  test "index stays single-column with nothing planned", %{conn: conn} do
+    {:ok, _ride} = Rides.import_gpx(gpx_fixture(), %{"name" => "Lakes loop"})
+
+    {:ok, _view, html} = live(conn, ~p"/fitness/rides")
+    refute html =~ "rides-columns--split"
   end
 
   test "index renders the komoot profile embed only when configured", %{conn: conn} do
