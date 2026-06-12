@@ -127,14 +127,15 @@
   position: relative;
   margin-top: 1rem;
 }
-/* Sits in normal flow at the top of the bento section; the splash hangs
-   below the title inside the container's bottom padding. */
+/* Desktop: the logo drops over the two blog cards as an overlay.
+   On phones (≤550px below) it switches to normal flow at the top. */
 .site-title-container {
-  position: relative;
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 10;
-  display: flex;
-  justify-content: center;
-  padding: 1rem 0 3.5rem;
+  display: block;
   pointer-events: none;
 }
 .site-title-overlay {
@@ -153,7 +154,7 @@
 }
 .minecraft-splash {
   position: absolute;
-  bottom: 0;
+  bottom: -60px;
   left: 50%;
   transform: translateX(-50%);
   color: #ffff00;
@@ -338,8 +339,15 @@
     grid-template-columns: 1fr !important;
     gap: 4vw;
   }
+  /* Phones: logo leaves the overlay and sits in flow at the top */
   .site-title-container {
-    padding-bottom: 7vw;
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0 7vw;
   }
   .site-title-overlay {
     font-size: 14vw;
@@ -347,6 +355,7 @@
   .minecraft-splash {
     font-size: 4vw;
     right: auto;
+    bottom: 0;
   }
   /* Uniform card treatment on phones: every label dead-center, even
      padding; only the heights and font sizes carry the hierarchy. */
