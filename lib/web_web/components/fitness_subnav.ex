@@ -20,12 +20,15 @@ defmodule WebWeb.FitnessSubnav do
     assigns = assign(assigns, :tabs, @tabs)
 
     ~H"""
-    <div class="bento-fitness-sub-row" style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+    <div
+      class="bento-fitness-sub-row"
+      style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;"
+    >
       <%= for {key, href, label} <- @tabs, key != @active do %>
         <a
           href={href}
           class="bento-card bento-card-skinny"
-          style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
+          style="flex: 1; min-width: 130px; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
         >
           <span
             class="bento-label-small"
@@ -39,7 +42,7 @@ defmodule WebWeb.FitnessSubnav do
         <a
           href="/fitness/biometrics"
           class="bento-card bento-card-skinny"
-          style="flex: 1; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
+          style="flex: 1; min-width: 130px; text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; text-decoration: none;"
         >
           <span
             class="bento-label-small"

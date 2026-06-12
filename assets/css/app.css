@@ -30,6 +30,7 @@
 @import "./home.css";
 @import "../vendor/leaflet.css";
 @import "./rides.css";
+@import "./mobile.css";
 
 /* Setup standard Phoenix overrides if necessary */
 

@@ -127,13 +127,14 @@
   position: relative;
   margin-top: 1rem;
 }
+/* Sits in normal flow at the top of the bento section; the splash hangs
+   below the title inside the container's bottom padding. */
 .site-title-container {
-  position: absolute;
-  top: 18%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
   z-index: 10;
-  display: block;
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0 3.5rem;
   pointer-events: none;
 }
 .site-title-overlay {
@@ -152,7 +153,7 @@
 }
 .minecraft-splash {
   position: absolute;
-  bottom: -60px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   color: #ffff00;
@@ -334,7 +335,7 @@
     grid-template-columns: 1fr !important;
   }
   .site-title-container {
-    top: 25%;
+    padding-bottom: 2.5rem;
   }
   .site-title-overlay {
     font-size: 14vw;
@@ -342,7 +343,6 @@
   .minecraft-splash {
     font-size: 1rem;
     right: auto;
-    bottom: -20px;
   }
   .bento-card-blog {
     min-height: 200px;

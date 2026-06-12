@@ -173,7 +173,7 @@ defmodule WebWeb.NewsletterOverlayLive do
           <div
             class="glass-panel"
             phx-click-away="close_dispatch"
-            style="width: 100%; max-width: 650px; padding: 3rem; position: relative; border: 1px solid rgba(255,102,0,0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.8); background: rgba(10,10,10,0.95); border-radius: 12px;"
+            style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: clamp(1.5rem, 5vw, 3rem); position: relative; border: 1px solid rgba(255,102,0,0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.8); background: rgba(10,10,10,0.95); border-radius: 12px;"
           >
             <button
               phx-click="close_dispatch"
@@ -283,7 +283,7 @@ defmodule WebWeb.NewsletterOverlayLive do
                     phx-submit="save_contact"
                     style="display: flex; flex-direction: column; gap: 1.5rem;"
                   >
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                       <input
                         name="message[name]"
                         type="text"

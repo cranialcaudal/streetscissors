@@ -1,0 +1,63 @@
+/* Site-wide mobile refinements. Imported last so its rules win specificity
+   ties; !important is required where templates set inline styles. */
+
+/* Markdown/prose tables (England itinerary, wiki articles) scroll
+   horizontally instead of stretching the page. */
+.markdown-content table,
+.markdown-body table,
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  /* Headings sized for phones */
+  .theme-title {
+    font-size: 2rem;
+  }
+  .theme-subtitle {
+    font-size: 1.4rem;
+  }
+  .prose h1 {
+    font-size: 2rem;
+  }
+  .prose h2 {
+    font-size: 1.5rem;
+  }
+  /* Justified text creates rivers in narrow columns */
+  .prose p {
+    text-align: left;
+  }
+
+  /* Home top bar wraps instead of squeezing its three pills */
+  .home-top-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Admin: sidebar stacks above the content, nav links become a wrap row */
+  .admin-layout {
+    flex-direction: column !important;
+  }
+  .admin-layout > aside {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #333;
+    padding: 1rem !important;
+  }
+  .admin-layout > aside nav {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+  .admin-layout > div {
+    height: auto !important;
+    padding: 1rem !important;
+  }
+
+  /* Wide admin tables scroll inside their panels */
+  .rides-admin-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
