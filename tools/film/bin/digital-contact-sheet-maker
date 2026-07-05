@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# Digital Contact Sheet Maker
+#
+# Composites scanned film strips named rollXXX.<ext> from a folder into a
+# single printable ~8x10in (300 dpi) contact sheet, using GIMP headlessly
+# (no window is opened). Strips are stacked in filename order, inverted
+# from negative to positive by default, and centered on the sheet.
+#
+# Requires the film-contact-sheet.scm Script-Fu script installed in
+# ~/.config/GIMP/<version>/scripts/.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Digital Contact Sheet Maker
+
+Usage: digital-contact-sheet-maker [DIR] [options]
+
+  DIR                   Folder containing the strip scans (default: current
+                        directory). Files named *.jpg/png/tif/etc. are
+                        used; set --pattern to override.
+
+Options:
+  -o, --output FILE     Output image (default:
+                        ~/Pictures/Negatives/Contact Sheets/<DIR name>.png).
+                        Extension picks the format (.png, .jpg, .tif ...).
+  -p, --paper SIZE      8x10 (default), a4, or letter — always at 300 dpi.
+  -l, --layout MODE     rows (strips stacked top-to-bottom, e.g. 35mm),
+                        columns (strips side by side, e.g. 120/620), or
+                        auto. Default is inferred from the folder path:
+                        35mm -> rows; 120/620 -> columns; 110/other -> auto
+                        (those usually need custom assembly). rows/columns
+                        rotate scans into the needed orientation.
+      --pattern GLOB    Filename pattern instead of "*".
+      --no-invert       Keep scans as-is (for scans of positives/prints).
+      --white           White paper (default is black — the traditional
+                        darkroom contact-sheet look).
+  -h, --help            Show this help.
+
+Examples:
+  digital-contact-sheet-maker ~/scans/tri-x-roll-14
+  digital-contact-sheet-maker ~/scans/velvia -o proofs.jpg --paper a4
+EOF
+}
+
+DIR="."
+OUT=""
+PAPER=0
+INVERT="TRUE"
+BLACK="TRUE"
+PATTERN="*"
+LAYOUT=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o|--output)  OUT="$2"; shift 2 ;;
+    -p|--paper)
+      case "${2,,}" in
+        8x10)   PAPER=0 ;;
+        a4)     PAPER=1 ;;
+        letter) PAPER=2 ;;
+        *) echo "error: unknown paper size '$2' (use 8x10, a4, or letter)" >&2; exit 1 ;;
+      esac
+      shift 2 ;;
+    -l|--layout)
+      case "${2,,}" in
+        auto|rows|columns) LAYOUT="${2,,}" ;;
+        *) echo "error: unknown layout '$2' (use rows, columns, or auto)" >&2; exit 1 ;;
+      esac
+      shift 2 ;;
+    --pattern)    PATTERN="$2"; shift 2 ;;
+    --no-invert)  INVERT="FALSE"; shift ;;
+    --black)      BLACK="TRUE"; shift ;;   # default; kept for old scripts
+    --white)      BLACK="FALSE"; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    -*)           echo "error: unknown option '$1' (try --help)" >&2; exit 1 ;;
+    *)            DIR="$1"; shift ;;
+  esac
+done
+
+DIR=$(realpath "$DIR")
+if [ ! -d "$DIR" ]; then
+  echo "error: '$DIR' is not a directory" >&2
+  exit 1
+fi
+
+# fail fast, before paying GIMP's startup cost
+shopt -s nullglob nocaseglob
+matches=("$DIR"/$PATTERN.{jpg,jpeg,png,tif,tiff,bmp,webp})
+shopt -u nullglob nocaseglob
+if [ ${#matches[@]} -eq 0 ]; then
+  echo "error: no '$PATTERN' scans found in $DIR" >&2
+  exit 1
+fi
+
+if [ -z "$LAYOUT" ]; then
+  case "${DIR,,}" in
+    *35mm*)      LAYOUT=rows ;;
+    *620*|*120*) LAYOUT=columns ;;
+    *110*)
+      LAYOUT=auto
+      echo "note: 110 rolls usually need custom assembly; using auto layout" \
+           "(--layout rows|columns to force, or use GIMP's File > Create >" \
+           "Film Contact Sheet dialog for manual control)" ;;
+    *)
+      LAYOUT=auto
+      echo "note: film format not recognized from the folder path; using" \
+           "auto layout (--layout rows|columns to force)" ;;
+  esac
+fi
+
+if [ -z "$OUT" ]; then
+  SHEETDIR="$HOME/Pictures/Negatives/Contact Sheets"
+  mkdir -p "$SHEETDIR"
+  OUT="$SHEETDIR/$(basename "$DIR").png"
+fi
+OUT=$(realpath -m "$OUT")
+
+SCM=$(ls ~/.config/GIMP/*/scripts/film-contact-sheet.scm 2>/dev/null | sort -V | tail -1)
+if [ -z "$SCM" ]; then
+  echo "error: film-contact-sheet.scm not found in ~/.config/GIMP/*/scripts/" >&2
+  exit 1
+fi
+
+if command -v gimp >/dev/null 2>&1; then
+  GIMP=(gimp)
+elif flatpak info org.gimp.GIMP >/dev/null 2>&1; then
+  GIMP=(flatpak run org.gimp.GIMP)
+else
+  echo "error: GIMP not found (native or flatpak)" >&2
+  exit 1
+fi
+
+BATCH="(begin
+  (load \"$SCM\")
+  (let ((img (film-contact-sheet-build-pattern
+               \"$DIR\" \"$PATTERN\" $PAPER $INVERT $BLACK \"$LAYOUT\")))
+    (if img
+        (begin
+          (gimp-image-flatten img)
+          (gimp-file-save RUN-NONINTERACTIVE img \"$OUT\")
+          (gimp-image-delete img))))
+  (gimp-quit 0))"
+
+echo "Compositing ${#matches[@]} strip scan(s) from $DIR (layout: $LAYOUT) ..."
+LOG=$(mktemp)
+trap 'rm -f "$LOG"' EXIT
+
+if ! "${GIMP[@]}" -i -n -d -f --batch-interpreter=plug-in-script-fu-eval \
+       -b "$BATCH" >"$LOG" 2>&1 || [ ! -f "$OUT" ]; then
+  echo "error: GIMP failed to build the contact sheet; log follows" >&2
+  cat "$LOG" >&2
+  exit 1
+fi
+
+grep -o "strips were scaled to [0-9]*% to fit the paper" "$LOG" | head -1 || true
+echo "Wrote $OUT"

@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# negatives — film scanning pipeline (also callable as film-intake).
+#
+# One roll at a time, start to finish:
+#
+#   1. builds the roll folder name (rollNNN_DATE_FORMAT_COLOR) and
+#      creates the folder inside the right format dir (120 Film/, ...)
+#   2. opens the folder in the file manager and launches the scanner
+#      (iscan; simple-scan fallback; NEGATIVES_SCANNER=<cmd> overrides)
+#   3. when the scanner closes, catalogs the roll in catalog.csv and
+#      builds its contact sheet — black background — with
+#      digital-contact-sheet-maker (headless GIMP)
+#   4. offers to open the sheet in GIMP (ends the session);
+#      otherwise offers to scan another roll
+#
+#   negatives              run a scan session
+#   negatives --base DIR   use another collection root
+#                          (default: ~/Pictures/Negatives)
+#
+# To rebuild any sheet by hand: digital-contact-sheet-maker <roll folder>
+
+set -euo pipefail
+shopt -s nullglob nocaseglob
+
+BASE="$HOME/Pictures/Negatives"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) BASE="$2"; shift 2 ;;
+    -h|--help)
+      sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    *) echo "error: unknown option '$1' (try --help)" >&2; exit 1 ;;
+  esac
+done
+
+BASE=$(realpath "$BASE")
+SHEETS="$BASE/Contact Sheets"
+CATALOG="$BASE/catalog.csv"
+mkdir -p "$SHEETS" "$BASE/120 Film" "$BASE/620 Film" "$BASE/110 Film" \
+         "$BASE/35mm Film" "$BASE/Other"
+
+format_dir() {
+  case "$1" in
+    *_120_*)  echo "120 Film" ;;
+    *_620_*)  echo "620 Film" ;;
+    *_110_*)  echo "110 Film" ;;
+    *_35mm_*) echo "35mm Film" ;;
+    *)        echo "Other" ;;
+  esac
+}
+
+count_scans() {
+  local n=0 f
+  for f in "$1"/*.{jpg,jpeg,png,tif,tiff,bmp,webp}; do n=$((n+1)); done
+  echo "$n"
+}
+
+resolve_scanner() {  # returns the scanner app name if available
+  local app=${NEGATIVES_SCANNER:-}
+  if [ -z "$app" ]; then
+    if command -v iscan >/dev/null 2>&1; then app=iscan
+    elif command -v simple-scan >/dev/null 2>&1; then app=simple-scan
+    else return 1; fi
+  fi
+  command -v "$app" >/dev/null 2>&1 || return 1
+  echo "$app"
+}
+
+resolve_gimp() {
+  if command -v gimp >/dev/null 2>&1; then
+    GIMP=(gimp)
+  elif flatpak info org.gimp.GIMP >/dev/null 2>&1; then
+    GIMP=(flatpak run org.gimp.GIMP)
+  else
+    echo "error: GIMP not found (native or flatpak)" >&2
+    return 1
+  fi
+}
+
+roll_number_used() {  # exact 3-digit string, e.g. 002
+  compgen -G "$BASE/roll$1_*" >/dev/null && return 0
+  local d
+  for d in "$BASE"/*/roll"$1"_*/; do return 0; done
+  [ -f "$CATALOG" ] && grep -q "^$1," "$CATALOG"
+}
+
+next_roll_number() {
+  local i=1 n
+  while :; do
+    printf -v n "%03d" "$i"
+    roll_number_used "$n" || { echo "$n"; return; }
+    i=$((i+1))
+  done
+}
+
+catalog_roll() {  # $1 = roll dir (already validated rollNNN_DATE_FORMAT_COLOR)
+  local name num date fmt color rel
+  name=$(basename "$1")
+  IFS=_ read -r num date fmt color _ <<< "$name"
+  num=${num#roll}
+  [ -f "$CATALOG" ] || echo "roll,scan_date,film_type,color,frames,folder" > "$CATALOG"
+  grep -q "^$num," "$CATALOG" && return 0
+  rel=${1#"$BASE"/}
+  echo "$num,$date,$fmt,$color,$(count_scans "$1"),$rel" >> "$CATALOG"
+  echo "Cataloged roll $num ($fmt, $color)"
+}
+
+scan_session() {
+  local last_fmt="120" last_color="bw"
+  if [ -f "$BASE/.lastroll" ]; then
+    IFS=, read -r last_fmt last_color < "$BASE/.lastroll" || true
+    last_fmt=${last_fmt:-120}; last_color=${last_color:-bw}
+  fi
+
+  local num fmt color d8 name fmtdir dir r count sugg scanner sheet
+  while true; do
+    echo
+    sugg=$(next_roll_number)
+    read -rp "Roll number [$sugg]  (q = quit): " num || return 0
+    case "$num" in q|Q) return 0 ;; esac
+    num=${num:-$sugg}
+    if ! [[ "$num" =~ ^[0-9]+$ ]]; then echo "Roll number must be digits."; continue; fi
+    printf -v num "%03d" "$((10#$num))"
+    if roll_number_used "$num"; then
+      echo "Roll $num already exists — pick another number."
+      continue
+    fi
+    read -rp "Film format (120/620/110/35mm/...) [$last_fmt]: " fmt || return 0
+    fmt=${fmt:-$last_fmt}
+    if ! [[ "$fmt" =~ ^[A-Za-z0-9]+$ ]]; then echo "Format must be letters/digits only."; continue; fi
+    read -rp "Black & white or color (bw/color) [$last_color]: " color || return 0
+    color=${color:-$last_color}
+    if [[ "$color" != "bw" && "$color" != "color" ]]; then echo "Use bw or color."; continue; fi
+    read -rp "Scan date [$(date +%F)]: " d8 || return 0
+    d8=${d8:-$(date +%F)}
+
+    name="roll${num}_${d8}_${fmt}_${color}"
+    fmtdir=$(format_dir "$name")
+    dir="$BASE/$fmtdir/$name"
+    mkdir -p "$dir"
+    echo "$fmt,$color" > "$BASE/.lastroll"
+    last_fmt=$fmt; last_color=$color
+
+    echo
+    echo "Created: $dir"
+    (xdg-open "$dir" >/dev/null 2>&1 &) || true
+    scanner=$(resolve_scanner) || scanner=""
+    if [ -n "$scanner" ]; then
+      echo "Opening $scanner and the folder in the file manager..."
+      echo "$scanner's save dialog will already point at this folder."
+      echo "Scan at 300 dpi, one file per strip:"
+      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
+      echo
+      echo "(Waiting for $scanner to close...)"
+      # launched from inside the roll folder: iscan's GTK save dialog
+      # starts in the process cwd, so Scan saves land here by default
+      ( cd "$dir" && "$scanner" >/dev/null 2>&1 ) || true
+      while pgrep -x "$(basename "$scanner")" >/dev/null 2>&1; do
+        sleep 1
+      done
+    else
+      echo "(opened in your file manager; no scanner app found —"
+      echo " set NEGATIVES_SCANNER=<command> to launch one automatically)"
+      echo "Scan at 300 dpi into that folder, one file per strip, named:"
+      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
+      echo
+      read -rp "Press Enter when this roll is fully scanned: " r || return 0
+    fi
+
+    count=$(count_scans "$dir")
+    if [ "$count" -eq 0 ]; then
+      echo "No image scans found in $name."
+      read -rp "Keep the empty folder to finish later? [y/N]: " r || return 0
+      if [[ "$r" =~ ^[yY] ]]; then
+        echo "Kept. When it's scanned, build the sheet with:"
+        echo "  digital-contact-sheet-maker \"$dir\""
+      else
+        rmdir "$dir" 2>/dev/null || echo "note: $name is not empty; leaving it in place."
+      fi
+      read -rp "Scan another roll? [y/N]: " r || return 0
+      [[ "$r" =~ ^[yY] ]] || return 0
+      continue
+    fi
+
+    catalog_roll "$dir"
+    echo
+    echo "Found $count scan(s) for roll $num. Assembling contact sheet..."
+    sheet="$SHEETS/$name.png"
+    if digital-contact-sheet-maker "$dir" -o "$sheet" && [ -f "$sheet" ]; then
+      echo
+      echo "✨ Contact sheet assembled: Contact Sheets/$name.png"
+      echo "🌐 streetscissors serves that folder directly — the sheet is live on /negatives."
+      echo
+      read -rp "Open contact sheet in GIMP? [y/N]: " r || return 0
+      if [[ "$r" =~ ^[yY] ]]; then
+        resolve_gimp || return 0
+        nohup "${GIMP[@]}" "$sheet" >/dev/null 2>&1 &
+        echo "Opening in GIMP... run 'negatives' again for the next roll."
+        return 0
+      fi
+    else
+      echo "error: contact sheet generation failed for $name." >&2
+      echo "Fix the scans, then rebuild with:" >&2
+      echo "  digital-contact-sheet-maker \"$dir\"" >&2
+    fi
+
+    echo
+    read -rp "Scan another roll? [y/N]: " r || return 0
+    [[ "$r" =~ ^[yY] ]] || return 0
+  done
+}
+
+# --- entry point --------------------------------------------------------
+if [ ! -t 0 ]; then
+  echo "negatives is an interactive scan wizard; run it in a terminal." >&2
+  echo "To (re)build a single roll's sheet non-interactively:" >&2
+  echo "  digital-contact-sheet-maker <roll folder>" >&2
+  exit 2
+fi
+scan_session
