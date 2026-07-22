@@ -13,7 +13,17 @@
 #   4. offers to open the sheet in GIMP (ends the session);
 #      otherwise offers to scan another roll
 #
+# A roll number is unique across the collection and stays reserved until
+# the roll is deleted with --delete, which clears all four places a roll
+# lives (folder, catalog row, contact sheet, web preview).
+#
 #   negatives              run a scan session
+#   negatives --delete NNN retire roll NNN and free its number: the scan
+#                          folder moves to .trash/, and the catalog row,
+#                          contact sheet and preview are removed
+#   negatives --redo NNN   --delete NNN, then rescan straight into NNN
+#   negatives --list       show which roll numbers are taken
+#   negatives -y           don't ask to confirm a --delete/--redo
 #   negatives --base DIR   use another collection root
 #                          (default: ~/Pictures/Negatives)
 #
@@ -23,11 +33,18 @@ set -euo pipefail
 shopt -s nullglob nocaseglob
 
 BASE="$HOME/Pictures/Negatives"
+ACTION=scan
+TARGET=""
+ASSUME_YES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) BASE="$2"; shift 2 ;;
+    --delete|--rm) ACTION=delete; TARGET="${2:-}"; shift 2 ;;
+    --redo) ACTION=redo; TARGET="${2:-}"; shift 2 ;;
+    --list|--ls) ACTION=list; shift ;;
+    -y|--yes) ASSUME_YES=1; shift ;;
     -h|--help)
-      sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) echo "error: unknown option '$1' (try --help)" >&2; exit 1 ;;
   esac
@@ -36,6 +53,7 @@ done
 BASE=$(realpath "$BASE")
 SHEETS="$BASE/Contact Sheets"
 CATALOG="$BASE/catalog.csv"
+TRASH="$BASE/.trash"
 mkdir -p "$SHEETS" "$BASE/120 Film" "$BASE/620 Film" "$BASE/110 Film" \
          "$BASE/35mm Film" "$BASE/Other"
 
@@ -77,10 +95,16 @@ resolve_gimp() {
   fi
 }
 
-roll_number_used() {  # exact 3-digit string, e.g. 002
-  compgen -G "$BASE/roll$1_*" >/dev/null && return 0
+# Scan folders live either loose at the root or inside a format folder.
+# ".trash" is hidden, so "*/" never descends into it — deleted rolls stop
+# reserving their number the moment they are trashed.
+roll_dirs() {  # every scan folder for roll NNN, one per line
   local d
-  for d in "$BASE"/*/roll"$1"_*/; do return 0; done
+  for d in "$BASE"/roll"$1"_*/ "$BASE"/*/roll"$1"_*/; do printf '%s\n' "${d%/}"; done
+}
+
+roll_number_used() {  # exact 3-digit string, e.g. 002
+  [ -n "$(roll_dirs "$1")" ] && return 0
   [ -f "$CATALOG" ] && grep -q "^$1," "$CATALOG"
 }
 
@@ -91,6 +115,88 @@ next_roll_number() {
     roll_number_used "$n" || { echo "$n"; return; }
     i=$((i+1))
   done
+}
+
+normalize_roll_number() {  # digits -> zero-padded 3-digit, or fail
+  [[ "$1" =~ ^[0-9]+$ ]] || return 1
+  printf "%03d" "$((10#$1))"
+}
+
+used_roll_numbers() {  # every number claimed by a folder or a catalog row
+  local d
+  { for d in "$BASE"/roll[0-9][0-9][0-9]_*/ "$BASE"/*/roll[0-9][0-9][0-9]_*/; do
+      d=$(basename "$d"); echo "${d:4:3}"
+    done
+    if [ -f "$CATALOG" ]; then sed -n 's/^\([0-9]\{3\}\),.*/\1/p' "$CATALOG"; fi
+  } | sort -u
+}
+
+roll_status() {  # one-line summary of what a roll number still holds
+  local num=$1 bits=() d p
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    bits+=("${d#"$BASE"/} ($(count_scans "$d") scan(s))")
+  done < <(roll_dirs "$num")
+  if [ -f "$CATALOG" ] && grep -q "^$num," "$CATALOG"; then bits+=("catalog row"); fi
+  for p in "$SHEETS"/roll"$num"_*; do [ -f "$p" ] && bits+=("contact sheet"); done
+  if [ ${#bits[@]} -eq 0 ]; then echo "(free)"; else
+    printf '%s' "${bits[0]}"
+    if [ ${#bits[@]} -gt 1 ]; then printf ' + %s' "${bits[@]:1}"; fi
+    echo
+  fi
+}
+
+list_rolls() {
+  local n used=0
+  echo "Roll numbers in use under $BASE:"
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    used=1
+    printf '  %s  %s\n' "$n" "$(roll_status "$n")"
+  done < <(used_roll_numbers)
+  [ "$used" = 1 ] || echo "  (none)"
+  echo "Next free: $(next_roll_number)"
+}
+
+delete_roll() {  # $1 = zero-padded roll number
+  local num=$1 dirs=() sheets=() previews=() rows=0 p n
+  while IFS= read -r p; do [ -n "$p" ] && dirs+=("$p"); done < <(roll_dirs "$num")
+  for p in "$SHEETS"/roll"$num"_*;          do [ -f "$p" ] && sheets+=("$p");   done
+  for p in "$SHEETS"/previews/roll"$num"_*; do [ -f "$p" ] && previews+=("$p"); done
+  if [ -f "$CATALOG" ]; then rows=$(grep -c "^$num," "$CATALOG" || true); fi
+
+  if [ ${#dirs[@]} -eq 0 ] && [ ${#sheets[@]} -eq 0 ] && \
+     [ ${#previews[@]} -eq 0 ] && [ "$rows" -eq 0 ]; then
+    echo "Roll $num holds nothing — the number is already free."
+    return 0
+  fi
+
+  echo "Deleting roll $num:"
+  for p in "${dirs[@]}";     do echo "  scans     ${p#"$BASE"/}  ($(count_scans "$p") file(s)) -> .trash/"; done
+  for p in "${sheets[@]}";   do echo "  sheet     ${p#"$BASE"/}  (removed — also drops off streetscissors)"; done
+  for p in "${previews[@]}"; do echo "  preview   ${p#"$BASE"/}  (removed)"; done
+  if [ "$rows" -gt 0 ]; then echo "  catalog   $rows row(s) in catalog.csv (removed)"; fi
+
+  if [ "$ASSUME_YES" != 1 ]; then
+    local r
+    read -rp "Proceed? [y/N]: " r || return 1
+    [[ "$r" =~ ^[yY] ]] || { echo "Cancelled — nothing was touched."; return 1; }
+  fi
+
+  # Scans are recoverable; sheets and previews are regenerated from them.
+  for p in "${dirs[@]}"; do
+    mkdir -p "$TRASH"
+    n="$TRASH/$(basename "$p")_deleted-$(date +%Y-%m-%dT%H%M%S)"
+    mv "$p" "$n"
+    echo "  moved to .trash/$(basename "$n")"
+  done
+  if [ ${#sheets[@]} -gt 0 ];   then rm -f "${sheets[@]}"; fi
+  if [ ${#previews[@]} -gt 0 ]; then rm -f "${previews[@]}"; fi
+  if [ "$rows" -gt 0 ]; then
+    grep -v "^$num," "$CATALOG" > "$CATALOG.tmp" || true
+    mv "$CATALOG.tmp" "$CATALOG"
+  fi
+  echo "Roll $num deleted — the number is free again."
 }
 
 catalog_roll() {  # $1 = roll dir (already validated rollNNN_DATE_FORMAT_COLOR)
@@ -105,8 +211,8 @@ catalog_roll() {  # $1 = roll dir (already validated rollNNN_DATE_FORMAT_COLOR)
   echo "Cataloged roll $num ($fmt, $color)"
 }
 
-scan_session() {
-  local last_fmt="120" last_color="bw"
+scan_session() {  # $1 = roll number to start on (optional; --redo passes one)
+  local prefill="${1:-}" last_fmt="120" last_color="bw"
   if [ -f "$BASE/.lastroll" ]; then
     IFS=, read -r last_fmt last_color < "$BASE/.lastroll" || true
     last_fmt=${last_fmt:-120}; last_color=${last_color:-bw}
@@ -115,14 +221,16 @@ scan_session() {
   local num fmt color d8 name fmtdir dir r count sugg scanner sheet
   while true; do
     echo
-    sugg=$(next_roll_number)
+    sugg=${prefill:-$(next_roll_number)}
+    prefill=""
     read -rp "Roll number [$sugg]  (q = quit): " num || return 0
     case "$num" in q|Q) return 0 ;; esac
     num=${num:-$sugg}
     if ! [[ "$num" =~ ^[0-9]+$ ]]; then echo "Roll number must be digits."; continue; fi
     printf -v num "%03d" "$((10#$num))"
     if roll_number_used "$num"; then
-      echo "Roll $num already exists — pick another number."
+      echo "Roll $num is taken: $(roll_status "$num")"
+      echo "Free it with 'negatives --delete $num', or pick another number."
       continue
     fi
     read -rp "Film format (120/620/110/35mm/...) [$last_fmt]: " fmt || return 0
@@ -211,10 +319,30 @@ scan_session() {
 }
 
 # --- entry point --------------------------------------------------------
+if [ "$ACTION" = list ]; then
+  list_rolls
+  exit 0
+fi
+
+if [ "$ACTION" = delete ] || [ "$ACTION" = redo ]; then
+  if ! ROLL=$(normalize_roll_number "$TARGET"); then
+    echo "error: --${ACTION} needs a roll number, e.g. 'negatives --$ACTION 009'" >&2
+    exit 1
+  fi
+  if [ ! -t 0 ] && [ "$ASSUME_YES" != 1 ]; then
+    echo "error: --$ACTION needs a terminal to confirm; pass -y to skip the prompt." >&2
+    exit 2
+  fi
+  delete_roll "$ROLL" || exit 1
+  if [ "$ACTION" = delete ]; then exit 0; fi
+  echo
+  echo "Rescanning as roll $ROLL."
+fi
+
 if [ ! -t 0 ]; then
   echo "negatives is an interactive scan wizard; run it in a terminal." >&2
   echo "To (re)build a single roll's sheet non-interactively:" >&2
   echo "  digital-contact-sheet-maker <roll folder>" >&2
   exit 2
 fi
-scan_session
+scan_session "${ROLL:-}"

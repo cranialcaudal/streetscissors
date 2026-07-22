@@ -32,6 +32,8 @@ collection folder described below.
 ├── 35mm Film/
 ├── Other/
 ├── Contact Sheets/    finished sheets: <roll folder name>.png
+│   └── previews/      downscaled .webp the website serves
+├── .trash/            rolls retired with --delete (safe to empty)
 ├── catalog.csv        roll,scan_date,film_type,color,frames,folder
 └── README.md          this file
 ```
@@ -44,7 +46,9 @@ Each roll gets one folder, named:
 rollNNN_DATE_FORMAT_COLOR        e.g.  roll001_2026-07-04_120_bw
 ```
 
-- `NNN` — roll number (keep it unique; zero-pad so sorting works)
+- `NNN` — roll number, unique across the whole collection and zero-padded
+  so sorting works. The wizard refuses a number that's already taken; to
+  reuse one, retire the old roll first (see **Deleting a roll** below)
 - `FORMAT` — `120`, `620`, `110`, `35mm`, or anything else → filed under Other
 - `COLOR` — `bw` or `color`
 
@@ -83,6 +87,30 @@ wizard is strictly one roll at a time. Rolls scanned outside the wizard:
 drop a `rollNNN_DATE_FORMAT_COLOR` folder into the right format folder,
 run `digital-contact-sheet-maker <folder>`, and add a `catalog.csv`
 line by hand (`roll,scan_date,film_type,color,frames,folder`).
+
+## Deleting a roll, and reusing its number
+
+A roll number lives in **four** places: the scan folder, its `catalog.csv`
+row, `Contact Sheets/<name>.png`, and the web preview under
+`Contact Sheets/previews/`. Deleting the folder in your file manager only
+clears the first, so the number stays reserved and the stale sheet keeps
+serving on streetscissors. Use the command instead:
+
+```
+negatives --list            what each number currently holds, and the next free one
+negatives --delete 009      retire roll 009 and free the number
+negatives --redo 009        delete 009, then scan a fresh roll straight into 009
+```
+
+`--delete` prints exactly what it will remove and asks first (`-y` skips
+the prompt). Scans are **recoverable** — the folder moves to
+`~/Pictures/Negatives/.trash/<name>_deleted-<timestamp>/` — while the
+catalog row, sheet and preview are removed outright, since all three are
+rebuilt from the scans anyway. Nothing in `.trash/` reserves a number, so
+empty the folder whenever you like.
+
+`--redo NNN` is the rescan case: it deletes, then drops into the normal
+wizard with `NNN` pre-filled, so you confirm format/color/date and scan.
 
 ## One roll at a time
 
