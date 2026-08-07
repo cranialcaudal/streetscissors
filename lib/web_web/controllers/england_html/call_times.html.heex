@@ -1,0 +1,214 @@
+<div class="call-container">
+  <header class="call-header">
+    <h1 class="call-title">📞 When to Call Cesar</h1>
+    <p class="call-sub">England &middot; July 5&ndash;17, 2026 &middot; he's 8 hours ahead</p>
+    <div class="abbey-crossing" aria-hidden="true"></div>
+  </header>
+
+  <div id="call-now" class="now-banner neutral">Checking the clocks&hellip;</div>
+
+  <div class="clocks">
+    <div class="clock">
+      <div class="clock-label">Your time (Sacramento)</div>
+      <div class="clock-time" id="clock-ca">&mdash;</div>
+    </div>
+    <div class="clock">
+      <div class="clock-label">Cesar's time (England)</div>
+      <div class="clock-time" id="clock-uk">&mdash;</div>
+    </div>
+  </div>
+
+  <div class="golden-rule">
+    <div class="rule-headline">Call between <strong>9 AM and 1 PM</strong> your time</div>
+    <ul>
+      <li>That's his <strong>evening</strong> over there — dinner, walks, winding down.</li>
+      <li>After <strong>2 PM your time he's asleep</strong> — he's up before dawn every day.</li>
+      <li>
+        <strong>WhatsApp or FaceTime</strong> works best — WiFi is everywhere, cell signal isn't.
+      </li>
+      <li>
+        A missed call means he's on the bike — <strong>he'll call back</strong>. Texts land any time.
+      </li>
+    </ul>
+  </div>
+
+  <div class="back-row">
+    <a href="/england2026" class="back-link">&larr; Back to the trip page</a>
+  </div>
+</div>
+
+<style>
+  .call-container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 2rem 1rem 5rem 1rem;
+    --uj-red: #C8102E;
+    --uj-blue: #012169;
+    --uj-blue-bright: #2a52be;
+    font-size: 1.15rem;
+  }
+
+  .call-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .call-title {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 2.6rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .call-sub {
+    margin-top: 0.75rem;
+    color: var(--ink-3);
+    font-family: var(--font-mono, monospace);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 0.85rem;
+  }
+
+  .abbey-crossing {
+    height: 14px;
+    max-width: 480px;
+    margin: 1.5rem auto 0 auto;
+    background: repeating-linear-gradient(90deg, var(--paper-sunk) 0 36px, var(--paper-deep) 36px 72px);
+    border-top: 2px solid #222;
+    border-bottom: 2px solid #222;
+    border-radius: 2px;
+  }
+
+  .now-banner {
+    text-align: center;
+    font-size: 1.35rem;
+    font-weight: 700;
+    padding: 1.1rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(23, 20, 15, 0.12);
+    color: #ddd;
+    background: rgba(23, 20, 15, 0.03);
+  }
+
+  .now-banner.good {
+    background: rgba(46, 160, 67, 0.15);
+    border-color: rgba(46, 160, 67, 0.55);
+    color: #7ee2a8;
+  }
+
+  .now-banner.wait {
+    background: rgba(210, 153, 34, 0.12);
+    border-color: rgba(210, 153, 34, 0.5);
+    color: #e3b341;
+  }
+
+  .clocks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .clock {
+    text-align: center;
+    padding: 1rem;
+    border: 1px solid rgba(23, 20, 15, 0.1);
+    border-radius: 10px;
+    background: rgba(23, 20, 15, 0.02);
+  }
+
+  .clock-label {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 0.4rem;
+  }
+
+  .clock-time {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--ink);
+  }
+
+  .golden-rule {
+    border: 1px solid rgba(42, 82, 190, 0.5);
+    border-left: 5px solid var(--uj-red);
+    border-radius: 10px;
+    background: linear-gradient(160deg, rgba(1, 33, 105, 0.5), rgba(1, 33, 105, 0.15));
+    padding: 1.25rem 1.5rem;
+    color: #ccd6ee;
+    line-height: 1.6;
+  }
+
+  .rule-headline {
+    font-family: var(--font-heading);
+    font-size: 1.45rem;
+    color: var(--ink);
+    margin-bottom: 0.75rem;
+  }
+
+  .golden-rule strong { color: var(--ink); }
+
+  .golden-rule ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .golden-rule li {
+    margin-bottom: 0.5rem;
+  }
+
+  .back-row {
+    text-align: center;
+    margin-top: 2.5rem;
+  }
+
+  .back-link {
+    color: var(--uj-blue-bright);
+    text-decoration: underline;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .call-title { font-size: 1.9rem; }
+    .clock-time { font-size: 1.15rem; }
+  }
+</style>
+
+<script>
+  // Good calling window: 9 AM – 1 PM Pacific (= his 5–9 PM evening).
+  function updateClocks() {
+    const now = new Date();
+    const fmt = (tz) =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit'
+      }).format(now);
+    document.getElementById('clock-ca').textContent = fmt('America/Los_Angeles');
+    document.getElementById('clock-uk').textContent = fmt('Europe/London');
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(now);
+    const get = (t) => parseInt(parts.find((p) => p.type === t).value, 10);
+    const hour = (get('hour') % 24) + get('minute') / 60;
+
+    const banner = document.getElementById('call-now');
+    if (hour >= 9 && hour < 13) {
+      banner.textContent = '✅ Right now is a good time — call him!';
+      banner.className = 'now-banner good';
+    } else {
+      banner.textContent = '⏳ Not right now — best between 9 AM and 1 PM your time.';
+      banner.className = 'now-banner wait';
+    }
+  }
+
+  updateClocks();
+  setInterval(updateClocks, 30000);
+</script>
