@@ -1,0 +1,80 @@
+/* Street Scissors - Core Styles
+   (Design tokens live in app.css; this file keeps a few base rules.) */
+
+body {
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+    font-weight: 400;
+}
+
+a {
+    color: var(--accent-color);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+/* Utilities */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ink-4);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}
+
+/* About page: hidden doorway to César's Machine */
+.about-panel {
+    position: relative;
+}
+
+/* Tuned against the paper ground, not the black one it was born on.
+   The old `#4af626` at 0.12 was a terminal-green glow on near-black: 1.23:1 at
+   rest, 9.95:1 on hover — hidden, then a clear reveal. The UC Press flip left
+   that literal hex behind, and on paper it read 1.05:1 at rest and only
+   1.24:1 on HOVER, so the doorway could not be found even by someone feeling
+   for it. Jade is the site's own green pigment and reaches 5.3:1 revealed. */
+.pc-easter-egg {
+    position: absolute;
+    bottom: 0.9rem;
+    right: 1rem;
+    color: var(--color-jade);
+    opacity: 0.2;
+    line-height: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.pc-easter-egg:hover,
+.pc-easter-egg:focus-visible {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+.pc-easter-egg-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+}

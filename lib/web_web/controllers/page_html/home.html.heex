@@ -1,0 +1,139 @@
+<div class="home-wrapper">
+  <!-- Top Bar: Guestbook (left) | Spotify (center) | Newsletter (right) -->
+  <nav class="home-top-bar">
+    <div class="mobile-brand-wrapper-home" style="display: none;">
+      <a href="/" class="sensus-mobile-brand-link">
+        <h1>streetscissors</h1>
+      </a>
+    </div>
+
+    <div class="desktop-top-bar-contents" style="display: contents;">
+      <a
+        href={~p"/guestbook"}
+        class="top-bar-link"
+        aria-label="Guestbook"
+        style="background: none; border: none; cursor: pointer;"
+      >
+        <%!-- Nib, then U+FE0E — the text-presentation selector, written as an
+              entity because a bare one would be invisible to the next reader. --%>
+        <span class="top-bar-glyph" aria-hidden="true">&#x2712;&#xFE0E;</span>
+        <.icon name="hero-book-open" class="size-4 top-bar-icon" />
+        <span class="top-bar-text">Guestbook</span>
+      </a>
+
+      <div class="top-bar-center">
+        <div class="spotify-hover-wrapper">
+          <div class="spotify-pill-main" style="cursor: default;">
+            <i class="fab fa-spotify" style="color: #1DB954;"></i>
+            <span>Latest Playlist</span>
+          </div>
+          <div class="spotify-player-dropdown">
+            <iframe
+              src={"https://open.spotify.com/embed/playlist/#{@spotify_playlist_id}?utm_source=generator&theme=0"}
+              width="100%"
+              height="152"
+              frameBorder="0"
+              allowfullscreen=""
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              style="border-radius: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.6);"
+            >
+            </iframe>
+          </div>
+        </div>
+
+        <a
+          href="https://open.spotify.com/user/moreno90042"
+          target="_blank"
+          class="spotify-pill-profile"
+          title="Spotify Profile"
+        >
+          <img src={~p"/images/spotify_profile.jpg"} alt="Spotify Profile" />
+        </a>
+      </div>
+
+      <button
+        onclick="window.dispatchEvent(new CustomEvent('trigger-dispatch'))"
+        class="top-bar-link"
+        aria-label="Newsletter and Contact"
+        style="background: none; border: none; cursor: pointer;"
+      >
+        <span class="top-bar-text">Newsletter and Contact</span>
+        <.icon name="hero-envelope" class="size-4 top-bar-icon" />
+        <%!-- Envelope + U+FE0E; see the nib above. --%>
+        <span class="top-bar-glyph" aria-hidden="true">&#x2709;&#xFE0E;</span>
+      </button>
+    </div>
+  </nav>
+  
+<!-- Bento Section: Blog + Fitness boxes with overlapping title, photo hero below -->
+  <section class="bento-section">
+    <div class="site-title-container">
+      <h1 class="site-title-overlay" aria-label="streetscissors">
+        <WebWeb.CoreComponents.wordmark />
+      </h1>
+    </div>
+
+    <div class="bento-row">
+      <a href={~p"/blog"} class="bento-card bento-card-blog">
+        <span class="bento-label">[Blog]</span>
+      </a>
+      <a href={~p"/fitness"} class="bento-card bento-card-blog">
+        <span class="bento-label bento-label-stacked">
+          <span>Fitness</span>
+          <span>&amp;</span>
+          <span>Sport</span>
+        </span>
+      </a>
+    </div>
+    
+<!-- Full-width photo hero: a random contact sheet behind the label -->
+    <a href={~p"/negatives?from=home"} class="bento-card bento-card-hero">
+      <%= if @hero_sheet do %>
+        <img class="bento-hero-image" src={@hero_sheet.preview_url} alt="" loading="lazy" />
+      <% end %>
+      <div class="bento-hero-scrim"></div>
+      <%!-- Geometry is measured off the rendered font, never guessed — see
+            WebWeb.CoreComponents.baker_wordmark/1. --%>
+      <WebWeb.CoreComponents.baker_wordmark
+        class="bento-hero-wordmark"
+        viewbox="3.84 31.52 993.34 66.96"
+        label="Contact Sheets/Photos"
+        lines={[%{text: "Contact Sheets/Photos", x: "0", y: "100", length: "1000"}]}
+      />
+      <%!-- Phones: 21 glyphs stretched across ~340px collapses into a picket
+            fence of vertical strokes, so narrow screens get two lines instead. --%>
+      <WebWeb.CoreComponents.baker_wordmark
+        class="bento-hero-wordmark bento-hero-wordmark--stacked"
+        viewbox="0 34.6 1000 148.8"
+        label="Contact Sheets/Photos"
+        lines={[
+          %{text: "Contact Sheets", x: "-5.95", y: "100", length: "1010.32"},
+          %{text: "Photos", x: "-17.61", y: "188", length: "1027.29"}
+        ]}
+      />
+    </a>
+    
+<!-- Fitness Sub-row: Three skinny boxes -->
+    <div class="bento-fitness-sub-row">
+      <a href={~p"/logs?from=home"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">Captain's Logs</span>
+      </a>
+      <a href={~p"/about?from=home"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">About Me</span>
+      </a>
+    </div>
+    <footer class="home-footer">
+      &copy; 2026 streetscissors.
+      <a
+        href={~p"/admin/login"}
+        title="Admin Dashboard"
+        style="opacity: 0.4; margin-left: 0.5rem; font-size: 1.2rem; text-decoration: none; transition: opacity 0.2s;"
+        onmouseover="this.style.opacity='1'"
+        onmouseout="this.style.opacity='0.4'"
+      >
+        ☧
+      </a>
+    </footer>
+  </section>
+</div>

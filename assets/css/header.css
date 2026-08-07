@@ -1,0 +1,94 @@
+/* ==============================================
+   UNIVERSAL HEADER — Absolute Centering Fix
+   ============================================== */
+
+.blog-universal-header {
+    display: grid !important;
+    grid-template-columns: 33.33% 33.33% 33.33% !important; /* Forces absolute viewport centering */
+    align-items: center !important;
+    width: 100% !important;
+    padding: 1rem 2rem !important;
+    background: var(--paper-raised) !important;
+    border-bottom: 1px solid var(--hairline) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10000 !important;
+    box-sizing: border-box !important;
+    left: 0 !important;
+    right: 0 !important;
+    min-height: 120px;
+}
+
+/* 1. Return Button (Pinned Far Left) */
+.header-left {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+}
+
+/* 2. StreetScissors Logo (Absolute Center of Viewport) */
+.header-center {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+}
+
+.blog-universal-header .site-title-overlay {
+    font-size: 3.4rem !important;
+    color: var(--ink) !important;
+    letter-spacing: 0.02em !important;
+    margin: 0 !important;
+    transform: none !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+}
+
+/* 3. Newsletter Button (Pinned Far Right) */
+.header-right {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+}
+
+/* The wordmark is set in Goudy at a fixed size, so it has to step down
+   deliberately — these used to be scaled against a 5rem original and left the
+   1200px step *larger* than the base. */
+@media (max-width: 1200px) {
+    .blog-universal-header .site-title-overlay { font-size: 2.6rem !important; }
+}
+
+@media (max-width: 900px) {
+    .blog-universal-header {
+        grid-template-columns: 1fr 1fr 1fr !important;
+        padding: 0.5rem 1rem !important;
+        min-height: 80px;
+    }
+    .blog-universal-header .site-title-overlay { font-size: 1.9rem !important; }
+    .header-left .theme-back { font-size: 0 !important; padding: 0.5rem !important; }
+    .header-left .theme-back::before { content: '←' !important; font-size: 1.2rem !important; }
+}
+
+/* Below ~430px "streetscissors" cannot hold a line at 1.9rem beside the two
+   flanking controls. */
+@media (max-width: 480px) {
+    .blog-universal-header .site-title-overlay { font-size: 1.4rem !important; }
+    .blog-universal-header { padding: 0.5rem 0.6rem !important; min-height: 56px; }
+    /* Collapse the newsletter button to its envelope, as the back link already
+       collapses to its arrow — the label cannot share 390px with the wordmark.
+       Hidden visually, not removed: the button keeps its accessible name. */
+    .blog-universal-header .top-bar-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .blog-universal-header .header-right .top-bar-link {
+        gap: 0 !important;
+        padding: 0.4rem !important;
+    }
+}

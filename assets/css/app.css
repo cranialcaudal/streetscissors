@@ -1,0 +1,206 @@
+/* Street Scissors Main CSS */
+/* We are keeping standard Phoenix imports but adding our custom styles */
+@import "tailwindcss" source(none);
+@plugin "../vendor/heroicons";
+
+/*
+ * Content scanning is disabled (source(none)) because this site is styled by
+ * the hand-written CSS imported below, not Tailwind utilities. The heroicon
+ * plugin therefore only emits icons we explicitly safelist here. Keep this list
+ * in sync with the hero and size classes used in templates (e.g. back_link,
+ * the blog meta rows, admin manager buttons).
+ */
+@source inline("hero-arrow-right hero-arrow-left hero-calendar hero-calendar-days hero-clock hero-chart-bar hero-play hero-pause hero-arrow-path hero-trash hero-pencil-square hero-document-text hero-microphone hero-table-cells hero-newspaper hero-envelope hero-book-open hero-arrow-right-on-rectangle hero-rectangle-stack hero-chevron-down hero-cloud-arrow-up hero-command-line hero-check-circle hero-check hero-paper-airplane hero-map-pin hero-photo hero-magnifying-glass-plus hero-film hero-x-mark hero-arrow-down-tray hero-list-bullet hero-chevron-left hero-chevron-right hero-eye hero-exclamation-circle");
+@source inline("size-3 size-4 size-5 size-6 size-8 size-10 size-12 mr-2 mb-4 text-[#ff6600]");
+
+/* Custom Styles */
+@import "./sensus.css";
+@import "./custom.css";
+@import "./glass.css";
+@import "./manuscripts.css";
+@import "./blog_bento.css";
+@import "./logs.css";
+@import "./theme.css";
+@import "./negatives.css";
+@import "./pc.css";
+@import "./header.css";
+@import "./home.css";
+@import "../vendor/leaflet.css";
+@import "./rides.css";
+/* Section theme — must follow the component sheets it re-inks */
+@import "./steel.css";
+@import "./mobile.css";
+
+/* Setup standard Phoenix overrides if necessary */
+
+/*
+ * UC PRESS / VALLEY PRINT
+ * ----------------------
+ * Goudy cut California Old Style in 1938 for the University of California
+ * Press. Sorts Mill Goudy is the libre revival of his hand, and it is the
+ * voice of this site: paper ground, ink text, hairline rules, no boxes
+ * pretending to be glass. Mono survives as the *instrument* voice — labels,
+ * timestamps, stats, the terminal — the way a lab notebook sits beside a
+ * printed monograph.
+ *
+ * Every surface here is a token. Pages should read --paper/--ink, never
+ * literal hex, so the whole press can be re-inked from this block.
+ */
+:root {
+    /* Paper — page ground through raised panels to sunk wells */
+    --paper: #f3eee4;
+    --paper-raised: #fbf9f4;
+    --paper-sunk: #e9e2d3;
+    --paper-deep: #ded5c2;
+
+    /* Ink — primary text down to metadata */
+    --ink: #17140f;
+    --ink-2: #4b453a;
+    --ink-3: #7d7566;
+    --ink-4: #a49b89;
+
+    --bg-color: var(--paper);
+    --text-color: var(--ink);
+
+    /* Inks pulled toward pigment rather than screen light:
+       poppy, laurel, valley dusk. Names kept for existing call sites. */
+    --color-orange: #c2451d;
+    --color-jade: #3f6b4a;
+    --color-dodger: #2c4a6e;
+
+    --accent-color: var(--color-orange);
+    --accent-secondary: var(--color-jade);
+    --accent-tertiary: var(--color-dodger);
+
+    /* Hairline rules: ink at low opacity, so they sit *in* the paper */
+    --rule: rgba(23, 20, 15, 0.22);
+    --rule-strong: rgba(23, 20, 15, 0.42);
+    --hairline: var(--rule);
+    --glass-bg: var(--paper-raised);
+    --glass-border: var(--hairline);
+    --glass-shadow: none;
+
+    /* Fonts.
+       Goudy reads; IBM Plex Mono operates. Plex replaced a 'Cascadia Code'
+       stack that was never actually loaded — almost every visitor was seeing
+       Courier New, so the instrument voice was a fallback rather than a
+       choice. --font-ui (chrome) and --font-data (numbers) are one family
+       today but stay separate tokens so the data voice can diverge. */
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+    --font-serif: 'Sorts Mill Goudy', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --font-heading: var(--font-serif);
+    --font-body: var(--font-serif);
+    --font-ui: var(--font-mono);
+    --font-data: var(--font-mono);
+
+    /* Spacing */
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 2rem;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    background-image: none;
+    color: var(--text-color);
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Long-form prose: Goudy wants air and a short measure */
+.prose,
+.blog-post-content,
+.manuscript-content {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.7;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+/* Instrument voice: the chrome you operate rather than read */
+nav,
+footer,
+button,
+.theme-btn,
+.theme-link,
+label,
+input,
+select,
+textarea,
+.card-content {
+    font-family: var(--font-ui);
+}
+
+/* Global Selection Color */
+::selection {
+    background: var(--color-jade);
+    color: var(--paper);
+}
+
+input::selection,
+textarea::selection {
+    background: var(--color-dodger);
+    color: var(--paper);
+}
+
+/* Baker-style stretched display line (see CoreComponents.baker_wordmark/1).
+   Geometry lives in the markup because it is measured per string; the face,
+   size and ink live here so every instance matches. */
+.baker-wordmark {
+    display: block;
+}
+
+.baker-wordmark text {
+    font-family: 'Bebas Neue', Impact, 'Haettenschweiler', sans-serif;
+    font-size: 100px;
+    fill: var(--accent-color);
+    fill-opacity: 0.5;
+}
+
+/* Hand-set wordmark (see WebWeb.CoreComponents.wordmark/1). Every letter is
+   placed on its own — rotation and shift come in as custom properties, in em,
+   so the same values hold at 5.5rem on the homepage and 1.4rem in the header. */
+.wm-l {
+    display: inline-block;
+    transform: rotate(var(--wm-r, 0)) translateY(var(--wm-y, 0));
+    margin-right: var(--wm-x, 0);
+}
+
+/* The data voice: figures that stack in columns get true tabular widths, so
+   a stats row or a table of dates lines up instead of shimmering. */
+.ride-totals-value,
+.ride-totals-sub,
+.ride-card-stats,
+.ride-card-date,
+.ride-stat-value,
+.ride-stat-label,
+.bio-table,
+.bio-score-num,
+time {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+}
+
+.font-homoglyph {
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 1px;
+    font-weight: bold;
+}

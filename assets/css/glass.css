@@ -1,0 +1,42 @@
+/* Flat panel utilities (formerly glassmorphism — hairline mono restyle) */
+
+.glass-panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    box-shadow: none;
+    transition: border-color 0.3s ease;
+}
+
+.glass-panel:hover {
+    border-color: rgba(23, 20, 15, 0.3);
+}
+
+.glass-btn {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 0.5rem 1rem;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.glass-btn:hover {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: var(--paper);
+}
+
+.glass-input {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 0.5rem;
+    color: var(--ink);
+    width: 100%;
+}
+
+.glass-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}

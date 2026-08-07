@@ -1,0 +1,67 @@
+/* Manuscripts Typography */
+
+.prose {
+    max-width: 700px;
+    margin: 0 auto;
+    color: var(--ink-2);
+    line-height: 1.8;
+    font-family: var(--font-serif);
+    /* Serif for manuscripts */
+}
+
+.prose h1 {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 1rem;
+    color: var(--ink);
+}
+
+.prose h2 {
+    font-family: var(--font-heading);
+    font-size: 2rem;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+    color: var(--accent-color);
+}
+
+.prose h3 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: var(--ink);
+}
+
+.prose p {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    text-align: justify;
+}
+
+.prose ul,
+.prose ol {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+}
+
+.prose li {
+    margin-bottom: 0.5rem;
+}
+
+.prose blockquote {
+    border-left: 4px solid var(--accent-color);
+    margin: 2rem 0;
+    padding: 1rem 2rem;
+    background: rgba(23, 20, 15, 0.05);
+    font-style: italic;
+    color: var(--ink);
+    font-family: var(--font-heading);
+}
+
+.prose code {
+    background: var(--paper-sunk);
+    padding: 0.2rem 0.4rem;
+    font-family: var(--font-mono);
+    color: var(--accent-color);
+}

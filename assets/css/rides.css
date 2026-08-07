@@ -1,0 +1,409 @@
+/* ── /fitness/rides: ride archive + planned routes ─────────────── */
+
+.rides-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1rem 5rem 1rem;
+}
+
+.rides-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.rides-title {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 2.6rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.rides-sub {
+  margin-top: 0.5rem;
+  color: var(--ink-3);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 1px;
+  font-size: 0.85rem;
+}
+
+.ride-back {
+  display: inline-block;
+  color: var(--ink-3);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.ride-back:hover {
+  color: var(--ink);
+}
+
+.ride-source-tag {
+  border: 1px solid var(--rule);
+  color: var(--ink-3);
+  border-radius: 3px;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
+/* ── Komoot embeds ─────────────────────────────────────────────── */
+
+.ride-komoot-toggle-wrap {
+  margin-top: 1.5rem;
+}
+
+.ride-komoot-toggle-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.ride-komoot-toggle-btn:hover {
+  color: var(--ink-3);
+  border-color: var(--ink-4);
+}
+
+.ride-komoot-embed {
+  display: block;
+  width: 100%;
+  height: 580px;
+  margin-top: 1rem;
+  border: 1px solid rgba(23, 20, 15, 0.12);
+  border-radius: 10px;
+  background: var(--paper-sunk);
+}
+
+/* ── Map + elevation ───────────────────────────────────────────── */
+
+/* Leaflet requires an explicit height on its container. */
+.ride-map {
+  height: 460px;
+  border-radius: 10px;
+  border: 1px solid rgba(23, 20, 15, 0.12);
+  background: var(--paper-sunk);
+  z-index: 0;
+}
+
+.ride-map-toggle {
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 2px solid var(--rule-strong);
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.ride-elevation {
+  display: block;
+  width: 100%;
+  height: 140px;
+  margin-top: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(23, 20, 15, 0.08);
+  background: rgba(23, 20, 15, 0.02);
+  cursor: crosshair;
+}
+
+/* ── Stats grid (ride detail) ──────────────────────────────────── */
+
+.ride-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.ride-stat {
+  border: 1px solid rgba(23, 20, 15, 0.1);
+  border-radius: 8px;
+  background: rgba(23, 20, 15, 0.02);
+  padding: 0.9rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ride-stat-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+
+.ride-stat-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.ride-description {
+  margin-top: 2rem;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+/* ── Archive list ──────────────────────────────────────────────── */
+
+/* Recorded activity is the page. Planned routes follow it, set smaller and
+   separated by a rule, the way a printed programme lists what's still ahead. */
+.rides-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.ride-planned {
+  border-top: 1px solid var(--rule);
+  padding-top: 1.75rem;
+}
+
+.ride-archive-heading {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 1rem;
+}
+
+.ride-archive-heading--secondary {
+  font-size: 1.05rem;
+  color: var(--ink-3);
+}
+
+.ride-planned .ride-card {
+  padding: 0.7rem 1rem;
+}
+
+.ride-planned .ride-card-name {
+  font-size: 0.95rem;
+}
+
+.rides-empty {
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--font-mono, monospace);
+  padding: 3rem 1rem;
+  border: 2px dashed rgba(23, 20, 15, 0.1);
+  border-radius: 12px;
+}
+
+.ride-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid rgba(23, 20, 15, 0.1);
+  border-left: 4px solid var(--color-dodger);
+  border-radius: 8px;
+  background: rgba(23, 20, 15, 0.02);
+  transition: all 0.15s ease-out;
+}
+
+.ride-card--planned {
+  border-left-color: #8a6a12;
+}
+
+.ride-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ink);
+  background: rgba(23, 20, 15, 0.04);
+}
+
+.ride-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ride-card-name {
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.ride-card-date {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.ride-card-stats {
+  display: flex;
+  gap: 1.25rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  color: var(--color-dodger);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .rides-title { font-size: 1.9rem; }
+  .ride-map { height: 320px; }
+  .ride-card-stats { gap: 0.75rem; font-size: 0.72rem; }
+}
+
+/* ── Live tracking ─────────────────────────────────────────── */
+
+.ride-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin-bottom: 1.5rem;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #b3283c;
+  animation: ride-live-pulse 1.5s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ride-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-since {
+  color: var(--ink-3);
+  letter-spacing: 1px;
+  text-transform: none;
+}
+
+.rides-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.85rem;
+  color: var(--ink);
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  background: rgba(244, 63, 94, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  text-decoration: none;
+}
+
+.rides-live-banner:hover {
+  background: rgba(244, 63, 94, 0.16);
+  border-color: #b3283c;
+}
+
+.live-ride-note {
+  color: var(--ink-3);
+  margin-bottom: 1rem;
+}
+
+.live-ride-cta {
+  display: inline-block;
+  background: #b3283c;
+  color: var(--ink);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.9rem 1.6rem;
+  border-radius: 8px;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.live-ride-cta:hover {
+  background: #95202f;
+}
+
+/* ── Aggregate totals strip + card thumbnails (hairline mono) ── */
+.ride-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  border: 1px solid var(--hairline);
+  background: var(--paper-raised);
+  margin-bottom: 1.5rem;
+}
+
+.ride-totals-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem;
+  border-right: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+}
+
+.ride-totals-cell:last-child {
+  border-right: none;
+}
+
+.ride-totals-label {
+  font-size: 0.7rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.ride-totals-value {
+  font-size: 1.4rem;
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.ride-totals-sub {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* Keep a figure and its unit on one line: "15,709 ft ↑" split across a
+     wrap reads as two different numbers. */
+  text-wrap: balance;
+}
+
+.ride-totals-sport {
+  white-space: nowrap;
+}
+
+/* A plate, not a billboard: the map sits at a fixed width beside the stats
+   now that activity cards run the full measure of the page. */
+.ride-card-thumb {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .ride-card-thumb {
+    width: 100%;
+  }
+}
