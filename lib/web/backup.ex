@@ -212,7 +212,17 @@ defmodule Web.Backup do
     error -> {:error, error}
   end
 
-  def mirror_dir, do: Application.get_env(:web, :backup_mirror_path)
+  # An unset environment variable arrives as nil, but one exported empty —
+  # BACKUP_MIRROR_PATH="" in a unit file or a staging script — arrives as "".
+  # Both mean "no mirror"; without this the watcher would start up and poll for
+  # a directory named "".
+  def mirror_dir do
+    case Application.get_env(:web, :backup_mirror_path) do
+      nil -> nil
+      "" -> nil
+      dir -> dir
+    end
+  end
 
   @doc "True when the mirror is configured and its directory is present."
   @spec mirror_available?() :: boolean()

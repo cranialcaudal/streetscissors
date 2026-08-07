@@ -11,7 +11,24 @@ defmodule Web.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      releases: releases()
+    ]
+  end
+
+  # The production artifact. `mix release` would work without this block, but
+  # naming it pins the path the systemd unit and start_prod.sh both point at:
+  # _build/prod/rel/web/bin/web.
+  #
+  # Note that a release ships priv/ *inside itself* and replaces it wholesale on
+  # every build. Anything the application writes at runtime therefore has to
+  # live outside it — see UPLOADS_PATH and RIDE_THUMBS_PATH in config/runtime.exs.
+  defp releases do
+    [
+      web: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent]
+      ]
     ]
   end
 

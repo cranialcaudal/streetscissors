@@ -2,58 +2,45 @@
 #
 # Redeploy the live site (streetscissors.com).
 #
-# The site runs as `mix phx.server` under MIX_ENV=dev via the systemd --user
-# unit `streetscissors.service`, with PUBLIC_DEPLOY=true making config/dev.exs
-# behave as production config. Two things about that are easy to get wrong by
-# hand, and this script exists so they cannot be:
+# The site runs a compiled MIX_ENV=prod OTP release under the systemd --user
+# unit `streetscissors.service`. Two things about that shape this script:
 #
-#   1. PUBLIC_DEPLOY flips COMPILE-TIME config (code_reloader, debug_errors,
-#      dev_routes). Mix does not recompile when only an env var changes, so the
-#      compile must be forced with the flag set. A mismatch makes Phoenix's
-#      compile-env validator refuse to boot — correct, but it crash-loops and
-#      the site goes down.
-#   2. Assets must be rebuilt BEFORE the restart. `priv/static` is what gets
-#      served; nothing rebuilds it at boot.
+#   1. Assets must be built BEFORE `mix release`, because a release packages
+#      priv/ into itself. Building them afterwards changes the checkout and not
+#      the thing actually being served.
+#   2. `mix release --overwrite` replaces the release directory underneath the
+#      running BEAM, which can then fail to load a module it had not loaded yet.
+#      So the restart follows immediately, and the health gate below is what
+#      proves the new build actually serves.
 #
-# The service compiles into its own MIX_BUILD_PATH (_build/deploy) so ordinary
-# local `mix compile` / `mix test` runs can never clobber it.
+# What is NOT here any more, and why: the old dev-mode deploy needed
+# PUBLIC_DEPLOY=true set identically at compile time and run time, with an
+# isolated MIX_BUILD_PATH, because a mismatch made Phoenix refuse to boot and
+# crash-loop the site. Production config is no longer driven by a compile-time
+# environment variable — config/prod.exs is static and runtime.exs is evaluated
+# at boot — so that whole class of failure is gone.
 #
 # Usage:  ./redeploy.sh
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-BUILD_PATH=/home/cesar/streetscissors/_build/deploy
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
-
-# Export the deploy environment ONCE, before any mix invocation. `mix
-# assets.build` compiles the project too, so running it with a different
-# PUBLIC_DEPLOY than the compile step is exactly how the build and the runtime
-# end up disagreeing.
-set -a
-# shellcheck disable=SC1091
-. ./.env
-set +a
-export PUBLIC_DEPLOY=true
-export MIX_ENV=dev
-export MIX_BUILD_PATH="$BUILD_PATH"
+export MIX_ENV=prod
 
 echo "==> Assets (minify + digest)"
-# assets.deploy, not assets.build: it minifies AND runs phx.digest, which
-# rewrites priv/static/cache_manifest.json. The endpoint sets
-# cache_static_manifest when PUBLIC_DEPLOY is on, so ~p"/assets/..." resolves
-# through that manifest — if it is older than the files in priv/static, every
-# page silently loads the previous build's stylesheet. Regenerating it here is
-# what makes enabling the manifest safe.
+# assets.deploy minifies and runs phx.digest, rewriting cache_manifest.json.
+# config/prod.exs sets cache_static_manifest, so ~p"/assets/..." resolves
+# through that manifest — if it were older than priv/static, every page would
+# silently load the previous build's stylesheet.
 mix assets.deploy
 
-# Old digests accumulate forever otherwise (114 of them by the first run of
-# this step). Keep the current version plus one, so a client mid-request
-# against the previous deploy still gets a hit.
+# Old digests accumulate forever otherwise. Keep the current version plus one,
+# so a client mid-request against the previous deploy still gets a hit.
 mix phx.digest.clean --age 3600 --keep 1
 
-echo "==> Compile (PUBLIC_DEPLOY=true, isolated build path)"
-mix compile --force
+echo "==> Build release"
+mix release --overwrite
 
 echo "==> Restart"
 systemctl --user restart streetscissors.service
@@ -64,7 +51,7 @@ for _ in $(seq 1 30); do
   if [ "$code" = "200" ]; then
     echo "    up (localhost:4000 -> 200)"
 
-    # The whole point of PUBLIC_DEPLOY: these must not be reachable.
+    # These must not be reachable in production.
     for path in /dev/dashboard /dev/mailbox; do
       dev_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://localhost:4000${path}" || true)
       if [ "$dev_code" = "404" ]; then
@@ -77,12 +64,12 @@ for _ in $(seq 1 30); do
 
     # Serve the stylesheet we just built, not a stale one. A months-old
     # app.css.gz once shadowed the real app.css for every gzip-capable client
-    # (i.e. every browser) and the whole site rendered with the old design.
+    # and the whole site rendered with the old design.
     #
     # Check what a browser actually loads: pull the href out of the rendered
-    # homepage rather than guessing the URL. With cache_static_manifest on that
-    # is a digested path, so this also proves the manifest is in step with
-    # priv/static — a stale manifest is silent, and points at the old build.
+    # homepage rather than guessing the URL. That is a digested path, so this
+    # also proves the manifest is in step with priv/static — a stale manifest
+    # is silent, and points at the old build.
     href=$(curl -s --max-time 15 http://localhost:4000/ \
       | grep -oE '/assets/css/app[^"]*\.css' | head -1)
     if [ -z "$href" ]; then
@@ -99,10 +86,24 @@ for _ in $(seq 1 30); do
       exit 1
     fi
 
+    # The release reads its database from DATABASE_PATH in the unit file. If
+    # that ever resolves somewhere unexpected, SQLite silently creates an empty
+    # file and the site comes up looking wiped rather than failing — so assert
+    # the data is really there.
+    rides=$(curl -s --max-time 15 http://localhost:4000/fitness/rides \
+      | grep -c 'href="/fitness/rides/[0-9]' || true)
+    if [ "$rides" -gt 0 ]; then
+      echo "    database has content (${rides} rides rendered)"
+    else
+      echo "    !! no rides rendered — check DATABASE_PATH in the systemd unit."
+      exit 1
+    fi
+
     exit 0
   fi
-  sleep 5
+  sleep 2
 done
 
-echo "    !! did not come up — check: journalctl --user -u streetscissors.service -n 50"
+echo "!! site did not come up on localhost:4000"
+systemctl --user status streetscissors.service --no-pager | tail -20
 exit 1

@@ -51,6 +51,17 @@ if config_env() == :prod do
          System.get_env("RIDE_THUMBS_PATH") ||
            Path.join(Path.dirname(database_path), "ride_thumbs")
 
+  # Uploaded audio for the captain's logs. This MUST resolve outside the
+  # release: Web.Uploads defaults to "priv/static/uploads", and a release ships
+  # priv/ inside itself and replaces it wholesale on every build — so the
+  # default would silently delete every uploaded recording on each deploy.
+  # Beside the database, which is the one directory that already has to
+  # outlive deploys.
+  config :web,
+         :uploads_path,
+         System.get_env("UPLOADS_PATH") ||
+           Path.join(Path.dirname(database_path), "uploads")
+
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want
@@ -85,6 +96,14 @@ if config_env() == :prod do
   # Off-disk copy of each database snapshot (optional — skipped when unset or
   # when the target is not mounted).
   config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
+
+  # Where snapshots land. Web.Backup falls back to a path under $HOME, which is
+  # right for this deploy but leaves nothing to point elsewhere with — staging a
+  # release against a copy of the database would otherwise write snapshots of
+  # that copy straight into the real backup directory.
+  if backup_path = System.get_env("BACKUP_PATH") do
+    config :web, :backup_path, backup_path
+  end
 
   config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
