@@ -443,3 +443,54 @@
     font-size: 2rem;
   }
 }
+
+/* ── Unsubscribe pages ─────────────────────────────────────
+   Reached from an email footer, so they stand alone: no nav to
+   speak of, one decision, and a way back if it was a mistake. */
+.unsub-wrapper {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.unsub-panel {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  padding: 2.5rem;
+}
+
+.unsub-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+}
+
+.unsub-body {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0 0 1.75rem;
+}
+
+.unsub-form {
+  margin-bottom: 1.75rem;
+}
+
+.unsub-confirm {
+  width: 100%;
+}
+
+.unsub-aside {
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--ink-3);
+  margin: 0 0 0.5rem;
+}
+
+.unsub-aside a {
+  color: var(--accent-color);
+}

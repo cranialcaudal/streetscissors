@@ -52,6 +52,12 @@ defmodule WebWeb.Router do
       live "/logs", LogsLive.Index, :index
       live "/logs/:slug", LogsLive.Show, :show
 
+      # Unsubscribe. Deliberately POST to act — mail clients and scanners
+      # prefetch links, and a GET that unsubscribed would remove people whose
+      # provider merely looked at the message.
+      get "/unsubscribe/:token", UnsubscribeController, :show
+      post "/unsubscribe/:token", UnsubscribeController, :update
+
       # The logs lived at /audio before they became their own section
       get "/audio", LegacyRedirectController, :audio
       get "/admin/content", LegacyRedirectController, :admin_content
@@ -119,9 +125,23 @@ defmodule WebWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # RFC 8058 one-click unsubscribe. The POST comes from a mail client or the
+  # sending provider — no session, no CSRF token, so it cannot go through
+  # :browser. The signed token in the URL is what authorises it, and the action
+  # is idempotent and only ever removes consent, so there is nothing for a
+  # forged request to gain.
+  pipeline :one_click do
+    plug :accepts, ["html", "json"]
+  end
+
   scope "/api", WebWeb do
     pipe_through :api
     post "/health/ingest", HealthWebhookController, :ingest
+  end
+
+  scope "/", WebWeb do
+    pipe_through :one_click
+    post "/unsubscribe/:token/one-click", UnsubscribeController, :one_click
   end
 
   # LiveDashboard and the Swoosh mailbox preview.
