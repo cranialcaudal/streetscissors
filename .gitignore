@@ -31,6 +31,14 @@ web-*.tar
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
+# phx.digest output outside /priv/static/assets/: the content-addressed copies
+# of images and robots.txt, and every gzipped twin. ./redeploy.sh regenerates
+# these on each deploy, so tracking them meant a dirty working tree after every
+# ship, with real edits buried in the churn. The source files beside them stay
+# tracked — only the "name-<32 hex>.ext" copies are ignored.
+/priv/static/**/*-????????????????????????????????.*
+/priv/static/**/*.gz
+
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/

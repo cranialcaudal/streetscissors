@@ -38,8 +38,19 @@ export PUBLIC_DEPLOY=true
 export MIX_ENV=dev
 export MIX_BUILD_PATH="$BUILD_PATH"
 
-echo "==> Assets"
-mix assets.build
+echo "==> Assets (minify + digest)"
+# assets.deploy, not assets.build: it minifies AND runs phx.digest, which
+# rewrites priv/static/cache_manifest.json. The endpoint sets
+# cache_static_manifest when PUBLIC_DEPLOY is on, so ~p"/assets/..." resolves
+# through that manifest — if it is older than the files in priv/static, every
+# page silently loads the previous build's stylesheet. Regenerating it here is
+# what makes enabling the manifest safe.
+mix assets.deploy
+
+# Old digests accumulate forever otherwise (114 of them by the first run of
+# this step). Keep the current version plus one, so a client mid-request
+# against the previous deploy still gets a hit.
+mix phx.digest.clean --age 3600 --keep 1
 
 echo "==> Compile (PUBLIC_DEPLOY=true, isolated build path)"
 mix compile --force
@@ -67,13 +78,24 @@ for _ in $(seq 1 30); do
     # Serve the stylesheet we just built, not a stale one. A months-old
     # app.css.gz once shadowed the real app.css for every gzip-capable client
     # (i.e. every browser) and the whole site rendered with the old design.
-    # Ask the way a browser does — with compression — and compare to disk.
-    on_disk=$(wc -c < priv/static/assets/css/app.css)
-    served=$(curl -s --compressed --max-time 15 http://localhost:4000/assets/css/app.css | wc -c)
+    #
+    # Check what a browser actually loads: pull the href out of the rendered
+    # homepage rather than guessing the URL. With cache_static_manifest on that
+    # is a digested path, so this also proves the manifest is in step with
+    # priv/static — a stale manifest is silent, and points at the old build.
+    href=$(curl -s --max-time 15 http://localhost:4000/ \
+      | grep -oE '/assets/css/app[^"]*\.css' | head -1)
+    if [ -z "$href" ]; then
+      echo "    !! could not find the app.css link in the homepage HTML."
+      exit 1
+    fi
+
+    on_disk=$(wc -c < "priv/static${href}")
+    served=$(curl -s --compressed --max-time 15 "http://localhost:4000${href}" | wc -c)
     if [ "$on_disk" = "$served" ]; then
-      echo "    app.css matches disk (${served} bytes)"
+      echo "    ${href} matches disk (${served} bytes)"
     else
-      echo "    !! app.css served ${served} bytes but disk has ${on_disk} — stale asset is being served."
+      echo "    !! ${href} served ${served} bytes but disk has ${on_disk} — stale asset is being served."
       exit 1
     fi
 

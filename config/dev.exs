@@ -48,11 +48,17 @@ config :web, :secure_cookies?, public_deploy?
 config :web, WebWeb.Endpoint, live_view: [signing_salt: live_view_signing_salt]
 
 # Configure your database
+#
+# The two debug flags are off on the public deploy. `stacktrace: true` attaches
+# a stacktrace to every query, and `show_sensitive_data_on_connection_error`
+# puts connection parameters — credentials included — into the log when the
+# database refuses a connection. Both are the right defaults for a local
+# console and the wrong ones for a machine serving traffic.
 config :web, Web.Repo,
   database: Path.expand("../web_dev.db", __DIR__),
   pool_size: 5,
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true
+  stacktrace: not public_deploy?,
+  show_sensitive_data_on_connection_error: not public_deploy?
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -82,6 +88,16 @@ config :web, WebWeb.Endpoint,
   # live-reload socket and takes a compile lock on every request.
   code_reloader: not public_deploy?,
   debug_errors: not public_deploy?,
+  # Serve content-addressed asset URLs so returning visitors get far-future
+  # caching and a deploy busts the cache by changing the filename. Only when
+  # public: locally the manifest goes stale the moment you edit a stylesheet,
+  # and `~p"/assets/css/app.css"` would then silently serve the old build.
+  #
+  # This is only safe because ./redeploy.sh runs `mix assets.deploy`, which
+  # regenerates the manifest before every restart. Do not set this without
+  # that step — a manifest older than priv/static serves the stale asset it
+  # points at, with no error anywhere.
+  cache_static_manifest: if(public_deploy?, do: "priv/static/cache_manifest.json"),
   secret_key_base: secret_key_base,
   # Asset watchers are a local authoring tool; on the server they would rebuild
   # priv/static underneath live traffic.
@@ -155,6 +171,12 @@ config :web, :komoot,
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
+
+# Debug logging is a firehose on a machine serving traffic — every query, every
+# LiveView diff — and it all lands in the journal. config/prod.exs sets :info
+# for exactly this reason, but that file never loads here: the deploy runs
+# MIX_ENV=dev with PUBLIC_DEPLOY=true. Match it.
+config :logger, level: if(public_deploy?, do: :info, else: :debug)
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
