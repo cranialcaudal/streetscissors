@@ -26,6 +26,13 @@ defmodule Web.Application do
 
       # Quantum scheduled (cron) jobs
       Web.Scheduler,
+      # Catch up a backup the schedule slept through. Quantum does not make up
+      # missed runs, so on a laptop every night the lid is closed produces
+      # nothing at all. Temporary child: it runs once, then exits normally and
+      # is not restarted. After Repo (it needs a connection), and it must not
+      # delay the Endpoint — the task returns immediately and works in its own
+      # process.
+      {Task, &Web.Backup.run_on_boot/0},
       # Start to serve requests, typically the last entry
       WebWeb.Endpoint
     ]

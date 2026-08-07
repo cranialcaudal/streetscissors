@@ -82,6 +82,10 @@ if config_env() == :prod do
   # Health Auto Export webhook token (optional — endpoint returns 401 when unset).
   config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
 
+  # Off-disk copy of each database snapshot (optional — skipped when unset or
+  # when the target is not mounted).
+  config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
+
   config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :web, WebWeb.Endpoint,

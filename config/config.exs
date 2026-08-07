@@ -75,6 +75,11 @@ config :web, Web.Scheduler,
     {"7 * * * *", {Web.Rides.KomootSync, :run_scheduled, []}},
     # Nightly database snapshot. VACUUM INTO, not a file copy — the database
     # runs in WAL mode and a plain copy would miss committed transactions.
+    #
+    # Quantum has no timezone configured, so these expressions are UTC: this
+    # fires at 20:17 US/Pacific, not 03:17. Quantum also does not make up a run
+    # it slept through, so Web.Backup.run_on_boot/0 covers the nights the
+    # machine is off or asleep at that minute.
     {"17 3 * * *", {Web.Backup, :run_scheduled, []}}
   ]
 

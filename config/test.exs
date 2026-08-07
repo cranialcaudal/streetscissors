@@ -41,6 +41,11 @@ config :web, :uploads_path, Path.expand("../tmp/test_uploads", __DIR__)
 # cheap to exercise
 config :web, :backup_path, Path.expand("../tmp/test_backups", __DIR__)
 config :web, :backup_keep, 3
+# No boot snapshot in tests: the supervised task would VACUUM the test database
+# on every `mix test`, racing the sandbox for a connection. Tests that want the
+# boot path call Backup.run_on_boot/0 directly with this flipped on.
+config :web, :backup_on_boot, false
+config :web, :backup_mirror_path, nil
 
 # Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
 config :web, :komoot, email: "test@example.com", password: "test-password"

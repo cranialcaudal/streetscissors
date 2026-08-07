@@ -169,6 +169,13 @@ config :web, :komoot,
   email: System.get_env("KOMOOT_EMAIL"),
   password: System.get_env("KOMOOT_PASSWORD")
 
+# Second copy of each snapshot, on a different physical disk. Snapshots that
+# live beside the database only protect against a bad deploy or a mistaken
+# DELETE — one failed volume takes the database and every snapshot together.
+# Unset is fine and is the normal case on a checkout that is not the server;
+# an unplugged drive is skipped with a log line, never an error.
+config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
