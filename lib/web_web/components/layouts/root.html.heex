@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=League+Spartan:wght@400;500;600;700;800&family=Saira+Condensed:wght@400;500;600;700&family=Sorts+Mill+Goudy:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    
+<!-- Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/preview_logo.png"} />
+    <link rel="icon" type="image/png" sizes="16x16" href={~p"/images/preview_logo.png"} />
+    <link rel="apple-touch-icon" href={~p"/images/preview_logo.png"} />
+
+    <%!-- Per-page metadata (WebWeb.SEO). Pages assign :page_title,
+          :og_title, :og_description, :canonical_path, :og_type — all of it
+          falls back to site defaults. --%>
+    <meta name="description" content={WebWeb.SEO.description(assigns)} />
+    <link
+      :if={WebWeb.SEO.canonical_url(assigns)}
+      rel="canonical"
+      href={WebWeb.SEO.canonical_url(assigns)}
+    />
+
+    <meta property="og:site_name" content={WebWeb.SEO.site_name()} />
+    <meta property="og:type" content={WebWeb.SEO.og_type(assigns)} />
+    <meta property="og:title" content={WebWeb.SEO.og_title(assigns)} />
+    <meta property="og:description" content={WebWeb.SEO.description(assigns)} />
+    <%!-- Absolute, or no unfurler will fetch it. --%>
+    <meta property="og:image" content={WebWeb.SEO.og_image(assigns)} />
+    <meta
+      :if={WebWeb.SEO.canonical_url(assigns)}
+      property="og:url"
+      content={WebWeb.SEO.canonical_url(assigns)}
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={WebWeb.SEO.og_title(assigns)} />
+    <meta name="twitter:description" content={WebWeb.SEO.description(assigns)} />
+    <meta name="twitter:image" content={WebWeb.SEO.og_image(assigns)} />
+
+    <%!-- Lets browsers and feed readers discover the feed; previously nothing
+          on the site linked to /feed at all. --%>
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="streetscissors — writing"
+      href={~p"/feed"}
+    />
+
+    <.live_title default="streetscissors" suffix="">
+      {assigns[:page_title]}
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+  </head>
+  <body>
+    <div id="main-content-wrapper" class="main-content-wrapper">
+      {@inner_content}
+    </div>
+    <style>
+      .main-content-wrapper { padding-top: 1rem; }
+      @media (max-width: 800px) {
+        .main-content-wrapper { padding-top: 0 !important; }
+      }
+    </style>
+
+    <%= if assigns[:admin_mode] do %>
+      <!-- Admin Mode Indicator -->
+      <div
+        id="admin-indicator"
+        style="
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: var(--paper-raised);
+        border: 1px solid rgba(194, 69, 29, 0.5);
+        padding: 0.5rem 1rem;
+        font-family: var(--font-heading);
+        font-size: 0.8rem;
+      "
+      >
+        <span style="color: var(--accent-color); display: flex; align-items: center; gap: 0.4rem;">
+          <i class="fas fa-user-shield" style="font-size: 0.9rem;"></i>
+          <span style="text-transform: uppercase; letter-spacing: 1px;">Admin</span>
+        </span>
+        <span style="color: #444;">|</span>
+        <a
+          href="/admin/dashboard"
+          style="color: var(--ink-3); text-decoration: none; transition: color 0.2s;"
+          onmouseover="this.style.color='#fff'"
+          onmouseout="this.style.color='#888'"
+        >
+          <i class="fas fa-tachometer-alt"></i>
+        </a>
+        <form action="/admin/logout" method="post" style="display: inline; margin: 0; padding: 0;">
+          <input type="hidden" name="_method" value="delete" />
+          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+          <button
+            type="submit"
+            style="background: none; border: none; color: var(--ink-3); cursor: pointer; padding: 0; font-size: inherit; transition: color 0.2s;"
+            onmouseover="this.style.color='var(--accent-color)'"
+            onmouseout="this.style.color='#888'"
+          >
+            <.icon name="hero-arrow-right-on-rectangle" class="size-4" />
+          </button>
+        </form>
+      </div>
+    <% end %>
+    {live_render(
+      Map.get(assigns, :socket) || Map.get(assigns, :conn),
+      WebWeb.NewsletterOverlayLive,
+      id: "newsletter-overlay",
+      sticky: true,
+      layout: false
+    )}
+  </body>
+</html>
