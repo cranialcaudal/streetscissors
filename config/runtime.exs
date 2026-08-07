@@ -133,14 +133,23 @@ if config_env() == :prod do
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
   # ## Configuring the mailer
+  #
+  # Resend over HTTPS — the same adapter dev uses. This block previously
+  # configured Gmail SMTP against an app password that was revoked and never
+  # reissued, so the first real prod boot would have silently stopped sending.
+  # Keep this in step with the dev mailer in config/dev.exs.
+  #
+  # Raised rather than defaulted to nil: a missing key otherwise fails at the
+  # *send*, inside the background Task that broadcasts the newsletter, where
+  # nothing surfaces it. Failing at boot is louder, and matches how
+  # SECRET_KEY_BASE and ADMIN_PASSWORD are handled above.
   config :web, Web.Mailer,
-    adapter: Swoosh.Adapters.SMTP,
-    relay: "smtp.gmail.com",
-    username: "streetscissors@gmail.com",
-    # App Password
-    password: System.get_env("SMTP_PASSWORD"),
-    port: 587,
-    tls: :always,
-    auth: :always,
-    retries: 2
+    adapter: Swoosh.Adapters.Resend,
+    api_key:
+      System.get_env("RESEND_API_KEY") ||
+        raise("""
+        environment variable RESEND_API_KEY is missing.
+        This sends subscriber welcome mail and the newsletter.
+        Issue one at https://resend.com/api-keys
+        """)
 end
