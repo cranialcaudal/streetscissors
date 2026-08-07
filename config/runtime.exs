@@ -97,6 +97,10 @@ if config_env() == :prod do
   # when the target is not mounted).
   config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
 
+  # Off-disk copy of the negatives archive (optional — skipped when unset or
+  # when the target is not mounted).
+  config :web, :photos_mirror_path, System.get_env("PHOTOS_MIRROR_PATH")
+
   # Where snapshots land. Web.Backup falls back to a path under $HOME, which is
   # right for this deploy but leaves nothing to point elsewhere with — staging a
   # release against a copy of the database would otherwise write snapshots of

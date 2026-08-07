@@ -8,6 +8,9 @@ defmodule Web.Backup.MirrorWatcher do
   drive in is the moment the user expects a backup to happen, so that is when
   it happens.
 
+  Covers both the database snapshots (`Web.Backup.sync_mirror/0`) and the
+  negatives archive (`Web.Backup.Photos.sync/0`).
+
   **Why polling and not udev or a systemd path unit.** Both of those would fire
   instantly, but neither can call into the running application; they would have
   to re-implement snapshotting, verification and retention in a shell script,
@@ -29,13 +32,19 @@ defmodule Web.Backup.MirrorWatcher do
   require Logger
 
   alias Web.Backup
+  alias Web.Backup.Photos
 
   @default_interval_ms :timer.seconds(30)
+
+  # The first photo sync moves 317 MB to a USB drive, and it runs inside this
+  # process so that two syncs can never overlap. Both the call timeout and the
+  # supervisor's shutdown grace have to tolerate that.
+  @call_timeout :timer.minutes(30)
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
   @doc "Forces a check immediately instead of waiting for the next tick."
-  def check_now, do: GenServer.call(__MODULE__, :check, 60_000)
+  def check_now, do: GenServer.call(__MODULE__, :check, @call_timeout)
 
   @impl true
   def init(_opts) do
@@ -56,7 +65,7 @@ defmodule Web.Backup.MirrorWatcher do
 
     if present? do
       Logger.info("backup: mirror drive present at startup, syncing")
-      Backup.sync_mirror()
+      sync_everything()
     end
 
     {:noreply, %{state | present?: present?}}
@@ -80,7 +89,7 @@ defmodule Web.Backup.MirrorWatcher do
     cond do
       present? and not was_present? ->
         Logger.info("backup: mirror drive connected, backing up")
-        Backup.sync_mirror()
+        sync_everything()
 
       was_present? and not present? ->
         Logger.info("backup: mirror drive disconnected")
@@ -92,12 +101,23 @@ defmodule Web.Backup.MirrorWatcher do
     %{state | present?: present?}
   end
 
+  # The database first: it is small, fast, and the thing most likely to have
+  # changed since the last connection. The negatives follow, and only move what
+  # is new after the first run.
+  defp sync_everything do
+    Backup.sync_mirror()
+    Photos.sync()
+  end
+
   defp schedule, do: Process.send_after(self(), :tick, interval_ms())
 
   defp interval_ms,
     do: Application.get_env(:web, :backup_mirror_watch_interval_ms, @default_interval_ms)
 
+  # Either destination is reason enough to watch: the photo archive can be
+  # mirrored without the database snapshots being, and vice versa.
   defp enabled? do
-    Application.get_env(:web, :backup_mirror_watch, true) and not is_nil(Backup.mirror_dir())
+    Application.get_env(:web, :backup_mirror_watch, true) and
+      (not is_nil(Backup.mirror_dir()) or not is_nil(Photos.mirror_dir()))
   end
 end

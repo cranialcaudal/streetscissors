@@ -46,6 +46,7 @@ config :web, :backup_keep, 3
 # boot path call Backup.run_on_boot/0 directly with this flipped on.
 config :web, :backup_on_boot, false
 config :web, :backup_mirror_path, nil
+config :web, :photos_mirror_path, nil
 # The watcher would otherwise poll for a drive throughout the suite. Tests that
 # exercise it start it themselves with a mirror path pointed at a tmp dir.
 config :web, :backup_mirror_watch, false

@@ -176,6 +176,11 @@ config :web, :komoot,
 # an unplugged drive is skipped with a log line, never an error.
 config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
 
+# The negatives archive. Web.Backup only ever snapshots the database, which left
+# 317 MB of scanned film — the one thing here that cannot be re-derived from
+# Komoot, git or anywhere else — with no backup at all.
+config :web, :photos_mirror_path, System.get_env("PHOTOS_MIRROR_PATH")
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
