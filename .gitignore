@@ -46,6 +46,10 @@ npm-debug.log
 # Database files
 *.db
 *.db-*
+# Databases renamed out of the way keep their data but lose the .db suffix, so
+# the rules above stop matching and `git add -A` will happily commit a few
+# hundred KB of real rows. Catch anything with .db in the middle of the name.
+*.db.*
 
 
 # Runtime logs and pids
