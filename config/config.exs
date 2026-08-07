@@ -74,7 +74,10 @@ config :web, Web.Scheduler,
     # Run every Sunday at 8:23 PM (20:23)
     {"23 20 * * 0", {Web.Newsletter.Generator, :generate_weekly_draft, []}},
     # Pull new recorded/planned tours from Komoot (no-op without credentials)
-    {"7 * * * *", {Web.Rides.KomootSync, :run_scheduled, []}}
+    {"7 * * * *", {Web.Rides.KomootSync, :run_scheduled, []}},
+    # Nightly database snapshot. VACUUM INTO, not a file copy — the database
+    # runs in WAL mode and a plain copy would miss committed transactions.
+    {"17 3 * * *", {Web.Backup, :run_scheduled, []}}
   ]
 
 config :web, Oban,

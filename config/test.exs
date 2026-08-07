@@ -37,6 +37,11 @@ config :web, :ride_thumbs_path, Path.expand("../tmp/ride_thumbs", __DIR__)
 # suite run never writes into priv/static
 config :web, :uploads_path, Path.expand("../tmp/test_uploads", __DIR__)
 
+# Database snapshots go to a throwaway dir, and keep few, so retention is
+# cheap to exercise
+config :web, :backup_path, Path.expand("../tmp/test_backups", __DIR__)
+config :web, :backup_keep, 3
+
 # Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
 config :web, :komoot, email: "test@example.com", password: "test-password"
 config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
