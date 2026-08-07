@@ -185,6 +185,58 @@
   border-top: 1px solid var(--rule);
 }
 
+/* ── Empty State ───────────────────────────────────────────
+   Two blog URLs that no longer exist took 110 real visits and redirect here,
+   so this page is somebody's landing page rather than a rare edge case. It
+   spans the full grid: the feed is auto-fit columns, and without this the
+   message sits in a narrow first column with dead space beside it. */
+.blog-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.blog-empty-line {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  color: var(--ink);
+  margin: 0 0 0.75rem;
+}
+
+.blog-empty-note {
+  font-family: var(--font-body);
+  color: var(--ink-3);
+  margin: 0 auto 1.75rem;
+  max-width: 34rem;
+}
+
+.blog-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.blog-empty-link {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-decoration: none;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--rule);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.blog-empty-link:hover,
+.blog-empty-link:focus-visible {
+  color: var(--color-orange);
+  border-color: var(--color-orange);
+}
+
 /* ── Post Feed & Cards ─────────────────────────────────── */
 .blog-feed {
   display: grid;

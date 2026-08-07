@@ -49,14 +49,23 @@
 <!-- Feed -->
   <div class="blog-feed">
     <%= if Enum.empty?(@posts) do %>
-      <div style="text-align: center; padding: 4rem 2rem; color: #444;">
-        <p style="font-size: 1.1rem; margin-bottom: 0.5rem; font-family: var(--font-heading);">
-          <%= if @keyword do %>
-            Nothing filed under “{@keyword}”.
-          <% else %>
-            No posts available.
-          <% end %>
-        </p>
+      <div class="blog-empty">
+        <%= if @keyword do %>
+          <p class="blog-empty-line">Nothing filed under “{@keyword}”.</p>
+          <a class="blog-empty-link" href={blog_query(@sort, nil)}>See everything instead</a>
+        <% else %>
+          <p class="blog-empty-line">Nothing published here yet.</p>
+          <p class="blog-empty-note">
+            The writing is still in the darkroom. There is work elsewhere on the site in the
+            meantime:
+          </p>
+          <div class="blog-empty-links">
+            <a class="blog-empty-link" href={~p"/negatives"}>Negatives</a>
+            <a class="blog-empty-link" href={~p"/fitness/rides"}>Rides</a>
+            <a class="blog-empty-link" href={~p"/logs"}>Captain's logs</a>
+            <a class="blog-empty-link" href={~p"/about"}>About</a>
+          </div>
+        <% end %>
       </div>
     <% else %>
       <%= for {post, index} <- Enum.with_index(@posts) do %>
