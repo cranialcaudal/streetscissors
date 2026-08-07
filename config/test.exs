@@ -46,6 +46,9 @@ config :web, :backup_keep, 3
 # boot path call Backup.run_on_boot/0 directly with this flipped on.
 config :web, :backup_on_boot, false
 config :web, :backup_mirror_path, nil
+# The watcher would otherwise poll for a drive throughout the suite. Tests that
+# exercise it start it themselves with a mirror path pointed at a tmp dir.
+config :web, :backup_mirror_watch, false
 
 # Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
 config :web, :komoot, email: "test@example.com", password: "test-password"

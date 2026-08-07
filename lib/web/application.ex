@@ -33,6 +33,11 @@ defmodule Web.Application do
       # delay the Endpoint — the task returns immediately and works in its own
       # process.
       {Task, &Web.Backup.run_on_boot/0},
+      # Backs the site up onto the external drive as soon as it is plugged in,
+      # rather than waiting for the next scheduled run. Returns :ignore when no
+      # mirror is configured, so it costs nothing on a checkout that is not the
+      # server.
+      Web.Backup.MirrorWatcher,
       # Start to serve requests, typically the last entry
       WebWeb.Endpoint
     ]

@@ -214,6 +214,64 @@ defmodule Web.Backup do
 
   def mirror_dir, do: Application.get_env(:web, :backup_mirror_path)
 
+  @doc "True when the mirror is configured and its directory is present."
+  @spec mirror_available?() :: boolean()
+  def mirror_available? do
+    case mirror_dir() do
+      nil -> false
+      dir -> File.dir?(dir)
+    end
+  end
+
+  @doc """
+  Brings the mirror up to date. This is what running when the drive is plugged
+  in means in practice.
+
+  Takes a fresh snapshot first when the newest is stale, so plugging the drive
+  in gets you a *current* backup rather than whatever happened to be lying
+  around, then copies across every local snapshot the mirror does not already
+  have and applies retention.
+
+  Returns `{:ok, summary}`, or `:unavailable` when the drive is not there.
+  Never raises.
+  """
+  @spec sync_mirror() :: {:ok, map()} | :unavailable
+  def sync_mirror do
+    if mirror_available?() do
+      if stale?(), do: run()
+
+      dir = mirror_dir()
+      have = MapSet.new(list_dir(dir), &Path.basename(&1.path))
+
+      results =
+        list()
+        |> Enum.reject(&MapSet.member?(have, Path.basename(&1.path)))
+        # Newest first from list/0; copy oldest first so an interrupted sync
+        # still leaves the mirror's newest file being the newest one it has.
+        |> Enum.reverse()
+        |> Enum.map(fn %{path: path} -> copy_to_mirror(path, dir) end)
+
+      copied = Enum.count(results, &match?({:ok, _}, &1))
+      failed = Enum.count(results, &match?({:error, _}, &1))
+
+      if copied > 0 or failed > 0 do
+        Logger.info(
+          "backup: mirror sync copied #{copied}" <>
+            if(failed > 0, do: ", #{failed} FAILED", else: "") <>
+            " to #{dir}"
+        )
+      end
+
+      {:ok, %{copied: copied, failed: failed, present: length(list_dir(dir))}}
+    else
+      :unavailable
+    end
+  rescue
+    error ->
+      Logger.error("backup: mirror sync crashed: #{Exception.message(error)}")
+      {:ok, %{copied: 0, failed: 1, present: 0}}
+  end
+
   @doc """
   Entry point for application start. Takes a snapshot when the newest one is
   older than `:backup_max_age_hours`, so a night the machine spent asleep is

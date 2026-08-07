@@ -248,6 +248,152 @@ defmodule Web.BackupTest do
     end
   end
 
+  describe "syncing the mirror when the drive appears" do
+    setup %{dir: dir} do
+      mirror = Path.join(dir, "mirror")
+      Application.put_env(:web, :backup_mirror_path, mirror)
+      on_exit(fn -> Application.put_env(:web, :backup_mirror_path, nil) end)
+      {:ok, mirror: mirror}
+    end
+
+    test "reports the drive as unavailable until its directory exists", %{mirror: mirror} do
+      refute Backup.mirror_available?()
+      assert Backup.sync_mirror() == :unavailable
+
+      File.mkdir_p!(mirror)
+      assert Backup.mirror_available?()
+    end
+
+    test "copies across snapshots taken while the drive was unplugged", %{mirror: mirror} do
+      # Three snapshots accumulate locally with nowhere to go.
+      for _ <- 1..3 do
+        {:ok, _} = Backup.run()
+        Process.sleep(1_000)
+      end
+
+      assert Backup.list_dir(mirror) == []
+
+      # Drive gets plugged in.
+      File.mkdir_p!(mirror)
+      assert {:ok, summary} = Backup.sync_mirror()
+
+      assert summary.copied == 3
+      assert summary.failed == 0
+      assert length(Backup.list_dir(mirror)) == 3
+
+      for %{path: path} <- Backup.list_dir(mirror), do: assert(Backup.verify(path) == :ok)
+    end
+
+    test "takes a fresh snapshot so the drive gets a current backup, not a stale one",
+         %{mirror: mirror} do
+      File.mkdir_p!(mirror)
+      assert Backup.list() == []
+
+      assert {:ok, summary} = Backup.sync_mirror()
+
+      # stale?/0 is true with no snapshots at all, so a fresh one is taken. It
+      # arrives on the drive via run/0's own mirror step rather than the copy
+      # loop below it, so `copied` is 0 here — what matters is that plugging in
+      # an empty drive leaves a current backup on it.
+      assert summary.copied == 0
+      assert length(Backup.list()) == 1
+      assert length(Backup.list_dir(mirror)) == 1
+
+      [%{path: path}] = Backup.list_dir(mirror)
+      assert Backup.verify(path) == :ok
+    end
+
+    test "does not recopy what the mirror already has", %{mirror: mirror} do
+      File.mkdir_p!(mirror)
+      {:ok, _} = Backup.run()
+
+      assert {:ok, %{copied: 0}} = Backup.sync_mirror()
+      assert length(Backup.list_dir(mirror)) == 1
+    end
+  end
+
+  describe "the mirror watcher" do
+    alias Web.Backup.MirrorWatcher
+
+    setup %{dir: dir} do
+      mirror = Path.join(dir, "mirror")
+      Application.put_env(:web, :backup_mirror_path, mirror)
+      Application.put_env(:web, :backup_mirror_watch, true)
+      # Long interval: these tests drive it with check_now/0 rather than waiting.
+      Application.put_env(:web, :backup_mirror_watch_interval_ms, :timer.minutes(10))
+
+      on_exit(fn ->
+        Application.put_env(:web, :backup_mirror_path, nil)
+        Application.put_env(:web, :backup_mirror_watch, false)
+        Application.delete_env(:web, :backup_mirror_watch_interval_ms)
+      end)
+
+      # Take a snapshot up front so the watcher's work is pure file copying.
+      # It runs in its own process, and the sandbox only grants a connection to
+      # the test process — with a snapshot already present, stale?/0 is false
+      # and the watcher never needs the database at all.
+      {:ok, _} = Backup.run()
+
+      {:ok, mirror: mirror}
+    end
+
+    # Belt and braces for the same problem: if a test does push the watcher
+    # down a path that touches the database, let it borrow this connection
+    # rather than fail with an ownership error.
+    defp allow_db(pid), do: Ecto.Adapters.SQL.Sandbox.allow(Web.Repo, self(), pid)
+
+    test "backs up when the drive appears", %{mirror: mirror} do
+      MirrorWatcher |> start_supervised!() |> allow_db()
+      assert {:ok, false} = MirrorWatcher.check_now()
+
+      # Plug it in.
+      File.mkdir_p!(mirror)
+      assert {:ok, true} = MirrorWatcher.check_now()
+
+      assert length(Backup.list_dir(mirror)) >= 1
+    end
+
+    test "is edge-triggered — a drive left connected does not resync every tick",
+         %{mirror: mirror} do
+      File.mkdir_p!(mirror)
+
+      MirrorWatcher |> start_supervised!() |> allow_db()
+      # The startup sync brings it up to date.
+      {:ok, true} = MirrorWatcher.check_now()
+      before = Backup.list_dir(mirror) |> length()
+
+      # Further ticks with the drive still present must not pile up copies.
+      {:ok, true} = MirrorWatcher.check_now()
+      {:ok, true} = MirrorWatcher.check_now()
+
+      assert length(Backup.list_dir(mirror)) == before
+    end
+
+    test "notices the drive going away, and picks it up again on return",
+         %{mirror: mirror} do
+      File.mkdir_p!(mirror)
+      MirrorWatcher |> start_supervised!() |> allow_db()
+      {:ok, true} = MirrorWatcher.check_now()
+
+      File.rm_rf!(mirror)
+      assert {:ok, false} = MirrorWatcher.check_now()
+
+      File.mkdir_p!(mirror)
+      assert {:ok, true} = MirrorWatcher.check_now()
+      assert length(Backup.list_dir(mirror)) >= 1
+    end
+
+    test "does not start at all when no mirror is configured" do
+      Application.put_env(:web, :backup_mirror_path, nil)
+      assert MirrorWatcher.start_link([]) == :ignore
+    end
+
+    test "does not start when explicitly disabled" do
+      Application.put_env(:web, :backup_mirror_watch, false)
+      assert MirrorWatcher.start_link([]) == :ignore
+    end
+  end
+
   describe "catching up a missed run" do
     test "stale?/0 is true when there is no snapshot at all" do
       assert Backup.stale?()
