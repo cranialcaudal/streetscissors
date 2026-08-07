@@ -1,0 +1,118 @@
+<div class="blog-bento-wrapper" style="--blog-accent: #ff6600;">
+  
+<!-- Header -->
+  <header class="blog-header-card">
+    <h1 class="blog-header-title">streetscissors</h1>
+    <div class="blog-header-subtitle">Written Work</div>
+    <div class="blog-header-bio">
+      Notes, essays, and photographs from the streetscissors darkroom.
+      Spoken pieces live in the <a href={~p"/logs"}>captain's logs</a>.
+    </div>
+  </header>
+  
+<!-- Sorting Bar -->
+  <div class="blog-sort-bar">
+    <span class="blog-sort-label">Sort By:</span>
+    <div class="blog-sort-options">
+      <a
+        href={blog_query("recent", @keyword)}
+        class={["blog-sort-pill", @sort == "recent" && "active"]}
+      >
+        Most Recent
+      </a>
+      <a
+        href={blog_query("witnessed", @keyword)}
+        class={["blog-sort-pill", @sort == "witnessed" && "active"]}
+      >
+        Most Witnessed
+      </a>
+    </div>
+  </div>
+  
+<!-- Keyword Filter -->
+  <div :if={@keywords != []} class="blog-keyword-bar">
+    <span class="blog-sort-label">Keywords:</span>
+    <div class="blog-keyword-options">
+      <a href={blog_query(@sort, nil)} class={["blog-keyword-chip", is_nil(@keyword) && "active"]}>
+        All
+      </a>
+      <a
+        :for={{keyword, count} <- @keywords}
+        href={blog_query(@sort, keyword)}
+        class={["blog-keyword-chip", @keyword == keyword && "active"]}
+      >
+        {keyword} <span class="blog-keyword-count">{count}</span>
+      </a>
+    </div>
+  </div>
+  
+<!-- Feed -->
+  <div class="blog-feed">
+    <%= if Enum.empty?(@posts) do %>
+      <div style="text-align: center; padding: 4rem 2rem; color: #444;">
+        <p style="font-size: 1.1rem; margin-bottom: 0.5rem; font-family: var(--font-heading);">
+          <%= if @keyword do %>
+            Nothing filed under “{@keyword}”.
+          <% else %>
+            No posts available.
+          <% end %>
+        </p>
+      </div>
+    <% else %>
+      <%= for {post, index} <- Enum.with_index(@posts) do %>
+        <% featured? = index == 0 and @sort == "recent" and is_nil(@keyword) %>
+        <article class={["blog-bento-card", featured? && "bento-span-full"]}>
+          <%= if featured? do %>
+            <div class="blog-bento-card-ribbon">NEW!</div>
+          <% end %>
+
+          <h2 class="blog-bento-title">
+            <a href={~p"/blog/#{post.slug}"}>{post.title}</a>
+          </h2>
+
+          <div class="blog-bento-meta">
+            <span class="blog-bento-meta-item">
+              <.icon name="hero-calendar" class="size-4" /> {Calendar.strftime(
+                post.date,
+                "%B %d, %Y"
+              )}
+            </span>
+            <span class="blog-bento-meta-item">
+              <.icon name="hero-clock" class="size-4" /> {post.read_min} min read
+            </span>
+            <span class="blog-bento-meta-item">
+              <.icon name="hero-chart-bar" class="size-4" /> {post.hit_count} views
+            </span>
+            <span class="blog-bento-meta-item">
+              <i class="fas fa-paragraph"></i> {post.word_count} words
+            </span>
+          </div>
+
+          <p class="blog-bento-excerpt">
+            {post.excerpt}
+          </p>
+
+          <div :if={post.keywords != []} class="blog-bento-keywords">
+            <a
+              :for={keyword <- post.keywords}
+              href={blog_query(@sort, keyword)}
+              class="blog-keyword-tag"
+            >
+              {keyword}
+            </a>
+          </div>
+
+          <footer class="blog-bento-actions">
+            <a
+              href={~p"/blog/#{post.slug}"}
+              class="top-bar-link"
+              style="padding: 0.35rem 0.8rem; background: rgba(0,0,0,0.3); border: none;"
+            >
+              Read →
+            </a>
+          </footer>
+        </article>
+      <% end %>
+    <% end %>
+  </div>
+</div>

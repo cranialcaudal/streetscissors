@@ -1,0 +1,46 @@
+<div class="blog-bento-wrapper" style="--blog-accent: var(--accent-color);">
+  <div class="blog-post-panel">
+    <header class="blog-post-header">
+      <div style="margin-bottom: 1rem;">
+        <.back_link navigate={@return_to} label={@return_label} />
+      </div>
+
+      <h1 class="blog-post-title">{@post.title}</h1>
+
+      <div class="blog-post-meta">
+        <span class="blog-bento-meta-item">
+          <.icon name="hero-calendar" class="size-4" /> {Calendar.strftime(
+            @post.date,
+            "%B %d, %Y"
+          )}
+        </span>
+        <span class="blog-bento-meta-item">
+          <.icon name="hero-clock" class="size-4" /> {@post.read_min} min read
+        </span>
+        <span class="blog-bento-meta-item">
+          <.icon name="hero-chart-bar" class="size-4" /> {@post.hit_count} views
+        </span>
+        <span class="blog-bento-meta-item">
+          <i class="fas fa-paragraph"></i> {@post.word_count} words
+        </span>
+      </div>
+    </header>
+
+    <div class="blog-post-content prose">
+      {raw(@post.html)}
+    </div>
+
+    <footer :if={@post.keywords != []} class="blog-post-keywords">
+      <span class="blog-sort-label">Filed under:</span>
+      <div class="blog-keyword-options">
+        <a
+          :for={keyword <- @post.keywords}
+          href={blog_query("recent", keyword)}
+          class="blog-keyword-tag"
+        >
+          {keyword}
+        </a>
+      </div>
+    </footer>
+  </div>
+</div>

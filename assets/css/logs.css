@@ -1,0 +1,568 @@
+/* ═══════════════════════════════════════════════════════════════════
+   NX-01 — the /logs section
+   ═══════════════════════════════════════════════════════════════════
+   A captain's log is a recording made under way, so the page is the
+   console it was recorded at: gunmetal panels, amber backlight behind
+   smoked glass, hard-edged switch banks.
+
+   The look is the *Enterprise* era on purpose — 2151, not 2364. No LCARS:
+   no rounded pill blocks, no flat pastel fields. Pre-Federation gear is
+   submarine-descended — rectilinear, riveted, physically switched, with
+   dense monospace readouts behind glass. Amber is the panel's own light;
+   cyan is instrumentation; red is only ever a warning.
+
+   Scoped token overrides in the manner of `.steel` and `.darkroom` — the
+   same tokens every component already reads, re-inked. Style with
+   tokens, and note that under `.nx01` `--ink` is *light*: anything that
+   must stay dark keys off `--paper-*`.
+   ─────────────────────────────────────────────────────────────────── */
+
+.nx01 {
+  /* Ground: gunmetal, four depths. Cold and slightly green, the way a
+     hull looks under working light rather than daylight. */
+  --paper: #0d1114;
+  --paper-raised: #151c21;
+  --paper-sunk: #090c0e;
+  --paper-deep: #050708;
+
+  /* Backlit type on smoked glass */
+  --ink: #dfe8ee;
+  --ink-2: #a8b8c2;
+  --ink-3: #71828d;
+  --ink-4: #4c5a63;
+
+  --rule: rgba(223, 232, 238, 0.16);
+  --rule-strong: rgba(223, 232, 238, 0.42);
+  --hairline: var(--rule);
+  --glass-bg: var(--paper-raised);
+
+  /* Amber is the console's own light — labels, active switches, figures.
+     Cyan is instrumentation, and carries the readouts. */
+  --color-orange: #ff9e3d;
+  --color-dodger: #5fd0e8;
+  --color-jade: #54d18a;
+  --accent-color: var(--color-orange);
+  --theme-color: var(--color-orange);
+  --logs-accent: var(--color-orange);
+
+  /* Panel labels are narrow and squared — stencilled onto metal, not set
+     on paper. Readouts stay mono, because that is what a readout is. */
+  --font-display: 'Saira Condensed', 'Oswald', 'Arial Narrow', sans-serif;
+  --font-heading: var(--font-display);
+  --font-ui: var(--font-display);
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Paint the viewport, not just the content column. */
+.nx01::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(255, 158, 61, 0.07), transparent 60%),
+    var(--paper);
+  z-index: -2;
+}
+
+/* Scanlines over everything, at the threshold of noticing. The panel is
+   lit from behind glass; this is the glass. */
+.nx01::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16) 0px,
+    rgba(0, 0, 0, 0.16) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.logs-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 6rem;
+}
+
+/* ── Console frame ────────────────────────────────────────
+   One bezel around the whole instrument: raised outer edge,
+   sunk inner face, the way a panel is actually built. */
+.console-frame {
+  background: linear-gradient(180deg, var(--paper-raised), var(--paper));
+  border: 1px solid var(--rule-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(223, 232, 238, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+  padding: 0 0 2rem;
+}
+
+/* Top rail: designation plate flanked by hazard striping. */
+.console-rail {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--paper-deep);
+  border-bottom: 1px solid var(--rule);
+}
+
+.rail-tag {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Diagonal caution striping — the one place the page raises its voice
+   without saying anything. */
+.rail-hazard {
+  flex: 1;
+  height: 10px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 158, 61, 0.5) 0px,
+    rgba(255, 158, 61, 0.5) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  opacity: 0.55;
+}
+
+/* ── Masthead ─────────────────────────────────────────── */
+.console-head {
+  padding: 2rem 1.75rem 1.25rem;
+}
+
+.logs-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 9vw, 5.25rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0;
+  text-shadow: 0 0 26px rgba(255, 158, 61, 0.22);
+}
+
+.logs-bio {
+  font-family: var(--font-data), monospace;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  max-width: 54ch;
+  margin: 1rem 0 0;
+}
+
+.logs-bio a {
+  color: var(--color-dodger);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(95, 208, 232, 0.4);
+}
+
+.logs-bio a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ── Status strip ─────────────────────────────────────────
+   Instrument-style readouts, but only ever showing real
+   numbers the site actually has. */
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  margin: 0 1.75rem;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 1rem;
+  background: var(--paper-sunk);
+}
+
+.status-label {
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.status-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  color: var(--color-dodger);
+}
+
+/* ── Switch banks ─────────────────────────────────────────
+   Sort and filter are physical controls: rectangular keys with
+   a machined bevel that light from behind when engaged. */
+.console-bank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 1.25rem 1.75rem 0;
+}
+
+.bank-label,
+.logs-label {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.bank-buttons,
+.logs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.console-btn,
+.console-tab,
+.logs-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  background: linear-gradient(180deg, var(--paper-raised), var(--paper-sunk));
+  border: 1px solid var(--rule);
+  box-shadow: inset 0 1px 0 rgba(223, 232, 238, 0.07);
+  color: var(--ink-2);
+  transition: color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.console-btn {
+  padding: 0.5rem 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.console-tab,
+.logs-tag {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.console-btn:hover,
+.console-tab:hover,
+.logs-tag:hover {
+  color: var(--ink);
+  border-color: rgba(255, 158, 61, 0.55);
+}
+
+/* Engaged: backlit from inside the panel. */
+.console-btn.active,
+.console-tab.active {
+  color: var(--color-orange);
+  border-color: var(--color-orange);
+  box-shadow:
+    inset 0 0 14px rgba(255, 158, 61, 0.22),
+    0 0 10px rgba(255, 158, 61, 0.16);
+}
+
+.tab-count {
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  color: var(--ink-4);
+}
+
+.console-tab.active .tab-count {
+  color: var(--color-orange);
+}
+
+/* ── The log entries ──────────────────────────────────────
+   Each is its own sub-panel, seated in the console face. */
+.logs-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem 1.75rem 0;
+}
+
+.log-card {
+  position: relative;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  box-shadow:
+    inset 0 1px 0 rgba(223, 232, 238, 0.06),
+    0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.log-card:hover {
+  border-color: rgba(255, 158, 61, 0.35);
+}
+
+/* Bolted at the corners. Decorative, so hidden from the reader. */
+.log-card::before,
+.log-card::after {
+  content: '';
+  position: absolute;
+  top: 0.55rem;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--ink-4), var(--paper-deep));
+}
+
+.log-card::before { left: 0.55rem; }
+.log-card::after { right: 0.55rem; }
+
+/* Entry rail: recording date and length. */
+.log-card-rail {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 1.75rem;
+  background: var(--paper-deep);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.log-desig {
+  color: var(--color-orange);
+  font-weight: 600;
+}
+
+.log-rail-spacer {
+  flex: 1;
+}
+
+.log-card-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.log-card-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem;
+}
+
+.log-card-title a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.log-card-title a:hover {
+  color: var(--color-orange);
+  border-bottom-color: rgba(255, 158, 61, 0.5);
+}
+
+/* Meta reads as instrumentation: a caption above each figure. */
+.log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.log-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+.log-meta-label {
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.log-desc {
+  font-family: var(--font-data), monospace;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0 0 1.25rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid rgba(255, 158, 61, 0.35);
+}
+
+/* Playback bezel. The native control is a light widget, so on this
+   ground it gets inverted — the opposite call from the paper pages,
+   where inverting is what made the old player unreadable. */
+.log-audio-bezel {
+  padding: 0.5rem 0.65rem;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.log-audio {
+  display: block;
+  width: 100%;
+  height: 34px;
+  filter: invert(0.9) hue-rotate(180deg) saturate(0.6);
+}
+
+.log-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1.1rem;
+}
+
+/* ── Nothing to show ──────────────────────────────────── */
+.log-empty {
+  margin: 1.5rem 1.75rem 0;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  background: var(--paper-sunk);
+  border: 1px dashed var(--rule);
+  font-family: var(--font-data), monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.log-empty-code {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--color-orange);
+}
+
+/* ── Single log (/logs/:slug) ─────────────────────────── */
+.log-panel {
+  position: relative;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  box-shadow: inset 0 1px 0 rgba(223, 232, 238, 0.06);
+  margin: 1.5rem 1.75rem 0;
+}
+
+.log-panel-header {
+  padding: 1.75rem 1.5rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.log-panel-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+  text-shadow: 0 0 24px rgba(255, 158, 61, 0.18);
+}
+
+.log-panel-body {
+  padding: 1.5rem;
+}
+
+.log-panel-desc {
+  font-family: var(--font-data), monospace;
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: var(--ink-2);
+  margin: 1.5rem 0 0;
+  padding-left: 1rem;
+  border-left: 2px solid rgba(255, 158, 61, 0.35);
+}
+
+.log-panel-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-deep);
+}
+
+@media (max-width: 640px) {
+  .logs-wrapper {
+    padding: 1rem 0.5rem 4rem;
+  }
+
+  .console-head {
+    padding: 1.5rem 1rem 1rem;
+  }
+
+  .status-strip,
+  .console-bank,
+  .logs-feed,
+  .log-empty,
+  .log-panel {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  .console-bank,
+  .logs-feed {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  .log-card-rail {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    gap: 0.6rem;
+  }
+
+  .log-card-body,
+  .log-panel-body,
+  .log-panel-header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .log-meta {
+    gap: 1rem;
+  }
+}
