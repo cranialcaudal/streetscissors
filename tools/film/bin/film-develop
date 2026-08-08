@@ -1,0 +1,752 @@
+#!/usr/bin/env python3
+"""film-develop — the image analysis behind the film pipeline.
+
+Everything that measures or renders negative scans lives here, so there is
+exactly one copy of the part that is easy to get wrong: deciding which pixels
+are film. The scanner bed sits at 255 and the holder gaps at 0, so every
+channel of a raw strip already spans the full range and any plain auto-levels
+is a no-op. Excluding those non-film pixels first is what makes every
+measurement below mean anything.
+
+Subcommands:
+
+  strips DEST --mode color|bw SCAN...
+      Turn strip scans into positives. Used by digital-contact-sheet-maker,
+      which then composites them with GIMP's own invert switched off.
+
+  analyze ROLLDIR [--frames-per-strip N] [--export DIR]
+      Split each strip into frames, read each frame's exposure, and derive
+      per-strip development settings as a quality-weighted mean of its frames.
+      Writes frames.json in the roll folder.
+
+  develop RAW --roll ROLLDIR --frame N [--weight W]
+      Develop one high-resolution single-frame scan, blending the frame's own
+      reading with its strip's settings (default 70% strip / 30% frame).
+
+The two film types differ in how they are normalised:
+
+  color  C-41 carries an orange base mask, so a straight invert washes every
+         frame blue. Each channel is normalised onto its own film range,
+         inverted, then the three midtones are pulled together. The mask is a
+         density offset with differing per-channel gammas, so that midtone
+         match is the step that actually removes the cast.
+  bw     No mask, but the negatives use only part of the range, which is why
+         plain proofs come out flat and milky. One range shared by all three
+         channels (never per-channel — that would tint a monochrome image) and
+         the channels averaged into true neutral grey, which also cancels the
+         scanner's slight channel imbalance.
+"""
+
+import argparse
+import glob
+import json
+import math
+import os
+import subprocess
+import sys
+
+WHITE, BLACK = 245, 12   # non-film: scanner bed / clear area, holder gap
+CLIP = 0.5               # percent of film pixels discarded at each end
+ANALYSIS_SCALE = 25      # percentiles are stable well below full resolution
+
+SCAN_EXTS = ("jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp")
+
+# Interquartile spread of a healthy negative. Measured on real rolls: good
+# frames sit around 50, and a blown or empty one falls well under 25. The
+# clipped endpoints are no use for this — outliers pin them at nearly the full
+# range even on a frame with no tone in it at all.
+HEALTHY_CONTRAST = 55.0
+WELL_EXPOSED = 0.5       # quality score at or above which a frame counts
+
+FRAMES_PER_STRIP = {"35mm": 6, "120": 3, "620": 3}
+
+# How far either side of its fitted position a boundary may move to sit on the
+# rebate, as a fraction of one frame's pitch.
+REFINE_WINDOW = 0.20
+# A rebate band has to be this much brighter than its neighbourhood to count
+# as a real find rather than noise.
+REBATE_LIFT = 1.02
+# How far above a strip's own boundary brightness an interior band has to sit
+# before the split is called wrong. Deliberately conservative: at this value
+# no correctly-split roll in the collection trips it, while a 620 roll split
+# 3-per-strip instead of 2 scores over 8.
+SPLIT_WARN_LIFT = 1.5
+# Frame stats ignore this much of each edge, so the rebate never enters them.
+STATS_INSET = 0.05
+
+
+# --- reading ------------------------------------------------------------
+
+def _magick(args):
+    return subprocess.run(["magick"] + args, capture_output=True, check=True).stdout
+
+
+def _crop_args(crop):
+    if not crop:
+        return []
+    x, y, w, h = crop
+    return ["-crop", f"{w}x{h}+{x}+{y}", "+repage"]
+
+
+def read_rgb(path, crop=None, scale=ANALYSIS_SCALE):
+    return _magick([path] + _crop_args(crop) +
+                   ["-resize", f"{scale}%", "-depth", "8", "rgb:-"])
+
+
+def read_grey(path, crop=None, scale=ANALYSIS_SCALE):
+    return _magick([path] + _crop_args(crop) +
+                   ["-resize", f"{scale}%", "-grayscale", "Average",
+                    "-depth", "8", "gray:-"])
+
+
+def dimensions(path):
+    out = _magick([path, "-format", "%w %h", "info:"]).decode()
+    w, h = out.split()
+    return int(w), int(h)
+
+
+def film_pixels(rgb):
+    """Yields (byte offset, r, g, b) for pixels that are film, not bed or gap."""
+    for i in range(0, len(rgb) - 2, 3):
+        r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
+        if (r >= WHITE and g >= WHITE and b >= WHITE) or \
+           (r <= BLACK and g <= BLACK and b <= BLACK):
+            continue
+        yield i, r, g, b
+
+
+def percentiles(hist, kept):
+    def pct(q):
+        target, c = kept * q / 100.0, 0
+        for v in range(256):
+            c += hist[v]
+            if c >= target:
+                return v
+        return 255
+    lo, hi, mid = pct(CLIP), pct(100 - CLIP), pct(50)
+    return (0, 255, mid) if hi <= lo else (lo, hi, mid)
+
+
+# --- settings -----------------------------------------------------------
+#
+# A "settings" dict is the development recipe for one image: per-channel black
+# point, white point and gamma. Colour carries three channels, B&W one. This is
+# the form that gets persisted, blended and turned into ImageMagick arguments.
+
+def interquartile(hist, kept):
+    """p75 - p25 of a histogram: how much tone the image actually carries."""
+    def pct(q):
+        target, c = kept * q / 100.0, 0
+        for v in range(256):
+            c += hist[v]
+            if c >= target:
+                return v
+        return 255
+    return pct(75) - pct(25)
+
+
+def measure(path, mode, crop=None):
+    """Reads an image and returns its settings, the raw stats behind them, and
+    the interquartile spread used to judge exposure."""
+    rgb = read_rgb(path, crop)
+    grey = read_grey(path, crop)
+    ghist, gkept = [0] * 256, 0
+    for i, _, _, _ in film_pixels(rgb):
+        ghist[grey[i // 3]] += 1
+        gkept += 1
+    contrast = interquartile(ghist, gkept) if gkept else 0
+
+    if mode == "color":
+        hist, kept = [[0] * 256 for _ in range(3)], 0
+        for _, r, g, b in film_pixels(rgb):
+            hist[0][r] += 1; hist[1][g] += 1; hist[2][b] += 1
+            kept += 1
+        if not kept:
+            return None, None, 0
+        stats = [percentiles(hist[c], kept) for c in range(3)]
+        # where each channel's midtone lands once stretched and inverted
+        mids = [min(max(1.0 - (min(max(mid, lo), hi) - lo) / float(hi - lo), 0.02), 0.98)
+                for lo, hi, mid in stats]
+        target = sum(mids) / 3.0
+        channels = [{"lo": lo, "hi": hi, "gamma": math.log(m) / math.log(target)}
+                    for (lo, hi, _), m in zip(stats, mids)]
+    else:
+        if not gkept:
+            return None, None, 0
+        stats = [percentiles(ghist, gkept)]
+        lo, hi, _ = stats[0]
+        channels = [{"lo": lo, "hi": hi, "gamma": 1.0}]
+    return {"mode": mode, "channels": channels}, stats, contrast
+
+
+def apply_args(settings):
+    """ImageMagick arguments that develop a negative with these settings."""
+    def level(ch):
+        return ["-level", f"{ch['lo'] * 100.0 / 255:.4f}%,{ch['hi'] * 100.0 / 255:.4f}%"]
+
+    if settings["mode"] == "color":
+        args = []
+        for name, ch in zip("RGB", settings["channels"]):
+            args += ["-channel", name] + level(ch)
+        args += ["+channel", "-negate"]
+        for name, ch in zip("RGB", settings["channels"]):
+            args += ["-channel", name, "-gamma", f"{ch['gamma']:.4f}"]
+        return args + ["+channel"]
+
+    ch = settings["channels"][0]
+    args = ["-grayscale", "Average"] + level(ch) + ["-negate", "-colorspace", "sRGB"]
+    if abs(ch["gamma"] - 1.0) > 1e-4:
+        args += ["-gamma", f"{ch['gamma']:.4f}"]
+    return args
+
+
+def blend(strip, frame, weight):
+    """Weighted mix of two settings. weight=1 is all strip, 0 all frame.
+
+    Endpoints mix linearly; gammas mix in log space, because a gamma is a
+    multiplicative exponent and averaging 0.5 with 2.0 has to give 1.0.
+    """
+    out = []
+    for a, b in zip(strip["channels"], frame["channels"]):
+        out.append({
+            "lo": a["lo"] * weight + b["lo"] * (1 - weight),
+            "hi": a["hi"] * weight + b["hi"] * (1 - weight),
+            "gamma": math.exp(math.log(max(a["gamma"], 1e-6)) * weight +
+                              math.log(max(b["gamma"], 1e-6)) * (1 - weight)),
+        })
+    return {"mode": strip["mode"], "channels": out}
+
+
+def mean_settings(items):
+    """Quality-weighted mean of (settings, weight) pairs."""
+    items = [(s, w) for s, w in items if s]
+    if not items:
+        return None
+    total = sum(w for _, w in items)
+    if total <= 0:
+        total, items = len(items), [(s, 1.0) for s, _ in items]
+    n = len(items[0][0]["channels"])
+    out = []
+    for c in range(n):
+        lo = sum(s["channels"][c]["lo"] * w for s, w in items) / total
+        hi = sum(s["channels"][c]["hi"] * w for s, w in items) / total
+        lg = sum(math.log(max(s["channels"][c]["gamma"], 1e-6)) * w
+                 for s, w in items) / total
+        out.append({"lo": lo, "hi": hi, "gamma": math.exp(lg)})
+    return {"mode": items[0][0]["mode"], "channels": out}
+
+
+def quality(contrast):
+    """0..1 score for how well exposed a frame is.
+
+    Judged purely on how much tone the negative carries, measured as the
+    interquartile spread. Deliberately *not* on where the midtone sits: a
+    frame's key is the photographer's choice, and penalising it marks a
+    correctly exposed low-key or high-key shot as a failure. What actually
+    distinguishes a bad frame is that there is little tone in it at all —
+    which is what a blank, thin or blown negative looks like.
+    """
+    return round(min(1.0, contrast / HEALTHY_CONTRAST), 4)
+
+
+# --- roll layout --------------------------------------------------------
+
+def strip_scans(roll_dir):
+    files = []
+    for ext in SCAN_EXTS:
+        for pat in (ext, ext.upper()):
+            files += glob.glob(os.path.join(roll_dir, "*." + pat))
+    return sorted(set(files))
+
+
+def roll_mode(roll_dir):
+    name = os.path.basename(os.path.normpath(roll_dir)).lower()
+    return "color" if name.endswith("_color") or name.endswith("_colour") else "bw"
+
+
+def roll_format(roll_dir):
+    name = os.path.basename(os.path.normpath(roll_dir)).lower()
+    for fmt in FRAMES_PER_STRIP:
+        if f"_{fmt}_" in name:
+            return fmt
+    return None
+
+
+def frames_json_path(roll_dir):
+    return os.path.join(roll_dir, "frames.json")
+
+
+def load_frames_json(roll_dir):
+    path = frames_json_path(roll_dir)
+    if not os.path.exists(path):
+        return None
+    with open(path) as fh:
+        return json.load(fh)
+
+
+# --- frame splitting ----------------------------------------------------
+
+def density_profile(path, axis_len, across_len, vertical):
+    """Mean film brightness along the strip's long axis, at analysis scale.
+
+    Non-film pixels are left out, so the scanner bed along one edge cannot
+    drag a row's mean. The inter-frame rebate shows up as a bright band,
+    because it is bare film base with no image on it.
+    """
+    rgb = read_rgb(path)
+    grey = read_grey(path)
+    w = int(round(across_len * ANALYSIS_SCALE / 100.0)) if vertical else \
+        int(round(axis_len * ANALYSIS_SCALE / 100.0))
+    if w <= 0:
+        return [], 0
+    total = len(grey)
+    h = total // w if w else 0
+    if h <= 0:
+        return [], 0
+
+    sums = [0.0] * (h if vertical else w)
+    counts = [0] * len(sums)
+    for i, _, _, _ in film_pixels(rgb):
+        px = i // 3
+        if px >= total:
+            break
+        y, x = divmod(px, w)
+        slot = y if vertical else x
+        if slot < len(sums):
+            sums[slot] += grey[px]
+            counts[slot] += 1
+    profile = [(sums[i] / counts[i]) if counts[i] else 0.0 for i in range(len(sums))]
+    return profile, counts
+
+
+def film_extent(profile, counts):
+    """First and last slot along the axis that holds a useful amount of film."""
+    if not counts:
+        return 0, len(profile)
+    peak = max(counts)
+    if peak <= 0:
+        return 0, len(profile)
+    threshold = peak * 0.35
+    idx = [i for i, c in enumerate(counts) if c >= threshold]
+    if not idx:
+        return 0, len(profile)
+    return idx[0], idx[-1] + 1
+
+
+def interior_rebate(profile, bounds):
+    """Strongest bright band inside each frame, relative to how bright this
+    strip's own frame boundaries are.
+
+    This is the check that a frame count is *wrong*. A rebate cutting through
+    the middle of what we think is one photograph means the split does not
+    line up with the film — which is what a 620 roll of 8 exposures does when
+    it is split 3-per-strip. Detecting the right count outright is not
+    reliable (bright sky reads like bare film base, sprocket holes add their
+    own rhythm on 35mm, and any divisor of the true count lines up too), but
+    noticing a cut through the middle of a frame is.
+    """
+    edges = bounds[1:-1]
+    if not edges:
+        return [0.0] * max(0, len(bounds) - 1)
+    # Reference: how bright this strip's own frame boundaries are. Bare film
+    # base is the brightest thing on a strip, so anything inside a frame that
+    # matches it is another boundary — while a bright sky, which is what makes
+    # a fixed threshold misfire, stays well below it.
+    ref = sorted(profile[e] for e in edges)[len(edges) // 2]
+    if ref <= 0:
+        return [0.0] * (len(bounds) - 1)
+
+    lifts = []
+    for i in range(len(bounds) - 1):
+        a, b = bounds[i], bounds[i + 1]
+        inset = int((b - a) * 0.22)   # stay well clear of the real boundaries
+        segment = profile[a + inset:b - inset]
+        lifts.append(max(segment) / ref if len(segment) >= 5 else 0.0)
+    return lifts
+
+
+def suggest_frame_count(strips, max_n=8):
+    """Largest count at or below max_n that cuts through no frame.
+
+    Only trustworthy *downward*, which is why callers pass the count that was
+    actually used as the ceiling: splitting into more frames than the film
+    holds can still line up (six cuts include the three real ones), so a
+    higher suggestion would not mean anything.
+    """
+    best = None
+    for n in range(1, max_n + 1):
+        ok = True
+        for profile, counts in strips:
+            bounds, _ = find_boundaries(profile, counts, n)
+            if any(l >= SPLIT_WARN_LIFT for l in interior_rebate(profile, bounds)):
+                ok = False
+                break
+        if ok:
+            best = n
+    return best
+
+
+def fit_grid(profile, start, end, n_frames):
+    """Best (origin, pitch) for a regular grid of n_frames across the strip.
+
+    Frames are evenly spaced, but they are *not* guaranteed to start where the
+    film does: a strip with blank leader at one end shifts every boundary, and
+    dividing the film extent into n equal parts then cuts through the middle of
+    every frame. So both the pitch and the phase get fitted, scored by how much
+    rebate brightness the interior boundaries land on.
+    """
+    span = end - start
+    even = span / float(n_frames)
+    best, best_score = (start, even), -1.0
+    for pitch_step in range(-12, 13):                 # pitch within ±12%
+        pitch = even * (1.0 + pitch_step / 100.0)
+        if pitch <= 2:
+            continue
+        slack = span - pitch * n_frames
+        if slack < -pitch * 0.15:                     # grid cannot overrun the film
+            continue
+        for phase_step in range(0, 13):
+            origin = start + max(0.0, slack) * phase_step / 12.0
+            edges = [origin + i * pitch for i in range(1, n_frames)]
+            if any(e <= start or e >= end for e in edges):
+                continue
+            score = sum(profile[int(round(e))] for e in edges) / len(edges)
+            if score > best_score:
+                best, best_score = (origin, pitch), score
+    return best
+
+
+def find_boundaries(profile, counts, n_frames):
+    """Interior frame boundaries, from a fitted grid then nudged onto the
+    rebate. Returns (boundaries in profile slots, per-boundary refined flags).
+
+    The grid gives the regular spacing that film transport guarantees; the
+    rebate is what marks each individual cut, so each boundary still gets to
+    move a little onto the nearest bright band.
+    """
+    start, end = film_extent(profile, counts)
+    span = end - start
+    if span <= 0 or n_frames < 2:
+        return [start, end], []
+
+    origin, pitch = fit_grid(profile, start, end, n_frames)
+    # Scaled to the frame, not the strip: a fraction of the whole strip is far
+    # too tight a window on a 6-frame strip and too loose on a 2-frame one.
+    window = max(2, int(pitch * REFINE_WINDOW))
+    first = max(start, int(round(origin)))
+    last = min(end, int(round(origin + pitch * n_frames)))
+    bounds, refined = [first], []
+    for i in range(1, n_frames):
+        seed = int(round(origin + i * pitch))
+        lo = max(first + 1, seed - window)
+        hi = min(last - 1, seed + window)
+        if hi <= lo:
+            bounds.append(seed)
+            refined.append(False)
+            continue
+        segment = profile[lo:hi + 1]
+        best = max(range(len(segment)), key=lambda k: segment[k])
+        neighbourhood = sorted(segment)[len(segment) // 2]
+        if neighbourhood > 0 and segment[best] >= neighbourhood * REBATE_LIFT:
+            bounds.append(lo + best)
+            refined.append(True)
+        else:
+            bounds.append(seed)          # keep the fitted position, but say so
+            refined.append(False)
+    bounds.append(last)
+    return bounds, refined
+
+
+def frame_regions(path, n_frames):
+    """Pixel regions for each frame in a strip, plus the refinement flags."""
+    w, h = dimensions(path)
+    vertical = h >= w
+    axis_len, across_len = (h, w) if vertical else (w, h)
+    profile, counts = density_profile(path, axis_len, across_len, vertical)
+    if not profile:
+        return [], [], vertical, (w, h), (profile, counts), []
+
+    bounds, refined = find_boundaries(profile, counts, n_frames)
+    scale = axis_len / float(len(profile))
+    regions = []
+    for i in range(len(bounds) - 1):
+        a = int(round(bounds[i] * scale))
+        b = int(round(bounds[i + 1] * scale))
+        a, b = max(0, a), min(axis_len, b)
+        if b - a < 8:
+            continue
+        if vertical:
+            regions.append((0, a, w, b - a))
+        else:
+            regions.append((a, 0, b - a, h))
+    cuts = interior_rebate(profile, bounds)
+    return regions, refined, vertical, (w, h), (profile, counts), cuts
+
+
+def stats_crop(region, vertical):
+    """Region shrunk away from its edges, so the rebate never enters stats."""
+    x, y, w, h = region
+    if vertical:
+        inset = int(h * STATS_INSET)
+        return (x, y + inset, w, max(1, h - 2 * inset))
+    inset = int(w * STATS_INSET)
+    return (x + inset, y, max(1, w - 2 * inset), h)
+
+
+# --- subcommands --------------------------------------------------------
+
+def strip_entry(doc, src):
+    if not doc:
+        return None
+    name = os.path.basename(src)
+    return next((s for s in doc["strips"] if s["file"] == name), None)
+
+
+def cmd_strips(args):
+    """Develop strip scans into positives.
+
+    With no frame analysis this measures each strip as a whole, which is a
+    compromise whenever one strip holds frames of different exposure — a dark
+    frame beside two bright ones drags the recipe off all three. When the roll
+    has been analysed, each frame is instead developed on its own settings and
+    laid back into place, so the sheet shows every frame at its own best. The
+    frames still lean on their strip's recipe by --frame-weight, which keeps
+    siblings looking like they came off the same roll.
+    """
+    os.makedirs(args.dest, exist_ok=True)
+    doc = load_frames_json(args.roll) if args.roll else None
+    if doc and doc.get("mis_split"):
+        doc = None            # a wrong split would place frames in the wrong spot
+
+    for src in args.scans:
+        settings, _, _ = measure(src, args.mode)
+        base = apply_args(settings) if settings else ["-negate"]
+        dst = os.path.join(args.dest,
+                           os.path.splitext(os.path.basename(src))[0] + ".png")
+
+        entry = strip_entry(doc, src)
+        frames = [f for f in entry["frames"] if f.get("settings")] if entry else []
+        if not frames or not entry.get("settings"):
+            _magick([src] + base + [dst])
+            continue
+
+        # Strip first, so the rebate between frames still gets developed, then
+        # each frame composited over its own patch of it.
+        cmd = [src] + base
+        for f in frames:
+            x, y, w, h = f["region"]
+            mixed = blend(entry["settings"], f["settings"], args.frame_weight)
+            cmd += ["("] + [src] + _crop_args((x, y, w, h)) + apply_args(mixed) + \
+                   [")", "-geometry", f"+{x}+{y}", "-composite"]
+        _magick(cmd + [dst])
+    return 0
+
+
+def cmd_analyze(args):
+    roll_dir = os.path.abspath(args.roll)
+    scans = strip_scans(roll_dir)
+    if not scans:
+        print(f"error: no strip scans in {roll_dir}", file=sys.stderr)
+        return 1
+
+    mode = args.mode or roll_mode(roll_dir)
+    fmt = roll_format(roll_dir)
+    # A count corrected once has to stay corrected: 620 holds 8 or 12
+    # exposures depending on the camera, so the format default is only a
+    # guess, and re-analysing must not quietly undo the right answer.
+    previous = (load_frames_json(roll_dir) or {}).get("frames_per_strip")
+    per_strip = args.frames_per_strip or previous or FRAMES_PER_STRIP.get(fmt)
+    if not per_strip:
+        print(f"error: cannot tell how many frames per strip for '{fmt or 'this format'}'; "
+              f"pass --frames-per-strip N", file=sys.stderr)
+        return 1
+    if not args.frames_per_strip and previous and previous != FRAMES_PER_STRIP.get(fmt):
+        print(f"(using {previous} frames/strip, remembered from the last analysis)")
+
+    if args.export:
+        os.makedirs(args.export, exist_ok=True)
+
+    doc = {
+        "roll": os.path.basename(roll_dir)[4:7],
+        "folder": os.path.basename(roll_dir),
+        "mode": mode,
+        "frames_per_strip": per_strip,
+        "strips": [],
+    }
+
+    print(f"{doc['folder']}  mode={mode}  {per_strip} frames/strip")
+    profiles, mis_split = [], []
+    for index, scan in enumerate(scans):
+        regions, refined, vertical, (w, h), prof, cuts = \
+            frame_regions(scan, per_strip)
+        profiles.append(prof)
+        if any(c >= SPLIT_WARN_LIFT for c in cuts):
+            mis_split.append(os.path.basename(scan))
+        frames = []
+        for pos, region in enumerate(regions):
+            number = index * per_strip + pos + 1
+            settings, stats, contrast = measure(scan, mode,
+                                                stats_crop(region, vertical))
+            if settings is None:
+                frames.append({"frame": number, "region": list(region),
+                               "quality": 0.0, "well_exposed": False,
+                               "settings": None})
+                continue
+            score = quality(contrast)
+            frames.append({
+                "frame": number,
+                "region": list(region),
+                "quality": score,
+                "well_exposed": score >= WELL_EXPOSED,
+                "contrast": contrast,
+                "settings": settings,
+                "stats": [list(s) for s in stats],
+            })
+            if args.export:
+                _magick([scan] + _crop_args(region) + apply_args(settings) +
+                        ["-resize", "600x600>",
+                         os.path.join(args.export, f"frame-{number:02d}.png")])
+
+        # Quality-weighted so a blown or blank frame cannot set the strip's
+        # recipe, while still contributing a little.
+        strip_settings = mean_settings(
+            [(f.get("settings"), f["quality"] + 0.05) for f in frames])
+        well = sum(1 for f in frames if f["well_exposed"])
+        doc["strips"].append({
+            "file": os.path.basename(scan),
+            "index": index,
+            "width": w, "height": h,
+            "axis": "y" if vertical else "x",
+            "refined": refined,
+            "well_exposed": well,
+            "settings": strip_settings,
+            "frames": frames,
+        })
+
+        flags = "" if all(refined) else \
+            f"  [{refined.count(False)} boundary(s) not found — even split used]"
+        print(f"  {os.path.basename(scan)}: {well}/{len(frames)} well exposed{flags}")
+        for f in frames:
+            mark = "*" if f["well_exposed"] else " "
+            print(f"      {mark} frame {f['frame']:>2}  quality {f['quality']:.2f}")
+
+    if mis_split:
+        hint = suggest_frame_count(profiles, max_n=per_strip)
+        print()
+        print(f"WARNING: a frame boundary runs through the middle of a frame on "
+              f"{', '.join(mis_split)}.")
+        print(f"         {per_strip} frames/strip does not match this film.", end="")
+        if hint and hint != per_strip:
+            print(f" Try --frames-per-strip {hint}.")
+        else:
+            print(" Set --frames-per-strip to the right count.")
+        print("         The frames and settings below are split wrong until you do.")
+        doc["mis_split"] = mis_split
+
+    with open(frames_json_path(roll_dir), "w") as fh:
+        json.dump(doc, fh, indent=2)
+    total = sum(len(s["frames"]) for s in doc["strips"])
+    good = sum(s["well_exposed"] for s in doc["strips"])
+    print(f"Wrote frames.json — {total} frame(s), {good} well exposed.")
+    return 1 if mis_split else 0
+
+
+def find_frame(doc, number):
+    """(strip, frame) for a frame number, or (None, None)."""
+    for strip in doc["strips"]:
+        for frame in strip["frames"]:
+            if frame["frame"] == number:
+                return strip, frame
+    return None, None
+
+
+def cmd_preview(args):
+    """Develop one frame straight off its strip scan — no rescan involved.
+
+    Used to put the right negative in front of you at scan time, so the
+    holder gets loaded by looking at the picture rather than counting frames.
+    """
+    roll_dir = os.path.abspath(args.roll)
+    doc = load_frames_json(roll_dir)
+    if not doc:
+        print(f"error: no frames.json in {roll_dir}", file=sys.stderr)
+        return 1
+    strip, frame = find_frame(doc, args.frame)
+    if not frame or not frame.get("settings"):
+        print(f"error: roll has no analysed frame {args.frame}", file=sys.stderr)
+        return 1
+    _magick([os.path.join(roll_dir, strip["file"])] +
+            _crop_args(tuple(frame["region"])) +
+            apply_args(frame["settings"]) +
+            ["-resize", f"{args.max}x{args.max}>", args.out])
+    print(args.out)
+    return 0
+
+
+def cmd_develop(args):
+    roll_dir = os.path.abspath(args.roll)
+    doc = load_frames_json(roll_dir)
+    if not doc:
+        print(f"error: no frames.json in {roll_dir}; run 'negatives --analyze' first",
+              file=sys.stderr)
+        return 1
+
+    strip, _ = find_frame(doc, args.frame)
+    if not strip or not strip.get("settings"):
+        print(f"error: roll has no analysed frame {args.frame}", file=sys.stderr)
+        return 1
+
+    own, _, _ = measure(args.raw, doc["mode"])
+    settings = blend(strip["settings"], own, args.weight) if own else strip["settings"]
+
+    out_dir = args.out or os.path.join(roll_dir, "frames")
+    os.makedirs(out_dir, exist_ok=True)
+    dst = os.path.join(out_dir, f"{args.frame:02d}.png")
+    _magick([args.raw] + apply_args(settings) + [dst])
+    print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(prog="film-develop", description=__doc__.split("\n")[0])
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("strips", help="turn strip scans into positives")
+    s.add_argument("dest")
+    s.add_argument("scans", nargs="+")
+    s.add_argument("--mode", choices=["color", "bw"], required=True)
+    s.add_argument("--roll", help="roll folder; uses its frames.json if present")
+    s.add_argument("--frame-weight", type=float, default=0.35,
+                   help="how much each frame leans on its strip's recipe "
+                        "(1 = strip only, the pre-analysis look)")
+    s.set_defaults(func=cmd_strips)
+
+    a = sub.add_parser("analyze", help="split strips into frames and read them")
+    a.add_argument("roll")
+    a.add_argument("--frames-per-strip", type=int)
+    a.add_argument("--mode", choices=["color", "bw"])
+    a.add_argument("--export", help="also write developed frame crops here")
+    a.set_defaults(func=cmd_analyze)
+
+    v = sub.add_parser("preview", help="develop one frame off its strip scan")
+    v.add_argument("--roll", required=True)
+    v.add_argument("--frame", type=int, required=True)
+    v.add_argument("--out", required=True)
+    v.add_argument("--max", type=int, default=900)
+    v.set_defaults(func=cmd_preview)
+
+    d = sub.add_parser("develop", help="develop one high-resolution frame scan")
+    d.add_argument("raw")
+    d.add_argument("--roll", required=True)
+    d.add_argument("--frame", type=int, required=True)
+    d.add_argument("--weight", type=float, default=0.7,
+                   help="how much the strip's settings lead (default 0.7)")
+    d.add_argument("--out")
+    d.set_defaults(func=cmd_develop)
+
+    args = p.parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
