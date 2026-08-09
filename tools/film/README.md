@@ -145,6 +145,30 @@ placed at native size when they fit; if the stack physically can't fit the
 paper, all strips shrink by one uniform factor and the tool prints the
 percentage.
 
+## Working frame by frame: analysis & keepers
+
+A contact sheet is built to be marked up. You can analyze exposures and sticker keepers:
+
+```bash
+negatives --analyze NNN          # split strips into frames, calculate IQR quality, write frames.json
+negatives --selects NNN          # view current stickered frames
+negatives --select NNN 2,5,9     # sticker keeper frames (shows red wax mark on streetscissors)
+negatives --unselect NNN 5       # remove sticker
+negatives --scan-frames NNN      # scan picked frames at high resolution (2400-3200 DPI)
+negatives --redevelop NNN        # redevelop rescanned frames with 70% strip / 30% frame weighting
+```
+
+- When a frame is stickered with `--select`, `streetscissors` procedurally generates an organic red china-marker wax circle around it on the live contact sheet.
+- Rescanned keeper frames are saved as `<frame_number>.tiff` (e.g. `3.tiff`), instantly publishing the photograph at `https://streetscissors.com/negatives/roll/NNN/frame/<N>`.
+
+## Integration with streetscissors
+
+This toolchain feeds directly into the [streetscissors](https://streetscissors.com) web engine:
+- **Filesystem Contract:** `streetscissors` points at `~/Pictures/Negatives/` via `NEGATIVES_PATH`. The site reads `catalog.csv`, contact sheets, and `frames.json` directly at request time without database records.
+- **Coordinate Replay:** `Web.Negatives.SheetLayout` transcribes the exact layout arithmetic of `film-contact-sheet.scm`, mapping strip coordinates to responsive web percentages.
+- **Organic Marks:** `Web.Negatives.GreasePencil` deterministically generates Catmull-Rom splined wax rings for stickered frames.
+- **Future Custom Scanner GUI:** For the architectural specification of the upcoming native studio scanner console at `/admin/scanner`, see `docs/scanner-gui-blueprint.md` in the `streetscissors` repository.
+
 ## Notes
 
 - Negative scans are inverted to positives by default. On **color** (C-41)
@@ -159,3 +183,4 @@ percentage.
   log is printed — most "unbound variable" errors mean the .scm file moved
   or GIMP changed versions (the tools pick the newest
   `~/.config/GIMP/*/scripts/` automatically).
+

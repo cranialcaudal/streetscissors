@@ -22,10 +22,34 @@
 #                          folder moves to .trash/, and the catalog row,
 #                          contact sheet and preview are removed
 #   negatives --redo NNN   --delete NNN, then rescan straight into NNN
+#   negatives --add NNN    reopen the scanner into roll NNN's folder to add
+#                          more strips, then rebuild its sheet and catalog
+#   negatives --recompile NNN
+#                          rebuild roll NNN's contact sheet from the files
+#                          already in its folder (no rescanning)
 #   negatives --list       show which roll numbers are taken
 #   negatives -y           don't ask to confirm a --delete/--redo
 #   negatives --base DIR   use another collection root
 #                          (default: ~/Pictures/Negatives)
+#
+# Working frame by frame — split a roll's strips into individual frames,
+# sticker the keepers, and rescan those at higher resolution:
+#
+#   negatives --analyze NNN [--frames-per-strip N]
+#                          split every strip into frames, read each frame's
+#                          exposure, and derive per-strip development
+#                          settings; writes frames.json in the roll folder
+#   negatives --selects NNN
+#                          list the roll's frames with their stickers
+#   negatives --select NNN 2,5,9      sticker frames (the keepers)
+#   negatives --unselect NNN 5        remove a sticker
+#   negatives --scan-frames NNN
+#                          rescan each stickered frame at higher resolution
+#                          and develop it with its strip's settings
+#   negatives --redevelop NNN [--weight W]
+#                          re-develop the frames already rescanned, without
+#                          going back to the scanner (W: how much the strip's
+#                          settings lead the frame's own, default 0.7)
 #
 # To rebuild any sheet by hand: digital-contact-sheet-maker <roll folder>
 
@@ -35,16 +59,29 @@ shopt -s nullglob nocaseglob
 BASE="$HOME/Pictures/Negatives"
 ACTION=scan
 TARGET=""
+EXTRA=""
+PER_STRIP=""
+WEIGHT="0.7"
 ASSUME_YES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) BASE="$2"; shift 2 ;;
     --delete|--rm) ACTION=delete; TARGET="${2:-}"; shift 2 ;;
     --redo) ACTION=redo; TARGET="${2:-}"; shift 2 ;;
+    --add) ACTION=add; TARGET="${2:-}"; shift 2 ;;
+    --recompile|--rebuild) ACTION=recompile; TARGET="${2:-}"; shift 2 ;;
+    --analyze|--analyse) ACTION=analyze; TARGET="${2:-}"; shift 2 ;;
+    --selects) ACTION=selects; TARGET="${2:-}"; shift 2 ;;
+    --select) ACTION=select; TARGET="${2:-}"; EXTRA="${3:-}"; shift 3 ;;
+    --unselect) ACTION=unselect; TARGET="${2:-}"; EXTRA="${3:-}"; shift 3 ;;
+    --scan-frames) ACTION=scanframes; TARGET="${2:-}"; shift 2 ;;
+    --redevelop) ACTION=redevelop; TARGET="${2:-}"; shift 2 ;;
+    --frames-per-strip) PER_STRIP="${2:-}"; shift 2 ;;
+    --weight) WEIGHT="${2:-}"; shift 2 ;;
     --list|--ls) ACTION=list; shift ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     -h|--help)
-      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,55p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) echo "error: unknown option '$1' (try --help)" >&2; exit 1 ;;
   esac
@@ -211,6 +248,299 @@ catalog_roll() {  # $1 = roll dir (already validated rollNNN_DATE_FORMAT_COLOR)
   echo "Cataloged roll $num ($fmt, $color)"
 }
 
+launch_scanner() {  # $1 = dir, $2 = roll name, $3 = optional guidance line
+  local dir=$1 name=$2 guidance=${3:-} scanner r
+  (xdg-open "$dir" >/dev/null 2>&1 &) || true
+  scanner=$(resolve_scanner) || scanner=""
+  if [ -n "$scanner" ]; then
+    echo "Opening $scanner and the folder in the file manager..."
+    echo "$scanner's save dialog will already point at this folder."
+    if [ -n "$guidance" ]; then
+      echo "$guidance"
+    else
+      echo "Scan at 300 dpi, one file per strip:"
+      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
+    fi
+    echo
+    echo "(Waiting for $scanner to close...)"
+    # launched from inside the roll folder: iscan's GTK save dialog
+    # starts in the process cwd, so Scan saves land here by default
+    ( cd "$dir" && "$scanner" >/dev/null 2>&1 ) || true
+    while pgrep -x "$(basename "$scanner")" >/dev/null 2>&1; do
+      sleep 1
+    done
+  else
+    echo "(opened in your file manager; no scanner app found —"
+    echo " set NEGATIVES_SCANNER=<command> to launch one automatically)"
+    if [ -n "$guidance" ]; then
+      echo "$guidance"
+    else
+      echo "Scan at 300 dpi into that folder, one file per strip, named:"
+      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
+    fi
+    echo
+    read -rp "Press Enter when the scan is saved there: " r || return 1
+  fi
+  return 0
+}
+
+update_frames() {  # $1 = num, $2 = dir; set the catalog row's frame count in place
+  local num=$1 dir=$2 frames
+  frames=$(count_scans "$dir")
+  [ -f "$CATALOG" ] || echo "roll,scan_date,film_type,color,frames,folder" > "$CATALOG"
+  if grep -q "^$num," "$CATALOG"; then
+    awk -F, -v OFS=, -v n="$num" -v fr="$frames" '$1==n{$5=fr} 1' "$CATALOG" > "$CATALOG.tmp"
+    mv "$CATALOG.tmp" "$CATALOG"
+    echo "Catalog: roll $num now $frames frame(s)."
+  else
+    catalog_roll "$dir"
+  fi
+}
+
+locate_roll_dir() {  # $1 = num -> echoes the one scan folder, or errors (0 / multiple)
+  local num=$1 dirs=() d
+  while IFS= read -r d; do [ -n "$d" ] && dirs+=("$d"); done < <(roll_dirs "$num")
+  if [ ${#dirs[@]} -eq 0 ]; then
+    echo "error: roll $num has no scan folder — nothing to add to or recompile." >&2
+    echo "       Start it fresh with 'negatives'." >&2
+    return 1
+  fi
+  if [ ${#dirs[@]} -gt 1 ]; then
+    echo "error: roll $num has multiple folders; resolve manually:" >&2
+    printf '  %s\n' "${dirs[@]#"$BASE"/}" >&2
+    return 1
+  fi
+  echo "${dirs[0]}"
+}
+
+recompile_roll() {  # $1 = roll dir; rebuild the sheet (overwrite) + refresh catalog frames
+  local dir=$1 name num count sheet
+  name=$(basename "$dir"); num=${name%%_*}; num=${num#roll}
+  count=$(count_scans "$dir")
+  [ "$count" -gt 0 ] || { echo "error: no scans in $name — nothing to compile." >&2; return 1; }
+  sheet="$SHEETS/$name.png"
+  echo "Rebuilding contact sheet for $name ($count scan(s))..."
+  if digital-contact-sheet-maker "$dir" -o "$sheet" && [ -f "$sheet" ]; then
+    update_frames "$num" "$dir"
+    echo "✨ Contact sheet rebuilt: Contact Sheets/$name.png"
+    echo "🌐 streetscissors serves that folder directly — the sheet is live on /negatives."
+    return 0
+  fi
+  echo "error: contact sheet generation failed for $name." >&2
+  return 1
+}
+
+# --- working frame by frame ---------------------------------------------
+#
+# A roll folder grows three things once frames come into play:
+#   frames.json   what --analyze found: where each frame sits on its strip,
+#                 how well exposed it is, and each strip's development recipe
+#   selects.txt   the stickers — which frames earn a high-resolution scan,
+#                 one frame number per line, the same idea as marking a paper
+#                 contact sheet with a chinagraph pencil
+#   raw-frames/   those rescans exactly as they come off the scanner
+#   frames/       the developed results, which is what the website serves
+
+analyze_roll() {  # $1 = roll dir
+  local dir=$1 extra=()
+  [ -n "$PER_STRIP" ] && extra=(--frames-per-strip "$PER_STRIP")
+  film-develop analyze "$dir" "${extra[@]}"
+}
+
+selects_file() { echo "$1/selects.txt"; }
+
+read_selects() {  # $1 = roll dir; echoes sorted unique frame numbers
+  local f
+  f=$(selects_file "$1")
+  [ -f "$f" ] || return 0
+  tr ',' '\n' < "$f" | tr -d ' ' | grep -E '^[0-9]+$' | sort -n -u
+}
+
+frame_count() {  # $1 = roll dir; total analysed frames, or 0
+  local j="$1/frames.json"
+  [ -f "$j" ] || { echo 0; return; }
+  python3 -c "import json,sys; d=json.load(open(sys.argv[1])); \
+print(sum(len(s['frames']) for s in d['strips']))" "$j" 2>/dev/null || echo 0
+}
+
+require_analysis() {  # $1 = roll dir, $2 = roll number
+  if [ ! -f "$1/frames.json" ]; then
+    echo "error: roll $2 has not been split into frames yet." >&2
+    echo "       Run: negatives --analyze $2" >&2
+    return 1
+  fi
+}
+
+write_selects() {  # $1 = roll dir, $2 = newline-separated frame numbers
+  # Built in memory and written in one go: the file is both input and output
+  # of an edit, and a redirect would truncate it before it could be read.
+  printf '%s\n' "$2" | grep -E '^[0-9]+$' | sort -n -u > "$(selects_file "$1")"
+}
+
+show_selects() {  # $1 = roll dir, $2 = roll number
+  local dir=$1 num=$2 sel
+  require_analysis "$dir" "$num" || return 1
+  sel=$(read_selects "$dir" | tr '\n' ' ')
+  python3 - "$dir/frames.json" "$sel" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1]))
+picked = {int(x) for x in sys.argv[2].split()}
+print(f"Roll {doc['roll']}  {doc['mode']}  {doc['frames_per_strip']} frames/strip")
+if doc.get("mis_split"):
+    print("  NOTE: this roll's split was flagged as wrong — re-run --analyze "
+          "with --frames-per-strip before trusting these frames.")
+for strip in doc["strips"]:
+    print(f"  {strip['file']}")
+    for f in strip["frames"]:
+        star = "[*]" if f["frame"] in picked else "[ ]"
+        flag = "" if f["well_exposed"] else "   (poorly exposed)"
+        print(f"    {star} frame {f['frame']:>2}   quality {f['quality']:.2f}{flag}")
+print(f"\n{len(picked)} frame(s) stickered for a high-resolution scan.")
+PY
+}
+
+edit_selects() {  # $1 = roll dir, $2 = roll number, $3 = "add"|"remove", $4 = list
+  local dir=$1 num=$2 op=$3 list=$4 total wanted bad=()
+  require_analysis "$dir" "$num" || return 1
+  [ -n "$list" ] || { echo "error: no frame numbers given, e.g. 'negatives --select $num 2,5,9'" >&2; return 1; }
+  total=$(frame_count "$dir")
+  wanted=$(echo "$list" | tr ',' '\n' | tr -d ' ' | grep -E '^[0-9]+$' | sort -n -u)
+  [ -n "$wanted" ] || { echo "error: '$list' has no frame numbers in it." >&2; return 1; }
+  # A sticker on a frame that was never found means the split is wrong, or
+  # the number is a typo — either way it would silently never get scanned.
+  while IFS= read -r n; do
+    [ "$n" -ge 1 ] && [ "$n" -le "$total" ] || bad+=("$n")
+  done <<< "$wanted"
+  if [ ${#bad[@]} -gt 0 ]; then
+    echo "error: roll $num has frames 1-$total; no frame ${bad[*]}." >&2
+    return 1
+  fi
+
+  local current merged
+  current=$(read_selects "$dir")
+  if [ "$op" = add ]; then
+    merged=$(printf '%s\n%s\n' "$current" "$wanted")
+  else
+    # Set difference by lookup, not comm: these are sorted numerically, and
+    # comm compares lexicographically — 12 would sort before 3.
+    merged=$(awk 'NR==FNR {drop[$0]; next} !($0 in drop)' \
+                 <(printf '%s\n' "$wanted") <(printf '%s\n' "$current"))
+  fi
+  write_selects "$dir" "$merged"
+  current=$(read_selects "$dir" | tr '\n' ' ')
+  echo "Roll $num stickers: ${current:-(none)}"
+}
+
+develop_frame() {  # $1 = roll dir, $2 = frame number, $3 = raw scan
+  film-develop develop "$3" --roll "$1" --frame "$2" --weight "$WEIGHT"
+}
+
+redevelop_roll() {  # $1 = roll dir, $2 = roll number
+  local dir=$1 num=$2 raw n done=0
+  require_analysis "$dir" "$num" || return 1
+  if [ ! -d "$dir/raw-frames" ]; then
+    echo "error: roll $num has no raw-frames/ — nothing has been rescanned yet." >&2
+    echo "       Run: negatives --scan-frames $num" >&2
+    return 1
+  fi
+  for raw in "$dir"/raw-frames/frame-*; do
+    n=$(basename "$raw"); n=${n#frame-}; n=${n%%.*}
+    n=$((10#$n))
+    develop_frame "$dir" "$n" "$raw" && done=$((done+1))
+  done
+  if [ "$done" -eq 0 ]; then
+    echo "error: no frame-NN scans found in $dir/raw-frames/." >&2
+    return 1
+  fi
+  echo "Re-developed $done frame(s) at weight $WEIGHT."
+  echo "🌐 streetscissors serves frames/ — the new versions are live on /negatives."
+}
+
+scan_frames() {  # $1 = roll dir, $2 = roll number
+  local dir=$1 num=$2 sel raw_dir preview before after new n dpi r count=0
+  require_analysis "$dir" "$num" || return 1
+  sel=$(read_selects "$dir")
+  if [ -z "$sel" ]; then
+    echo "Roll $num has no stickered frames yet."
+    echo "Pick the keepers first, e.g.: negatives --select $num 2,5,9"
+    echo "See what's on the roll with: negatives --selects $num"
+    return 0
+  fi
+
+  raw_dir="$dir/raw-frames"
+  mkdir -p "$raw_dir" "$dir/frames"
+  echo "Roll $num: $(echo "$sel" | wc -l) stickered frame(s) to rescan."
+  read -rp "Scan resolution in dpi [1200]: " dpi || return 0
+  dpi=${dpi:-1200}
+
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    echo
+    echo "--- frame $n ---"
+    # Show the frame off the contact-sheet scan, so the right negative goes
+    # in the holder without counting frames by hand.
+    preview=$(mktemp --suffix=.png)
+    if crop_frame "$dir" "$n" "$preview"; then
+      (xdg-open "$preview" >/dev/null 2>&1 &) || true
+      echo "(opened a preview of frame $n)"
+    fi
+    read -rp "Load frame $n in the scanner, then press Enter (s = skip, q = stop): " r || return 0
+    case "$r" in
+      s|S) rm -f "$preview"; continue ;;
+      q|Q) rm -f "$preview"; break ;;
+    esac
+
+    before=$(mktemp); after=$(mktemp)
+    ls "$raw_dir" > "$before" 2>/dev/null || true
+    launch_scanner "$raw_dir" "$(basename "$dir")" \
+      "Scan frame $n at ${dpi} dpi — one file, any name; it gets renamed."
+    ls "$raw_dir" > "$after" 2>/dev/null || true
+    new=$(comm -13 "$before" "$after" | tail -1)
+    rm -f "$before" "$after" "$preview"
+
+    if [ -z "$new" ]; then
+      echo "No new scan appeared for frame $n — skipping it."
+      continue
+    fi
+    printf -v raw "%s/frame-%02d.%s" "$raw_dir" "$n" "${new##*.}"
+    mv "$raw_dir/$new" "$raw"
+    develop_frame "$dir" "$n" "$raw" && count=$((count+1))
+  done <<< "$sel"
+
+  echo
+  if [ "$count" -gt 0 ]; then
+    echo "✨ Developed $count frame(s) into frames/."
+    echo "🌐 streetscissors serves that folder — they're live on /negatives."
+  else
+    echo "No frames were scanned."
+  fi
+}
+
+crop_frame() {  # $1 = roll dir, $2 = frame number, $3 = output
+  film-develop preview --roll "$1" --frame "$2" --out "$3" >/dev/null 2>&1
+}
+
+add_to_roll() {  # $1 = zero-padded roll number; reopen scanner into the folder, then rebuild
+  local num=$1 dir name count0 r
+  dir=$(locate_roll_dir "$num") || return 1
+  name=$(basename "$dir"); count0=$(count_scans "$dir")
+  echo "Roll $num: ${dir#"$BASE"/} ($count0 scan(s) so far)"
+  echo "Reopening the scanner into that folder — scan the missing strips, then close it."
+  echo
+  launch_scanner "$dir" "$name" || return 0
+  echo
+  [ "$(count_scans "$dir")" -eq "$count0" ] && \
+    echo "No new scans detected; rebuilding from the existing $count0."
+  recompile_roll "$dir" || return 1
+  echo
+  read -rp "Open contact sheet in GIMP? [y/N]: " r || return 0
+  if [[ "$r" =~ ^[yY] ]]; then
+    resolve_gimp || return 0
+    nohup "${GIMP[@]}" "$SHEETS/$name.png" >/dev/null 2>&1 &
+    echo "Opening in GIMP..."
+  fi
+}
+
 scan_session() {  # $1 = roll number to start on (optional; --redo passes one)
   local prefill="${1:-}" last_fmt="120" last_color="bw"
   if [ -f "$BASE/.lastroll" ]; then
@@ -251,29 +581,7 @@ scan_session() {  # $1 = roll number to start on (optional; --redo passes one)
 
     echo
     echo "Created: $dir"
-    (xdg-open "$dir" >/dev/null 2>&1 &) || true
-    scanner=$(resolve_scanner) || scanner=""
-    if [ -n "$scanner" ]; then
-      echo "Opening $scanner and the folder in the file manager..."
-      echo "$scanner's save dialog will already point at this folder."
-      echo "Scan at 300 dpi, one file per strip:"
-      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
-      echo
-      echo "(Waiting for $scanner to close...)"
-      # launched from inside the roll folder: iscan's GTK save dialog
-      # starts in the process cwd, so Scan saves land here by default
-      ( cd "$dir" && "$scanner" >/dev/null 2>&1 ) || true
-      while pgrep -x "$(basename "$scanner")" >/dev/null 2>&1; do
-        sleep 1
-      done
-    else
-      echo "(opened in your file manager; no scanner app found —"
-      echo " set NEGATIVES_SCANNER=<command> to launch one automatically)"
-      echo "Scan at 300 dpi into that folder, one file per strip, named:"
-      echo "  ${name}_01.tiff, ${name}_02.tiff, ..."
-      echo
-      read -rp "Press Enter when this roll is fully scanned: " r || return 0
-    fi
+    launch_scanner "$dir" "$name" || return 0
 
     count=$(count_scans "$dir")
     if [ "$count" -eq 0 ]; then
@@ -292,7 +600,13 @@ scan_session() {  # $1 = roll number to start on (optional; --redo passes one)
 
     catalog_roll "$dir"
     echo
-    echo "Found $count scan(s) for roll $num. Assembling contact sheet..."
+    # Split into frames before the sheet is built, so the sheet can develop
+    # each frame on its own settings rather than one recipe per strip. Not
+    # fatal if it fails — the sheet just falls back to whole-strip.
+    echo "Found $count scan(s) for roll $num. Reading frames..."
+    analyze_roll "$dir" || echo "(frame analysis skipped; sheet will use whole-strip settings)"
+    echo
+    echo "Assembling contact sheet..."
     sheet="$SHEETS/$name.png"
     if digital-contact-sheet-maker "$dir" -o "$sheet" && [ -f "$sheet" ]; then
       echo
@@ -337,6 +651,59 @@ if [ "$ACTION" = delete ] || [ "$ACTION" = redo ]; then
   if [ "$ACTION" = delete ]; then exit 0; fi
   echo
   echo "Rescanning as roll $ROLL."
+fi
+
+if [ "$ACTION" = recompile ]; then
+  if ! ROLL=$(normalize_roll_number "$TARGET"); then
+    echo "error: --recompile needs a roll number, e.g. 'negatives --recompile 009'" >&2
+    exit 1
+  fi
+  dir=$(locate_roll_dir "$ROLL") || exit 1
+  recompile_roll "$dir" || exit 1   # no TTY needed — safe for non-interactive use
+  exit 0
+fi
+
+# Frame-level work. Everything here except --scan-frames is non-interactive.
+case "$ACTION" in
+  analyze|selects|select|unselect|scanframes|redevelop)
+    if ! ROLL=$(normalize_roll_number "$TARGET"); then
+      echo "error: --${ACTION} needs a roll number, e.g. 'negatives --analyze 013'" >&2
+      exit 1
+    fi
+    if ! command -v film-develop >/dev/null 2>&1; then
+      echo "error: film-develop not found on PATH — it does the frame analysis." >&2
+      exit 1
+    fi
+    dir=$(locate_roll_dir "$ROLL") || exit 1
+    case "$ACTION" in
+      analyze)   analyze_roll "$dir" || exit 1 ;;
+      selects)   show_selects "$dir" "$ROLL" || exit 1 ;;
+      select)    edit_selects "$dir" "$ROLL" add "$EXTRA" || exit 1 ;;
+      unselect)  edit_selects "$dir" "$ROLL" remove "$EXTRA" || exit 1 ;;
+      redevelop) redevelop_roll "$dir" "$ROLL" || exit 1 ;;
+      scanframes)
+        if [ ! -t 0 ]; then
+          echo "error: --scan-frames drives the scanner and needs a terminal." >&2
+          echo "To re-develop frames already scanned: negatives --redevelop $ROLL" >&2
+          exit 2
+        fi
+        scan_frames "$dir" "$ROLL" || exit 1 ;;
+    esac
+    exit 0 ;;
+esac
+
+if [ "$ACTION" = add ]; then
+  if ! ROLL=$(normalize_roll_number "$TARGET"); then
+    echo "error: --add needs a roll number, e.g. 'negatives --add 009'" >&2
+    exit 1
+  fi
+  if [ ! -t 0 ]; then
+    echo "error: --add reopens the scanner and needs a terminal." >&2
+    echo "To rebuild a roll's sheet without rescanning: negatives --recompile $ROLL" >&2
+    exit 2
+  fi
+  add_to_roll "$ROLL" || exit 1
+  exit 0
 fi
 
 if [ ! -t 0 ]; then
