@@ -95,6 +95,10 @@ content/master-plan.md
 # automatically (mix setup only runs priv/repo/seeds.exs).
 /priv/repo/seeds_recipes.exs
 
+# Claude Code's local state: session settings and the worktrees background
+# sessions check out. Machine-local, and never part of the site.
+/.claude/
+
 # Integrity tests that read the author's real content. The public suite runs
 # on the invented fixtures in test/support/fixtures instead.
 /test/private/
