@@ -219,6 +219,15 @@ defmodule WebWeb.NewsletterOverlayLive do
               </div>
             </div>
 
+            <%!-- This overlay is its own LiveView, rendered with no layout, so no
+                  flash group exists to say what it puts: a wrong captcha or a
+                  rate limit was set here and shown nowhere. On /newsletter and
+                  /contact the dialog also covers the page's group. --%>
+            <div class="flash-inline" aria-live="polite">
+              <.flash kind={:error} flash={@flash} id={"#{@socket.id}-flash-error"} />
+              <.flash kind={:info} flash={@flash} id={"#{@socket.id}-flash-info"} />
+            </div>
+
             <div class="dispatch-content">
               <%= if @active_tab == :newsletter do %>
                 <%= if @newsletter_subscribed do %>

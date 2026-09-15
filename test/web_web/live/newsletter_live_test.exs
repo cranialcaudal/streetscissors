@@ -50,8 +50,32 @@ defmodule WebWeb.NewsletterLiveTest do
     |> form("form", %{"email" => "bot@example.com", "captcha" => "definitely-wrong"})
     |> render_submit()
 
+    # Said inside the dialog, which covers the page's own flash group.
+    assert has_element?(
+             view,
+             ".glass-panel .flash-notice[role=alert]",
+             "Incorrect captcha. Please try again."
+           )
+
     refute Newsletter.list_active_emails() |> Enum.member?("bot@example.com")
     assert_no_email_sent()
+  end
+
+  # The overlay on every page is a sticky LiveView rendered with no layout, so
+  # there is no flash group behind it at all — what it puts was said nowhere.
+  test "the site-wide overlay says a wrong captcha inside its dialog", %{conn: conn} do
+    {:ok, view, _html} = live_isolated(conn, WebWeb.NewsletterOverlayLive)
+    render_click(view, "open_dispatch")
+
+    view
+    |> form("form", %{"email" => "bot@example.com", "captcha" => "definitely-wrong"})
+    |> render_submit()
+
+    assert has_element?(
+             view,
+             ".glass-panel .flash-notice[role=alert]",
+             "Incorrect captcha. Please try again."
+           )
   end
 
   test "the captcha is regenerated after a failed attempt, so an answer cannot be replayed",

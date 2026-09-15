@@ -49,21 +49,9 @@
         />
       </div>
 
-      <%!-- Said here, beside the button that caused it. Nothing on the site
-            renders a flash group (no LiveView wraps itself in Layouts.app),
-            so "Incorrect captcha" and "Signed!" used to be set and never
-            shown — a visitor had no way to tell whether signing worked. --%>
-      <p
-        :if={Phoenix.Flash.get(@flash, :error)}
-        class="guestbook-notice guestbook-notice--error"
-        role="alert"
-      >
-        {Phoenix.Flash.get(@flash, :error)}
-      </p>
-      <p :if={Phoenix.Flash.get(@flash, :info)} class="guestbook-notice" role="status">
-        {Phoenix.Flash.get(@flash, :info)}
-      </p>
-
+      <%!-- "Incorrect captcha" and "Signed!" are said by the layout's flash
+            group (Layouts.flash_group/1), pinned under the header — not
+            repeated here, or a visitor would read each one twice. --%>
       <button type="submit" class="guestbook-sign" phx-disable-with="Signing…">
         Sign the guestbook
       </button>

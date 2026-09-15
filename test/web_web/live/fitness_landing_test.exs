@@ -86,6 +86,43 @@ defmodule WebWeb.FitnessLandingTest do
     end
   end
 
+  # Logging is admin-only. Its notices were always in the HTML — bare text under
+  # the whole page, dark on the steel ground — so these check for the styled
+  # notice, not just the words.
+  describe "logging an exercise, as the admin" do
+    setup %{conn: conn} do
+      {:ok, _} = Web.Fitness.create_exercise(%{name: "Push-ups", slug: "push-ups"})
+
+      {:ok, view, _html} =
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
+
+      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+
+      %{view: view}
+    end
+
+    test "a saved entry is confirmed in a notice", %{view: view} do
+      view
+      |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"})
+      |> render_submit()
+
+      assert has_element?(view, "#flash-info.flash-notice[role=status]", "Logged Push-ups.")
+      refute has_element?(view, "form[phx-submit=save_log]")
+    end
+
+    test "an empty entry is refused in an alert, with the form still open", %{view: view} do
+      view |> form("form[phx-submit=save_log]") |> render_submit()
+
+      assert has_element?(
+               view,
+               "#flash-error.flash-notice[role=alert]",
+               "Enter at least one value to log."
+             )
+
+      assert has_element?(view, "form[phx-submit=save_log]")
+    end
+  end
+
   describe "The Week" do
     test "renders every day above the fuelling panel and the regimen", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")

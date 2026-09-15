@@ -141,22 +141,6 @@ textarea.guestbook-input {
 
 .guestbook-captcha .guestbook-input { max-width: 12rem; }
 
-/* What just happened, set beside the button that did it. Ink text for
-   contrast; the rule on the left carries the tone — laurel when it went
-   through, poppy when it did not. */
-.guestbook-notice {
-  margin: 0 0 1rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--paper-raised);
-  border-left: 4px solid var(--color-jade);
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  line-height: 1.5;
-  color: var(--ink);
-}
-
-.guestbook-notice--error { border-left-color: var(--accent-ink); }
-
 /* The one solid poppy control on the page: the thing the form is for. */
 .guestbook-sign {
   display: inline-flex;

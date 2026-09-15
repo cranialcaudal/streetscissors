@@ -170,6 +170,14 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   targets are ≥44px; solid ink marks the current choice (the header, `/blog`, post pages). The back control
   shows just the destination ("return to fitness" → "Fitness") and carries the full "Back to …" as
   its aria-label; both controls fold to equal icon squares at ≤900px.
+  **Flash notices** are said once, by the layouts: `Layouts.app` (every `:default` LiveView via
+  the router's `live_session` layout, and controller pages via `put_layout`) and
+  `admin.html.heex` both render `Layouts.flash_group/1`, pinned under the sticky header and styled
+  by hand in `flash.css` — the generator's daisyUI classes never generated, so every flash used to
+  print as bare text below the page. Don't add flash markup to page templates. The group sits
+  outside `.steel`/`.darkroom`, so it keeps paper tokens there like the header does; inside
+  `.admin-layout` it goes dark. Only the full-screen dialogs above it (the dispatch overlay, admin
+  login) say their own.
   `CoreComponents.baker_wordmark/1` is the stretched-and-cropped display line (homepage photo
   hero, `/negatives` masthead). Its geometry is **measured off the rendered font** with canvas
   `actualBoundingBox*` metrics, never guessed — `getBBox()` returns the layout box and is useless

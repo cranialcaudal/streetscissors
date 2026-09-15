@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════════
+   FLASH — the notices put_flash raises
+   ═══════════════════════════════════════════════════════════════════
+   Every page already rendered a flash group — Layouts.app and the admin
+   layout both call Layouts.flash_group/1 — but it wore the generator's
+   daisyUI toast/alert classes, which never generate under `source(none)`.
+   So a message printed as bare text below the last thing on the page, in
+   paper ink, outside the page's theme wrapper: under a long accordion,
+   dark on the steel ground. "Logged …" and "Entry recorded." were in the
+   HTML and in front of no one.
+
+   One notice, set like the guestbook's was: a raised plate, a laurel rule
+   for news and a poppy rule for trouble, the message in the body face.
+   The close control is the only thing on it you press, so it alone wears
+   poppy at rest. Square, 44px target.
+
+   The group is pinned just under the sticky header, so a notice lands in
+   view wherever the action happened — the log modal, the foot of the
+   biometrics table. It renders from the layout, *outside* `.steel` and
+   `.darkroom`, so on those pages it keeps paper tokens: a paper plate
+   hanging from the paper header, legible on either ground. Inside
+   `.admin-layout` it inherits that chrome's dark re-inking.
+
+   Full-screen dialogs (the dispatch overlay, admin login) sit above it at
+   z-index 100000 and say their own notices inside the dialog.
+   ─────────────────────────────────────────────────────────────────── */
+
+.flash-group {
+  position: fixed;
+  /* Clears the header at rest, not just once it sticks: root.html.heex pads
+     .main-content-wrapper 1rem above it (zero at ≤800px). The header's
+     rendered height per breakpoint is measured, not declared — header.css
+     only sets a min-height, and the 3.4rem wordmark outgrows it here. */
+  top: calc(1rem + 91px + 0.5rem);
+  right: 3rem;
+  /* Over page modals like the fitness log form (100) and the header it
+     hangs beneath (10000); under the full-screen dialogs (100000). */
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(26rem, calc(100vw - 2rem));
+  /* An empty group must not swallow clicks meant for the page beneath. */
+  pointer-events: none;
+}
+
+/* The admin chrome has no sticky header to hang from. */
+.admin-layout .flash-group {
+  top: 1rem;
+  right: 1rem;
+}
+
+/* The outer box is the one JS.show/JS.hide toggle, and JS.show sets
+   `display: block` — so it declares no display of its own (the `hidden`
+   attribute keeps working) and the row layout lives on the body. */
+.flash-notice {
+  /* The one pressable colour, re-pointed where the ground changes. */
+  --flash-poppy: var(--accent-ink);
+
+  pointer-events: auto;
+  box-sizing: border-box;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-left: 4px solid var(--color-jade);
+  border-radius: 0;
+  color: var(--ink);
+}
+
+.flash-notice--error { border-left-color: var(--flash-poppy); }
+
+/* The admin chrome re-inks paper to near-black but not the poppy, and
+   --accent-ink falls to about 2:1 on that ground. The undeepened pigment
+   clears 3:1 there. */
+.admin-layout .flash-notice { --flash-poppy: var(--accent-color); }
+
+.flash-notice-body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.flash-notice-text {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.25rem 0.6rem 0.9rem;
+}
+
+.flash-notice-title {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.flash-notice-message {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.flash-notice-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--flash-poppy);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.flash-notice-close:hover,
+.flash-notice-close:focus-visible {
+  background: var(--flash-poppy);
+  color: var(--paper-raised);
+}
+
+.flash-notice-close:focus-visible {
+  outline: 3px solid var(--flash-poppy);
+  outline-offset: 2px;
+}
+
+.flash-notice-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* "Attempting to reconnect" — the connection-lost notices. */
+.flash-notice-spinner {
+  width: 0.9em;
+  height: 0.9em;
+  margin-left: 0.3em;
+  vertical-align: -0.1em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flash-notice-spinner { animation: flash-notice-spin 1s linear infinite; }
+}
+
+@keyframes flash-notice-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Inside a dialog: in the flow, not pinned, and no gap when empty. */
+.flash-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.flash-inline:not(:has(.flash-notice)) { margin-bottom: 0; }
+
+@media (max-width: 1200px) {
+  .flash-group { top: calc(1rem + 84px + 0.5rem); }
+}
+
+@media (max-width: 900px) {
+  .flash-group {
+    top: calc(1rem + 64px + 0.5rem);
+    right: 1rem;
+  }
+}
+
+@media (max-width: 800px) {
+  .flash-group { top: calc(64px + 0.5rem); }
+}
+
+@media (max-width: 480px) {
+  .flash-group {
+    top: calc(60px + 0.5rem);
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}

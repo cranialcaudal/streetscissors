@@ -57,6 +57,10 @@ defmodule WebWeb.Layouts do
   @doc """
   Shows the flash group with standard titles and content.
 
+  The one place page notices are said: `app/1` and the admin layout both
+  render it, so no page template carries flash markup of its own. It is
+  pinned under the sticky header — see `assets/css/flash.css`.
+
   ## Examples
 
       <.flash_group flash={@flash} />
@@ -66,7 +70,7 @@ defmodule WebWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <div id={@id} class="flash-group" aria-live="polite">
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
@@ -79,7 +83,7 @@ defmodule WebWeb.Layouts do
         hidden
       >
         {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <.icon name="hero-arrow-path" class="flash-notice-spinner" />
       </.flash>
 
       <.flash
@@ -91,7 +95,7 @@ defmodule WebWeb.Layouts do
         hidden
       >
         {gettext("Attempting to reconnect")}
-        <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+        <.icon name="hero-arrow-path" class="flash-notice-spinner" />
       </.flash>
     </div>
     """

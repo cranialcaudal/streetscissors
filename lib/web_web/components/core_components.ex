@@ -40,6 +40,10 @@ defmodule WebWeb.CoreComponents do
   @doc """
   Renders flash notices.
 
+  Styled by hand in `assets/css/flash.css`: Tailwind runs with `source(none)`,
+  so the generator's daisyUI `toast`/`alert` classes never existed here and a
+  notice printed as bare text. An error is an alert; anything else a status.
+
   ## Examples
 
       <.flash kind={:info} flash={@flash} />
@@ -60,25 +64,23 @@ defmodule WebWeb.CoreComponents do
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
-      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
-      role="alert"
-      class="toast toast-top toast-end z-50"
+      role={if @kind == :error, do: "alert", else: "status"}
+      class={["flash-notice", "flash-notice--#{@kind}"]}
       {@rest}
     >
-      <div class={[
-        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
-        @kind == :info && "alert-info",
-        @kind == :error && "alert-error"
-      ]}>
-        <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
-        <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
-        <div>
-          <p :if={@title} class="font-semibold">{@title}</p>
-          <p>{msg}</p>
+      <div class="flash-notice-body">
+        <div class="flash-notice-text">
+          <p :if={@title} class="flash-notice-title">{@title}</p>
+          <p class="flash-notice-message">{msg}</p>
         </div>
-        <div class="flex-1" />
-        <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
+        <%!-- Only the button dismisses, so the message itself can be selected. --%>
+        <button
+          type="button"
+          class="flash-notice-close"
+          aria-label={gettext("close")}
+          phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+        >
+          <.icon name="hero-x-mark" class="flash-notice-close-icon" />
         </button>
       </div>
     </div>

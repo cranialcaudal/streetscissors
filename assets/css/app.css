@@ -27,6 +27,7 @@
 @import "./negatives.css";
 @import "./pc.css";
 @import "./header.css";
+@import "./flash.css";
 @import "./home.css";
 @import "./rides.css";
 /* Section theme — must follow the component sheets it re-inks */
