@@ -1,0 +1,120 @@
+<div class="blog-bento-wrapper writing">
+  <header class="writing-masthead">
+    <h1 class="writing-title">Written Work</h1>
+    <p class="writing-bio">
+      Notes, essays, and photographs from the streetscissors darkroom.
+      Spoken pieces live in the <a href={~p"/logs"}>captain's logs</a>.
+    </p>
+  </header>
+
+  <%!-- Poppy is the promise that something can be pressed; solid ink marks
+        the choice currently in force. --%>
+  <nav class="writing-controls" aria-label="Sort and filter the writing">
+    <div class="writing-control-group">
+      <span class="writing-control-label">Sort by</span>
+      <div class="writing-toggle">
+        <a
+          href={blog_query("recent", @keyword)}
+          class={["writing-chip", @sort == "recent" && "is-active"]}
+          aria-current={@sort == "recent" && "true"}
+        >
+          Most Recent
+        </a>
+        <a
+          href={blog_query("witnessed", @keyword)}
+          class={["writing-chip", @sort == "witnessed" && "is-active"]}
+          aria-current={@sort == "witnessed" && "true"}
+        >
+          Most Witnessed
+        </a>
+      </div>
+    </div>
+
+    <div :if={@keywords != []} class="writing-control-group">
+      <span class="writing-control-label">Filter by keyword</span>
+      <div class="writing-chips">
+        <a
+          href={blog_query(@sort, nil)}
+          class={["writing-chip", is_nil(@keyword) && "is-active"]}
+          aria-current={is_nil(@keyword) && "true"}
+        >
+          All
+        </a>
+        <a
+          :for={{keyword, count} <- @keywords}
+          href={blog_query(@sort, keyword)}
+          class={["writing-chip", @keyword == keyword && "is-active"]}
+          aria-current={@keyword == keyword && "true"}
+        >
+          {keyword} <span class="writing-chip-count">{count}</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <.result_line count={length(@posts)} keyword={@keyword} sort={@sort} />
+
+  <%= case @posts do %>
+    <% [] -> %>
+      <div class="writing-empty">
+        <%= if @keyword do %>
+          <p class="writing-empty-line">Nothing filed under “{@keyword}”.</p>
+          <div class="writing-empty-links">
+            <a class="writing-chip" href={blog_query(@sort, nil)}>See everything instead</a>
+          </div>
+        <% else %>
+          <p class="writing-empty-line">Nothing published here yet.</p>
+          <p class="writing-empty-note">
+            The writing is still in the darkroom. There is work elsewhere on the site in the
+            meantime:
+          </p>
+          <div class="writing-empty-links">
+            <a class="writing-chip" href={~p"/negatives"}>Negatives</a>
+            <a class="writing-chip" href={~p"/fitness/rides"}>Activities</a>
+            <a class="writing-chip" href={~p"/logs"}>Captain's logs</a>
+            <a class="writing-chip" href={~p"/about"}>About</a>
+          </div>
+        <% end %>
+      </div>
+    <% [lead | rest] -> %>
+      <%!-- The first post in the current sort and filter is set like a lead
+            article — under Most Witnessed that is the most-read piece. --%>
+      <article class="writing-lead">
+        <.post_meta post={lead} />
+        <h2 class="writing-lead-title">
+          <a href={~p"/blog/#{lead.slug}"}>{lead.title}</a>
+        </h2>
+        <p class="writing-lead-dek">{lead.excerpt}</p>
+        <div :if={lead.keywords != []} class="writing-filed">
+          <span class="writing-control-label">Filed under:</span>
+          <.keyword_links keywords={lead.keywords} sort={@sort} />
+        </div>
+        <a href={~p"/blog/#{lead.slug}"} class="writing-read">
+          Read the post <span aria-hidden="true">→</span>
+        </a>
+      </article>
+
+      <section :if={rest != []} class="writing-contents" aria-labelledby="writing-contents-title">
+        <h2 id="writing-contents-title" class="writing-contents-title">
+          {if @sort == "witnessed", do: "More", else: "Earlier"}
+        </h2>
+        <ol class="writing-contents-list">
+          <%!-- The title's link stretches over the whole row (see
+                writing.css), so each row is one link and one tap target. --%>
+          <li :for={post <- rest} class="writing-entry">
+            <time class="writing-entry-date" datetime={Date.to_iso8601(post.date)}>
+              {Calendar.strftime(post.date, "%-d %b %Y")}
+            </time>
+            <div class="writing-entry-body">
+              <h3 class="writing-entry-title">
+                <a href={~p"/blog/#{post.slug}"}>{post.title}</a>
+              </h3>
+              <p class="writing-entry-dek">{post.excerpt}</p>
+            </div>
+            <span class="writing-entry-figure">{contents_figure(post, @sort)}</span>
+            <span class="writing-entry-arrow" aria-hidden="true">→</span>
+          </li>
+        </ol>
+      </section>
+  <% end %>
+</div>

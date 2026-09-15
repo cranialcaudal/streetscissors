@@ -1,0 +1,436 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ACTIVITIES — /fitness/rides and each ride page
+   ═══════════════════════════════════════════════════════════════════
+   A lightbox, in the manner of /negatives: the newest activity owns the
+   first screen — Komoot's route map at full width, its figures in a
+   panel beneath — then one shelf per sport, largest first, each a
+   sideways run of cards. The year's mileage is a footnote.
+
+   Tokens only, so the section's .steel re-inking carries it. Sport
+   families take The Week's pigments (bike jade, run orange), so an
+   activity reads the same color here as its block does on /fitness.
+   ─────────────────────────────────────────────────────────────────── */
+
+.activities {
+  --activity-radius: 14px;
+  --activity-radius-sm: 10px;
+}
+
+.activity--bike { --sport-color: var(--color-jade); }
+.activity--run { --sport-color: var(--color-orange); }
+/* The Week spends valley dusk on swims, which Komoot never records — so on
+   this page it is free for hikes, which would otherwise read as disabled grey. */
+.activity--hike { --sport-color: var(--color-dodger); }
+.activity--other { --sport-color: var(--ink-3); }
+
+/* .steel squares every corner in the section with
+   `.steel * { border-radius: 0 !important }`. These pages are the one place
+   that opts back in, so the selectors carry both wrapper classes and
+   !important to outrank it. */
+.steel.activities .activity-map,
+.steel.activities .activity-embed,
+.steel.activities .activity-figures,
+.steel.activities .activity-card,
+.steel.activities .activities-empty {
+  border-radius: var(--activity-radius) !important;
+}
+
+.steel.activities .activity-pill,
+.steel.activities .activity-dot,
+.steel.activities .activity-shelf-btn {
+  border-radius: 999px !important;
+}
+
+/* ── Sport pills ───────────────────────────────────────────────── */
+
+.activity-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 2rem;
+}
+
+.activity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.activity-pill:hover {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.activity-pill.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-deep);
+}
+
+.activity-pill-count {
+  font-family: var(--font-data);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.activity-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--sport-color, var(--ink-3));
+}
+
+/* ── The featured activity ─────────────────────────────────────── */
+
+.activity-feature {
+  padding: 0 0 2.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Quiet metadata above the plate: what it was and when, never a filename. */
+.activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.activity-sport { color: var(--sport-color, var(--ink-3)); }
+.activity-meta-dot { color: var(--ink-4); }
+
+.activity-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  line-height: 1.05;
+  margin: 0 0 1.25rem;
+}
+
+.activity-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.activity-title a:hover { color: var(--accent-color); }
+
+/* The plate: Komoot's own rendering of the route. */
+.activity-map-link { display: block; }
+
+.activity-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  transition: border-color 0.15s ease;
+}
+
+.activity-map-link:hover .activity-map { border-color: var(--accent-color); }
+
+.activity-map--blank,
+.activity-card-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.activity-embed {
+  display: block;
+  width: 100%;
+  height: 580px;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+}
+
+/* Figures: one cell per stat, value over caption the way Komoot sets them.
+   The hairlines between cells are the panel's own ground showing through a
+   1px grid gap, so they stay continuous however the cells wrap. The caption
+   comes first in the markup (dt before dd) and is flipped below. */
+.activity-figures {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 1rem 0 0;
+  overflow: hidden;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.activity-figure {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: var(--paper-raised);
+}
+
+.activity-figure-value {
+  margin: 0;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: clamp(1.4rem, 3.5vw, 2rem);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-color);
+}
+
+.activity-figure-label {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Shelves: one sport per row ────────────────────────────────── */
+
+.activity-shelf { padding-top: 2.25rem; }
+
+.activity-shelf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+}
+
+.activity-shelf-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+}
+
+.activity-shelf-count {
+  font-family: var(--font-data);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+.activity-shelf-nav {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* The buttons only earn their place once the hook has measured an overflow. */
+.activity-shelf:not(.is-overflowing) .activity-shelf-nav { visibility: hidden; }
+
+.steel.activities .activity-shelf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 !important;
+  font-size: 1.25rem !important;
+  letter-spacing: 0 !important;
+  line-height: 1;
+}
+
+.steel.activities .activity-shelf-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  color: var(--ink-3) !important;
+  border-color: var(--rule) !important;
+}
+
+/* A strip: fixed-width cards that snap into place, the next one peeking in
+   under a fade that lifts once the strip is scrolled to its end. */
+.activity-shelf-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 15rem;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+
+.activity-shelf-strip > .activity-card { scroll-snap-align: start; }
+
+.activity-shelf.is-overflowing:not(.at-end) .activity-shelf-strip {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 4rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 4rem), transparent);
+}
+
+/* One sport filtered on: the same cards, wrapped into a grid. */
+.activity-shelf--grid .activity-shelf-strip {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1.25rem 1rem;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+
+.activity-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.activity-card:hover,
+.activity-card:focus-visible {
+  border-color: var(--sport-color, var(--accent-color));
+  transform: translateY(-2px);
+}
+
+.activity-card-map {
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--paper-sunk);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Muted so a shelf reads as one calm run rather than a patchwork of city
+   grids and green trails; the colour comes back on the card you point at. */
+.activity-card-map img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.3) brightness(0.92);
+  transition: filter 0.25s ease;
+}
+
+.activity-card:hover .activity-card-map img,
+.activity-card:focus-visible .activity-card-map img {
+  filter: none;
+}
+
+.activity-card-blank { height: 100%; }
+
+.activity-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.75rem 0.9rem 0.85rem;
+}
+
+.activity-card-name {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.activity-card-day {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.activity-card-stats {
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* ── The year's mileage: a footnote ────────────────────────────── */
+
+.activity-totals {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.activity-totals p { margin: 0.2rem 0; }
+
+/* ── Ride page + empty state ───────────────────────────────────── */
+
+.activity-back {
+  display: inline-block;
+  margin: 1.75rem 0 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+
+.activity-back:hover { color: var(--accent-color); }
+
+.activities-empty {
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  padding: 3rem 1rem;
+  border: 1px dashed var(--rule);
+}
+
+@media (max-width: 640px) {
+  .activity-figures {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* An odd figure out (the ride page's fifth) spans the row, not a hole. */
+  .activity-figure:last-child:nth-child(odd) { grid-column: span 2; }
+
+  .activity-embed { height: 420px; }
+
+  /* Touch scrolls a strip natively, so the buttons step aside. */
+  .activity-shelf-nav { display: none; }
+  .activity-shelf-strip { grid-auto-columns: 72vw; }
+
+  .activity-shelf--grid .activity-shelf-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 0.75rem;
+  }
+}

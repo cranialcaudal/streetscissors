@@ -1,0 +1,25 @@
+{
+  "title": "Fixture Trip",
+  "subtitle": "The Coast · 2–4 March 2030",
+  "month": "2030-03-01",
+  "call_link": "Call times for home",
+  "routes": [{ "name": "Coast Loop", "status": "Planned" }],
+  "days": [
+    { "date": 2, "title": "Depart", "song": "Song A", "icon": "✈️" },
+    { "date": 3, "title": "Harbour Walk", "song": "Song B", "icon": "🚶" },
+    { "date": 4, "title": "Return", "song": "Song C", "icon": "🏠" }
+  ],
+  "call": {
+    "page_title": "When to Call — Fixture Trip",
+    "title": "When to Call the Traveller",
+    "subtitle": "The Coast · fourteen hours ahead",
+    "home_label": "Your time (Home)",
+    "away_label": "Traveller's time (Away)",
+    "home_tz": "America/New_York",
+    "away_tz": "Asia/Tokyo",
+    "window_start": 7,
+    "window_end": 10,
+    "good_now": "Good time to call now.",
+    "wait": "Wait a while."
+  }
+}

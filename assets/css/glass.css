@@ -1,0 +1,92 @@
+/* Flat panel utilities (formerly glassmorphism — hairline mono restyle) */
+
+.glass-panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    box-shadow: none;
+    transition: border-color 0.3s ease;
+}
+
+.glass-panel:hover {
+    border-color: rgba(23, 20, 15, 0.3);
+}
+
+.glass-btn {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 0.5rem 1rem;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.glass-btn:hover {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: var(--paper);
+}
+
+.glass-input {
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 0.5rem;
+    color: var(--ink);
+    width: 100%;
+}
+
+.glass-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Dispatch Center overlay (newsletter/contact modal) */
+.dispatch-close {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    font-size: 2.5rem;
+    color: var(--ink-3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    z-index: 10;
+    transition: all 0.2s ease;
+}
+
+.dispatch-close:hover {
+    color: var(--accent-color);
+    background: rgba(194, 69, 29, 0.1);
+}
+
+.dispatch-tab {
+    padding: 0.6rem 2rem;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.dispatch-footer-link {
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    text-decoration: none;
+    letter-spacing: 3px;
+    font-weight: 600;
+}
+
+.dispatch-footer-link:hover {
+    color: var(--accent-color);
+}

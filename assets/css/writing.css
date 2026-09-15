@@ -1,0 +1,457 @@
+/* ═══════════════════════════════════════════════════════════════════
+   WRITTEN WORK — /blog and each post
+   ═══════════════════════════════════════════════════════════════════
+   The newest piece in view is set like a lead article; everything else
+   is a contents page beneath it.
+
+   One rule makes the page legible as something you can use:
+   INK READS, POPPY ACTS. Anything you can press wears --accent-ink
+   (poppy deepened to pass small-text contrast) and says so at rest, not
+   only under a pointer a phone doesn't have. Anything you only read is
+   ink. Solid ink marks the choice currently in force. Every target is at
+   least 44px tall. Square throughout — rounded corners belong to the
+   Activities pages alone.
+
+   Scoped to .writing because the wrapper and card classes these pages
+   used to share (blog-bento-wrapper, blog-header-card, blog-bento-card)
+   still carry the fitness pages.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ── Masthead ──────────────────────────────────────────────────── */
+
+.writing-masthead {
+  margin-bottom: 1.75rem;
+  padding: 1.5rem 0 1.25rem;
+  border-bottom: 3px solid var(--ink);
+}
+
+.writing-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.writing-bio {
+  max-width: 40rem;
+  margin: 0.75rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.writing-bio a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.writing-bio a:hover { text-decoration-thickness: 2px; }
+
+/* ── Controls ──────────────────────────────────────────────────── */
+
+.writing-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.writing-control-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.writing-control-label {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Sort: a segmented control. The two halves share one outline where they
+   meet. */
+.writing-toggle { display: inline-flex; flex-wrap: wrap; }
+.writing-toggle .writing-chip + .writing-chip { margin-left: -1.5px; }
+
+.writing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* The pressable control: poppy text on a poppy outline at rest, poppy
+   fill under the pointer, solid ink when it is the current choice. */
+.writing-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  background: transparent;
+  border: 1.5px solid var(--accent-ink);
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.writing-chip:hover {
+  z-index: 1;
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--paper);
+}
+
+.writing-chip:active { transform: translateY(1px); }
+
+.writing-chip.is-active {
+  z-index: 2;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  cursor: default;
+}
+
+.writing-chip-count {
+  font-family: var(--font-data);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+/* Keyboard focus: a thick poppy ring on every control on the page. */
+.writing a:focus-visible {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+/* What the list is showing, and the way out of a filter. */
+.writing-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 1rem;
+  min-height: 2.75rem;
+  margin: 0 0 2rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.writing-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
+
+.writing-clear:hover { color: var(--ink); }
+
+/* ── The lead story ────────────────────────────────────────────── */
+
+.writing-lead {
+  padding: 0 0 3rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* Metadata above a title — shared with the post pages. Read, not
+   pressed, so it stays ink. */
+.writing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.writing-meta-dot { color: var(--ink-3); }
+
+.writing-lead-title {
+  margin: 0 0 1rem;
+  font-family: var(--font-heading);
+  font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+/* Titles stay ink so headlines don't shout; a poppy underline answers the
+   pointer, and the button and row arrows carry the resting cue. */
+.writing-lead-title a,
+.writing-entry-title a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.writing-lead-title a:hover {
+  text-decoration-color: var(--accent-ink);
+}
+
+.writing-lead-dek {
+  max-width: 42rem;
+  margin: 0 0 1.25rem;
+  font-family: var(--font-body);
+  font-size: clamp(1.15rem, 2.2vw, 1.35rem);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* "Filed under:" and its keywords, which are links and look it. */
+.writing-filed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.writing-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.writing-keyword {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  transition: color 0.15s ease;
+}
+
+.writing-keyword:hover { color: var(--ink); }
+
+/* The same keywords as chips, where they stand alone (a post's footer). */
+.writing-keywords--chips {
+  column-gap: 0.5rem;
+  row-gap: 0.5rem;
+}
+
+/* The page's one solid poppy button. */
+.writing-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  min-height: 2.75rem;
+  padding: 0 1.35rem;
+  background: var(--accent-ink);
+  border: 1.5px solid var(--accent-ink);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.writing-read span { transition: transform 0.15s ease; }
+
+.writing-read:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.writing-read:hover span { transform: translateX(3px); }
+.writing-read:active { transform: translateY(1px); }
+
+/* ── Contents ──────────────────────────────────────────────────── */
+
+.writing-contents { padding-top: 2.25rem; }
+
+.writing-contents-title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.writing-contents-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-strong);
+}
+
+/* Date | title and dek | the figure the sort is about | arrow. The rows
+   keep the page's text edge so their rules line up with the ones above. */
+.writing-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto auto;
+  gap: 0.25rem 1.5rem;
+  align-items: baseline;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* The title link covers the whole row: one link, one generous target. */
+.writing-entry-title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.writing-entry-title a:focus-visible { outline: none; }
+
+.writing-entry:has(a:focus-visible) {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: -3px;
+}
+
+/* The hover ground reaches a little past the text on both sides, painted by
+   sideways shadows so the rules themselves never move. */
+.writing-entry:hover,
+.writing-entry:focus-within {
+  background: var(--paper-raised);
+  box-shadow: -0.75rem 0 0 var(--paper-raised), 0.75rem 0 0 var(--paper-raised);
+}
+
+.writing-entry:hover .writing-entry-title a,
+.writing-entry:focus-within .writing-entry-title a {
+  color: var(--accent-ink);
+  text-decoration-color: var(--accent-ink);
+}
+
+.writing-entry-date,
+.writing-entry-figure {
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.writing-entry-figure { text-align: right; }
+
+.writing-entry-arrow {
+  font-family: var(--font-ui);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--accent-ink);
+  transition: transform 0.15s ease;
+}
+
+.writing-entry:hover .writing-entry-arrow { transform: translateX(4px); }
+
+.writing-entry-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.writing-entry-dek {
+  display: -webkit-box;
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ── Empty states ──────────────────────────────────────────────── */
+
+.writing-empty {
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.writing-empty-line {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  color: var(--ink);
+}
+
+.writing-empty-note {
+  max-width: 34rem;
+  margin: 0 auto 1.5rem;
+  font-family: var(--font-body);
+  color: var(--ink-2);
+}
+
+.writing-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* ── Post pages ────────────────────────────────────────────────── */
+
+.writing .blog-post-header .writing-meta { margin-bottom: 1rem; }
+.writing .blog-post-keywords { align-items: center; }
+
+/* ── Phones ────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  /* Date, figure and arrow share a line above the title. */
+  .writing-entry {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: 0.4rem;
+    column-gap: 1rem;
+  }
+
+  .writing-entry-date { grid-column: 1; grid-row: 1; }
+  .writing-entry-figure { grid-column: 2; grid-row: 1; }
+  .writing-entry-arrow { grid-column: 3; grid-row: 1; }
+  .writing-entry-body { grid-column: 1 / -1; grid-row: 2; }
+}

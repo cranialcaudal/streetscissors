@@ -1,0 +1,700 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DARKROOM — the /negatives page
+   ═══════════════════════════════════════════════════════════════════
+   The homepage advertises this section with a stretched, cropped,
+   half-opacity orange wordmark over a dark veil; the page keeps that
+   promise instead of dropping you back onto paper. Same ground, same
+   Bebas display face, same orange, and the masthead is literally the
+   same component as the card that got you here.
+
+   Scoped token overrides in the manner of `.steel` — the viewer's own
+   components need no special cases, so keep styling with tokens.
+   ─────────────────────────────────────────────────────────────────── */
+
+.darkroom {
+  /* The site's ink becomes the ground, and its paper becomes the type. */
+  --paper: #17140f;
+  --paper-raised: #211d17;
+  --paper-sunk: #100e0b;
+  --paper-deep: #0a0908;
+
+  --ink: #f3eee4;
+  --ink-2: #cfc7b8;
+  --ink-3: #98907f;
+  --ink-4: #6b6555;
+
+  --rule: rgba(243, 238, 228, 0.18);
+  --rule-strong: rgba(243, 238, 228, 0.45);
+  --hairline: var(--rule);
+  --glass-bg: var(--paper-raised);
+
+  --font-display: 'Bebas Neue', Impact, 'Haettenschweiler', sans-serif;
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Paint the viewport, not just the content column. */
+.darkroom::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--paper);
+  z-index: -2;
+}
+
+/* Trimmed so the sheet, not the masthead, owns the first screen. */
+.darkroom-masthead {
+  width: 100%;
+  height: clamp(3rem, 7.5vw, 6rem);
+  margin-bottom: 0.75rem;
+}
+
+/* Display voice: the labels you press. Data — filenames, dates, frame
+   counts — stays mono, because that is what it is. */
+.darkroom .index-toggle-btn,
+.darkroom .nav-pill-btn,
+.darkroom .view-sheet-btn,
+.darkroom .download-sheet-btn,
+.darkroom .index-header-row h2,
+.darkroom .minimal-index-table th {
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.darkroom .index-header-row h2 {
+  font-size: 2.2rem;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+}
+
+.darkroom .index-toggle-btn,
+.darkroom .nav-pill-btn,
+.darkroom .view-sheet-btn {
+  font-size: 1.05rem;
+  background: none;
+  color: var(--accent-color);
+  border: 1px solid var(--rule);
+}
+
+.darkroom .index-toggle-btn:hover,
+.darkroom .nav-pill-btn:hover,
+.darkroom .view-sheet-btn:hover {
+  background: var(--accent-color);
+  color: var(--paper);
+  border-color: var(--accent-color);
+}
+
+.darkroom .minimal-index-table th {
+  font-size: 0.95rem;
+  background: none;
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+}
+
+/* The index is data — dates, roll numbers, filenames — so it is set in the
+   mono/data voice, not the body serif. The markup asks for this with Tailwind
+   `font-mono`/`font-bold` classes, but content scanning is off (source(none))
+   so those never generate; on paper the serif merely looked odd, on a dark
+   ground its thin strokes read as faint. */
+.darkroom .minimal-index-table td {
+  font-family: var(--font-data);
+  color: var(--ink-2);
+}
+
+.darkroom .minimal-index-table td:first-child {
+  color: var(--accent-color);
+}
+
+.darkroom .index-row:hover {
+  background: var(--paper-raised);
+}
+
+/* Sortable columns: scan date and film type, the two axes the archive is
+   actually browsed along. */
+.darkroom .sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.darkroom .sortable-th:hover,
+.darkroom .sortable-th.is-sorted {
+  color: var(--accent-color);
+}
+
+.sort-caret {
+  font-size: 0.7em;
+  margin-left: 0.35em;
+}
+
+/* ── The sheet as a lightbox ───────────────────────────────────────── */
+
+/* Metadata, not a filename, and quiet enough to stay out of the way. */
+.sheet-meta {
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: center;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sheet-meta-dot {
+  color: var(--ink-4);
+  margin: 0 0.35rem;
+}
+
+/* Controls ride on the image so nothing below it competes for height. */
+.stage-image-wrapper {
+  position: relative;
+}
+
+/* Bare marks on the image, not buttons on it: no box, no fill, always present
+   so you never have to go looking for them. The drop shadow is what keeps a
+   thin chevron legible over a bright frame. */
+.stage-arrow,
+.stage-download {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  color: var(--ink-3);
+  cursor: pointer;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.stage-arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.stage-arrow--prev {
+  left: 0.35rem;
+}
+
+.stage-arrow--next {
+  right: 0.35rem;
+}
+
+.stage-download {
+  right: 0.5rem;
+  bottom: 0.5rem;
+}
+
+.stage-arrow:hover,
+.stage-arrow:focus-visible,
+.stage-download:hover,
+.stage-download:focus-visible {
+  color: var(--accent-color);
+}
+
+.stage-arrow--prev:hover {
+  transform: translateY(-50%) translateX(-2px);
+}
+
+.stage-arrow--next:hover {
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* ── The split: sheet above, its individual frames below ───────────── */
+
+.frame-strip {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+  flex-shrink: 0;
+}
+
+.frame-strip-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 0.75rem;
+}
+
+.frame-strip-rail {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.frame-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  border: 1px solid var(--rule);
+  background: var(--paper-deep);
+  line-height: 0;
+  transition: border-color 0.15s ease;
+}
+
+.frame-thumb:hover {
+  border-color: var(--accent-color);
+}
+
+.frame-thumb img {
+  height: 92px;
+  width: auto;
+  display: block;
+}
+
+.frame-thumb-num {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-family: var(--font-data);
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  background: var(--paper);
+  color: var(--ink-3);
+}
+
+/* The link a frame URL exists to carry: which sheet this photograph came
+   from, always one click away. */
+.frame-origin {
+  color: var(--accent-color) !important;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.frame-origin:hover {
+  border-bottom-color: var(--accent-color);
+}
+
+/* Controls live under the sheet now. */
+.stage-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.darkroom .format-pill,
+.darkroom .color-pill {
+  border-radius: 0;
+}
+
+.minimal-viewer-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5rem 1.5rem 1rem;
+  min-height: 80vh;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+}
+
+/* The sheet used to be clamped into one viewport along with all its chrome, so
+   every control stole height from the photograph. It now takes everything the
+   screen has left after the masthead and the controls directly beneath it —
+   dominant, but not so tall that prev/next fall below the fold. */
+/* A *definite* height, not just a max: the wrapper is sized by `flex: 1`, and
+   a percentage height on the image inside an indefinite-height flex item
+   resolves to auto — which is why the sheet overflowed and got clipped. */
+.minimal-viewer-container.single-mode-active .stage-image-wrapper {
+  /* The controls now ride on the image instead of sitting under it, so the
+     only things to reserve for are the sticky site header, the masthead and
+     the metadata line. Measured, not estimated: at 1280px wide the sheet
+     starts 262px down (84 header + 96 masthead + 28 metadata + margins), so
+     17.5rem keeps the whole sheet on screen without scrolling. */
+  height: max(46vh, calc(100vh - 17.5rem)) !important;
+  flex: 0 0 auto !important;
+  /* The mat hugs the sheet instead of running the full column width, so a
+     portrait roll isn't marooned in a field of black. */
+  width: auto !important;
+  max-width: 100%;
+}
+
+/* max-height: 100% does not reliably constrain an image inside a flex-sized
+   parent — the sheet overflowed and got clipped by the wrapper. Sizing it to
+   the box and letting object-fit letterbox is what actually holds. */
+.minimal-viewer-container.single-mode-active .stage-image {
+  height: 100% !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+}
+
+.index-toggle-btn {
+  background: var(--paper-raised);
+  color: var(--accent-color);
+  border: 1px solid rgba(194, 69, 29, 0.4);
+  font-family: var(--font-ui, sans-serif);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.index-toggle-btn:hover {
+  background: var(--accent-color);
+  color: var(--paper);
+}
+
+/* Single Presentation Viewport */
+.single-presentation-viewport {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  /* Visible, not hidden: the frame strip and controls now live below the
+     sheet and must not be clipped by the old single-screen clamp. */
+  overflow: visible !important;
+}
+
+.presentation-stage {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  max-width: 1300px !important;
+  gap: 0.75rem !important;
+}
+
+/* Header Flanked Controls: Previous and Next flanking Title */
+.header-flanked-controls {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  gap: 1.5rem !important;
+  width: 100%;
+  max-width: 1000px;
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  padding: 0.5rem 1.5rem;
+  margin: 0 auto;
+  flex-shrink: 0 !important;
+}
+
+.nav-pill-btn {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  font-family: var(--font-ui, sans-serif);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  padding: 0.45rem 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.nav-pill-btn:hover {
+  background: var(--accent-color);
+  color: var(--paper);
+  border-color: var(--accent-color);
+}
+
+.flanked-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.title-main {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 450px;
+}
+
+.title-sub {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  margin-top: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.download-icon-btn {
+  background: var(--paper-raised);
+  color: var(--accent-color);
+  border: 1px solid rgba(194, 69, 29, 0.4);
+  padding: 0.45rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.download-icon-btn:hover {
+  background: var(--accent-color);
+  color: var(--paper);
+}
+
+/* Image container strictly bounded to screen height */
+.stage-image-wrapper {
+  flex: 1 !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  /* Plate mat. Deliberately --paper-deep and not --ink: under .darkroom the
+     ink/paper tokens are inverted, and a mat keyed to --ink would turn white
+     behind the photographs. */
+  background: var(--paper-deep);
+  border: 1px solid var(--hairline);
+  padding: 0.5rem !important;
+}
+
+.stage-image {
+  max-height: 100% !important;
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  margin: 0 auto !important;
+  display: block !important;
+}
+
+/* Index Viewport */
+.index-viewport {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  animation: fadeInIndex 0.3s ease-out;
+}
+
+@keyframes fadeInIndex {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.index-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(194, 69, 29, 0.3);
+  padding-bottom: 0.75rem;
+}
+
+.index-header-row h2 {
+  font-family: var(--font-heading, sans-serif);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-color);
+  margin: 0;
+}
+
+.index-count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+}
+
+.index-table-container {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  overflow-x: auto;
+}
+
+.minimal-index-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.minimal-index-table th {
+  background: var(--paper-sunk);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.minimal-index-table td {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.index-row:hover {
+  background: rgba(194, 69, 29, 0.04);
+}
+
+.format-pill, .color-pill {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(23, 20, 15, 0.08);
+  padding: 0.25rem 0.6rem;
+  color: var(--ink-2);
+}
+
+.color-pill {
+  color: var(--color-dodger);
+  background: rgba(44, 74, 110, 0.12);
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.view-sheet-btn {
+  background: var(--accent-color);
+  color: var(--paper);
+  border: none;
+  font-family: var(--font-ui, sans-serif);
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 0.5rem;
+}
+
+.view-sheet-btn:hover {
+  background: #a63a18;
+}
+
+.download-sheet-btn {
+  color: var(--ink-3);
+  background: rgba(23, 20, 15, 0.08);
+  padding: 0.4rem 0.6rem;
+  transition: all 0.2s ease;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.download-sheet-btn:hover {
+  color: var(--ink);
+  background: rgba(23, 20, 15, 0.2);
+}
+
+.empty-state-minimal {
+  text-align: center;
+  padding: 6rem 2rem;
+  color: var(--ink-3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .header-flanked-controls {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem !important;
+  }
+  .title-main {
+    max-width: 160px;
+    font-size: 0.9rem;
+  }
+  .title-sub {
+    font-size: 0.7rem;
+  }
+  .nav-pill-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  /* Phones: the same three controls, but as a bar under the sheet rather than
+     overlaid on it — a thumb should never have to hunt for an edge, and on a
+     small screen an overlay covers real picture. Laid out with grid so the
+     download sits between the arrows regardless of DOM order. */
+  .minimal-viewer-container.single-mode-active .stage-image-wrapper {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    height: auto !important;
+    max-height: none;
+    width: 100% !important;
+    padding: 0.4rem !important;
+    gap: 0.4rem;
+  }
+
+  .minimal-viewer-container.single-mode-active .stage-image {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: auto !important;
+    max-height: 62vh !important;
+    margin: 0 auto !important;
+  }
+
+  /* One bordered bar under the sheet, with the three marks sitting inside it
+     unboxed — the bar is the container, not each control. */
+  .stage-arrow,
+  .stage-download {
+    position: static;
+    transform: none;
+    grid-row: 2;
+    width: auto;
+    height: auto;
+    padding: 0.7rem 0;
+    color: var(--accent-color);
+    filter: none;
+  }
+
+  .minimal-viewer-container.single-mode-active .stage-image-wrapper .stage-arrow,
+  .minimal-viewer-container.single-mode-active .stage-image-wrapper .stage-download {
+    border-top: 1px solid var(--rule);
+  }
+
+  .stage-arrow--prev:hover,
+  .stage-arrow--next:hover {
+    transform: none;
+  }
+
+  .stage-arrow--prev {
+    grid-column: 1;
+  }
+
+  .stage-download {
+    grid-column: 2;
+  }
+
+  .stage-arrow--next {
+    grid-column: 3;
+  }
+
+  .sheet-meta {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+}

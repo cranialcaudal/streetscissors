@@ -1,0 +1,99 @@
+<%!-- /guestbook, set like Written Work: a masthead, the form, then the
+      signatures printed as a register. Styles live in assets/css/guestbook.css. --%>
+<div class="guestbook">
+  <header class="guestbook-masthead">
+    <h1 class="guestbook-title">Guestbook</h1>
+    <p class="guestbook-lede">Leave a note — messages appear once approved.</p>
+  </header>
+
+  <section class="guestbook-form" aria-labelledby="guestbook-sign-title">
+    <h2 id="guestbook-sign-title" class="guestbook-section-title">Sign the guestbook</h2>
+
+    <.form for={@form} id="guestbook-form" phx-change="validate" phx-submit="save">
+      <.input
+        field={@form[:name]}
+        type="text"
+        label="Name"
+        class="guestbook-input"
+        error_class="is-invalid"
+        autocomplete="name"
+        maxlength="80"
+      />
+      <.input
+        field={@form[:message]}
+        type="textarea"
+        label="Message"
+        class="guestbook-input"
+        error_class="is-invalid"
+        maxlength="2000"
+      />
+
+      <div class="guestbook-message-tools">
+        <WebWeb.CoreComponents.grammar_button />
+      </div>
+
+      <div class="guestbook-captcha">
+        <label for="guestbook-captcha" class="guestbook-label">
+          Answer this to show you're human
+        </label>
+        <div class="guestbook-captcha-question">
+          <WebWeb.CaptchaHTML.simple_text text={@captcha_question} />
+        </div>
+        <input
+          id="guestbook-captcha"
+          name="captcha"
+          type="text"
+          class="guestbook-input"
+          required
+          autocomplete="off"
+        />
+      </div>
+
+      <%!-- Said here, beside the button that caused it. Nothing on the site
+            renders a flash group (no LiveView wraps itself in Layouts.app),
+            so "Incorrect captcha" and "Signed!" used to be set and never
+            shown — a visitor had no way to tell whether signing worked. --%>
+      <p
+        :if={Phoenix.Flash.get(@flash, :error)}
+        class="guestbook-notice guestbook-notice--error"
+        role="alert"
+      >
+        {Phoenix.Flash.get(@flash, :error)}
+      </p>
+      <p :if={Phoenix.Flash.get(@flash, :info)} class="guestbook-notice" role="status">
+        {Phoenix.Flash.get(@flash, :info)}
+      </p>
+
+      <button type="submit" class="guestbook-sign" phx-disable-with="Signing…">
+        Sign the guestbook
+      </button>
+    </.form>
+  </section>
+
+  <section aria-labelledby="guestbook-signatures-title">
+    <h2 id="guestbook-signatures-title" class="guestbook-section-title">Signatures</h2>
+
+    <p :if={@entries == []} class="guestbook-empty">Be the first to sign.</p>
+
+    <ol :if={@entries != []} class="guestbook-entries">
+      <li :for={entry <- @entries} class="guestbook-entry">
+        <div class="guestbook-entry-head">
+          <span class="guestbook-entry-name">{entry.name}</span>
+          <time class="guestbook-entry-date" datetime={DateTime.to_iso8601(entry.inserted_at)}>
+            {entry.inserted_at |> Calendar.strftime("%-d %b %Y") |> String.upcase()}
+          </time>
+        </div>
+        <p class="guestbook-entry-message">{entry.message}</p>
+      </li>
+    </ol>
+  </section>
+
+  <%!-- The inline admin login, IP display and per-entry delete that used to
+        live here were a pre-AdminAuth scheme: `admin_mode` was hardcoded
+        false, so the password box rendered to every visitor and its
+        `admin_login` event had no handler at all — submitting it crashed the
+        LiveView. Moderation belongs to /admin/guestbook, which is gated by
+        the live_session :admin hook. --%>
+
+  <WebWeb.CoreComponents.grammar_panel matches={@grammar_matches} />
+</div>

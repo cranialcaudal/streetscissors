@@ -1,0 +1,7 @@
+{
+  "description": "A fixture kitchen for the test suite.",
+  "days": [
+    { "id": "sunday", "name": "Sun", "icon": "🍲", "label": "Batch Cook", "kcal": 2100 },
+    { "id": "monday", "name": "Mon", "icon": "🥣", "label": "Oats Day", "kcal": 1900 }
+  ]
+}

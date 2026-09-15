@@ -1,0 +1,105 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where 3rd-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you like to edit your project deps locally.
+/.fetch
+
+# If the VM crashes, it generates a dump, let's ignore it too.
+erl_crash.dump
+
+# Also ignore archive artifacts (built via "mix archive.build").
+*.ez
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# Ignore package tarball (built via "mix hex.build").
+web-*.tar
+
+# Ignore assets that are produced by build tools.
+/priv/static/assets/
+
+# Ignore digested assets cache.
+/priv/static/cache_manifest.json
+
+# phx.digest output outside /priv/static/assets/: the content-addressed copies
+# of images and robots.txt, and every gzipped twin. ./redeploy.sh regenerates
+# these on each deploy, so tracking them meant a dirty working tree after every
+# ship, with real edits buried in the churn. The source files beside them stay
+# tracked — only the "name-<32 hex>.ext" copies are ignored.
+/priv/static/**/*-????????????????????????????????.*
+/priv/static/**/*.gz
+
+# In case you use Node.js/npm, you want to ignore these.
+npm-debug.log
+/assets/node_modules/
+
+# Database files
+*.db
+*.db-*
+# Databases renamed out of the way keep their data but lose the .db suffix, so
+# the rules above stop matching and `git add -A` will happily commit a few
+# hundred KB of real rows. Catch anything with .db in the middle of the name.
+*.db.*
+
+
+# Runtime logs and pids
+*.log
+*.log.gz
+*.pid
+
+# ── Private by default ──────────────────────────────────────────────────────
+# The public repository is the site's skeleton only. The writing, photographs,
+# ride maps and every personal detail stay on this machine: content/ is the
+# Obsidian vault, and the code reads it (and .env) at runtime with neutral
+# fallbacks, so a fresh clone still builds, boots and passes its tests on the
+# invented fixtures in test/support/fixtures/. Only the site's own docs and
+# vault templates are published from content/.
+/content/*
+!/content/templates/
+!/content/architecture-notes.md
+/priv/ride_thumbs/
+/priv/static/images/
+/priv/static/uploads/*
+/priv/static/figures/
+/scripts/
+caddy_access.log*
+
+# Obsidian workspace files inside the content vault
+content/.obsidian/
+
+# Private trip-planning source; the public itinerary is curated from it
+content/england2026/story.md
+
+# Private training plan. Nothing renders it — it is the personal planning doc
+# behind the regimen, and it names venues, commute days and weekly whereabouts
+# that the published pages deliberately do not carry.
+content/master-plan.md
+
+# The /pc terminal's two reading files are the author's own writing (a personal
+# regimen and a signed guide). PcLive reads them at compile time and falls back
+# to a "not found" line, so a fresh clone still builds.
+/priv/SEVEN_DAY_FITNESS.TXT
+/priv/LINUX_POCKET_GUIDE.TXT
+
+# A one-off seed of the author's own recipe writing. Nothing runs it
+# automatically (mix setup only runs priv/repo/seeds.exs).
+/priv/repo/seeds_recipes.exs
+
+# Integrity tests that read the author's real content. The public suite runs
+# on the invented fixtures in test/support/fixtures instead.
+/test/private/
+
+# Local backups of vault and database
+/backup/
+
+.env

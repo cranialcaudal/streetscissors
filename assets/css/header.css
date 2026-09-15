@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL HEADER — every page but the homepage
+   ═══════════════════════════════════════════════════════════════════
+   The wordmark sits at the true centre of the page, not merely between
+   its neighbours: the outer grid columns are equal (1fr auto 1fr), so
+   the two controls can differ in length without pulling it off centre.
+
+   The controls are a matched pair — same frame, same height, same
+   instrument voice — and they follow the paper site's one rule for
+   anything you can press: poppy (--accent-ink) at rest, so they read as
+   controls before a pointer ever reaches them, filling solid on hover.
+   When the wordmark needs the width, both fold into the same 44px
+   square, keeping their names for screen readers.
+   ─────────────────────────────────────────────────────────────────── */
+
+.blog-universal-header {
+    position: sticky;
+    top: 0;
+    z-index: 10000;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 1.5rem;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 84px;
+    padding: 1.1rem 3rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule-strong);
+}
+
+.header-left,
+.header-center,
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.header-left { justify-content: flex-start; }
+.header-center { justify-content: center; }
+.header-right { justify-content: flex-end; }
+
+.header-logo-container { text-decoration: none; }
+
+/* The wordmark's own rules elsewhere carry !important, so its size here
+   has to as well. */
+.blog-universal-header .site-title-overlay {
+    display: block !important;
+    margin: 0 !important;
+    font-size: 3.4rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
+    color: var(--ink) !important;
+    white-space: nowrap !important;
+    transform: none !important;
+    cursor: pointer;
+}
+
+/* ── The two controls ──────────────────────────────────────────── */
+
+/* A shared minimum width makes the pair symmetrical at a glance; the
+   longer label ("Newsletter & Contact") sets it. */
+.blog-universal-header .header-action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    box-sizing: border-box;
+    min-width: 15rem;
+    height: 2.75rem;
+    margin: 0;
+    padding: 0 1rem;
+    background: transparent;
+    border: 1.5px solid var(--accent-ink);
+    border-radius: 0;
+    color: var(--accent-ink);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.blog-universal-header .header-action:hover,
+.blog-universal-header .header-action:focus-visible {
+    color: var(--paper);
+    border-color: var(--accent-ink);
+    background: var(--accent-ink);
+}
+
+.blog-universal-header .header-action:focus-visible {
+    outline: 3px solid var(--accent-ink);
+    outline-offset: 2px;
+}
+
+.blog-universal-header .header-action:active { transform: translateY(1px); }
+
+.header-action-icon {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+
+/* Each icon leans the way its control goes. */
+.header-action--back:hover .header-action-icon { transform: translateX(-2px); }
+.header-action--contact:hover .header-action-icon { transform: translateY(-1px); }
+
+/* ── Narrower screens ──────────────────────────────────────────── */
+
+/* The wordmark is set in Goudy at a fixed size, so it steps down
+   deliberately rather than scaling. */
+@media (max-width: 1200px) {
+    .blog-universal-header .site-title-overlay { font-size: 2.6rem !important; }
+}
+
+/* Tablet and phone: both controls become the same 44px square. The label
+   is hidden visually, not removed, so each keeps its accessible name. */
+@media (max-width: 900px) {
+    .blog-universal-header {
+        gap: 0.75rem;
+        min-height: 64px;
+        padding: 0.5rem 1rem;
+    }
+
+    .blog-universal-header .site-title-overlay { font-size: 1.9rem !important; }
+
+    /* min-width has to be released here too, or the desktop 15rem floor
+       outranks the square's width. */
+    .blog-universal-header .header-action {
+        min-width: 0;
+        width: 2.75rem;
+        padding: 0;
+    }
+
+    .blog-universal-header .header-action-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
+/* Below ~430px "streetscissors" cannot hold a line at 1.9rem beside the
+   two controls. */
+@media (max-width: 480px) {
+    .blog-universal-header {
+        min-height: 60px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .blog-universal-header .site-title-overlay { font-size: 1.4rem !important; }
+}

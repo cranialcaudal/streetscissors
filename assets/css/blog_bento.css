@@ -1,0 +1,516 @@
+/* ═══════════════════════════════════════════════════════════
+   BLOG BENTO AESTHETIC — hairline mono
+   Flat, square, hairline-bordered styling for the streetscissors
+   blog and Fitness sections, mirroring the homepage aesthetic.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Default fallback accent if not set inline */
+:root {
+  --blog-accent: var(--accent-color); 
+}
+
+/* Wrapper mimicking .home-wrapper */
+.blog-bento-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 80vh;
+}
+
+/* ── Header Card ───────────────────────────────────────── */
+.blog-header-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  margin-bottom: 2rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+}
+
+.blog-header-title {
+  font-family: var(--font-heading, 'Futura'), 'Trebuchet MS', sans-serif;
+  font-size: 3rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  color: var(--ink);
+}
+
+.blog-header-subtitle {
+  font-family: var(--font-ui), sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* /blog's own index and its controls live in writing.css. What remains here
+   is shared: the wrapper, header card and cards the fitness pages still use,
+   and the post-page panel and prose. */
+
+.blog-post-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: baseline;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* ── Cards — shared with the fitness pages ─────────────── */
+.blog-bento-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  padding: 2rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+
+.blog-bento-card.bento-span-full {
+  grid-column: 1 / -1;
+}
+
+.blog-bento-card:hover {
+  border-color: rgba(23, 20, 15, 0.3);
+}
+
+/* ── Single Detail View ─────────────────────────────────── */
+.blog-post-panel {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  padding: 3rem;
+  margin-bottom: 3rem;
+}
+
+.blog-post-header {
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid rgba(23, 20, 15, 0.1);
+  padding-bottom: 1.5rem;
+}
+
+.blog-post-title {
+  font-family: var(--font-heading, 'Futura'), 'Trebuchet MS', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  color: var(--ink);
+}
+
+.blog-post-content {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+/* Markdown prose overrides */
+.blog-post-content h2, .blog-post-content h3 {
+  font-family: var(--font-heading, 'Futura'), 'Trebuchet MS', sans-serif;
+  color: var(--ink);
+}
+
+.blog-post-content a {
+  color: var(--blog-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.blog-post-content blockquote {
+  border-left: 3px solid var(--blog-accent);
+  background: rgba(23, 20, 15, 0.05);
+  padding: 1rem 1.5rem;
+}
+
+.blog-post-content pre {
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  padding: 1rem 1.25rem;
+  margin: 2rem 0;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.blog-post-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-size: inherit;
+}
+
+/* ![[figure:emissions-code]] — hand-rolled R highlighting (no vendored
+   library). Numbers get the most emphasis on purpose: they're the
+   assumed/estimated inputs, and the point is that a reader can see them
+   as such rather than mistake them for settled fact. Comments read as
+   annotation, set apart from the arithmetic they're explaining. */
+.r-comment {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.r-string {
+  color: var(--color-jade);
+}
+
+.r-keyword {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.r-number {
+  color: var(--color-orange);
+  font-weight: 700;
+}
+
+.blog-post-content details {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  margin: 2rem 0;
+  padding: 0.75rem 1.25rem;
+}
+
+.blog-post-content details[open] {
+  padding-bottom: 1.25rem;
+}
+
+.blog-post-content details summary {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+
+.blog-post-content details summary:hover {
+  color: var(--ink);
+}
+
+.blog-post-content details pre {
+  margin: 1rem 0 0;
+}
+
+/* Images inside posts: standard markdown + ![[...]] photo embeds */
+.blog-post-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2rem auto;
+  border: 1px solid var(--hairline);
+}
+
+.blog-embed {
+  margin: 2rem 0;
+}
+
+.blog-embed a {
+  display: block;
+}
+
+.blog-embed figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+/* ![[ride:N]] embed: Komoot ride card */
+.blog-embed-ride a {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  padding: 1rem;
+  text-decoration: none;
+}
+
+.blog-embed-ride img {
+  max-width: 42%;
+  height: auto;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+  margin: 0;
+  display: block;
+}
+
+.blog-embed-ride-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.blog-embed-ride-name {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.blog-embed-ride-meta {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 550px) {
+  .blog-embed-ride a {
+    flex-direction: column;
+  }
+  .blog-embed-ride img {
+    max-width: 100%;
+  }
+}
+
+/* ![[figure:emissions-controls]] embed: frame/food/grid inputs that drive
+   assets/js/emissions_controls.js's redraw of the two figures above */
+.blog-embed-controls {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.emissions-control-group {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.emissions-control-group legend {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0;
+  margin-bottom: 0.15rem;
+}
+
+.emissions-control-group label {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.emissions-control-group select {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  padding: 0.15rem 0.3rem;
+}
+
+.emissions-control-group select:disabled {
+  color: var(--ink-4);
+}
+
+/* ![[figure:...]] embed: server-rendered SVG chart, no JS */
+.blog-embed-figure {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  padding: 1.25rem 1.5rem;
+}
+
+.blog-embed-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fig-bar-label {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.fig-bar-sub {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  fill: var(--ink-3);
+}
+
+.fig-bar-value {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  fill: var(--ink-2);
+}
+
+.fig-bar {
+  rx: 1;
+  transition: width 300ms ease;
+}
+
+.fig-bar-food {
+  fill: var(--color-jade);
+}
+
+.fig-bar-grid {
+  fill: var(--color-dodger);
+}
+
+.fig-bar-fixed {
+  fill: var(--ink-4);
+}
+
+.fig-bar-occ {
+  fill: var(--color-orange);
+}
+
+.fig-line-axis {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+/* Each mode's line/dots/legend swatch share one color via --mode-color,
+   set once on the wrapping <g> (see line_series_svg/3, line_legend_svg/1
+   in Web.Blog.Embeds and the matching render functions in
+   emissions_controls.js) rather than a fill/stroke rule per mode. */
+.fig-line-series .fig-line {
+  fill: none;
+  stroke: var(--mode-color);
+  stroke-width: 2.5;
+}
+
+.fig-line-series .fig-line-dot {
+  fill: var(--mode-color);
+}
+
+.fig-line-tick {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  fill: var(--ink-3);
+}
+
+.fig-line-gridline {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.fig-line-ytick {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.68rem;
+  fill: var(--ink-3);
+}
+
+.fig-line-axis-title {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  fill: var(--ink-2);
+}
+
+.fig-legend-swatch {
+  fill: var(--mode-color);
+}
+
+.fig-legend-label {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  fill: var(--ink-2);
+}
+
+/* Responsive constraints */
+@media (max-width: 768px) {
+  .blog-bento-wrapper {
+    padding: 1.5rem 1rem;
+  }
+  
+  .blog-header-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .blog-header-title {
+    font-size: 2.2rem;
+  }
+  
+  .blog-bento-card {
+    padding: 1.5rem;
+  }
+  
+  .blog-post-panel {
+    padding: 2rem 1.5rem;
+  }
+
+  .blog-post-title {
+    font-size: 2rem;
+  }
+}
+
+/* ── Unsubscribe pages ─────────────────────────────────────
+   Reached from an email footer, so they stand alone: no nav to
+   speak of, one decision, and a way back if it was a mistake. */
+.unsub-wrapper {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.unsub-panel {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  padding: 2.5rem;
+}
+
+.unsub-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+}
+
+.unsub-body {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0 0 1.75rem;
+}
+
+.unsub-form {
+  margin-bottom: 1.75rem;
+}
+
+.unsub-confirm {
+  width: 100%;
+}
+
+.unsub-aside {
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--ink-3);
+  margin: 0 0 0.5rem;
+}
+
+.unsub-aside a {
+  color: var(--accent-color);
+}

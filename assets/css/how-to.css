@@ -1,0 +1,256 @@
+/* The manual (/how-to).
+ *
+ * A documentation page needs three things the site's shared `.prose` has never
+ * had to provide: a contents rail, code blocks that scroll rather than burst
+ * the column, and real tables. Everything here is scoped under `.howto` so the
+ * essays and the about page keep the typography they already have.
+ *
+ * Tokens only — see the :root block in app.css. */
+
+.howto {
+    max-width: 1080px;
+}
+
+.howto-panel {
+    padding: 3rem;
+}
+
+.howto-layout {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+}
+
+/* ---- The contents rail ---------------------------------------------------
+   Sticky, and offset by more than it looks like it needs: the site header is
+   sticky too and 120px tall, so anything less parks the rail underneath it. */
+
+.howto-contents {
+    position: sticky;
+    top: 8.5rem;
+    border-left: 1px solid var(--rule);
+    padding-left: 1.25rem;
+}
+
+.howto-contents-title {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 0.9rem;
+}
+
+/* No counter here: every part names its own number, and "1. Part 1 — …" reads
+   like a stutter. */
+.howto-contents-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.howto-contents-list li {
+    margin-bottom: 0.7rem;
+    line-height: 1.35;
+}
+
+.howto-contents-list a {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    color: var(--ink-2);
+    text-decoration: none;
+}
+
+.howto-contents-list a:hover,
+.howto-contents-list a:focus-visible {
+    color: var(--accent-color);
+}
+
+/* ---- The document -------------------------------------------------------- */
+
+/* `.prose` centres itself in a 700px measure, which is right for an essay and
+   wrong inside a two-column grid — the column already sets the width. */
+.howto .prose {
+    max-width: 46rem;
+    margin: 0;
+}
+
+.howto .prose p {
+    /* Justification suits a printed essay; it opens rivers around inline code
+       and short instructional lines. */
+    text-align: left;
+}
+
+.howto .prose h1 {
+    margin-top: 0;
+}
+
+/* Anchored headings have to clear the sticky header when jumped to. */
+.howto .prose h2,
+.howto .prose h3 {
+    scroll-margin-top: 9rem;
+}
+
+.howto .prose h2 {
+    margin-top: 2.5rem;
+}
+
+.howto .prose h3 {
+    margin-top: 2.25rem;
+    color: var(--ink);
+}
+
+.howto .prose h4 {
+    font-size: 1.15rem;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+    color: var(--ink);
+}
+
+/* The rule between parts. `hr` carries it, so h2 does not also draw one. */
+.howto .prose hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 3.5rem 0 0;
+}
+
+.howto .prose ul,
+.howto .prose ol {
+    padding-left: 1.5rem;
+}
+
+.howto .prose li {
+    margin-bottom: 0.6rem;
+}
+
+/* ---- Commands ------------------------------------------------------------
+   `.prose code` is accent ink on a sunk ground, which reads well for a word
+   inside a sentence and badly for eight lines of shell. Fenced blocks get the
+   ground; the code inside them gives it back. */
+
+.howto .prose pre {
+    background: var(--paper-sunk);
+    border: 1px solid var(--rule);
+    padding: 1rem 1.25rem;
+    margin: 0 0 1.5rem;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.65;
+}
+
+.howto .prose pre code {
+    background: none;
+    padding: 0;
+    color: var(--ink);
+    font-size: inherit;
+}
+
+/* ---- Tables --------------------------------------------------------------
+   mobile.css makes every `.prose table` a scrolling block, which shrink-wraps
+   it. On a page this table-heavy the desktop wants real table layout, so it is
+   restored here and the scrolling block comes back on phones. */
+
+.howto .prose table {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1.75rem;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.howto .prose thead th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--paper-sunk);
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 0.55rem 0.75rem;
+}
+
+.howto .prose tbody td {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.6rem 0.75rem;
+    vertical-align: top;
+    color: var(--ink-2);
+}
+
+.howto .prose tbody td:first-child {
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.howto .prose tbody td code {
+    background: none;
+    padding: 0;
+}
+
+/* ---- Asides --------------------------------------------------------------
+   Blockquotes are the callout: `.prose` italicises them in the heading face,
+   which is right for a quotation and wrong for "careful, read this". */
+
+.howto .prose blockquote {
+    font-family: var(--font-body);
+    font-style: normal;
+    background: var(--paper-sunk);
+    border-left: 3px solid var(--accent-color);
+    padding: 1.1rem 1.35rem;
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+}
+
+.howto .prose blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---- Narrow screens ------------------------------------------------------ */
+
+@media (max-width: 900px) {
+    .howto-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2rem;
+    }
+
+    /* Above the document rather than beside it, and no longer sticky — a rail
+       pinned to the top of a phone screen is just lost reading space. */
+    .howto-contents {
+        position: static;
+        border-left: 0;
+        border-bottom: 1px solid var(--rule);
+        padding-left: 0;
+        padding-bottom: 1.5rem;
+    }
+
+    .howto-contents-list {
+        columns: 2;
+        column-gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .howto-panel {
+        padding: 1.5rem;
+    }
+
+    .howto .prose h2,
+    .howto .prose h3 {
+        scroll-margin-top: 5rem;
+    }
+
+    .howto .prose table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 550px) {
+    .howto-contents-list {
+        columns: 1;
+    }
+}

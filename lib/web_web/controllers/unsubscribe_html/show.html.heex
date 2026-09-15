@@ -1,0 +1,22 @@
+<div class="unsub-wrapper">
+  <div class="unsub-panel">
+    <h1 class="unsub-title">Unsubscribe</h1>
+
+    <p class="unsub-body">
+      Remove <strong>{@email}</strong> from the streetscissors dispatch?
+      You'll stop receiving it immediately.
+    </p>
+
+    <%!-- A POST, not a GET link: mail clients and security scanners prefetch
+          links, and a GET that unsubscribes gets people removed by a robot
+          that merely looked at the message. --%>
+    <.form for={%{}} action={~p"/unsubscribe/#{@token}"} method="post" class="unsub-form">
+      <button type="submit" class="theme-btn unsub-confirm">Yes, unsubscribe me</button>
+    </.form>
+
+    <p class="unsub-aside">
+      Changed your mind? <.link navigate={~p"/newsletter"}>Stay on the list</.link>
+      — or just close this tab, nothing has happened yet.
+    </p>
+  </div>
+</div>

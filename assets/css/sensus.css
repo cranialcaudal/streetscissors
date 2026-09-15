@@ -1,0 +1,32 @@
+/* streetscissors leftovers from the old Latent Sensus portal shell.
+   The sticky audio player that lived here went away when spoken work moved
+   out of the blog and into the captain's logs (see `logs.css`); only the
+   mobile brand link is still referenced by a template. */
+
+/* ---- Mobile brand link (homepage top bar) ---- */
+.sensus-mobile-brand-link {
+  text-decoration: none !important;
+}
+
+.sensus-mobile-brand-link h1 {
+  font-size: 2rem !important;
+  margin: 0 !important;
+  color: var(--ink) !important;
+  font-family: var(--font-heading);
+  text-transform: lowercase;
+  letter-spacing: -2px;
+  font-weight: 900;
+  animation: logo-pulse 2s infinite alternate ease-in-out;
+  text-align: center;
+}
+
+@keyframes logo-pulse {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}

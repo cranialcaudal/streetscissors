@@ -1,0 +1,49 @@
+<%!--
+The kitchen, served unlisted at /food. Title and body both come from
+content/fitness/meals.md, so this template is only the shell: the fitness tab
+row, then a contents rail beside the document. Only the top-level parts go in
+the rail — Web.Docs anchors the h3 recipes too, so each one can be linked to
+directly, but a reader wants a map of the document rather than a list of every
+salsa in it.
+
+The tab row still renders, because this page needs a way *out* into the rest of
+the fitness section. Nothing in that row points back here: the Kitchen tab was
+removed from WebWeb.FitnessSubnav when the page went unlisted, so the links only
+run outward. `active` names a tab that no longer exists, which is deliberate and
+harmless — the component omits the active tab, and there is none to omit.
+--%>
+<div class="container meals">
+  <WebWeb.FitnessSubnav.subnav active={:food} is_admin={@admin_mode} />
+
+  <article class="glass-panel meals-panel">
+    <%!-- The week at a glance — same idea as /england2026's calendar tab, sized
+    down to a single row since there's no month to page through, just seven
+    repeating days. Plain anchors into the h3s "The week, Sunday to Sunday"
+    already carries, so no JS is needed the way England's tab-switch/scroll
+    dance was. --%>
+    <nav class="week-strip" aria-label="This week's meals">
+      <a :for={day <- @week_days} href={"#" <> day.id} class="week-cell">
+        <span class="week-cell-day">{day.name}</span>
+        <span class="week-cell-icon" aria-hidden="true">{day.icon}</span>
+        <span class="week-cell-label">{day.label}</span>
+        <span class="week-cell-kcal">{day.kcal} kcal</span>
+      </a>
+    </nav>
+
+    <div class="meals-layout">
+      <nav :if={@contents != []} class="meals-contents" aria-labelledby="meals-contents-title">
+        <p id="meals-contents-title" class="meals-contents-title">Contents</p>
+        <ol class="meals-contents-list">
+          <li :for={entry <- Enum.filter(@contents, &(&1.level == 2))}>
+            <a href={"#" <> entry.id}>{entry.text}</a>
+          </li>
+        </ol>
+      </nav>
+
+      <%!-- Styling hangs off `.meals .prose`, so no extra class is needed here. --%>
+      <div class="prose">
+        {raw(@html_content)}
+      </div>
+    </div>
+  </article>
+</div>

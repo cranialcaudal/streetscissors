@@ -1,0 +1,25 @@
+<%!--
+The manual. Title and body both come from docs/how-to.md, so this template is
+only the shell: a contents rail beside the document. Only the top-level parts
+go in the rail — the sub-headings are anchored too (Web.Docs gives every h2 and
+h3 an id) so they can be linked to, but a map of the document is more use to a
+reader than a map of every paragraph in it.
+--%>
+<div class="container howto">
+  <article class="glass-panel howto-panel">
+    <div class="howto-layout">
+      <nav :if={@contents != []} class="howto-contents" aria-labelledby="howto-contents-title">
+        <p id="howto-contents-title" class="howto-contents-title">Contents</p>
+        <ol class="howto-contents-list">
+          <li :for={entry <- Enum.filter(@contents, &(&1.level == 2))}>
+            <a href={"#" <> entry.id}>{entry.text}</a>
+          </li>
+        </ol>
+      </nav>
+
+      <div class="prose howto-prose">
+        {raw(@html_content)}
+      </div>
+    </div>
+  </article>
+</div>

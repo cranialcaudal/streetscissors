@@ -1,0 +1,192 @@
+/* ═══════════════════════════════════════════════════════════════════
+   THE WEEK — the big picture above the regimen on /fitness
+   ═══════════════════════════════════════════════════════════════════
+   Tokens only, so it re-inks with .steel like the rest of the section.
+   Work is the ground the training sits on; the three race sports take
+   the three pigments; strength and play stay in the ink family.
+   .steel zeroes border-radius and box-shadow on everything, so hairlines
+   here are outlines and every edge is square.
+
+   Seamless by design: every day is one strip stretched to the full width,
+   its blocks meeting at a 2px seam of ground, so there is no dead space
+   to the right of a short day.
+   ─────────────────────────────────────────────────────────────────── */
+
+.week { margin-bottom: 2rem; }
+
+.week-title {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0 0 1.25rem;
+}
+
+.week-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  align-items: stretch;
+  column-gap: 0.75rem;
+  row-gap: 2px;
+}
+
+.week-day {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-3);
+}
+
+.week-row.is-today .week-day { color: var(--ink); font-weight: 700; }
+
+/* ── The strip: equal shares, full width ── */
+.week-chips {
+  grid-column: 2;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 2px;
+  min-height: 2.75rem;
+}
+
+.week-chip {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.35rem 0.5rem;
+}
+
+.week-chips .week-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.week-chip-time { font-size: 0.75rem; opacity: 0.8; }
+
+/* The nightly stretch is a sliver, not a share: it closes the day without
+   taking a fifth of the strip. The label stays in the markup for screen
+   readers and the hover title; the legend names the colour. Three classes
+   so the phone-width font rule below can't bring the text back. */
+.week-chips .week-chip.week-chip--stretch {
+  flex: 0 0 1.5rem;
+  padding: 0;
+  font-size: 0;
+}
+
+.week-block--stretch .week-block-label { display: none; }
+
+.week-legend {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.week-legend .week-chip { flex: 1 1 0; min-width: 4.5rem; text-align: center; }
+
+/* Kinds — a strip block, a timed block and a legend entry share one colour */
+.week-chip--work, .week-block--work {
+  background: var(--paper-sunk);
+  color: var(--ink-2);
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+}
+.week-chip--swim, .week-block--swim { background: var(--color-dodger); color: var(--paper-deep); }
+.week-chip--bike, .week-block--bike { background: var(--color-jade); color: var(--paper-deep); }
+.week-chip--run, .week-block--run { background: var(--color-orange); color: var(--paper-deep); }
+.week-chip--strength, .week-block--strength { background: var(--ink-2); color: var(--paper-deep); }
+.week-chip--play, .week-block--play { background: var(--ink-3); color: var(--paper-deep); }
+.week-chip--stretch, .week-block--stretch { background: var(--ink-4); color: var(--ink); }
+.week-chip--other, .week-block--other {
+  background: var(--paper-raised);
+  color: var(--ink-2);
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+}
+.week-chip--sleep {
+  background: var(--paper-deep);
+  color: var(--ink-3);
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+}
+
+/* Today — a hairline rather than a colour, so it never reads as a kind */
+.week-row.is-today .week-chips,
+.week-row.is-today .week-track {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
+
+/* ── Timed view (admin only): the waking day, edge to edge ── */
+.week-axis {
+  position: relative;
+  height: 1.25rem;
+  margin-left: 4rem;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.week-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+.week-track {
+  grid-column: 2;
+  position: relative;
+  height: 2.75rem;
+  background: var(--paper-raised);
+  overflow: hidden;
+}
+
+.week-sleep { position: absolute; top: 0; bottom: 0; background: var(--paper-deep); }
+
+.week-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+  overflow: hidden;
+  border-left: 2px solid var(--paper);
+}
+
+.week-block-label {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week--timed .week-chips { display: none; }
+
+@media (max-width: 640px) {
+  .week-row { grid-template-columns: 2.5rem 1fr; column-gap: 0.5rem; }
+  .week-axis { margin-left: 3rem; }
+  .week-chips .week-chip { font-size: 0.75rem; padding: 0.3rem 0.2rem; }
+  .week-block-label { display: none; }
+  .week-track { height: 1.25rem; }
+  .week--timed .week-chips { display: flex; }
+}

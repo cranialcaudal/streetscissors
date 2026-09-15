@@ -1,0 +1,343 @@
+/* The kitchen (/fitness/meals).
+ *
+ * Structurally the same problem as the manual — a long document with a contents
+ * rail — but far more table-heavy, because every plate carries its macros. The
+ * numeric columns get tabular figures so they line up down the page, which is
+ * what `--font-data` exists for.
+ *
+ * Scoped under `.meals` so the essays and the about page keep their own
+ * typography. Tokens only — see the :root block in app.css. */
+
+.meals {
+    max-width: 1080px;
+}
+
+.meals-panel {
+    padding: 3rem;
+}
+
+/* ---- The week strip --------------------------------------------------
+   Seven clickable days, Sunday to Saturday, each jumping straight to its
+   `### Sunday`/`### Monday`/... section below via the anchors Web.Docs
+   already gives every heading. One row on desktop; it wraps to a 2-up grid
+   once seven columns can't hold their labels without truncating. */
+
+.week-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2.75rem;
+}
+
+.week-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.3rem;
+    padding: 1rem 0.5rem;
+    background: var(--paper-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    text-decoration: none;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.week-cell:hover,
+.week-cell:focus-visible {
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.week-cell-day {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.week-cell-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.week-cell-label {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--ink);
+    line-height: 1.25;
+}
+
+.week-cell-kcal {
+    font-family: var(--font-data);
+    font-size: 0.72rem;
+    color: var(--ink-3);
+}
+
+.meals-layout {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+}
+
+/* ---- The contents rail ---------------------------------------------------
+   Sticky and offset past the site's own 120px sticky header, same as the
+   manual's — anything less parks it underneath. */
+
+.meals-contents {
+    position: sticky;
+    top: 8.5rem;
+    border-left: 1px solid var(--rule);
+    padding-left: 1.25rem;
+}
+
+.meals-contents-title {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 0.75rem;
+}
+
+.meals-contents-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.meals-contents-list li {
+    margin-bottom: 0.5rem;
+}
+
+.meals-contents-list a {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    color: var(--ink-2);
+    text-decoration: none;
+}
+
+.meals-contents-list a:hover,
+.meals-contents-list a:focus-visible {
+    color: var(--accent-color);
+}
+
+/* ---- The document -------------------------------------------------------- */
+
+/* `.prose` centres itself in a 700px measure, which the grid column already
+   handles here. */
+.meals .prose {
+    max-width: 46rem;
+    margin: 0;
+}
+
+.meals .prose p {
+    text-align: left;
+}
+
+.meals .prose h1 {
+    margin-top: 0;
+}
+
+/* Anchored headings clear the sticky header when jumped to. */
+.meals .prose h2,
+.meals .prose h3 {
+    scroll-margin-top: 9rem;
+}
+
+.meals .prose h2 {
+    margin-top: 2.5rem;
+}
+
+/* Each recipe is an h3, and they come in a run — enough space above one that
+   it reads as a new dish rather than a continuation of the last. */
+.meals .prose h3 {
+    margin-top: 2.25rem;
+    color: var(--ink);
+}
+
+.meals .prose hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 3.5rem 0 0;
+}
+
+.meals .prose ul,
+.meals .prose ol {
+    padding-left: 1.5rem;
+}
+
+.meals .prose li {
+    margin-bottom: 0.6rem;
+}
+
+/* Shopping-list checkboxes (`- [ ]` in the markdown, turned into real inputs by
+   Web.Docs). The bullet would sit alongside the box and read as two markers for
+   one item, so it goes; the negative indent pulls the box back into the space
+   the bullet vacated, keeping the text edge flush with the prose above it.
+   Unchecked by design on every load — this is a list to print or carry, not
+   state the server knows anything about. */
+.meals .prose li.task {
+    list-style: none;
+    margin-left: -1.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+
+.meals .prose li.task input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    /* `baseline` on a replaced element aligns its bottom edge, which floats the
+       box a shade high against the first line of text. */
+    position: relative;
+    top: 0.15em;
+}
+
+/* Per-serving macro lines sit under each recipe as italic emphasis. */
+.meals .prose em {
+    font-family: var(--font-data);
+    font-style: normal;
+    font-size: 0.85rem;
+    color: var(--ink-3);
+}
+
+/* ---- Tables --------------------------------------------------------------
+   mobile.css turns every `.prose table` into a scrolling block, which
+   shrink-wraps it. This page is mostly tables, so real table layout is
+   restored for the desktop and the scrolling block returns on phones.
+
+   `--font-data` is the tabular-figure face: without it the macro columns
+   wander, because proportional digits are not the same width. */
+
+.meals .prose table {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1.75rem;
+    font-family: var(--font-data);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.meals .prose thead th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--paper-sunk);
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 0.55rem 0.75rem;
+}
+
+/* Everything but the first column is a number, and numbers read right. */
+.meals .prose thead th:not(:first-child),
+.meals .prose tbody td:not(:first-child) {
+    text-align: right;
+}
+
+.meals .prose tbody td {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.6rem 0.75rem;
+    vertical-align: top;
+    color: var(--ink-2);
+}
+
+.meals .prose tbody td:first-child {
+    color: var(--ink);
+}
+
+/* The totals row of each day's table — last row, and it should read as the
+   answer rather than another ingredient. */
+.meals .prose tbody tr:last-child td {
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 0;
+    color: var(--ink);
+}
+
+/* ---- Asides -------------------------------------------------------------- */
+
+.meals .prose blockquote {
+    font-family: var(--font-body);
+    font-style: normal;
+    background: var(--paper-sunk);
+    border-left: 3px solid var(--accent-color);
+    padding: 1.1rem 1.35rem;
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+}
+
+.meals .prose blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---- Narrow screens ------------------------------------------------------ */
+
+@media (max-width: 900px) {
+    .week-strip {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .meals-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2rem;
+    }
+
+    .meals-contents {
+        position: static;
+        border-left: 0;
+        border-bottom: 1px solid var(--rule);
+        padding-left: 0;
+        padding-bottom: 1.5rem;
+    }
+
+    .meals-contents-list {
+        columns: 2;
+        column-gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .week-strip {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .week-cell {
+        padding: 0.75rem 0.4rem;
+    }
+
+    .week-cell-label {
+        font-size: 0.72rem;
+    }
+
+    .meals-panel {
+        padding: 1.5rem;
+    }
+
+    .meals .prose h2,
+    .meals .prose h3 {
+        scroll-margin-top: 5rem;
+    }
+
+    /* Seven-column macro tables cannot fit a phone; let them scroll. */
+    .meals .prose table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 550px) {
+    .meals-contents-list {
+        columns: 1;
+    }
+}

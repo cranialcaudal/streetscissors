@@ -1,0 +1,56 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ADMIN — the CMS chrome behind /admin/*
+   ═══════════════════════════════════════════════════════════════════
+   A deliberate dark exception, in the manner of `.darkroom`/`.steel`:
+   same token names, re-inked, so admin views style with the ordinary
+   --paper/--ink vocabulary and just come out dark. This is the rule
+   the ad-hoc greys scattered through the admin LiveViews were always
+   implicitly assuming — `.admin-layout` previously carried no
+   background at all, so that text rendered pale-on-pale against the
+   site's default paper ground.
+   ─────────────────────────────────────────────────────────────────── */
+
+.admin-layout {
+  --paper: #17140f;
+  --paper-raised: #211d17;
+  --paper-sunk: #100e0b;
+  --paper-deep: #0a0908;
+
+  --ink: #f3eee4;
+  --ink-2: #cfc7b8;
+  --ink-3: #98907f;
+  --ink-4: #6b6555;
+
+  --rule: rgba(243, 238, 228, 0.18);
+  --rule-strong: rgba(243, 238, 228, 0.45);
+  --hairline: var(--rule);
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Status pills — subscriber active/inactive, send-history state */
+.admin-pill {
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.admin-pill-active {
+  color: var(--color-jade);
+}
+
+.admin-pill-inactive {
+  color: var(--color-red);
+}
+
+.admin-danger-btn {
+  border-color: var(--color-red) !important;
+  color: var(--color-red) !important;
+  background: transparent !important;
+}
+
+.admin-danger-btn:hover {
+  background: var(--color-red) !important;
+  color: var(--paper) !important;
+}

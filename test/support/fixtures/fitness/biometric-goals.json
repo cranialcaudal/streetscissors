@@ -1,0 +1,13 @@
+{
+  "height_inches": 70,
+  "goals": {
+    "sleep_hours": 7.5,
+    "hrv_ms": 50,
+    "energy": 6,
+    "protein_grams": 130,
+    "soreness": 4,
+    "calories_in": 2400,
+    "fiber_grams": 30,
+    "active_calories": 600
+  }
+}

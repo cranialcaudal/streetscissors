@@ -1,0 +1,17 @@
+<div class="blog-bento-wrapper writing">
+  <div class="blog-post-panel">
+    <header class="blog-post-header">
+      <.post_meta post={@post} />
+      <h1 class="blog-post-title">{@post.title}</h1>
+    </header>
+
+    <div class="blog-post-content prose">
+      {raw(@post.html)}
+    </div>
+
+    <footer :if={@post.keywords != []} class="blog-post-keywords">
+      <span class="writing-control-label">Filed under:</span>
+      <.keyword_links keywords={@post.keywords} variant={:chips} />
+    </footer>
+  </div>
+</div>

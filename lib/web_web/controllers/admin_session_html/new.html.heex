@@ -1,0 +1,39 @@
+<div
+  class="container"
+  style="display: flex; justify-content: center; align-items: center; min-height: 80vh;"
+>
+  <div
+    class="glass-panel"
+    style="padding: 3rem; width: 100%; max-width: 400px; text-align: center;"
+  >
+    <h1 class="theme-title" style="margin-bottom: 2rem;">Admin Access</h1>
+
+    <.form for={%{}} action={~p"/admin/login"} method="post">
+      <div style="margin-bottom: 2rem;">
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          class="theme-input"
+          style="width: 100%; padding: 0.8rem; text-align: center; font-size: 1.2rem;"
+          required
+          autofocus
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="theme-btn"
+        style="width: 100%; padding: 1rem; font-size: 1.1rem;"
+      >
+        Enter
+      </button>
+    </.form>
+
+    <div style="margin-top: 2rem;">
+      <.link href={~p"/"} class="theme-link" style="color: #666; font-size: 0.9rem;">
+        ← return to streetscissors
+      </.link>
+    </div>
+  </div>
+</div>
