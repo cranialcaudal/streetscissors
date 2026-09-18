@@ -47,6 +47,8 @@ streetscissors.com {
     # a NEW directory and swaps the pointer on the row (see Web.Uploads), so
     # nothing at a given path ever changes and `immutable` is honest.
     handle_path /uploads/* {
+        # /data is the mounted volume inside the container, so this one is
+        # absolute and gives nothing away.
         root * {$UPLOADS_ROOT:/data/uploads}
         header Cache-Control "public, max-age=31536000, immutable"
         @m3u8 path *.m3u8
