@@ -96,6 +96,44 @@ defmodule Web.MixProject do
   #     $ mix setup
   #
   # See the documentation for `Mix` for more info on aliases.
+  # esbuild names split chunks by content hash and never deletes the ones it
+  # has stopped emitting, so a dev build's unminified chunks sit in
+  # priv/static until something removes them — and `mix release` packages
+  # priv/ wholesale. That shipped 4 MB of dead JavaScript, twice, before this
+  # existed.
+  #
+  # Only chunks are pruned, and only ones the freshly built app.js does not
+  # import. app.js keeps its own previous digested copies, which is the grace
+  # `phx.digest.clean --keep 1` in redeploy.sh relies on.
+  defp prune_stale_chunks(_args) do
+    dir = Path.join(~w(priv static assets js))
+    entry = Path.join(dir, "app.js")
+
+    if File.regular?(entry) do
+      imported =
+        ~r/["']\.\/([\w.\-]+\.js)["']/
+        |> Regex.scan(File.read!(entry))
+        |> MapSet.new(fn [_whole, name] -> name end)
+
+      for name <- File.ls!(dir), chunk?(name), not MapSet.member?(imported, name) do
+        # The chunk and any digested or gzipped copy of it.
+        [Path.join(dir, name) | Path.wildcard(Path.join(dir, Path.rootname(name) <> "-*"))]
+        |> Enum.each(&File.rm/1)
+
+        File.rm(Path.join(dir, name <> ".gz"))
+        Mix.shell().info("pruned stale chunk #{name}")
+      end
+    end
+
+    :ok
+  end
+
+  # An esbuild chunk ends in its own 8-character hash. A phx.digest copy ends
+  # in 32 lowercase hex, so this never matches one of those.
+  defp chunk?(name) do
+    name != "app.js" and Regex.match?(~r/-[A-Z0-9]{8}\.js$/, name)
+  end
+
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
@@ -110,6 +148,7 @@ defmodule Web.MixProject do
         "compile",
         "tailwind web --minify",
         "esbuild web --minify",
+        &prune_stale_chunks/1,
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
