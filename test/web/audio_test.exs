@@ -42,7 +42,6 @@ defmodule Web.AudioTest do
       {:ok, moved} = Audio.update_log(log, %{"recorded_on" => "2026-09-20"})
 
       assert moved.slug == "2026-09-20"
-      assert moved.stardate == Log.stardate(~D[2026-09-20])
     end
   end
 
@@ -51,11 +50,6 @@ defmodule Web.AudioTest do
       log = log_fixture(keywords: "  Ferry ,  Bowling Green ")
       assert log.keywords == "ferry, bowling-green"
       assert Log.keyword_list(log) == ["ferry", "bowling-green"]
-    end
-
-    test "a stardate is derived from the recording date, never taken as input" do
-      log = log_fixture(recorded_on: ~D[2026-09-18], stardate: "nonsense")
-      assert log.stardate == Log.stardate(~D[2026-09-18])
     end
 
     test "kind and status are constrained" do

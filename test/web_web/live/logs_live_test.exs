@@ -138,7 +138,8 @@ defmodule WebWeb.LogsLiveTest do
 
       assert html =~ "Friday, 18 September 2026"
       assert html =~ "What happened."
-      assert html =~ log.stardate
+      # The rail carries a real designation rather than invented numerology.
+      assert html =~ "Log 2026-09-18"
     end
 
     test "the second entry of a day has an address of its own", %{conn: conn} do

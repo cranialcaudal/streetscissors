@@ -137,9 +137,13 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   - **An entry is titled by the day it was recorded**, not by a title anyone types: `Log.title/1`
     renders `recorded_on`, the slug *is* the date (`2026-09-18`), and `seq` makes room for more
     than one recording in a day (`2026-09-18-2`, marked "Entry 02"). `caption` is an optional
-    line, never the title. A stardate is still derived from the date — this section keeps its
-    NX-01 console look (`logs.css`, the `.nx01` token block; **under it `--ink` is *light***, so
-    anything meant to stay dark keys off `--paper-*`).
+    line, never the title. The section wears the NX-01 console look (`logs.css`, the `.nx01`
+    token block; **under it `--ink` is *light***, so anything meant to stay dark keys off
+    `--paper-*`). There is no stardate: it was derived from the date, shown twice, and meant
+    nothing — the console speaks through its instruments instead, so the rail carries a real
+    reading (`{n} on file`, or the log's own designation) in the panel's mono voice.
+    Posters and video are shown at **full colour** — the rides archive's `saturate()` muting
+    reads as a fault on footage rather than as calm.
   - **The page is shaped like the rides archive**: newest entry in view gets the theater
     (`LogEntry.plate/1` + a figures panel), everything else is one chronological run of cards,
     and the years are a footnote. **No card mounts a player** — opening `/logs` fetches posters

@@ -29,7 +29,6 @@ defmodule Web.Audio.Log do
     field :seq, :integer, default: 1
     field :slug, :string
     field :recorded_at, :utc_datetime
-    field :stardate, :string
 
     # What it is.
     field :kind, :string, default: "video"
@@ -70,7 +69,6 @@ defmodule Web.Audio.Log do
     |> update_change(:caption, &String.trim/1)
     |> normalize_keywords()
     |> put_slug()
-    |> put_stardate()
     |> validate_required([:recorded_on, :seq, :slug, :kind, :status])
     |> validate_inclusion(:kind, @kinds)
     |> validate_inclusion(:status, @statuses)
@@ -151,14 +149,6 @@ defmodule Web.Audio.Log do
   @spec keyword_list(t :: %__MODULE__{}) :: [String.t()]
   def keyword_list(%__MODULE__{keywords: keywords}), do: Keywords.parse(keywords)
 
-  @doc """
-  Star Trek-style stardate for display, derived from the recording date.
-  """
-  @spec stardate(Date.t()) :: String.t()
-  def stardate(%Date{} = date) do
-    "4#{date.year - 2000}.#{trunc(Date.day_of_year(date) * 2.7)}"
-  end
-
   defp normalize_keywords(changeset) do
     case fetch_change(changeset, :keywords) do
       {:ok, raw} -> put_change(changeset, :keywords, raw |> Keywords.parse() |> Keywords.format())
@@ -176,13 +166,6 @@ defmodule Web.Audio.Log do
 
       _ ->
         changeset
-    end
-  end
-
-  defp put_stardate(changeset) do
-    case get_field(changeset, :recorded_on) do
-      %Date{} = date -> put_change(changeset, :stardate, stardate(date))
-      _ -> changeset
     end
   end
 end

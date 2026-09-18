@@ -137,6 +137,20 @@
   opacity: 0.55;
 }
 
+/* The right-hand end of the rail: a real reading, in the panel's own
+   voice. The stardate that used to sit here had no style of its own at
+   all, so it rendered in the page's serif — a caption pasted onto an
+   instrument. */
+.rail-readout {
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-dodger);
+  white-space: nowrap;
+}
+
 /* ── Masthead ─────────────────────────────────────────── */
 .console-head {
   padding: 2rem 1.75rem 1.25rem;
@@ -390,12 +404,22 @@
 .log-plate {
   position: relative;
   display: block;
-  margin: 0 1.75rem;
+  /* The housing eats 7px on each side, so the screen still lines up with
+     the panels above and below it. */
+  margin: 0 calc(1.75rem + 7px);
   aspect-ratio: var(--plate-ratio, 16 / 9);
   overflow: hidden;
   background: var(--paper-deep);
   border: 1px solid var(--rule-strong);
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
+  /* Mounted, not printed on: a raised lip of panel metal around the glass,
+     a hairline where the two meet, and the screen's own vignette inside.
+     Drawn with spread shadows rather than a wrapper element, so it costs no
+     markup and never lands on the picture itself. */
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.7),
+    0 0 0 6px var(--paper-raised),
+    0 0 0 7px var(--rule-strong),
+    0 12px 28px rgba(0, 0, 0, 0.55);
 }
 
 /* An audio entry's plate is a waveform, which wants to be a band
@@ -419,15 +443,6 @@
   right: 0;
 }
 
-/* Muted at rest, so a run of frames reads as one calm page; the
-   colour comes back on the one being pointed at, and stays back
-   once it is playing. */
-.log-poster {
-  filter: saturate(0.4) brightness(0.85);
-  transition: filter 0.3s ease;
-}
-
-.log-plate:hover .log-poster { filter: saturate(0.75) brightness(0.95); }
 
 .log-poster--none {
   display: flex;
@@ -473,25 +488,40 @@
   cursor: pointer;
 }
 
+/* A key on the panel. The triangle used to be punched *out* of this block
+   with clip-path, which meant it showed whatever was behind it — over bright
+   footage the whole control read as a dark smudge. It is a solid mark on a
+   dark key now, so it holds against any frame. */
 .log-play-mark {
-  display: block;
-  width: 64px;
-  height: 64px;
-  background: rgba(13, 17, 20, 0.72);
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  background: rgba(5, 7, 8, 0.78);
   border: 1px solid var(--color-orange);
-  box-shadow: 0 0 24px rgba(255, 158, 61, 0.28);
+  box-shadow:
+    0 0 24px rgba(255, 158, 61, 0.28),
+    inset 0 1px 0 rgba(255, 158, 61, 0.25);
   transition: background 0.15s ease, box-shadow 0.15s ease;
-  /* The triangle is drawn rather than set, so it needs no icon font. */
-  clip-path: polygon(
-    0 0, 100% 0, 100% 100%, 0 100%, 0 0,
-    38% 30%, 38% 70%, 68% 50%, 38% 30%
-  );
+}
+
+.log-play-mark::after {
+  content: '';
+  width: 0;
+  height: 0;
+  /* A triangle sits left of its own centre; nudge it back optically. */
+  margin-left: 5px;
+  border-left: 21px solid var(--color-orange);
+  border-top: 13px solid transparent;
+  border-bottom: 13px solid transparent;
 }
 
 .log-play:hover .log-play-mark,
 .log-play:focus-visible .log-play-mark {
-  background: rgba(255, 158, 61, 0.22);
-  box-shadow: 0 0 34px rgba(255, 158, 61, 0.45);
+  background: rgba(255, 158, 61, 0.18);
+  box-shadow:
+    0 0 34px rgba(255, 158, 61, 0.45),
+    inset 0 1px 0 rgba(255, 158, 61, 0.4);
 }
 
 /* ── Figures ──────────────────────────────────────────────
@@ -599,13 +629,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.3) brightness(0.8);
-  transition: filter 0.25s ease;
-}
-
-.log-card:hover .log-card-plate img,
-.log-card:focus-visible .log-card-plate img {
-  filter: none;
 }
 
 .log-card-blank {
@@ -747,9 +770,10 @@
   .log-back { padding-left: 1rem; padding-right: 1rem; }
 
   .status-strip,
-  .log-plate,
   .log-figures,
   .log-totals { margin-left: 1rem; margin-right: 1rem; }
+
+  .log-plate { margin-left: calc(1rem + 7px); margin-right: calc(1rem + 7px); }
 
   .log-figures {
     grid-auto-flow: row;

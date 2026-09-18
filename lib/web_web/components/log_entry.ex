@@ -5,7 +5,7 @@ defmodule WebWeb.LogEntry do
   In the manner of `WebWeb.Activity` for the rides archive: a kicker line, a
   figures panel, a plate for the media, and a card for the feed. Everything
   reads in the console's vocabulary — an entry is titled by its date, marked
-  by its ordinal when it shares a day, and stamped with a stardate.
+  by its ordinal when it shares a day.
 
   The plate is the load-bearing part. Nothing about a video is fetched until
   someone presses play: the `<video>` carries `preload="none"` and a poster,
@@ -24,7 +24,7 @@ defmodule WebWeb.LogEntry do
 
   attr :log, :map, required: true
 
-  @doc "The kicker above a plate: what it is, when it was made, and its stardate."
+  @doc "The kicker above a plate: what it is and when it was made."
   def meta(assigns) do
     ~H"""
     <p class={["log-meta", "log--#{@log.kind}"]}>
@@ -64,8 +64,7 @@ defmodule WebWeb.LogEntry do
     [
       {"Recorded", Calendar.strftime(log.recorded_on, "%-d %b %Y")},
       {"Length", format_duration(log.duration) || "—"},
-      {"Witnessed", to_string(plays)},
-      {"Stardate", log.stardate || "—"}
+      {"Witnessed", to_string(plays)}
     ]
   end
 

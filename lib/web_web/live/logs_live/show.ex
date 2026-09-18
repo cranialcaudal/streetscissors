@@ -68,7 +68,7 @@ defmodule WebWeb.LogsLive.Show do
         <div class="console-rail">
           <span class="rail-tag">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
-          <span class="rail-stardate">Stardate {@log.stardate}</span>
+          <span class="rail-readout">Log {@log.slug}</span>
         </div>
 
         <header class="console-head">

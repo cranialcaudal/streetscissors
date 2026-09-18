@@ -140,8 +140,8 @@ defmodule WebWeb.LogsLive.Index do
         <div class="console-rail">
           <span class="rail-tag">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
-          <span :if={@featured} class="rail-stardate">
-            Stardate {@featured.stardate}
+          <span :if={@visible_logs != []} class="rail-readout">
+            {length(@visible_logs)} on file
           </span>
         </div>
 
