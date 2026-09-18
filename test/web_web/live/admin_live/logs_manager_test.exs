@@ -37,6 +37,36 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       assert has_element?(view, ~s([data-role="review"][hidden]))
     end
 
+    test "carries every element the recorder hook reaches for", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      # The hook works entirely through these data-roles. The recorder this
+      # replaced broke precisely this way — it reached for ids that had moved,
+      # found nothing, and silently did nothing at all.
+      for role <- ~w(record record-label placeholder placeholder-title tally elapsed meter
+                     cameras mics camera-field device-error review trim-in trim-out
+                     poster-at in-label out-label poster-label retake save-draft publish) do
+        assert has_element?(view, ~s([data-role="#{role}"])),
+               "the theater is missing [data-role=#{role}], which the recorder hook needs"
+      end
+    end
+
+    test "the camera picker and the error line are their own elements", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      # The picker is hidden in audio mode by the hook, so it needs a wrapper
+      # of its own rather than the hook hiding the <select> and orphaning its
+      # caption.
+      assert has_element?(view, ~s([data-role="camera-field"] select[data-role="cameras"]))
+
+      # A device failure is said here. It used to be written into the
+      # placeholder with textContent, which replaced its children with a bare
+      # string and lost the drop hint for good.
+      assert has_element?(view, ~s([data-role="device-error"][hidden]))
+      assert has_element?(view, ~s([data-role="placeholder"] [data-role="placeholder-title"]))
+      assert has_element?(view, ~s([data-role="placeholder"] [data-role="placeholder-hint"]))
+    end
+
     test "the file input sits inside the form, which is what makes uploads work",
          %{conn: conn} do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")

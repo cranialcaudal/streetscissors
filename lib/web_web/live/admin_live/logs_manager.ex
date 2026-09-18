@@ -303,8 +303,10 @@ defmodule WebWeb.AdminLive.LogsManager do
           <video class="theater-video" playsinline muted></video>
 
           <div class="theater-placeholder" data-role="placeholder">
-            <p class="theater-placeholder-title">Camera off</p>
-            <p class="cms-hint">Drop a video or audio file here, or arm the camera below.</p>
+            <p class="theater-placeholder-title" data-role="placeholder-title">Camera off</p>
+            <p class="cms-hint" data-role="placeholder-hint">
+              Drop a video or audio file here, or arm the camera below.
+            </p>
           </div>
 
           <div class="theater-tally" data-role="tally" hidden>
@@ -327,7 +329,7 @@ defmodule WebWeb.AdminLive.LogsManager do
           </button>
 
           <div class="theater-devices">
-            <label class="theater-device">
+            <label class="theater-device" data-role="camera-field">
               <span>Camera</span>
               <select data-role="cameras"></select>
             </label>
@@ -336,6 +338,8 @@ defmodule WebWeb.AdminLive.LogsManager do
               <select data-role="mics"></select>
             </label>
           </div>
+
+          <p class="cms-error theater-device-error" data-role="device-error" hidden></p>
         </div>
 
         <%!-- Review. Trim and poster are numbers, applied by ffmpeg on the
@@ -411,9 +415,24 @@ defmodule WebWeb.AdminLive.LogsManager do
               this.video = this.el.querySelector(".theater-video")
               this.meter = this.$("meter")
 
+              // The chosen devices are remembered here rather than read off
+              // the <select> on demand: re-enumerating rebuilds the options
+              // (labels only exist once permission has been granted), and a
+              // rebuilt <select> has forgotten what was picked.
+              this.selected = { videoinput: null, audioinput: null }
+
               this.el.querySelectorAll("[data-mode]").forEach((button) => {
                 button.addEventListener("click", () => this.setMode(button.dataset.mode))
               })
+
+              this.el.querySelectorAll('[data-role="cameras"], [data-role="mics"]')
+                .forEach((select) => {
+                  select.addEventListener("change", () => this.pickDevice(select))
+                })
+
+              // A device appearing or going away should update the list.
+              this.onDeviceChange = () => this.listDevices()
+              navigator.mediaDevices?.addEventListener?.("devicechange", this.onDeviceChange)
 
               this.$("record").addEventListener("click", () => this.toggleRecord())
               this.$("retake").addEventListener("click", () => this.reset())
@@ -423,39 +442,103 @@ defmodule WebWeb.AdminLive.LogsManager do
               this.el.querySelectorAll('[data-role^="trim-"], [data-role="poster-at"]')
                 .forEach((input) => input.addEventListener("input", () => this.syncRanges()))
 
+              this.syncChrome()
               this.listDevices()
             },
 
-            setMode(mode) {
-              if (this.recorder) return
-              this.mode = mode
+            // Every label and affordance that depends on state is set in one
+            // place, so they cannot drift apart as the state moves.
+            syncChrome() {
+              this.$("record-label").textContent =
+                this.recorder ? "Stop" : this.stream ? "Record" : this.mode === "audio" ? "Arm microphone" : "Arm camera"
+
+              const camera = this.$("camera-field")
+              if (camera) camera.hidden = this.mode !== "video"
+
+              const title = this.$("placeholder-title")
+              if (title) {
+                title.textContent =
+                  this.mode === "audio" ? (this.stream ? "Microphone live" : "Microphone off") : "Camera off"
+              }
+
               this.el.querySelectorAll("[data-mode]").forEach((b) =>
-                b.classList.toggle("is-active", b.dataset.mode === mode))
+                b.classList.toggle("is-active", b.dataset.mode === this.mode))
+            },
+
+            setMode(mode) {
+              if (this.recorder || this.mode === mode) return
+              this.mode = mode
               this.disarm()
+            },
+
+            // Picking a device that does nothing until you disarm is what
+            // makes a picker feel broken, so reopen the stream on the spot.
+            async pickDevice(select) {
+              const kind = select.dataset.role === "cameras" ? "videoinput" : "audioinput"
+              this.selected[kind] = select.value || null
+
+              if (this.stream && !this.recorder) {
+                this.disarm()
+                try {
+                  await this.arm()
+                } catch (error) {
+                  this.showDeviceError(error)
+                }
+              }
+            },
+
+            showDeviceError(problem) {
+              const box = this.$("device-error")
+              if (!box) return
+              const message =
+                problem instanceof Error ? `Could not open that device — ${problem.message}` : problem
+              box.hidden = !message
+              box.textContent = message || ""
             },
 
             async listDevices() {
               if (!navigator.mediaDevices?.enumerateDevices) return
-              // Labels are blank until permission is granted once; the picker
-              // is still usable, it just reads "Camera 1" until then.
+
               const devices = await navigator.mediaDevices.enumerateDevices()
+
               const fill = (select, kind, noun) => {
                 if (!select) return
-                select.innerHTML = ""
-                devices.filter((d) => d.kind === kind).forEach((d, i) => {
-                  const option = document.createElement("option")
-                  option.value = d.deviceId
-                  option.textContent = d.label || `${noun} ${i + 1}`
-                  select.appendChild(option)
-                })
+                const options = devices.filter((d) => d.kind === kind)
+
+                // Labels are blank until permission has been granted once, so
+                // this runs again after arming — and rebuilding the options
+                // resets the <select>. Only rebuild when the set has actually
+                // changed, and put the choice back either way.
+                const signature = options.map((d) => `${d.deviceId}:${d.label}`).join("|")
+                if (select.dataset.signature !== signature) {
+                  select.dataset.signature = signature
+                  select.innerHTML = ""
+                  options.forEach((d, i) => {
+                    const option = document.createElement("option")
+                    option.value = d.deviceId
+                    option.textContent = d.label || `${noun} ${i + 1}`
+                    select.appendChild(option)
+                  })
+                }
+
+                const wanted = this.selected[kind]
+                if (wanted && options.some((d) => d.deviceId === wanted)) select.value = wanted
+                this.selected[kind] = select.value || null
               }
+
               fill(this.$("cameras"), "videoinput", "Camera")
               fill(this.$("mics"), "audioinput", "Microphone")
+              this.syncChrome()
             },
 
             constraints() {
-              const camera = this.$("cameras")?.value
-              const mic = this.$("mics")?.value
+              const camera = this.selected.videoinput
+              const mic = this.selected.audioinput
+
+              // `exact`, and it has to be: Chrome treats an `ideal` deviceId
+              // as a suggestion and hands back the default anyway, so the
+              // picker silently selects nothing. The cost is that a device
+              // which has gone away throws, which `arm/0` catches.
               const audio = mic ? { deviceId: { exact: mic } } : true
 
               if (this.mode === "audio") return { audio, video: false }
@@ -474,17 +557,58 @@ defmodule WebWeb.AdminLive.LogsManager do
             },
 
             async arm() {
-              this.stream = await navigator.mediaDevices.getUserMedia(this.constraints())
+              this.showDeviceError(null)
+
+              try {
+                this.stream = await navigator.mediaDevices.getUserMedia(this.constraints())
+              } catch (error) {
+                // A remembered device that has since been unplugged fails the
+                // `exact` constraint. Opening the default is better than
+                // opening nothing, as long as it is said out loud.
+                if (!["OverconstrainedError", "NotFoundError"].includes(error.name)) throw error
+                this.selected = { videoinput: null, audioinput: null }
+                this.stream = await navigator.mediaDevices.getUserMedia(this.constraints())
+                this.showDeviceError("That device is no longer available — using the default.")
+              }
+
               if (this.mode === "video") {
                 this.video.srcObject = this.stream
                 this.video.muted = true
                 await this.video.play().catch(() => {})
               }
+
               this.el.classList.add("is-armed")
-              this.$("placeholder").hidden = true
+              // Audio has nothing to show, so the plate keeps its caption and
+              // the level meter does the talking.
+              this.$("placeholder").hidden = this.mode === "video"
               this.startMeter()
-              this.listDevices()
-              this.$("record-label").textContent = "Record"
+              this.syncChrome()
+
+              // Device labels only exist once permission has been granted, so
+              // the list is worth re-reading now that it has been.
+              await this.listDevices()
+              this.syncSelectionFromStream()
+            },
+
+            // Show what is actually open rather than what was asked for. A
+            // constraint can be met by a different device than the one
+            // requested, and a picker that disagrees with the microphone you
+            // are actually recording through is worse than no picker.
+            syncSelectionFromStream() {
+              if (!this.stream) return
+
+              const tracks = {
+                videoinput: this.stream.getVideoTracks()[0],
+                audioinput: this.stream.getAudioTracks()[0]
+              }
+
+              for (const [kind, track] of Object.entries(tracks)) {
+                const id = track?.getSettings?.().deviceId
+                if (!id) continue
+                this.selected[kind] = id
+                const select = this.$(kind === "videoinput" ? "cameras" : "mics")
+                if (select && [...select.options].some((o) => o.value === id)) select.value = id
+              }
             },
 
             disarm() {
@@ -495,7 +619,7 @@ defmodule WebWeb.AdminLive.LogsManager do
               this.el.classList.remove("is-armed")
               const placeholder = this.$("placeholder")
               if (placeholder) placeholder.hidden = false
-              this.$("record-label").textContent = "Arm camera"
+              this.syncChrome()
             },
 
             async toggleRecord() {
@@ -503,7 +627,10 @@ defmodule WebWeb.AdminLive.LogsManager do
                 try {
                   await this.arm()
                 } catch (error) {
-                  this.$("placeholder").textContent = `Could not open the camera: ${error.message}`
+                  // Into its own element. Writing this into the placeholder
+                  // replaced its children with a bare string, and the drop
+                  // hint never came back.
+                  this.showDeviceError(error)
                 }
                 return
               }
@@ -534,7 +661,7 @@ defmodule WebWeb.AdminLive.LogsManager do
               this.startedAt = Date.now()
               this.el.classList.add("is-recording")
               this.$("tally").hidden = false
-              this.$("record-label").textContent = "Stop"
+              this.syncChrome()
               this.timer = setInterval(() => {
                 this.$("elapsed").textContent = fmt((Date.now() - this.startedAt) / 1000)
               }, 250)
@@ -563,7 +690,7 @@ defmodule WebWeb.AdminLive.LogsManager do
 
               this.$("placeholder").hidden = this.mode === "video"
               this.$("review").hidden = false
-              this.$("record-label").textContent = "Arm camera"
+              this.syncChrome()
               this.syncRanges()
             },
 
@@ -623,6 +750,8 @@ defmodule WebWeb.AdminLive.LogsManager do
               this.$("review").hidden = true
               const placeholder = this.$("placeholder")
               if (placeholder) placeholder.hidden = false
+              this.showDeviceError(null)
+              this.syncChrome()
             },
 
             startMeter() {
@@ -659,6 +788,7 @@ defmodule WebWeb.AdminLive.LogsManager do
             },
 
             destroyed() {
+              navigator.mediaDevices?.removeEventListener?.("devicechange", this.onDeviceChange)
               this.stop()
               this.disarm()
               if (this.blobUrl) URL.revokeObjectURL(this.blobUrl)

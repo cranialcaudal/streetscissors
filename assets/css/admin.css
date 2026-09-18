@@ -54,3 +54,10 @@
   background: var(--color-red) !important;
   color: var(--paper) !important;
 }
+
+/* The captain's logs booth says device failures here rather than writing over
+   the plate's own caption. */
+.theater-device-error {
+  width: 100%;
+  margin-top: 0.75rem;
+}
