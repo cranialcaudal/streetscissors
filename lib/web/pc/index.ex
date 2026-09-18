@@ -15,7 +15,7 @@ defmodule Web.Pc.Index do
 
     * `Web.Negatives.list_contact_sheets/2` and `list_frames/1`
     * `Web.Blog.list_posts/0`
-    * `Web.Audio.list_published_logs/0`
+    * `Web.Audio.list_ready_logs/0`
   """
 
   @type kind :: :sheet | :frame | :post | :log
@@ -43,7 +43,7 @@ defmodule Web.Pc.Index do
     sheet_entries = Enum.map(sheets, &sheet_entry/1)
     frame_entries = Enum.flat_map(sheets, &frame_entries/1)
     post_entries = safe(fn -> Enum.map(Web.Blog.list_posts(), &post_entry/1) end, [])
-    log_entries = safe(fn -> Enum.map(Web.Audio.list_published_logs(), &log_entry/1) end, [])
+    log_entries = safe(fn -> Enum.map(Web.Audio.list_ready_logs(), &log_entry/1) end, [])
 
     sheet_entries ++ frame_entries ++ post_entries ++ log_entries
   end
@@ -196,14 +196,19 @@ defmodule Web.Pc.Index do
     %{
       kind: :log,
       name: log.slug,
-      file: "#{log.slug}.mp3",
+      file: log_file(log),
       dir: ["LOGS"],
       id: %{slug: log.slug},
-      label: "#{log.title} · #{log.recorded_on}",
-      media_url: log.file_path,
-      haystack: [log.slug, log.title | Web.Audio.Log.keyword_list(log)]
+      label: "#{Web.Audio.Log.title(log)} · #{log.recorded_on}",
+      media_url: Web.Audio.Log.media_url(log),
+      haystack: [log.slug, Web.Audio.Log.title(log) | Web.Audio.Log.keyword_list(log)]
     }
   end
+
+  # The terminal lists a file per entry; a video log is an .MP4 there even
+  # though the site plays it as HLS, because "2026-09-18.M3U8" would mean
+  # nothing to anyone reading a directory listing.
+  defp log_file(log), do: "#{log.slug}.#{if Web.Audio.Log.video?(log), do: "mp4", else: "m4a"}"
 
   # ── Matching ──────────────────────────────────────────────────────
 
@@ -247,7 +252,7 @@ defmodule Web.Pc.Index do
 
   defp first_hit(%{kind: :log, id: %{slug: slug}} = entry, q) do
     description =
-      case Web.Audio.get_published_log_by_slug(slug) do
+      case Web.Audio.get_ready_log_by_slug(slug) do
         {:ok, log} -> log.description || ""
         _ -> ""
       end

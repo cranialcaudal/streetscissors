@@ -24,25 +24,14 @@ import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 import { hooks as colocatedHooks } from "phoenix-colocated/web"
 import topbar from "../vendor/topbar"
-import { initAudioPlayer } from "./audio_player"
 import { GymRoutine } from "./gym_routine"
-import { AudioRecorder } from "./audio_recorder"
 import { MarkdownEditor } from "./markdown_editor"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
 import { BiometricCharts } from "./biometric_charts"
 import { initEmissionsControls } from "./emissions_controls"
 
-document.addEventListener("DOMContentLoaded", () => {
-  initAudioPlayer()
-  initEmissionsControls()
-})
-window.addEventListener("phx:page-loading-stop", () => {
-  initAudioPlayer()
-  initEmissionsControls()
-})
-
-import { AudioPlayTracker } from "./audio_play_tracker"
-import { AudioDuration } from "./audio_duration"
+document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
+window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
 
 const DispatchOverlay = {
   mounted() {
@@ -56,7 +45,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, AudioRecorder, AudioPlayTracker, AudioDuration, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, BiometricCharts },
+  hooks: { ...colocatedHooks, GymRoutine, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, BiometricCharts },
 })
 
 // Show progress bar on live navigation and form submits

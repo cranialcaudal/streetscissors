@@ -1,15 +1,20 @@
 defmodule WebWeb.AdminLive.LogsManagerTest do
   use WebWeb.ConnCase
+
   import Phoenix.LiveViewTest
   import Web.AudioFixtures
 
   alias Web.Audio
+  alias Web.Audio.Log
+  alias Web.Uploads
 
   defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
 
-  defp attach_audio(view, name \\ "ferry notes.mp3") do
-    file_input(view, "#log-form", :audio, [
-      %{name: name, content: File.read!(audio_upload_fixture()), type: "audio/mpeg"}
+  # Stands in for the recorder handing LiveView a blob, or for a file dropped
+  # onto the theater — both arrive through the same upload.
+  defp attach(view, name \\ "take.webm", type \\ "video/webm") do
+    file_input(view, "#log-form", :media, [
+      %{name: name, content: File.read!(media_upload_fixture()), type: type}
     ])
   end
 
@@ -17,131 +22,229 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     assert {:error, {:redirect, %{to: "/"}}} = live(conn, "/admin/logs")
   end
 
-  test "a log is described first, then the file is attached to that description", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+  describe "the theater" do
+    test "renders a screen, a record control and both modes", %{conn: conn} do
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
 
-    attach_audio(view) |> render_upload("ferry notes.mp3")
+      assert html =~ ~s(class="theater-screen")
+      assert html =~ ~s(data-role="record")
+      assert html =~ ~s(data-mode="video")
+      assert html =~ ~s(data-mode="audio")
+    end
 
-    # The AudioDuration hook fills the hidden duration input from the file's
-    # own metadata and fires a change; that is what puts a real length on a log.
-    render_change(view, "validate", %{
-      "log" => %{
-        "title" => "Ferry To Bowling Green",
-        "recorded_on" => "2026-03-15",
-        "keywords" => "Ferry, Bowling Green",
-        "description" => "Notes from the water.",
-        "duration" => "252",
-        "published" => "true"
-      }
-    })
+    test "the review controls start hidden — there is nothing to review yet", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      assert has_element?(view, ~s([data-role="review"][hidden]))
+    end
 
-    view |> form("#log-form") |> render_submit()
+    test "the file input sits inside the form, which is what makes uploads work",
+         %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
 
-    assert [log] = Audio.list_logs()
-    assert log.title == "Ferry To Bowling Green"
-    assert log.slug == "ferry-to-bowling-green"
-    assert log.keywords == "ferry, bowling-green"
-    assert log.recorded_on == ~D[2026-03-15]
-    assert log.duration == 252
-    assert log.published
-    assert log.file_path =~ ~r"^/uploads/logs/ferry-notes-\d+\.mp3$"
-
-    # The stored file really is on disk where the public page will look for it
-    on_disk = Path.join(Web.Uploads.root(), String.replace_prefix(log.file_path, "/uploads/", ""))
-    assert File.exists?(on_disk)
-
-    Audio.delete_log(log)
+      # Not decoration: `this.upload/2` puts the file on this input and relies
+      # on the form's phx-change to allocate an entry. Outside a form it is
+      # silently inert.
+      assert has_element?(view, ~s(#log-form input[type="file"][name="media"]))
+    end
   end
 
-  test "submitting without a file saves nothing and says so", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+  describe "ingest" do
+    test "an arriving recording is written down immediately, queued, and not yet public",
+         %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
 
-    html =
-      view
-      |> form("#log-form", %{
-        "log" => %{"title" => "No File", "recorded_on" => "2026-03-15", "keywords" => "x"}
+      render_upload(attach(view), "take.webm")
+
+      assert [log] = Audio.list_logs()
+      assert log.status == "pending"
+      assert log.kind == "video"
+      assert log.source_path =~ "staging/"
+      assert File.regular?(log.source_path)
+      # Pending, so it is not on the public page whatever its published flag.
+      assert Audio.list_ready_logs() == []
+    end
+
+    test "it is titled and addressed by the day it arrived", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      render_upload(attach(view), "take.webm")
+
+      [log] = Audio.list_logs()
+      today = Web.Clock.local_today()
+
+      assert log.recorded_on == today
+      assert log.slug == Date.to_iso8601(today)
+      assert Log.title(log) == Calendar.strftime(today, "%A, %-d %B %Y")
+    end
+
+    test "a second recording the same day gets the next address", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      render_upload(attach(view, "one.webm"), "one.webm")
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      render_upload(attach(view, "two.webm"), "two.webm")
+
+      today = Date.to_iso8601(Web.Clock.local_today())
+      assert Enum.map(Audio.list_logs(), & &1.slug) |> Enum.sort() == [today, "#{today}-2"]
+    end
+
+    test "the recorder's trim and poster survive the change event the upload triggers",
+         %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      # What the hook pushes before it sends a single byte.
+      render_hook(view, "stage", %{
+        "trim_start_ms" => 800,
+        "trim_duration_ms" => 2401,
+        "poster_at_ms" => 1200,
+        "published" => "true"
       })
+
+      render_upload(attach(view), "take.webm")
+
+      assert [log] = Audio.list_logs()
+      assert log.trim_start_ms == 800
+      assert log.trim_duration_ms == 2401
+      assert log.poster_at_ms == 1200
+      assert log.published
+    end
+
+    test "an audio file dropped in is filed as audio, whatever the form says", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      render_upload(attach(view, "voice.m4a", "audio/mp4"), "voice.m4a")
+
+      assert [%Log{kind: "audio"}] = Audio.list_logs()
+    end
+
+    test "metadata typed before the take travels with it", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      view
+      |> form("#log-form", log: %{caption: "Under way", keywords: "Ferry, Bowling Green"})
+      |> render_change()
+
+      render_upload(attach(view), "take.webm")
+
+      assert [log] = Audio.list_logs()
+      assert log.caption == "Under way"
+      assert log.keywords == "ferry, bowling-green"
+    end
+  end
+
+  describe "the archive" do
+    test "shows what each entry is doing", %{conn: conn} do
+      log_fixture(recorded_on: ~D[2026-09-18], status: "ready")
+
+      log_fixture(
+        recorded_on: ~D[2026-09-17],
+        status: "failed",
+        transcode_error: "ffmpeg exited 1"
+      )
+
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
+
+      assert html =~ "Ready"
+      assert html =~ "Failed"
+      assert html =~ "ffmpeg exited 1"
+    end
+
+    test "flags a finished entry with no keywords", %{conn: conn} do
+      log_fixture(status: "ready", keywords: nil)
+
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
+
+      assert html =~ "No keywords"
+    end
+
+    test "publishing is a separate decision that can be made while it encodes", %{conn: conn} do
+      log = log_fixture(published: false)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      view
+      |> element(~s(button[phx-click="toggle_published"][phx-value-id="#{log.id}"]))
+      |> render_click()
+
+      assert Audio.get_log!(log.id).published
+    end
+
+    test "editing changes the metadata without touching the media", %{conn: conn} do
+      log = log_fixture(media_dir: "2026-09-18-abc12345", caption: "First pass")
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      view |> element(~s(button[phx-click="edit"][phx-value-id="#{log.id}"])) |> render_click()
+
+      view
+      |> form("#log-form", log: %{caption: "Second pass"})
       |> render_submit()
 
-    assert html =~ "Choose an audio file to upload."
-    assert Audio.list_logs() == []
+      updated = Audio.get_log!(log.id)
+      assert updated.caption == "Second pass"
+      assert updated.media_dir == "2026-09-18-abc12345"
+    end
+
+    test "deleting takes the media directory with it", %{conn: conn} do
+      dir = Uploads.new_media_dir("2026-09-18")
+      Uploads.create_entry_dir!(dir)
+      File.write!(Path.join(Uploads.entry_dir!(dir), "poster.jpg"), "jpeg")
+      log = log_fixture(media_dir: dir)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      view |> element(~s(button[phx-click="delete"][phx-value-id="#{log.id}"])) |> render_click()
+
+      assert Audio.list_logs() == []
+      refute File.dir?(Uploads.entry_dir!(dir))
+    end
+
+    test "a failed entry can be re-queued while its source is still on disk", %{conn: conn} do
+      source = Uploads.stage_upload!(media_upload_fixture(), "take.webm")
+      log = log_fixture(status: "failed", source_path: source)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      html =
+        view |> element(~s(button[phx-click="retry"][phx-value-id="#{log.id}"])) |> render_click()
+
+      assert html =~ "Re-queued"
+      Uploads.discard_staged(source)
+    end
+
+    test "a failed entry whose source is gone says so rather than silently doing nothing",
+         %{conn: conn} do
+      log = log_fixture(status: "failed", source_path: nil)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+
+      html =
+        view |> element(~s(button[phx-click="retry"][phx-value-id="#{log.id}"])) |> render_click()
+
+      assert html =~ "has to be re-recorded"
+    end
   end
 
-  test "an invalid form leaves nothing on disk", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+  describe "transcode progress" do
+    test "a progress broadcast reaches the page", %{conn: conn} do
+      log = log_fixture(status: "processing")
 
-    before = uploaded_files()
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      send(view.pid, {:transcode_progress, log.id, 42})
 
-    attach_audio(view) |> render_upload("ferry notes.mp3")
+      assert render(view) =~ "42%"
+    end
 
-    # No title — the changeset is checked before the file is copied into place
-    view
-    |> form("#log-form", %{"log" => %{"title" => "", "recorded_on" => "2026-03-15"}})
-    |> render_submit()
+    test "finishing clears the bar and reloads the row", %{conn: conn} do
+      log = log_fixture(status: "processing")
 
-    assert Audio.list_logs() == []
-    assert uploaded_files() == before
-  end
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      send(view.pid, {:transcode_progress, log.id, 42})
+      assert render(view) =~ "42%"
 
-  test "a log can be edited without re-uploading its recording", %{conn: conn} do
-    log = log_fixture(title: "Original Title", keywords: "old")
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, _} = Audio.mark_ready(log, %{media_dir: "done-12345678"})
+      send(view.pid, {:transcode_done, log.id, :ready})
 
-    view |> element("button[phx-click=edit][phx-value-id='#{log.id}']") |> render_click()
-
-    view
-    |> form("#log-form", %{
-      "log" => %{
-        "title" => "Revised Title",
-        "recorded_on" => Date.to_iso8601(log.recorded_on),
-        "keywords" => "ferry, new",
-        "published" => "true"
-      }
-    })
-    |> render_submit()
-
-    updated = Audio.get_log!(log.id)
-    assert updated.title == "Revised Title"
-    assert updated.keywords == "ferry, new"
-    # The recording, and the address it was published at, both survive the edit
-    assert updated.file_path == log.file_path
-    assert updated.slug == log.slug
-  end
-
-  test "publish state can be toggled from the archive", %{conn: conn} do
-    log = log_fixture(title: "Toggle Me", published: true)
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
-
-    view
-    |> element("button[phx-click=toggle_published][phx-value-id='#{log.id}']")
-    |> render_click()
-
-    refute Audio.get_log!(log.id).published
-  end
-
-  test "the archive flags a log that cannot be filtered", %{conn: conn} do
-    log_fixture(title: "Unfiled", keywords: "")
-    {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
-
-    assert html =~ "no keywords"
-  end
-
-  test "deleting a log removes the row and its file", %{conn: conn} do
-    web_path = Audio.store_upload(audio_upload_fixture(), "doomed.mp3")
-    on_disk = Path.join(Web.Uploads.root(), String.replace_prefix(web_path, "/uploads/", ""))
-    log = log_fixture(title: "Doomed", file_path: web_path)
-
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
-    view |> element("button[phx-click=delete][phx-value-id='#{log.id}']") |> render_click()
-
-    assert Audio.list_logs() == []
-    refute File.exists?(on_disk)
-  end
-
-  defp uploaded_files do
-    case File.ls(Path.join(Web.Uploads.root(), "logs")) do
-      {:ok, files} -> Enum.sort(files)
-      _ -> []
+      html = render(view)
+      refute html =~ "42%"
+      assert html =~ "Ready"
     end
   end
 end

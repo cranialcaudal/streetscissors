@@ -55,7 +55,7 @@ defmodule WebWeb.SitemapController do
   end
 
   defp log_urls do
-    Enum.map(Web.Audio.list_published_logs(), fn log ->
+    Enum.map(Web.Audio.list_ready_logs(), fn log ->
       {"/logs/#{log.slug}", log.recorded_on, "monthly", "0.8"}
     end)
   end

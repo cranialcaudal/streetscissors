@@ -87,10 +87,12 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
 
 - **Supervision tree** (`lib/web/application.ex`): Repo, an `Ecto.Migrator` that auto-runs migrations
   **only in releases** (`RELEASE_NAME` set), PubSub, `Finch` (named `Swoosh.Finch`, for email over HTTP
-  e.g. Resend), a `Task.Supervisor`, and `Web.Scheduler` (**Quantum** cron jobs). **Oban caveat:** it is
-  configured (`config/config.exs`) and `workers/newsletter_sender.ex` is an `Oban.Worker`, but `{Oban, …}`
-  is **not** in the supervision tree — so jobs enqueued via `Oban.insert/1` are persisted yet never
-  executed. Adding `Oban` to `application.ex` children is required to actually process them.
+  e.g. Resend), a `Task.Supervisor`, **Oban** (supervised since the prod-hardening pass, on the SQLite
+  `Oban.Engines.Lite` engine — stock Oban emits Postgres-only SQL that `ecto_sqlite3` rejects), and
+  `Web.Scheduler` (**Quantum** cron jobs), plus `Web.Media.Transcoder`, which runs the captain's
+  logs' ffmpeg queue one job at a time. The transcoder deliberately does *not* use Oban: its retries
+  would re-encode an unreadable source over and over. It resumes instead from the `audio_logs` rows
+  left at `pending`/`processing`, which it requeues on boot.
 
 - **Feature areas** beyond the blog: fitness (`Web.Fitness` + `Web.Fitness.Vault` markdown regimen/wiki;
   the `/fitness` landing is the regimen accordion — today auto-expanded via `Web.Clock`, a
@@ -128,12 +130,47 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom
   captcha (`lib/web_web/captcha.ex`, not reCAPTCHA).
 
-- **Captain's logs** (`Web.Audio`) are the blog's sibling, not a feature of it: DB-backed spoken
-  pieces at `/logs` and `/logs/<slug>` (`WebWeb.LogsLive.Index`/`.Show`). `/audio` 301s to `/logs`.
-  Audio files are uploaded through `/admin/logs`, stored via `Web.Uploads` (default
-  `priv/static/uploads/logs/`, `:uploads_path`) and served by `WebWeb.Plugs.MediaServe`, which
-  supports HTTP Range so listeners can seek. **A blog post no longer picks up a sidecar `.mp3` by
-  filename** — that coupling is gone, along with the blog's sticky player.
+- **Captain's logs** (`Web.Audio`) are the blog's sibling, not a feature of it: DB-backed
+  recordings — **video or audio** — at `/logs` and `/logs/<slug>` (`WebWeb.LogsLive.Index`/`.Show`).
+  `/audio` 301s to `/logs`. **A blog post no longer picks up a sidecar `.mp3` by filename** — that
+  coupling is gone, along with the blog's sticky player.
+  - **An entry is titled by the day it was recorded**, not by a title anyone types: `Log.title/1`
+    renders `recorded_on`, the slug *is* the date (`2026-09-18`), and `seq` makes room for more
+    than one recording in a day (`2026-09-18-2`, marked "Entry 02"). `caption` is an optional
+    line, never the title. A stardate is still derived from the date — this section keeps its
+    NX-01 console look (`logs.css`, the `.nx01` token block; **under it `--ink` is *light***, so
+    anything meant to stay dark keys off `--paper-*`).
+  - **The page is shaped like the rides archive**: newest entry in view gets the theater
+    (`LogEntry.plate/1` + a figures panel), everything else is one chronological run of cards,
+    and the years are a footnote. **No card mounts a player** — opening `/logs` fetches posters
+    and nothing else, which a test pins.
+  - **Delivery is HLS.** `Web.Media.Transcoder` (supervised, concurrency 1, `nice`-d) drives
+    ffmpeg through a `Port`, parsing `-progress pipe:1` into throttled PubSub broadcasts on
+    `"log:<id>"`. Video becomes a two-rung fMP4 ladder (720p + 480p, keyframes forced onto a
+    shared grid so a player can switch); **audio skips HLS** for one progressive `.m4a` plus an
+    ffmpeg `showwavespic` waveform as its poster. `Web.Media.FFmpeg` owns every argument list and
+    resolves its binaries through `:ffmpeg_bin`/`:ffprobe_bin` so the suite runs against stubs in
+    `test/support/`. The transcoder decides an entry's real `kind` from the probe, so a file
+    uploaded as video with no video track is corrected to audio rather than pointing at a
+    playlist that was never written.
+  - Each entry owns a directory `logs/<slug>-<token>/` (`Web.Uploads.entry_dir/1`). The token is
+    for **cache safety**: a re-transcode writes a new directory and swaps the pointer, so nothing
+    at a path ever changes and the one-year `immutable` header is honest.
+  - **Caddy serves `/uploads/*` off disk** (both Caddyfiles), so no BEAM process is in the byte
+    path for a page of segments. It must set `Content-Type` for `.m3u8`/`.m4s` explicitly — Go's
+    MIME table knows neither, and hls.js refuses a playlist typed as octet-stream.
+    `WebWeb.Plugs.MediaServe` is the dev-time equivalent (Range, ETag, HEAD).
+  - `/admin/logs` is a **recording booth**: `getUserMedia` preview, one record button, then trim
+    in/out and a poster frame chosen over the take. Those are *numbers* — ffmpeg applies them
+    server-side, nothing is re-encoded in the browser. The blob reaches the server through
+    LiveView's chunked uploader (`this.upload/2`), and the `<.live_file_input>` **must stay inside
+    the form**: that upload works by putting the file on the input and relying on `phx-change` to
+    allocate an entry, and outside a form it fails silently on both sides. The recorder's choices
+    are staged over the socket into their own assign *before* any bytes move, because the change
+    event the upload triggers would otherwise rebuild the form and wipe them.
+  - Sources are **not kept** after a successful transcode, so a trim is a one-time decision;
+    caption, keywords, date, published and the poster stay editable. A failed entry keeps its
+    source and can be retried from the admin.
 
 - **Keywords** are the one filtering vocabulary shared by both sections, normalized through
   `Web.Keywords` (`parse/1`, `normalize/1`, `tally/1`, `slugify/1`) so `"New York"` and

@@ -3,15 +3,24 @@ defmodule WebWeb.LogsLive.Index do
 
   alias Web.Audio
   alias Web.Audio.Log
+  alias WebWeb.LogEntry
   import WebWeb.Navigation, only: [return_context: 1]
   import WebWeb.LogsLive.Format
 
   @moduledoc """
-  The captain's logs index: spoken work, decoupled from the blog.
+  The captain's logs index: recordings made under way, video and audio alike.
 
-  Sort and keyword filter both live in the URL (`?sort=witnessed&keyword=nyc`)
-  so any view of the archive can be linked to. "Witnessed" for a log means
-  plays, recorded by the `AudioPlayTracker` hook.
+  Shaped like the rides archive — the newest entry in view owns the first
+  screen, everything else is one chronological run beneath it, and the years
+  are a footnote. Sort and keyword filter both live in the URL
+  (`?sort=witnessed&keyword=nyc`) so any view of the archive can be linked to.
+  "Witnessed" for a log means plays.
+
+  One read in `mount/3`, filtering in `handle_params/3` against the list
+  already in memory, so a sort or filter click is a patch that costs no query.
+
+  **No card mounts a player.** Opening this page fetches posters and nothing
+  else; the media is only reached from an entry's own page.
   """
 
   def mount(params, _session, socket) do
@@ -22,9 +31,10 @@ defmodule WebWeb.LogsLive.Index do
      |> assign(:page_title, "Captain's Logs")
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
+     |> assign(:client_ip, client_ip(socket))
      |> assign(:play_counts, Audio.get_all_play_counts())
      |> assign(:keywords, Audio.list_keywords())
-     |> assign(:logs, Audio.list_published_logs())
+     |> assign(:logs, Audio.list_ready_logs())
      |> assign_total_plays()}
   end
 
@@ -46,7 +56,7 @@ defmodule WebWeb.LogsLive.Index do
         {:noreply, socket}
 
       log_id ->
-        Audio.record_play(log_id, client_ip(socket))
+        Audio.record_play(log_id, socket.assigns.client_ip)
 
         {:noreply,
          socket
@@ -72,6 +82,9 @@ defmodule WebWeb.LogsLive.Index do
     assign(socket, :total_plays, Enum.sum_by(logs, &Map.get(play_counts, &1.id, 0)))
   end
 
+  # Captured at mount and kept in assigns: connect_info is only readable while
+  # mounting, and reaching for it from handle_event/3 raises — which is what
+  # the first real play on this page would have done.
   defp client_ip(socket) do
     case get_connect_info(socket, :peer_data) do
       %{address: address} when is_tuple(address) -> address |> :inet.ntoa() |> to_string()
@@ -93,8 +106,9 @@ defmodule WebWeb.LogsLive.Index do
     end
   end
 
-  # list_published_logs/0 already returns newest recording first, so "recent"
-  # is the identity and only "witnessed" has to re-order.
+  # list_ready_logs/0 already returns newest recording first, so "recent" is
+  # the identity and only "witnessed" has to re-order. The featured entry is
+  # whatever leads the current view, so it follows the sort and the filter.
   defp assign_visible(socket) do
     %{logs: logs, play_counts: play_counts, sort: sort, keyword: keyword} = socket.assigns
 
@@ -108,130 +122,119 @@ defmodule WebWeb.LogsLive.Index do
         end
       end)
 
-    assign(socket, :visible_logs, visible)
+    socket
+    |> assign(:visible_logs, visible)
+    |> assign(:featured, List.first(visible))
+    # The featured entry keeps its place in the run below, so the count in the
+    # readout and the rows on the page never disagree.
+    |> assign(:years, Audio.yearly_totals(visible))
+    |> assign(:runtime, Audio.total_runtime(visible))
   end
+
+  defp plays(socket_play_counts, log), do: Map.get(socket_play_counts, log.id, 0)
 
   def render(assigns) do
     ~H"""
     <div class="logs-wrapper nx01">
-      <div class="console-frame">
+      <article class="console-frame">
         <div class="console-rail">
-          <span class="rail-tag">Audio Archive</span>
+          <span class="rail-tag">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
+          <span :if={@featured} class="rail-stardate">
+            Stardate {@featured.stardate}
+          </span>
         </div>
 
         <header class="console-head">
           <h1 class="logs-title">Captain's Logs</h1>
-          <p class="logs-bio">
-            Audio recordings, filed by keyword. Written work is in the <.link navigate={~p"/blog"}>blog</.link>.
-          </p>
+          <p class="logs-bio">Recorded under way</p>
         </header>
 
-        <div class="status-strip">
+        <dl class="status-strip">
           <div class="status-cell">
-            <span class="status-label">Recordings</span>
-            <span class="status-value">{length(@logs)}</span>
+            <dt>Entries</dt>
+            <dd>{length(@visible_logs)}</dd>
           </div>
           <div class="status-cell">
-            <span class="status-label">Plays</span>
-            <span class="status-value">{@total_plays}</span>
+            <dt>Runtime</dt>
+            <dd>{format_runtime(@runtime)}</dd>
           </div>
-        </div>
+          <div class="status-cell">
+            <dt>Witnessed</dt>
+            <dd>{@total_plays}</dd>
+          </div>
+        </dl>
 
-        <div class="console-bank">
+        <nav class="console-bank" aria-label="Sort">
           <span class="bank-label">Sort</span>
-          <div class="bank-buttons">
-            <.link
-              patch={logs_path("recent", @keyword)}
-              class={["console-btn", @sort == "recent" && "active"]}
-            >
-              Most Recent
-            </.link>
-            <.link
-              patch={logs_path("witnessed", @keyword)}
-              class={["console-btn", @sort == "witnessed" && "active"]}
-            >
-              Most Witnessed
-            </.link>
-          </div>
-        </div>
+          <.link
+            patch={logs_path("recent", @keyword)}
+            class={["console-btn", @sort == "recent" && "is-active"]}
+            aria-current={@sort == "recent" && "true"}
+          >
+            Most recent
+          </.link>
+          <.link
+            patch={logs_path("witnessed", @keyword)}
+            class={["console-btn", @sort == "witnessed" && "is-active"]}
+            aria-current={@sort == "witnessed" && "true"}
+          >
+            Most witnessed
+          </.link>
+        </nav>
 
-        <div :if={@keywords != []} class="console-bank">
+        <nav :if={@keywords != []} class="console-bank" aria-label="Filter by keyword">
           <span class="bank-label">Filter</span>
-          <div class="bank-buttons">
-            <.link
-              patch={logs_path(@sort, nil)}
-              class={["console-tab", is_nil(@keyword) && "active"]}
-            >
-              All
-            </.link>
-            <.link
-              :for={{keyword, count} <- @keywords}
-              patch={logs_path(@sort, keyword)}
-              class={["console-tab", @keyword == keyword && "active"]}
-            >
-              {keyword} <span class="tab-count">{count}</span>
-            </.link>
-          </div>
-        </div>
+          <.link
+            patch={logs_path(@sort, nil)}
+            class={["console-tab", is_nil(@keyword) && "is-active"]}
+            aria-current={is_nil(@keyword) && "true"}
+          >
+            All
+          </.link>
+          <.link
+            :for={{keyword, count} <- @keywords}
+            patch={logs_path(@sort, keyword)}
+            class={["console-tab", @keyword == keyword && "is-active"]}
+            aria-current={@keyword == keyword && "true"}
+          >
+            {keyword} <span class="tab-count">{count}</span>
+          </.link>
+        </nav>
 
-        <div class="logs-feed">
-          <article :for={log <- @visible_logs} class="log-card" id={"log-#{log.id}"}>
-            <div class="log-card-rail">
-              <span class="log-desig">{Calendar.strftime(log.recorded_on, "%B %-d, %Y")}</span>
-              <span class="log-rail-spacer"></span>
-              <span :if={format_duration(log.duration)}>{format_duration(log.duration)}</span>
-            </div>
+        <%!-- The theater: whatever leads the current view owns the first screen. --%>
+        <section :if={@featured} class="log-feature">
+          <LogEntry.meta log={@featured} />
+          <h2 class="log-feature-title">
+            <.link navigate={~p"/logs/#{@featured.slug}"}>{LogEntry.title(@featured)}</.link>
+          </h2>
+          <p :if={presence(@featured.caption)} class="log-feature-caption">
+            {@featured.caption}
+          </p>
+          <LogEntry.plate log={@featured} />
+          <LogEntry.figures log={@featured} plays={plays(@play_counts, @featured)} />
+        </section>
 
-            <div class="log-card-body">
-              <h2 class="log-card-title">
-                <.link navigate={~p"/logs/#{log.slug}"}>{log.title}</.link>
-              </h2>
+        <section :if={length(@visible_logs) > 1} class="log-feed" aria-label="The archive">
+          <h2 class="log-feed-head">
+            The archive <span class="log-feed-count">{length(@visible_logs)}</span>
+          </h2>
+          <LogEntry.card
+            :for={log <- Enum.drop(@visible_logs, 1)}
+            log={log}
+            plays={plays(@play_counts, log)}
+          />
+        </section>
 
-              <div class="log-meta">
-                <span class="log-meta-item">
-                  <span class="log-meta-label">Plays</span>
-                  {Map.get(@play_counts, log.id, 0)} plays
-                </span>
-              </div>
+        <p :if={@visible_logs == []} class="log-empty">
+          <span :if={@keyword}>Nothing filed under “{@keyword}”.</span>
+          <span :if={is_nil(@keyword)}>No logs yet. The first recording will appear here.</span>
+        </p>
 
-              <p :if={presence(log.description)} class="log-desc">{log.description}</p>
-
-              <div class="log-audio-bezel">
-                <audio
-                  id={"audio-player-#{log.id}"}
-                  class="log-audio"
-                  controls
-                  preload="metadata"
-                  src={log.file_path}
-                  phx-hook="AudioPlayTracker"
-                  data-log-id={log.id}
-                >
-                </audio>
-              </div>
-
-              <div :if={Log.keyword_list(log) != []} class="log-keywords">
-                <.link
-                  :for={keyword <- Log.keyword_list(log)}
-                  patch={logs_path(@sort, keyword)}
-                  class="logs-tag"
-                >
-                  {keyword}
-                </.link>
-              </div>
-            </div>
-          </article>
-
-          <div :if={@visible_logs == []} class="log-empty">
-            <%= if @keyword do %>
-              <span class="log-empty-code">Nothing found</span>
-              No recordings filed under “{@keyword}”.
-            <% else %>
-              <span class="log-empty-code">Empty</span> No recordings yet.
-            <% end %>
-          </div>
-        </div>
-      </div>
+        <footer :if={@years != []} class="log-totals">
+          <p :for={year <- @years}>{totals_line(year)}</p>
+        </footer>
+      </article>
     </div>
     """
   end

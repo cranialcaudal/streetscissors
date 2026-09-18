@@ -48,6 +48,20 @@ config :web, :ride_thumbs_path, Path.expand("../tmp/ride_thumbs", __DIR__)
 # suite run never writes into priv/static
 config :web, :uploads_path, Path.expand("../tmp/test_uploads", __DIR__)
 
+# The suite must never encode a real frame: both binaries point at stubs that
+# write plausible output instantly. A test that wants to exercise the real
+# ffmpeg can override these for its own case.
+config :web, :ffmpeg_bin, Path.expand("../test/support/stub_ffmpeg", __DIR__)
+config :web, :ffprobe_bin, Path.expand("../test/support/stub_ffprobe", __DIR__)
+
+# The transcoder reads the database on boot, which the sandbox owns during a
+# test run. Tests that want the requeue start their own instance.
+config :web, :transcoder_requeue_on_boot, false
+
+# Uploading in a test should not start an encode; the transcoder has its own
+# test that drives it directly.
+config :web, :transcode_queue, Web.Media.NullQueue
+
 # Database snapshots go to a throwaway dir, and keep few, so retention is
 # cheap to exercise
 config :web, :backup_path, Path.expand("../tmp/test_backups", __DIR__)

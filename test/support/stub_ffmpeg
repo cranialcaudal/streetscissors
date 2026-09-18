@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Stands in for ffmpeg during the test suite: writes output files of the right
+# shape in the right places, instantly, and emits the same -progress lines the
+# real thing does so the transcoder's parsing is exercised for real.
+#
+# STUB_FFMPEG_FAIL=1 makes it fail the way a bad source would.
+set -u
+
+if [ "${STUB_FFMPEG_FAIL:-}" = "1" ]; then
+  echo "stub: Invalid data found when processing input" >&2
+  exit 1
+fi
+
+args=("$@")
+output="${args[${#args[@]}-1]}"
+
+# -progress pipe:1 is what the transcoder parses; emit a couple of ticks.
+progress=0
+var_map=""
+for ((i = 0; i < ${#args[@]}; i++)); do
+  case "${args[$i]}" in
+    -progress) progress=1 ;;
+    -var_stream_map) var_map="${args[$i+1]}" ;;
+  esac
+done
+
+if [ "$progress" = "1" ]; then
+  echo "out_time_us=1000000"
+  echo "progress=continue"
+  echo "out_time_us=12000000"
+  echo "progress=end"
+fi
+
+case "$output" in
+  *"v%v/index.m3u8")
+    root="$(dirname "$(dirname "$output")")"
+    # One rung per entry in -var_stream_map, as the real muxer does.
+    rungs=1
+    if [ -n "$var_map" ]; then
+      # shellcheck disable=SC2086
+      set -- $var_map
+      rungs=$#
+    fi
+    {
+      echo "#EXTM3U"
+      echo "#EXT-X-VERSION:7"
+    } > "$root/master.m3u8"
+    for ((v = 0; v < rungs; v++)); do
+      mkdir -p "$root/v$v"
+      printf '#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=1280x720\nv%d/index.m3u8\n' \
+        $((2200000 - v * 1400000)) "$v" >> "$root/master.m3u8"
+      {
+        echo "#EXTM3U"
+        echo "#EXT-X-VERSION:7"
+        echo "#EXT-X-PLAYLIST-TYPE:VOD"
+        echo '#EXT-X-MAP:URI="init_'"$v"'.mp4"'
+        echo "#EXTINF:6.000000,"
+        echo "seg000.m4s"
+        echo "#EXT-X-ENDLIST"
+      } > "$root/v$v/index.m3u8"
+      printf 'stub-init' > "$root/v$v/init_$v.mp4"
+      printf 'stub-segment-bytes' > "$root/v$v/seg000.m4s"
+    done
+    ;;
+  *)
+    mkdir -p "$(dirname "$output")"
+    printf 'stub-media' > "$output"
+    ;;
+esac
+
+exit 0

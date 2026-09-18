@@ -64,8 +64,16 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Extensions the stock MIME table does not resolve, which LiveView's
+# `allow_upload` rejects outright when they appear in an `accept` list.
+# The table is built into the dependency at compile time, but through
+# `Application.compile_env`, so an ordinary build picks a change up. If a
+# stale build ever disagrees: `mix deps.clean mime --build`.
 config :mime, :types, %{
-  "audio/mp4" => ["m4a"]
+  "audio/mp4" => ["m4a"],
+  # Ambiguous in the spec (it can be video too); here it is only ever what
+  # Firefox's MediaRecorder produces, which is Opus audio.
+  "audio/ogg" => ["ogg"]
 }
 
 config :web, Web.Scheduler,

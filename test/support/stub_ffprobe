@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Stands in for ffprobe during the test suite. Reports a plausible shape for
+# whatever it is pointed at, without decoding anything.
+#
+#   * an audio extension  -> one audio stream, no video
+#   * anything else       -> video + audio
+#
+# STUB_DURATION overrides the reported length; STUB_PROBE_JSON replaces the
+# whole answer, for a test that needs an odd source.
+set -u
+
+if [ -n "${STUB_PROBE_JSON:-}" ]; then
+  printf '%s\n' "$STUB_PROBE_JSON"
+  exit 0
+fi
+
+input="${!#}"
+duration="${STUB_DURATION:-12.000000}"
+
+case "${input,,}" in
+  *.m4a|*.mp3|*.wav|*.aac|*.ogg)
+    streams='{"codec_type":"audio","codec_name":"aac"}'
+    ;;
+  *)
+    streams='{"codec_type":"video","codec_name":"h264","width":1280,"height":720},{"codec_type":"audio","codec_name":"aac"}'
+    ;;
+esac
+
+printf '{"streams":[%s],"format":{"duration":"%s"}}\n' "$streams" "$duration"

@@ -777,7 +777,7 @@ defmodule WebWeb.PcLive do
         end
 
       {:log, %{id: %{slug: slug}, label: label}} ->
-        case Web.Audio.get_published_log_by_slug(slug) do
+        case Web.Audio.get_ready_log_by_slug(slug) do
           {:ok, log} -> {"#{label}\n\n#{log.description || "(no notes)"}", orig_cwd}
           _ -> {"Error reading log.", orig_cwd}
         end

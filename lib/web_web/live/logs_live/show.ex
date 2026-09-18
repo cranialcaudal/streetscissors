@@ -3,33 +3,42 @@ defmodule WebWeb.LogsLive.Show do
 
   alias Web.Audio
   alias Web.Audio.Log
+  alias WebWeb.LogEntry
   import WebWeb.LogsLive.Format
 
   @moduledoc """
-  A single captain's log at its own address, so a spoken piece can be linked
-  to and shared the way a blog post can. Unpublished logs 404 rather than
-  leaking a draft to anyone holding the URL.
+  A single captain's log at its own address, so a recording can be linked to
+  and shared the way a blog post can.
+
+  Drafts and entries still transcoding 404 here rather than leaking a
+  half-built page — `Audio.get_ready_log_by_slug/1` is the one place that
+  decides, and the index composes on the same rule.
   """
 
   def mount(%{"slug" => slug}, _session, socket) do
-    # Unpublished and unknown slugs alike 404 rather than leak a draft.
     log =
-      case Audio.get_published_log_by_slug(slug) do
+      case Audio.get_ready_log_by_slug(slug) do
         {:ok, log} -> log
         {:error, :not_found} -> raise Ecto.NoResultsError, queryable: Log
       end
 
     {:ok,
      socket
-     |> assign(:page_title, log.title)
+     |> assign(:page_title, Log.title(log))
      # Its own social card and canonical URL, so a shared log link is not
      # indistinguishable from every other page on the site.
-     |> assign(:og_title, log.title)
-     |> assign(:og_description, presence(log.description) || "A captain's log recording.")
+     |> assign(:og_title, Log.title(log))
+     |> assign(:og_description, og_description(log))
      |> assign(:og_type, "article")
+     |> assign(:og_image, Log.poster_url(log))
      |> assign(:canonical_path, ~p"/logs/#{log.slug}")
      |> assign(:log, log)
+     |> assign(:client_ip, client_ip(socket))
      |> assign(:play_count, Audio.get_play_count(log.id))}
+  end
+
+  defp og_description(log) do
+    presence(log.description) || presence(log.caption) || "A captain's log recording."
   end
 
   # The id in the payload is attacker-controlled and this page has exactly one
@@ -38,10 +47,13 @@ defmodule WebWeb.LogsLive.Show do
   # input, and an unknown id tripped the audio_plays foreign key.
   def handle_event("track_play", _params, socket) do
     log = socket.assigns.log
-    Audio.record_play(log.id, client_ip(socket))
+    Audio.record_play(log.id, socket.assigns.client_ip)
     {:noreply, assign(socket, :play_count, Audio.get_play_count(log.id))}
   end
 
+  # Captured at mount and kept in assigns: connect_info is only readable while
+  # mounting, and reaching for it from handle_event/3 raises — which is what
+  # the first real play on this page would have done.
   defp client_ip(socket) do
     case get_connect_info(socket, :peer_data) do
       %{address: address} when is_tuple(address) -> address |> :inet.ntoa() |> to_string()
@@ -52,65 +64,42 @@ defmodule WebWeb.LogsLive.Show do
   def render(assigns) do
     ~H"""
     <div class="logs-wrapper nx01">
-      <div class="console-frame">
+      <article class="console-frame">
         <div class="console-rail">
-          <span class="rail-tag">Recording</span>
+          <span class="rail-tag">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
+          <span class="rail-stardate">Stardate {@log.stardate}</span>
         </div>
 
-        <div class="status-strip">
-          <div class="status-cell">
-            <span class="status-label">Recorded</span>
-            <span class="status-value">
-              {Calendar.strftime(@log.recorded_on, "%B %-d, %Y")}
-            </span>
-          </div>
-          <div class="status-cell">
-            <span class="status-label">Length</span>
-            <span class="status-value">{format_duration(@log.duration) || "—"}</span>
-          </div>
-          <div class="status-cell">
-            <span class="status-label">Plays</span>
-            <span class="status-value">{@play_count}</span>
-          </div>
+        <header class="console-head">
+          <LogEntry.meta log={@log} />
+          <h1 class="logs-title">{Log.title(@log)}</h1>
+          <p :if={presence(@log.caption)} class="logs-bio">{@log.caption}</p>
+        </header>
+
+        <LogEntry.plate log={@log} />
+        <LogEntry.figures log={@log} plays={@play_count} />
+
+        <div :if={presence(@log.description)} class="log-notes">
+          <h2 class="log-notes-head">Notes</h2>
+          <p>{@log.description}</p>
         </div>
 
-        <article class="log-panel">
-          <header class="log-panel-header">
-            <h1 class="log-panel-title">{@log.title}</h1>
+        <footer :if={Log.keyword_list(@log) != []} class="log-filed">
+          <span class="bank-label">Filed under</span>
+          <.link
+            :for={keyword <- Log.keyword_list(@log)}
+            navigate={logs_path("recent", keyword)}
+            class="console-tab"
+          >
+            {keyword}
+          </.link>
+        </footer>
 
-            <div class="log-audio-bezel">
-              <audio
-                id={"audio-player-#{@log.id}"}
-                class="log-audio"
-                controls
-                preload="metadata"
-                src={@log.file_path}
-                phx-hook="AudioPlayTracker"
-                data-log-id={@log.id}
-              >
-              </audio>
-            </div>
-          </header>
-
-          <div :if={presence(@log.description)} class="log-panel-body">
-            <p class="log-panel-desc">{@log.description}</p>
-          </div>
-
-          <footer :if={Log.keyword_list(@log) != []} class="log-panel-keywords">
-            <span class="logs-label">Filed under</span>
-            <div class="logs-options">
-              <.link
-                :for={keyword <- Log.keyword_list(@log)}
-                navigate={logs_path("recent", keyword)}
-                class="logs-tag"
-              >
-                {keyword}
-              </.link>
-            </div>
-          </footer>
-        </article>
-      </div>
+        <nav class="log-back">
+          <.link navigate={~p"/logs"} class="console-btn">All logs</.link>
+        </nav>
+      </article>
     </div>
     """
   end

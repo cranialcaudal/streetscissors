@@ -28,6 +28,10 @@ defmodule Web.Application do
       # Oban background job processing (mailers queue). Must start after Repo.
       {Oban, Application.fetch_env!(:web, Oban)},
 
+      # The captain's logs' ffmpeg queue: one encode at a time, resuming any
+      # job a restart interrupted. After Repo, which it reads on boot.
+      Web.Media.Transcoder,
+
       # Quantum scheduled (cron) jobs
       Web.Scheduler,
       # Catch up a backup the schedule slept through. Quantum does not make up
