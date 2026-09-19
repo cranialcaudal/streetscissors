@@ -403,6 +403,10 @@
    is set inline by the component. */
 .log-plate {
   position: relative;
+  /* Above the panel's scanlines (.nx01::after, z-index 9). They are the
+     glass the instruments sit behind, and they belong on the panel — laid
+     over footage they read as a fault in the recording. */
+  z-index: 10;
   display: block;
   /* The housing eats 7px on each side, so the screen still lines up with
      the panels above and below it. */
@@ -443,6 +447,15 @@
   right: 0;
 }
 
+/* The media is revealed by the playing state rather than by a `hidden`
+   attribute, because LiveView patches attributes it rendered back into place
+   and counting a play is one such patch. */
+.log-plate .log-video,
+.log-plate .log-audio { display: none; }
+
+.log-plate.is-playing .log-video,
+.log-plate.is-playing .log-audio { display: block; }
+
 
 .log-poster--none {
   display: flex;
@@ -455,9 +468,12 @@
   color: var(--ink-4);
 }
 
-/* Once it is playing the poster steps aside entirely. */
-.log-plate.is-playing .log-poster,
+/* Once it is playing the key steps aside. A video's poster goes with it —
+   there is a moving picture behind it — but an audio entry's waveform stays:
+   it is the only thing there is to look at, and the controls sit along its
+   bottom edge. */
 .log-plate.is-playing .log-play { display: none; }
+.log-plate.log--video.is-playing .log-poster { display: none; }
 
 .log-plate-pending {
   position: absolute;

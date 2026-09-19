@@ -58,11 +58,15 @@ defmodule WebWeb.LogsLive.Index do
       log_id ->
         Audio.record_play(log_id, socket.assigns.client_ip)
 
+        # The readouts move; the running order does not. Re-sorting here
+        # would let watching something reorder the page underneath the
+        # watcher — and under "most witnessed" it would pull the entry you
+        # just started out of the theater mid-play. The order settles on the
+        # next patch or visit, which is when a reader expects it to.
         {:noreply,
          socket
          |> assign(:play_counts, Audio.get_all_play_counts())
-         |> assign_total_plays()
-         |> assign_visible()}
+         |> assign_total_plays()}
     end
   end
 

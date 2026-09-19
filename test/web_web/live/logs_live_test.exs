@@ -71,6 +71,27 @@ defmodule WebWeb.LogsLiveTest do
       assert count(html, ~s(preload="none")) == 1
     end
 
+    test "counting a play updates the readout without reordering the page",
+         %{conn: conn} do
+      quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
+      loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
+      Audio.record_play(loud.id, "127.0.0.1")
+
+      {:ok, view, html} = live(conn, "/logs?sort=witnessed")
+      assert html =~ ~s(id="log-plate-#{loud.id}")
+
+      # Playing the featured entry must not pull it out of the theater
+      # mid-play, which is exactly what re-sorting on every play did.
+      render_hook(view, "track_play", %{"id" => to_string(loud.id)})
+      after_play = render(view)
+
+      assert after_play =~ ~s(id="log-plate-#{loud.id}")
+      assert Audio.get_play_count(loud.id) == 2
+      # The readout still moves, it is only the running order that holds.
+      assert after_play =~ ~s(<dd>2</dd>)
+      refute after_play =~ ~s(id="log-plate-#{quiet.id}")
+    end
+
     test "the sort lives in the URL so a view can be linked to", %{conn: conn} do
       log_fixture()
 
@@ -175,6 +196,21 @@ defmodule WebWeb.LogsLiveTest do
 
       assert html =~ "/uploads/logs/2026-09-18-abc12345/master.m3u8"
       assert html =~ ~s(preload="none")
+    end
+
+    test "the media element carries no hidden attribute", %{conn: conn} do
+      log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
+
+      {:ok, _view, html} = live(conn, "/logs/#{log.slug}")
+
+      # This is the whole bug, and it is worth pinning. LiveView patches back
+      # every attribute it rendered, and counting a play *is* a render — so a
+      # `hidden` here was restored the instant playback began, dropping the
+      # poster and the play key back over a video that was already running.
+      # An audio entry's poster is its waveform, so that looked like pressing
+      # play and getting a flat orange screen. Visibility is CSS now.
+      refute html =~ ~r/<video[^>]*\shidden/
+      refute html =~ ~r/<audio[^>]*\shidden/
     end
 
     test "keywords link back to the filtered index", %{conn: conn} do

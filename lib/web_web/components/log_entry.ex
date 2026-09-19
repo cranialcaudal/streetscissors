@@ -99,6 +99,11 @@ defmodule WebWeb.LogEntry do
       data-kind={@log.kind}
       style={@log.width && @log.height && "--plate-ratio: #{@log.width} / #{@log.height}"}
     >
+      <%!-- No `hidden` attribute here, deliberately. LiveView owns every
+            attribute it rendered and patches it back on the next update —
+            and counting the play *is* an update, so the media would be
+            re-hidden the instant it started. Visibility is CSS keyed on
+            `.is-playing`, which the hook re-applies after a patch. --%>
       <video
         :if={@log.kind == "video"}
         class="log-video"
@@ -106,11 +111,10 @@ defmodule WebWeb.LogEntry do
         preload="none"
         playsinline
         controls
-        hidden
       >
       </video>
 
-      <audio :if={@log.kind == "audio"} class="log-audio" preload="none" controls hidden></audio>
+      <audio :if={@log.kind == "audio"} class="log-audio" preload="none" controls></audio>
 
       <img :if={@poster} class="log-poster" src={@poster} alt="" loading="lazy" />
       <div :if={is_nil(@poster)} class="log-poster log-poster--none" aria-hidden="true">
@@ -137,6 +141,7 @@ defmodule WebWeb.LogEntry do
           this.button = this.el.querySelector(".log-play")
           this.hls = null
           this.counted = false
+          this.playing = false
 
           if (this.button) {
             this.button.addEventListener("click", () => this.start())
@@ -156,8 +161,8 @@ defmodule WebWeb.LogEntry do
           const src = this.el.dataset.src
           if (!src || !this.media || this.el.classList.contains("is-playing")) return
 
+          this.playing = true
           this.el.classList.add("is-playing")
-          this.media.hidden = false
 
           if (this.el.dataset.kind !== "video") {
             this.media.src = src
@@ -198,6 +203,14 @@ defmodule WebWeb.LogEntry do
           }
 
           this.media.play().catch(() => {})
+        },
+
+        // LiveView patches this element's class attribute back to what the
+        // server rendered, which drops `is-playing` and puts the poster and
+        // the play key back over a video that is still running. Counting the
+        // play triggers exactly that patch, so this is not an edge case.
+        updated() {
+          if (this.playing) this.el.classList.add("is-playing")
         },
 
         destroyed() {
