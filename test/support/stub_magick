@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Stands in for ImageMagick so the suite does not need it installed.
+#
+# Web.Negatives shells out to `magick <input> -resize ... <output>` to make the
+# downscaled previews it serves. The real thing is only ever asked to shrink an
+# image, and nothing in the suite decodes the result, so copying the input is a
+# faithful enough answer: the output exists, at the output's path, and is a
+# real file of the shape the caller expects.
+#
+# STUB_MAGICK_FAIL=1 fails instead, which is how the fall-back-to-the-original
+# branch gets exercised.
+set -euo pipefail
+
+if [ "${STUB_MAGICK_FAIL:-0}" = "1" ]; then
+  echo "stub magick: refusing to convert" >&2
+  exit 1
+fi
+
+input="$1"
+for last; do :; done
+output="$last"
+
+mkdir -p "$(dirname "$output")"
+cp "$input" "$output"

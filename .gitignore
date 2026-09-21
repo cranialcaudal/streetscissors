@@ -103,6 +103,11 @@ content/master-plan.md
 # on the invented fixtures in test/support/fixtures instead.
 /test/private/
 
+# Previews the suite generates inside the fixture archive. The ImageMagick
+# stub copies rather than converts, so these are the source bytes under a
+# .webp name — regenerated on demand, and not worth committing.
+/test/support/fixtures/negatives/**/frames/previews/
+
 # Local backups of vault and database
 /backup/
 

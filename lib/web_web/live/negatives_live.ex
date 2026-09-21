@@ -2,6 +2,7 @@ defmodule WebWeb.NegativesLive do
   use WebWeb, :live_view
 
   alias Web.Negatives
+  alias Web.Negatives.Sheet
   import WebWeb.Navigation, only: [return_context: 1]
 
   @impl true
@@ -28,7 +29,7 @@ defmodule WebWeb.NegativesLive do
       |> assign(:sort_dir, :desc)
       |> assign(:return_to, return_to)
       |> assign(:return_label, return_label)
-      |> assign_frames()
+      |> assign_sheet_frames()
 
     {:ok, socket}
   end
@@ -52,7 +53,7 @@ defmodule WebWeb.NegativesLive do
        socket
        |> assign(view_mode: mode, sheet: sheet, frame: nil)
        |> assign(sort_by: parse_sort(params["sort"]), sort_dir: parse_dir(params["dir"]))
-       |> assign_frames()}
+       |> assign_sheet_frames()}
     end
   end
 
@@ -75,6 +76,7 @@ defmodule WebWeb.NegativesLive do
          view_mode: :frame,
          sheet: sheet,
          frames: frames,
+         marks: [],
          frame: current,
          prev_frame: index > 0 && Enum.at(frames, index - 1),
          next_frame: Enum.at(frames, index + 1),
@@ -113,17 +115,22 @@ defmodule WebWeb.NegativesLive do
   defp parse_dir("asc"), do: :asc
   defp parse_dir(_), do: :desc
 
-  # Individual frames belonging to the sheet on screen. Loaded per sheet rather
-  # than for the whole archive: this touches the filesystem, and only the sheet
-  # being looked at needs it.
-  defp assign_frames(socket) do
-    frames =
-      case socket.assigns[:sheet] do
-        %{roll: roll} -> Negatives.list_frames(roll)
-        _ -> []
-      end
+  # Everything that depends on which sheet is on screen: the prints from its
+  # roll, where those prints sit on the sheet, and the sheet's own proportions.
+  # Loaded per sheet rather than for the whole archive, because this touches the
+  # filesystem and only the sheet being looked at needs it.
+  #
+  # All three move together on purpose. They used to not: prev/next assigned
+  # :sheet on its own, and the strip below kept showing whichever roll was
+  # loaded at mount.
+  defp assign_sheet_frames(socket) do
+    sheet = socket.assigns[:sheet]
+    frames = if sheet, do: Negatives.list_frames(sheet.roll), else: []
 
-    assign(socket, :frames, frames)
+    socket
+    |> assign(:frames, frames)
+    |> assign(:marks, if(sheet, do: Sheet.marks(sheet, Enum.map(frames, & &1.frame)), else: []))
+    |> assign(:sheet_ar, sheet && Sheet.aspect_ratio(sheet))
   end
 
   @doc """
@@ -157,9 +164,9 @@ defmodule WebWeb.NegativesLive do
         if sheets != [], do: hd(sheets), else: nil
       end
 
-    # assign_frames/1 must follow every sheet change, or the strip keeps
+    # assign_sheet_frames/1 must follow every sheet change, or the strip keeps
     # showing the frames of whichever roll was loaded at mount.
-    {:noreply, socket |> assign(:sheet, sheet) |> assign_frames()}
+    {:noreply, socket |> assign(:sheet, sheet) |> assign_sheet_frames()}
   end
 
   def handle_event("prev", _, socket) do
@@ -175,15 +182,15 @@ defmodule WebWeb.NegativesLive do
         if sheets != [], do: hd(sheets), else: nil
       end
 
-    # assign_frames/1 must follow every sheet change, or the strip keeps
+    # assign_sheet_frames/1 must follow every sheet change, or the strip keeps
     # showing the frames of whichever roll was loaded at mount.
-    {:noreply, socket |> assign(:sheet, sheet) |> assign_frames()}
+    {:noreply, socket |> assign(:sheet, sheet) |> assign_sheet_frames()}
   end
 
   def handle_event("select_sheet", %{"slug" => slug}, socket) do
     sheets = socket.assigns.sheets
     sheet = Enum.find(sheets, &(&1.slug == slug)) || socket.assigns.sheet
-    {:noreply, socket |> assign(sheet: sheet, view_mode: :single) |> assign_frames()}
+    {:noreply, socket |> assign(sheet: sheet, view_mode: :single) |> assign_sheet_frames()}
   end
 
   # Clicking the active column flips direction; a new column starts descending.
@@ -201,6 +208,41 @@ defmodule WebWeb.NegativesLive do
       end
 
     {:noreply, push_patch(socket, to: ~p"/negatives?mode=index&sort=#{by}&dir=#{dir}")}
+  end
+
+  @doc """
+  One grease pencil ring, placed over the frame it circles.
+
+  The ring's geometry is generated per frame and never repeats — see
+  `Web.Negatives.GreasePencil`. The stroke is deliberately drawn with
+  `non-scaling-stroke`: one pencil marked this sheet, so a 35mm frame and a 6x6
+  frame are circled by the same width of wax however differently sized they are
+  on the paper.
+  """
+  attr :mark, :map, required: true
+  attr :roll, :string, required: true
+
+  def grease_mark(assigns) do
+    ~H"""
+    <.link
+      navigate={~p"/negatives/roll/#{@roll}/frame/#{@mark.frame}"}
+      class="sheet-mark"
+      style={"--x: #{@mark.left}%; --y: #{@mark.top}%; --w: #{@mark.width}%; --h: #{@mark.height}%"}
+      aria-label={"View frame #{@mark.frame} of roll ##{@roll}"}
+    >
+      <svg class="sheet-mark-ring" viewBox={@mark.ring.viewbox} aria-hidden="true" focusable="false">
+        <path
+          :for={stroke <- @mark.ring.strokes}
+          d={stroke.d}
+          pathLength={@mark.ring.path_length}
+          stroke-width={stroke.width}
+          stroke-opacity={stroke.opacity}
+          stroke-dasharray={stroke.dash}
+        />
+      </svg>
+      <span class="sheet-mark-num">{@mark.frame}</span>
+    </.link>
+    """
   end
 
   @impl true
@@ -259,7 +301,12 @@ defmodule WebWeb.NegativesLive do
                 NEXT <.icon name="hero-arrow-right" class="size-5 inline ml-1" />
               </.link>
 
-              <a href={@frame.url} download class="download-icon-btn" title="Download frame">
+              <a
+                href={@frame.original_url}
+                download
+                class="download-icon-btn"
+                title="Download the full-resolution print"
+              >
                 <.icon name="hero-arrow-down-tray" class="size-5 inline" />
               </a>
             </div>
@@ -288,8 +335,31 @@ defmodule WebWeb.NegativesLive do
                     download sit on the sheet itself, so nothing below it competes
                     with the photograph for the screen. The same buttons collapse
                     into a bottom bar on phones (see negatives.css). --%>
-                <div class="stage-image-wrapper">
-                  <img src={@sheet.preview_url} alt={@sheet.filename} class="stage-image" />
+                <div class="stage-image-wrapper stage-image-wrapper--sheet">
+                  <%!-- The plate is the photograph's own box: it carries the
+                        sheet's exact proportions, which is the only way an
+                        overlay can be positioned as a fraction of it and land
+                        on the right frame. Without a measurement it falls back
+                        to letting the image size itself, as it always did. --%>
+                  <div
+                    class={["sheet-plate", is_nil(@sheet_ar) && "sheet-plate--unmeasured"]}
+                    style={@sheet_ar && "--sheet-ar: #{Float.round(@sheet_ar, 6)}"}
+                  >
+                    <img src={@sheet.preview_url} alt={@sheet.filename} class="stage-image" />
+
+                    <%!-- Selects, marked the way selects are marked: a grease
+                          pencil ring round the frames worth printing. Only
+                          frames that have actually been printed are circled,
+                          and circling one is how you ask to see it — so a roll
+                          with nothing printed carries no marks at all. --%>
+                    <nav
+                      :if={@marks != []}
+                      class="sheet-marks"
+                      aria-label={"Photographs available from roll ##{@sheet.roll}"}
+                    >
+                      <.grease_mark :for={mark <- @marks} mark={mark} roll={@sheet.roll} />
+                    </nav>
+                  </div>
 
                   <button
                     phx-click="prev"
@@ -323,17 +393,21 @@ defmodule WebWeb.NegativesLive do
                     below, each one reached through the sheet it came from.
                     Renders only once frames are actually published. --%>
                 <section :if={@frames != []} class="frame-strip">
-                  <h2 class="frame-strip-title">Frames from this roll</h2>
+                  <h2 class="frame-strip-title">Printed from this roll</h2>
                   <div class="frame-strip-rail">
-                    <a
+                    <%!-- These used to point at the image bytes, which dead-ended
+                          on a bare file instead of the frame's own page. They
+                          are also the way in on a phone, where a ring on the
+                          sheet is smaller than a thumb. --%>
+                    <.link
                       :for={frame <- @frames}
-                      href={frame.url}
+                      navigate={~p"/negatives/roll/#{@sheet.roll}/frame/#{frame.frame}"}
                       class="frame-thumb"
-                      title={"Roll ##{@sheet.roll} · frame #{frame.frame}"}
+                      aria-label={"View frame #{frame.frame} of roll ##{@sheet.roll}"}
                     >
                       <img src={frame.url} alt={"Frame #{frame.frame}"} loading="lazy" />
                       <span class="frame-thumb-num">{frame.frame}</span>
-                    </a>
+                    </.link>
                   </div>
                 </section>
 

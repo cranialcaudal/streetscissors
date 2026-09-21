@@ -2,6 +2,8 @@ defmodule WebWeb.NegativesLiveTest do
   use WebWeb.ConnCase
   import Phoenix.LiveViewTest
 
+  alias Web.NegativesFixtures, as: Fixture
+
   test "renders minimalist viewer and can toggle to index by scan date", %{conn: conn} do
     {:ok, view, html} = live(conn, "/negatives")
 
@@ -84,13 +86,13 @@ defmodule WebWeb.NegativesLiveTest do
 
     {:ok, view, html} = live(conn, "/negatives")
 
-    # Starts on the most recent roll — #14, which has no individual scans.
+    # Starts on the most recent roll — #14, which has nothing printed.
     assert html =~ "Roll #014"
     refute html =~ "frame-strip"
 
     view |> element("button.next-btn") |> render_click()
 
-    # Roll #13 does have scans, so the strip appears and points at *its* frames.
+    # Roll #13 does have prints, so the strip appears and points at *its* frames.
     html = render(view)
     assert html =~ "Roll #013"
     assert html =~ "frame-strip"
@@ -114,7 +116,10 @@ defmodule WebWeb.NegativesLiveTest do
     File.mkdir_p!(roll_dir)
 
     File.write!(Path.join([tmp, "Contact Sheets", "roll013_2026-08-03_120_bw.png"]), "x")
-    for name <- ["01.jpg", "03.jpg"], do: File.write!(Path.join(roll_dir, name), "x")
+
+    # Two frames of this roll have been printed; the rest of it has not.
+    File.mkdir_p!(Path.join(roll_dir, "frames"))
+    for name <- ["01.jpg", "03.jpg"], do: File.write!(Path.join([roll_dir, "frames", name]), "x")
 
     catalog = """
     roll,scan_date,film_type,color,frames,folder
@@ -177,6 +182,79 @@ defmodule WebWeb.NegativesLiveTest do
 
       [] ->
         assert render(view) =~ "No contact sheets found"
+    end
+  end
+
+  # Marking the selects: a frame that has been printed gets a grease pencil
+  # ring on the sheet, and the ring is the way in to the photograph.
+  describe "the sheet's marks" do
+    setup do
+      root = Fixture.archive!()
+      {folder, slug} = Fixture.golden_roll!(root)
+      %{root: root, folder: folder, slug: slug}
+    end
+
+    test "a roll with nothing printed carries no marks", %{conn: conn, slug: slug} do
+      {:ok, _view, html} = live(conn, "/negatives?slug=#{slug}")
+
+      # The page is otherwise exactly the page it has always been.
+      assert html =~ "sheet-plate"
+      refute html =~ "sheet-marks"
+    end
+
+    test "a printed frame is circled, and the circle opens it",
+         %{conn: conn, folder: folder, slug: slug} do
+      Fixture.put_print!(folder, 3)
+
+      {:ok, view, html} = live(conn, "/negatives?slug=#{slug}")
+
+      assert html =~ "sheet-marks"
+      assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/3']")
+
+      # Named for a screen reader, since the ring itself says nothing.
+      assert has_element?(view, "a.sheet-mark[aria-label='View frame 3 of roll #013']")
+
+      # Positioned as a fraction of the sheet, against a plate that carries the
+      # sheet's own proportions — see negatives.css.
+      assert html =~ "--sheet-ar: 0.8"
+      assert html =~ "--x:"
+    end
+
+    test "only printed frames are circled", %{conn: conn, folder: folder, slug: slug} do
+      Fixture.put_print!(folder, 2)
+      Fixture.put_print!(folder, 4)
+
+      {:ok, view, _html} = live(conn, "/negatives?slug=#{slug}")
+
+      assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/2']")
+      assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/4']")
+      refute has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/1']")
+      refute has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/3']")
+    end
+
+    test "an archive the layout cannot account for draws nothing, and still renders",
+         %{conn: conn, root: root, folder: folder, slug: slug} do
+      Fixture.put_print!(folder, 3)
+      # A strip scanned since the last analysis: frames.json no longer
+      # describes the roll, so where anything sits is no longer known.
+      File.write!(Path.join(folder, "009.tiff"), "a strip scanned later")
+
+      {:ok, _view, html} = live(conn, "/negatives?slug=#{slug}")
+
+      refute html =~ "sheet-marks"
+      # The print is still reachable, just not from the sheet.
+      assert html =~ "frame-strip"
+      assert File.exists?(Path.join([root, "Contact Sheets", "#{slug}.png"]))
+    end
+
+    test "the strip below the sheet links to the frame's page, not its bytes",
+         %{conn: conn, folder: folder, slug: slug} do
+      Fixture.put_print!(folder, 3)
+
+      {:ok, view, _html} = live(conn, "/negatives?slug=#{slug}")
+
+      assert has_element?(view, "a.frame-thumb[href='/negatives/roll/013/frame/3']")
+      refute has_element?(view, "a.frame-thumb[href='/negatives/frame/013/3']")
     end
   end
 end

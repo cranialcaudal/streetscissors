@@ -158,8 +158,10 @@ defmodule Web.Pc.Index do
     }
   end
 
-  # Frames live under the roll's own folder, mirroring the disk layout
-  # (`120 Film/roll007_.../roll007_..._03.tiff`).
+  # Finished prints live in the roll's own `frames/` directory, mirroring the
+  # disk layout (`120 Film/roll007_.../frames/03.png`). The old
+  # `<slug>_NN` spelling is kept as a search alias, since that is how these
+  # were addressable before prints existed.
   defp frame_entries(sheet) do
     sheet.slug
     |> then(fn _ -> safe(fn -> Web.Negatives.list_frames(sheet.roll) end, []) end)
@@ -169,8 +171,8 @@ defmodule Web.Pc.Index do
       %{
         kind: :frame,
         name: "#{sheet.slug}_#{padded}",
-        file: "#{sheet.slug}_#{padded}.tiff",
-        dir: ["NEGATIVES", "#{sheet.format} Film", sheet.slug],
+        file: "#{padded}.png",
+        dir: ["NEGATIVES", "#{sheet.format} Film", sheet.slug, "frames"],
         id: %{roll_num: sheet.roll_num, frame: frame, slug: sheet.slug},
         label: "frame #{frame} of roll #{sheet.roll}",
         media_url: url,

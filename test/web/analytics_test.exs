@@ -121,12 +121,17 @@ defmodule Web.AnalyticsTest do
       assert Analytics.sub_resource_path?("/negatives/preview/roll012.jpg")
       assert Analytics.sub_resource_path?("/negatives/image/roll012.jpg")
       assert Analytics.sub_resource_path?("/fitness/rides/123/thumb")
+      # Both the downscaled print and the original download.
+      assert Analytics.sub_resource_path?("/negatives/frame/13/3")
+      assert Analytics.sub_resource_path?("/negatives/frame/13/3/original")
     end
 
     test "leaves real pages alone" do
       refute Analytics.sub_resource_path?("/negatives")
       refute Analytics.sub_resource_path?("/blog/Tide%27s%20Out%2C%20Mostly")
       refute Analytics.sub_resource_path?("/fitness/rides")
+      # A photograph's own page is a visit; the bytes behind it are not.
+      refute Analytics.sub_resource_path?("/negatives/roll/13/frame/3")
     end
   end
 end

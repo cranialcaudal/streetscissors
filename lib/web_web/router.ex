@@ -90,6 +90,8 @@ defmodule WebWeb.Router do
       get "/negatives/image/:filename", NegativesController, :serve_image
       get "/negatives/preview/:filename", NegativesController, :serve_preview
       get "/negatives/frame/:roll/:frame", NegativesController, :serve_frame
+      # The print itself rather than the downscaled copy the page shows.
+      get "/negatives/frame/:roll/:frame/original", NegativesController, :serve_frame_original
       live "/pc", PcLive
       live "/archive", NegativesLive, :index
       live "/guestbook", GuestbookLive

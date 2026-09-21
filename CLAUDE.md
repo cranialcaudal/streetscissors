@@ -228,8 +228,31 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   beneath it), the sortable index (`?mode=index&sort=date|format&dir=asc|desc` — the sort is
   patched into the URL so it can be linked), and a **frame view**
   (`/negatives/roll/:roll/frame/:n`) that gives an individual photograph its own address and
-  links back to the contact sheet it was cut from. `Negatives.list_frames/1` enumerates a roll's
-  published frames, so the strip under a sheet fills in on its own as scans are uploaded.
+  links back to the contact sheet it was cut from.
+  **A frame is a finished print, not a strip scan.** `Negatives.list_frames/1` reads a roll's
+  `frames/` directory — the archive pipeline's own output, `NN.png` from `film-develop
+  develop` — and frame numbers run 1..N across every exposure on the roll, as `frames.json`
+  numbers them. (They used to be the *strip* files in the folder above, so "frame 3" of a 120
+  roll meant its third strip of three exposures; the strip scans are no longer addressable
+  one by one, since the sheet already shows every one of them.) `/negatives/frame/:roll/:frame`
+  serves a downscaled copy and `.../original` the print itself, as an attachment.
+  **Printed frames are circled on the sheet in grease pencil**, and the circle is the link.
+  `Web.Negatives.SheetLayout` transcribes the GIMP assembler (`film-contact-sheet.scm`, which
+  lives in `~/.config/GIMP/*/scripts/` and **cannot be vendored**) to map a frame's rectangle
+  in `frames.json` onto the assembled sheet; `Web.Negatives.Sheet` does the I/O and refuses to
+  answer unless **two gates** pass — the strip files on disk must still match `strips[].file`
+  (a stale `--analyze` is the common failure; 4 of 30 rolls were stale when this was built),
+  and one of the three paper sizes must compose to the sheet's real pixel dimensions. Either
+  gate failing means *no marks*, never marks in the wrong place. So drift in the script makes
+  rings vanish — `test/private/negatives_layout_test.exs` is what reports that, by name and
+  with the `negatives --analyze NNN` to fix it. `Web.Negatives.GreasePencil` generates each
+  ring from `phash2({slug, frame})`: varied but fixed, like the wordmark's letter offsets, so
+  no two frames are circled alike and nothing twitches between the static render and the
+  connected mount. The rings sit on `.sheet-plate`, a box carrying the sheet's exact aspect
+  ratio — **an overlay can only register with a picture if some element has the picture's
+  dimensions**, which is why the plate specifies width only (add a height and `aspect-ratio`
+  is ignored) and why its mat is a border, not padding (`inset: 0` resolves against the
+  padding box).
   **Page theme — "darkroom"** (`assets/css/negatives.css`): `/negatives` carries the hero's look
   inward — inverted paper/ink tokens on a near-black ground, Bebas display face, orange at half
   opacity. **Careful:** under `.darkroom` `--ink` is *light*, so surfaces meant to stay dark (the

@@ -306,18 +306,187 @@
 /* A *definite* height, not just a max: the wrapper is sized by `flex: 1`, and
    a percentage height on the image inside an indefinite-height flex item
    resolves to auto — which is why the sheet overflowed and got clipped. */
-.minimal-viewer-container.single-mode-active .stage-image-wrapper {
-  /* The controls now ride on the image instead of sitting under it, so the
+.minimal-viewer-container.single-mode-active {
+  /* The height the sheet gets, named once. Both the stage and the plate's
+     width budget are this same measurement, so it must not be written twice.
+     The controls now ride on the image instead of sitting under it, so the
      only things to reserve for are the sticky site header, the masthead and
      the metadata line. Measured, not estimated: at 1280px wide the sheet
      starts 262px down (84 header + 96 masthead + 28 metadata + margins), so
      17.5rem keeps the whole sheet on screen without scrolling. */
-  height: max(46vh, calc(100vh - 17.5rem)) !important;
+  --stage-h: max(46vh, calc(100vh - 17.5rem));
+}
+
+.minimal-viewer-container.single-mode-active .stage-image-wrapper {
+  height: var(--stage-h) !important;
   flex: 0 0 auto !important;
   /* The mat hugs the sheet instead of running the full column width, so a
      portrait roll isn't marooned in a field of black. */
   width: auto !important;
   max-width: 100%;
+}
+
+/* On the contact sheet the mat moves off the stage and onto the plate, which
+   is the only box that knows the sheet's proportions. The stage becomes a
+   plain full-width box so the plate has a definite width to measure against —
+   a percentage against a shrink-to-fit parent is circular. The frame view
+   keeps the mat on the stage, which is why this is a modifier and not the
+   base rule. */
+.minimal-viewer-container.single-mode-active .stage-image-wrapper--sheet {
+  width: 100% !important;
+  padding: 0 !important;
+  background: none;
+  border: 0;
+}
+
+/* The plate IS the photograph's box, at the sheet's own proportions, because
+   an overlay can only line up with a picture if some element has the picture's
+   exact dimensions. Width is the *only* specified dimension — give it a height
+   as well and `aspect-ratio` is ignored and the box distorts, which is the bug
+   this whole structure exists to avoid. min() does the letterboxing that
+   object-fit used to do by accident.
+
+   The mat is a border rather than padding: `inset: 0` on the marks resolves
+   against the padding box, so any padding here would offset every ring by that
+   much. content-box is load-bearing for the same reason — with border-box the
+   mat would eat into the ratio and the rings would drift. */
+.sheet-plate {
+  --mat: 0.5rem;
+  position: relative;
+  box-sizing: content-box;
+  aspect-ratio: var(--sheet-ar);
+  width: min(
+    calc(100% - var(--mat) * 2),
+    calc((var(--stage-h) - var(--mat) * 2) * var(--sheet-ar))
+  );
+  height: auto;
+  margin: 0 auto;
+  line-height: 0;
+  background: var(--paper-deep);
+  border: var(--mat) solid var(--paper-deep);
+  outline: 1px solid var(--hairline);
+}
+
+/* No measurement, no marks — and no claim about the shape either. Falls back
+   to letting the image size itself, exactly as this page did before any of
+   this existed. */
+.sheet-plate--unmeasured {
+  aspect-ratio: auto;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+}
+
+/* object-fit: fill, not contain: the plate already carries the sheet's ratio,
+   and the src is the downscaled preview, whose ratio can round differently
+   from the original's. Filling guarantees the rings stay registered to the
+   picture whichever way that rounding goes. */
+.minimal-viewer-container.single-mode-active .sheet-plate > .stage-image {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: fill !important;
+  margin: 0 !important;
+  display: block !important;
+}
+
+.minimal-viewer-container.single-mode-active .sheet-plate--unmeasured > .stage-image {
+  width: auto !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+}
+
+/* The selects, in grease pencil. Below the stage controls at z-index 3, so a
+   ring near the sheet's edge never steals the prev arrow. */
+.sheet-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sheet-mark {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  height: var(--h);
+  display: block;
+  line-height: 0;
+  pointer-events: auto;
+}
+
+/* A thumb-sized target even where the frame is not: a 35mm exposure on a phone
+   is nearer 40px than 44. The target grows; the ring does not, because the
+   ring is pointing at a specific photograph. */
+.sheet-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+
+.sheet-mark-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The wobble is allowed to leave the box rather than be clipped square. */
+  overflow: visible;
+  fill: none;
+  stroke: var(--accent-color);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+/* One pencil marked the whole sheet, so the wax is the same width on a 35mm
+   frame as on a 6x6 one however differently sized they are on the paper. */
+.sheet-mark-ring path {
+  vector-effect: non-scaling-stroke;
+}
+
+.sheet-mark:hover .sheet-mark-ring,
+.sheet-mark:focus-visible .sheet-mark-ring {
+  transform: scale(1.04);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
+
+.sheet-mark:hover .sheet-mark-ring path,
+.sheet-mark:focus-visible .sheet-mark-ring path {
+  stroke-opacity: 1;
+}
+
+.sheet-mark:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* The frame number, only while a ring is being pointed at — a sheet of
+   permanent numbers is a diagram, not a contact sheet. */
+.sheet-mark-num {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 0.1rem 0.3rem;
+  font-family: var(--font-data, monospace);
+  font-size: 0.62rem;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  background: var(--accent-color);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.sheet-mark:hover .sheet-mark-num,
+.sheet-mark:focus-visible .sheet-mark-num {
+  opacity: 1;
 }
 
 /* max-height: 100% does not reliably constrain an image inside a flex-sized
@@ -638,6 +807,10 @@
      overlaid on it — a thumb should never have to hunt for an edge, and on a
      small screen an overlay covers real picture. Laid out with grid so the
      download sits between the arrows regardless of DOM order. */
+  .minimal-viewer-container.single-mode-active {
+    --stage-h: 62vh;
+  }
+
   .minimal-viewer-container.single-mode-active .stage-image-wrapper {
     display: grid !important;
     grid-template-columns: 1fr 1fr 1fr;
@@ -647,6 +820,21 @@
     width: 100% !important;
     padding: 0.4rem !important;
     gap: 0.4rem;
+  }
+
+  /* The bar needs its own container again, so the mat comes back to the stage
+     and off the plate — the plate is just the picture here. */
+  .minimal-viewer-container.single-mode-active .stage-image-wrapper--sheet {
+    padding: 0.4rem !important;
+    background: var(--paper-deep);
+    border: 1px solid var(--hairline);
+  }
+
+  .minimal-viewer-container.single-mode-active .sheet-plate {
+    --mat: 0px;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    outline: 0;
   }
 
   .minimal-viewer-container.single-mode-active .stage-image {

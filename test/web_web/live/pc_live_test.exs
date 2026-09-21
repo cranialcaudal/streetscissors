@@ -19,8 +19,16 @@ defmodule WebWeb.PcLiveTest do
 
     File.write!(Path.join(sheets, "roll007_2026-07-22_120_bw.png"), "png")
 
+    # The strip scans the sheet was assembled from, and the finished prints
+    # cut out of them — only the prints are addressable one by one.
+    for n <- ["001", "002"] do
+      File.write!(Path.join(roll, "#{n}.tiff"), "strip scan")
+    end
+
+    File.mkdir_p!(Path.join(roll, "frames"))
+
     for n <- ["01", "02", "03"] do
-      File.write!(Path.join(roll, "roll007_2026-07-22_120_bw_#{n}.png"), "png")
+      File.write!(Path.join([roll, "frames", "#{n}.png"]), "png")
     end
 
     File.write!(Path.join(tmp, "catalog.csv"), """
@@ -191,7 +199,10 @@ defmodule WebWeb.PcLiveTest do
 
       assert out =~ "3 frames"
       assert out =~ "/negatives/roll/7/frame/1"
-      assert out =~ "roll007_2026-07-22_120_bw_03"
+      # Listed by their real filenames in the roll's frames/ directory, with
+      # the older <slug>_NN spelling offered as the way to open one.
+      assert out =~ "03.png"
+      assert out =~ "roll007_2026-07-22_120_bw_01"
     end
   end
 

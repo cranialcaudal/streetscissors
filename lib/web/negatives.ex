@@ -27,6 +27,13 @@ defmodule Web.Negatives do
   end
 
   @doc """
+  The ImageMagick binary, resolved through config the way `Web.Media.FFmpeg`
+  resolves ffmpeg — so the suite can run against a stub instead of requiring
+  ImageMagick on every machine that runs the tests.
+  """
+  def magick_bin, do: Application.get_env(:web, :magick_bin, "magick")
+
+  @doc """
   Resolves a contact sheet image path safely guarding against directory traversal.
   """
   def image_path(filename) do
@@ -78,14 +85,27 @@ defmodule Web.Negatives do
       tmp
     ]
 
-    case System.cmd("magick", args, stderr_to_stdout: true) do
-      {_, 0} ->
-        File.rename!(tmp, preview)
-        true
+    # System.cmd raises when the binary is missing, which would 500 a page that
+    # promises to degrade to the original instead.
+    try do
+      case System.cmd(magick_bin(), args, stderr_to_stdout: true) do
+        {_, 0} ->
+          File.rename!(tmp, preview)
+          true
 
-      {output, _} ->
+        {output, _} ->
+          File.rm(tmp)
+          Logger.warning("contact sheet preview generation failed for #{original}: #{output}")
+          false
+      end
+    rescue
+      error ->
         File.rm(tmp)
-        Logger.warning("contact sheet preview generation failed for #{original}: #{output}")
+
+        Logger.warning(
+          "contact sheet preview generation failed for #{original}: #{Exception.message(error)}"
+        )
+
         false
     end
   end
@@ -115,26 +135,51 @@ defmodule Web.Negatives do
   end
 
   @doc """
-  Resolves an individual frame scan inside a roll folder. Roll and frame
-  are digit tokens; the folder is looked up from catalog.csv only (never
-  user input), with `Path.safe_relative` as defense-in-depth. Handles both
-  frame naming conventions on disk (`<roll-slug>_NN.tiff` and `NNN.tiff`).
+  A roll's folder on disk, from a roll token ("roll012", "12", or a slug).
+
+  The folder is looked up from catalog.csv only — never from user input — with
+  `Path.safe_relative` as defence in depth. Public because
+  `Web.Negatives.Sheet` needs the same guarded resolution.
+  """
+  def roll_dir(roll) do
+    with {:ok, roll_num} <- parse_roll(roll) do
+      roll_folder(roll_num)
+    end
+  end
+
+  @doc """
+  Where a roll's finished prints live.
+
+  The scanning pipeline's own output directory: `negatives --scan-frames`
+  rescans a stickered frame at high resolution and `film-develop develop`
+  writes the developed result here as `NN.png`. The strip scans in the folder
+  above are the raw material the contact sheet was assembled from, and are not
+  published one by one — the sheet already shows every one of them.
+  """
+  def prints_dir(folder), do: Path.join(folder, "frames")
+
+  @doc """
+  Resolves an individual finished frame inside a roll's `frames/` directory.
+
+  Roll and frame are digit tokens. Handles both naming conventions the
+  pipeline produces (`NN.png` from `film-develop develop`, `frame-NN.png` from
+  its `--export`).
   """
   def frame_path(roll, frame) do
     with {:ok, roll_num} <- parse_roll(roll),
          {:ok, frame_num} <- parse_frame(frame),
          {:ok, folder} <- roll_folder(roll_num) do
-      find_frame_file(folder, frame_num)
+      find_frame_file(prints_dir(folder), frame_num)
     else
       _ -> :error
     end
   end
 
   @doc """
-  Downscaled WebP preview for an individual frame, generated on first
-  request (the TIFF originals are not browser-renderable). Cached in a
-  `previews/` subdir of the roll folder; falls back to the original if
-  generation fails.
+  Downscaled WebP preview of a finished print, generated on first request — a
+  1200dpi scan is tens of megabytes and often a TIFF, so it is not what a page
+  should load. Cached in a `previews/` subdir beside the prints; falls back to
+  the original if generation fails.
   """
   def frame_preview_path(roll, frame) do
     with {:ok, original} <- frame_path(roll, frame) do
@@ -184,6 +229,10 @@ defmodule Web.Negatives do
   end
 
   defp find_frame_file(dir, frame_num) do
+    if File.dir?(dir), do: scan_frame_files(dir, frame_num), else: :error
+  end
+
+  defp scan_frame_files(dir, frame_num) do
     dir
     |> File.ls!()
     |> Enum.sort()
@@ -199,24 +248,37 @@ defmodule Web.Negatives do
   end
 
   @doc """
-  Individual frame scans published inside a roll's folder, as
-  `[%{frame: 3, url: "/negatives/frame/12/3"}, ...]` ordered by frame number.
+  The finished prints a roll has, as
+  `[%{frame: 3, url: ..., original_url: ...}, ...]` ordered by frame number.
 
-  A roll folder holds the frames the contact sheet was made from, so this is
-  what lets a single photograph point back at the sheet it came from: the
-  frames are listed under their own sheet. Empty until frames are uploaded —
-  the roll folder existing does not imply individual scans exist yet.
+  This is the set of photographs from a roll that can actually be looked at,
+  and therefore the set of frames that get circled on its contact sheet. Empty
+  until a frame has been rescanned and developed — a roll folder full of strip
+  scans does not imply any of them has been printed.
+
+  Frame numbers are the roll's own, running 1..N across every exposure, as
+  `frames.json` numbers them. They used to be the strip scans' file numbers,
+  which meant "frame 3" of a 120 roll was its third *strip* of three exposures.
   """
   def list_frames(roll) do
     with {:ok, roll_num} <- parse_roll(roll),
-         {:ok, folder} <- roll_folder(roll_num) do
-      folder
+         {:ok, folder} <- roll_folder(roll_num),
+         dir <- prints_dir(folder),
+         true <- File.dir?(dir) do
+      dir
       |> File.ls!()
       |> Enum.flat_map(fn file ->
         case Regex.run(@frame_exts, file) do
           [_, digits, _ext] ->
             frame = String.to_integer(digits)
-            [%{frame: frame, url: "/negatives/frame/#{roll_num}/#{frame}"}]
+
+            [
+              %{
+                frame: frame,
+                url: "/negatives/frame/#{roll_num}/#{frame}",
+                original_url: "/negatives/frame/#{roll_num}/#{frame}/original"
+              }
+            ]
 
           _ ->
             []

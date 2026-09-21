@@ -54,6 +54,10 @@ config :web, :uploads_path, Path.expand("../tmp/test_uploads", __DIR__)
 config :web, :ffmpeg_bin, Path.expand("../test/support/stub_ffmpeg", __DIR__)
 config :web, :ffprobe_bin, Path.expand("../test/support/stub_ffprobe", __DIR__)
 
+# And ImageMagick, which Web.Negatives uses to downscale contact sheets and
+# prints. The stub copies rather than converts — nothing here decodes an image.
+config :web, :magick_bin, Path.expand("../test/support/stub_magick", __DIR__)
+
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.
 config :web, :transcoder_requeue_on_boot, false

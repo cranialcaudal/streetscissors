@@ -51,9 +51,17 @@ defmodule Web.Analytics do
   halts first), but contact-sheet scans and ride thumbnails are served by
   controllers, so every photo on a negatives page was landing in the table as
   its own "visit".
+
+  `/negatives/frame` covers both the downscaled print and the original
+  download. A frame's *page* is `/negatives/roll/:roll/frame/:n`, which this
+  does not match, so real visits to a photograph are still counted.
   """
   def sub_resource_path?(path) when is_binary(path) do
-    String.starts_with?(path, ["/negatives/image", "/negatives/preview"]) or
+    String.starts_with?(path, [
+      "/negatives/image",
+      "/negatives/preview",
+      "/negatives/frame"
+    ]) or
       String.ends_with?(path, "/thumb")
   end
 
