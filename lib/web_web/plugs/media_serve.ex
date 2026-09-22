@@ -131,9 +131,9 @@ defmodule WebWeb.Plugs.MediaServe do
 
   defp mime_type(filename) do
     case Path.extname(filename) |> String.downcase() do
-      # HLS. Neither of these is in Go's or Erlang's mime table, so both ends
-      # — this plug and the Caddy block in production — have to say them
-      # explicitly, or hls.js refuses the playlist.
+      # Legacy HLS, from before logs became one MP4 (2026-09-22). Nothing
+      # links to these any more; the types stay so an old URL still answers
+      # correctly, and so does the matching block in the Caddyfiles.
       ".m3u8" -> "application/vnd.apple.mpegurl"
       ".m4s" -> "video/iso.segment"
       ".mp4" -> "video/mp4"

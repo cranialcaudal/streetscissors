@@ -112,9 +112,9 @@ defmodule Web.AudioTest do
   end
 
   describe "media urls" do
-    test "a ready video plays from its HLS master playlist" do
+    test "a ready video plays from one progressive MP4" do
       log = log_fixture(kind: "video", status: "ready", media_dir: "2026-09-18-abc123")
-      assert Log.media_url(log) == "/uploads/logs/2026-09-18-abc123/master.m3u8"
+      assert Log.media_url(log) == "/uploads/logs/2026-09-18-abc123/video.mp4"
     end
 
     test "a ready audio entry plays from a progressive rendition" do
@@ -157,7 +157,7 @@ defmodule Web.AudioTest do
     test "re-transcoding destroys the directory it replaced, but only after the swap" do
       old = Uploads.new_media_dir("2026-09-18")
       Uploads.create_entry_dir!(old)
-      File.write!(Path.join(Uploads.entry_dir!(old), "master.m3u8"), "#EXTM3U")
+      File.write!(Path.join(Uploads.entry_dir!(old), "video.mp4"), "stub-media")
 
       log = log_fixture(status: "ready", media_dir: old)
       new = Uploads.new_media_dir("2026-09-18")

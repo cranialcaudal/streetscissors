@@ -36,18 +36,18 @@ defmodule Web.Media.TranscoderTest do
   end
 
   describe "a video entry" do
-    test "becomes an HLS ladder and is marked ready", %{queue: queue} do
+    test "becomes one progressive MP4 and is marked ready", %{queue: queue} do
       log = run(queue, pending_log(%{kind: "video"}))
 
       assert log.status == "ready"
       assert log.transcode_error == nil
       assert log.media_dir =~ ~r/^#{log.slug}-[0-9a-f]{8}$/
+      assert Audio.Log.media_url(log) =~ ~r{/video\.mp4$}
 
       dir = Uploads.entry_dir!(log.media_dir)
-      assert File.regular?(Path.join(dir, Media.master_playlist()))
-      assert File.regular?(Path.join(dir, Media.variant_playlist(0)))
-      assert File.regular?(Path.join(dir, Media.variant_playlist(1)))
+      assert File.regular?(Path.join(dir, Media.video_rendition()))
       assert File.regular?(Path.join(dir, Media.poster()))
+      refute File.exists?(Path.join(dir, "master.m3u8"))
     end
 
     test "the staged source is deleted once there is a rendition to keep instead",
@@ -70,8 +70,57 @@ defmodule Web.Media.TranscoderTest do
     end
   end
 
+  # The source is gone once an entry is ready, so a change to the encode is
+  # applied by re-encoding the entry from its own rendition.
+  describe "re-encoding a finished entry" do
+    test "runs again from its own rendition, into a fresh directory", %{queue: queue} do
+      first = run(queue, pending_log(%{kind: "video"}))
+
+      {:ok, _} =
+        Audio.update_log(first, %{trim_start_ms: 1500, trim_duration_ms: 9000, poster_at_ms: 4000})
+
+      old_dir = Uploads.entry_dir!(first.media_dir)
+
+      {:ok, queued} = Media.reencode(Audio.get_log!(first.id))
+
+      # The trims are already in the rendition; applying them again would cut twice.
+      assert queued.source_path == Path.join(old_dir, Media.video_rendition())
+      assert queued.trim_start_ms == nil
+      assert queued.trim_duration_ms == nil
+      assert queued.poster_at_ms == 4000
+
+      Transcoder.enqueue(queue, queued.id)
+      Transcoder.await_idle(queue)
+      log = Audio.get_log!(first.id)
+
+      assert log.status == "ready"
+      assert log.source_path == nil
+      assert log.media_dir != first.media_dir
+      assert File.regular?(Path.join(Uploads.entry_dir!(log.media_dir), Media.video_rendition()))
+      refute File.dir?(old_dir)
+    end
+
+    test "reads the top rung of a legacy HLS ladder when there is no MP4" do
+      dir = Uploads.new_media_dir("2026-09-18")
+      Uploads.create_entry_dir!(dir)
+      root = Uploads.entry_dir!(dir)
+      File.mkdir_p!(Path.join(root, "v0"))
+      File.write!(Path.join(root, "v0/index.m3u8"), "#EXTM3U")
+
+      log = log_fixture(kind: "video", status: "ready", media_dir: dir)
+
+      assert {:ok, queued} = Media.reencode(log)
+      assert queued.source_path == Path.join(root, "v0/index.m3u8")
+      assert queued.status == "pending"
+    end
+
+    test "refuses an entry that is not finished" do
+      assert {:error, _} = Media.reencode(log_fixture(status: "pending"))
+    end
+  end
+
   describe "an audio entry" do
-    test "gets a progressive rendition and a waveform rather than a ladder", %{queue: queue} do
+    test "gets an audio rendition and a waveform rather than a video", %{queue: queue} do
       log = run(queue, pending_log(%{kind: "audio", name: "voice.m4a"}))
 
       assert log.status == "ready"
@@ -79,7 +128,7 @@ defmodule Web.Media.TranscoderTest do
       dir = Uploads.entry_dir!(log.media_dir)
       assert File.regular?(Path.join(dir, Media.audio_rendition()))
       assert File.regular?(Path.join(dir, Media.poster()))
-      refute File.regular?(Path.join(dir, Media.master_playlist()))
+      refute File.regular?(Path.join(dir, Media.video_rendition()))
     end
   end
 

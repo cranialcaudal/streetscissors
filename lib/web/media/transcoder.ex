@@ -197,7 +197,7 @@ defmodule Web.Media.Transcoder do
       # rather than taken on trust from the form. A clip uploaded as video
       # whose file carries no video track is an audio entry, and the row is
       # corrected to say so when it finishes — otherwise `media_url/1` would
-      # point at a master playlist that was never written.
+      # point at a video file that was never written.
       kind = if log.kind == "video" and probe.has_video?, do: "video", else: "audio"
 
       args = args_for(kind, log, source, media_dir, probe)
@@ -263,11 +263,7 @@ defmodule Web.Media.Transcoder do
 
     case kind do
       "video" ->
-        FFmpeg.ladder_args(
-          source,
-          dir,
-          opts ++ [rungs: FFmpeg.rungs(probe.height), audio?: probe.has_audio?]
-        )
+        FFmpeg.video_args(source, dir, opts ++ [audio?: probe.has_audio?])
 
       _ ->
         FFmpeg.audio_args(source, dir, opts)
@@ -373,7 +369,7 @@ defmodule Web.Media.Transcoder do
   defp verify_output(job, dir) do
     expected =
       if job.kind == "video",
-        do: Media.master_playlist(),
+        do: Media.video_rendition(),
         else: Media.audio_rendition()
 
     if File.regular?(Path.join(dir, expected)),
@@ -385,7 +381,7 @@ defmodule Web.Media.Transcoder do
   # the only picture a recording of a voice can honestly offer.
   defp make_poster(%{kind: "video"} = job, dir) do
     output = Path.join(dir, Media.poster())
-    input = Path.join(dir, Media.variant_playlist(0))
+    input = Path.join(dir, Media.video_rendition())
     at = poster_timestamp(job)
 
     case FFmpeg.run(FFmpeg.poster_args(input, output, at)) do
@@ -425,7 +421,7 @@ defmodule Web.Media.Transcoder do
   defp mark_ready(log, job, poster?, dir) do
     # Measured off what was actually written rather than what was asked for: a
     # trim lands on a keyframe boundary, a source can be shorter than its
-    # header claims, and the top rung is smaller than the source it came from.
+    # header claims, and the rendition is smaller than the source it came from.
     output = probe_output(job, dir)
 
     attrs =
@@ -462,7 +458,7 @@ defmodule Web.Media.Transcoder do
   defp probe_output(job, dir) do
     target =
       if job.kind == "video",
-        do: Media.variant_playlist(0),
+        do: Media.video_rendition(),
         else: Media.audio_rendition()
 
     case FFmpeg.probe(Path.join(dir, target)) do

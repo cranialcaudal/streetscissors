@@ -447,9 +447,9 @@
   right: 0;
 }
 
-/* The media is revealed by the playing state rather than by a `hidden`
-   attribute, because LiveView patches attributes it rendered back into place
-   and counting a play is one such patch. */
+/* The media is revealed by the playing state — which the hook sets only on
+   the element's own `playing` event, never on the click — so a plate never
+   shows an empty player that failed to start. */
 .log-plate .log-video,
 .log-plate .log-audio { display: none; }
 
@@ -472,7 +472,8 @@
    there is a moving picture behind it — but an audio entry's waveform stays:
    it is the only thing there is to look at, and the controls sit along its
    bottom edge. */
-.log-plate.is-playing .log-play { display: none; }
+.log-plate.is-playing .log-play,
+.log-plate.is-error .log-play { display: none; }
 .log-plate.log--video.is-playing .log-poster { display: none; }
 
 .log-plate-pending {
@@ -538,6 +539,118 @@
   box-shadow:
     0 0 34px rgba(255, 158, 61, 0.45),
     inset 0 1px 0 rgba(255, 158, 61, 0.4);
+}
+
+/* ── Loading, buffering, failing ──────────────────────────
+   The plate says what the media element has reported, and nothing
+   more. Loading keeps the poster and turns the key's triangle into a
+   turning ring; a stall mid-play puts the same ring over the picture;
+   a failure says so in words and offers two ways forward. */
+.log-plate.is-loading .log-play { cursor: progress; }
+
+.log-plate.is-loading .log-play-mark::after,
+.log-plate.is-buffering::after {
+  content: '';
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  box-sizing: border-box;
+  border: 3px solid rgba(255, 158, 61, 0.25);
+  border-top-color: var(--color-orange);
+  border-radius: 50%;
+  animation: log-turn 0.9s linear infinite;
+}
+
+.log-plate.is-buffering::after {
+  position: absolute;
+  top: calc(50% - 18px);
+  left: calc(50% - 18px);
+  width: 36px;
+  height: 36px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+@keyframes log-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-plate.is-loading .log-play-mark::after,
+  .log-plate.is-buffering::after {
+    animation: none;
+    border-color: var(--color-orange);
+    opacity: 0.6;
+  }
+}
+
+.log-plate-error {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--paper-deep) 88%, transparent);
+}
+
+/* Author `display: flex` would otherwise beat the UA's [hidden] rule. */
+.log-plate-error[hidden] { display: none; }
+
+/* A blank plate's "Video log" label would read through the panel. */
+.log-plate.is-error .log-poster--none { visibility: hidden; }
+
+.log-plate-error p {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.log-plate-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.log-retry,
+.log-file {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--color-orange);
+  background: transparent;
+  border: 1px solid var(--color-orange);
+  cursor: pointer;
+}
+
+.log-file {
+  color: var(--ink-2);
+  border-color: var(--rule-strong);
+}
+
+.log-retry:hover,
+.log-retry:focus-visible {
+  background: rgba(255, 158, 61, 0.14);
+}
+
+.log-file:hover,
+.log-file:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink-2);
 }
 
 /* ── Figures ──────────────────────────────────────────────

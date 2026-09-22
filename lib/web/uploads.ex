@@ -12,7 +12,7 @@ defmodule Web.Uploads do
       uploads/
         staging/<token>.webm        a source, alive only until it transcodes
         logs/<slug>-<token>/        one directory per captain's log
-          master.m3u8  v0/…  v1/…   an HLS ladder, for video
+          video.mp4                 a progressive rendition, for video
           audio.m4a                 a progressive rendition, for audio
           poster.jpg
 

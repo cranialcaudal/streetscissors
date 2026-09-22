@@ -90,20 +90,20 @@ defmodule WebWeb.LogEntry do
       |> assign(:poster, Log.poster_url(assigns.log))
 
     ~H"""
+    <%!-- phx-update="ignore": the hook owns everything in here once it
+          mounts. LiveView then merges only data-* attributes onto the plate
+          and never touches its class or children, so no patch — counting a
+          witness is one — can reset a running player or its state. --%>
     <div
       id={@id}
       class={["log-plate", "log--#{@log.kind}", is_nil(@poster) && "log-plate--blank"]}
       phx-hook=".LogPlayer"
+      phx-update="ignore"
       data-log-id={@log.id}
       data-src={@src}
       data-kind={@log.kind}
       style={@log.width && @log.height && "--plate-ratio: #{@log.width} / #{@log.height}"}
     >
-      <%!-- No `hidden` attribute here, deliberately. LiveView owns every
-            attribute it rendered and patches it back on the next update —
-            and counting the play *is* an update, so the media would be
-            re-hidden the instant it started. Visibility is CSS keyed on
-            `.is-playing`, which the hook re-applies after a patch. --%>
       <video
         :if={@log.kind == "video"}
         class="log-video"
@@ -125,42 +125,114 @@ defmodule WebWeb.LogEntry do
         <span class="log-play-mark" aria-hidden="true"></span>
       </button>
 
+      <div :if={@src} class="log-plate-error" role="alert" hidden>
+        <p>Couldn't play this recording.</p>
+        <div class="log-plate-error-actions">
+          <button type="button" class="log-retry">Try again</button>
+          <a class="log-file" href={@src} target="_blank" rel="noopener">Open the file</a>
+        </div>
+      </div>
+
       <p :if={is_nil(@src)} class="log-plate-pending">Still processing</p>
     </div>
 
     <script :type={Phoenix.LiveView.ColocatedHook} name=".LogPlayer">
-      // Nothing is fetched until the play button is pressed — not the media,
-      // not the player. Safari and iOS play HLS natively from a plain src;
-      // everyone else gets hls.js, which is a dynamic import so it only ever
-      // reaches a browser that is about to watch something.
+      // One progressive file, played by the browser's own <video>/<audio>.
+      // Nothing is fetched until the key is pressed (preload="none").
       //
-      // Vendored: hls.js 1.6.15, light build (assets/vendor/hls.light.min.js).
+      // The plate's state is a class — is-loading, is-playing, is-error —
+      // and it only ever says what the media element has actually reported:
+      // "playing" waits for the element's own `playing` event, not the click.
       export default {
         mounted() {
           this.media = this.el.querySelector("video, audio")
           this.button = this.el.querySelector(".log-play")
-          this.hls = null
+          this.error = this.el.querySelector(".log-plate-error")
+          this.state = "idle"
+          this.watchdog = null
           this.counted = false
-          this.playing = false
           this.watched = 0
           this.lastTime = null
 
-          if (this.button) {
-            this.button.addEventListener("click", () => this.start())
+          if (this.button) this.button.addEventListener("click", () => this.start())
+
+          const retry = this.el.querySelector(".log-retry")
+          if (retry) retry.addEventListener("click", () => this.start({ reload: true }))
+
+          if (!this.media) return
+
+          this.media.addEventListener("playing", () => this.setState("playing"))
+          this.media.addEventListener("waiting", () => {
+            if (this.state === "playing") this.el.classList.add("is-buffering")
+          })
+          this.media.addEventListener("error", () => this.setState("error"))
+
+          // A witness is someone who watched, not someone who pressed play:
+          // count only time that actually played — small forward steps
+          // between timeupdates, so a seek or scrub adds nothing — and send
+          // it once, when 30 seconds have played (half the entry, if it is
+          // shorter than a minute). The server keeps one row per browser.
+          this.media.addEventListener("timeupdate", () => this.tally())
+          this.media.addEventListener("seeking", () => { this.lastTime = null })
+        },
+
+        setState(state) {
+          this.state = state
+          this.el.classList.toggle("is-loading", state === "loading")
+          this.el.classList.toggle("is-playing", state === "playing")
+          this.el.classList.toggle("is-error", state === "error")
+          this.el.classList.remove("is-buffering")
+
+          if (state === "loading") this.el.setAttribute("aria-busy", "true")
+          else this.el.removeAttribute("aria-busy")
+
+          if (this.error) this.error.hidden = state !== "error"
+          if (state !== "loading") clearTimeout(this.watchdog)
+        },
+
+        // Synchronous on purpose. Safari only lets play() start sound when it
+        // is called inside the click itself; the old start awaited a player
+        // library first, and Safari quietly refused. Nothing here awaits.
+        start({ reload = false } = {}) {
+          const src = this.el.dataset.src
+          if (!src || !this.media) return
+          if (this.state === "loading" || this.state === "playing") return
+
+          this.setState("loading")
+
+          if (!this.media.getAttribute("src")) {
+            this.media.src = src
+          } else if (reload) {
+            // Pick up where it failed rather than from the top.
+            const at = this.media.currentTime
+            this.media.load()
+            if (at > 0) {
+              this.media.addEventListener("loadedmetadata", () => { this.media.currentTime = at }, { once: true })
+            }
           }
 
-          if (this.media) {
-            // A witness is someone who watched, not someone who pressed play:
-            // count only time that actually played — small forward steps
-            // between timeupdates, so a seek or scrub adds nothing — and send
-            // it once, when 30 seconds have played (half the entry, if it is
-            // shorter than a minute). The server keeps one row per browser.
-            this.media.addEventListener("timeupdate", () => this.tally())
-            this.media.addEventListener("seeking", () => { this.lastTime = null })
+          // Still nothing after 15 seconds is a failure worth saying so about,
+          // with a way to try again, rather than a key that just sits there.
+          this.watchdog = setTimeout(() => {
+            if (this.state === "loading") this.setState("error")
+          }, 15000)
+
+          const attempt = this.media.play()
+          if (attempt) {
+            attempt.catch((error) => {
+              // Superseded by a newer load or play — not a failure.
+              if (error.name === "AbortError") return
+              // The browser refused to start without a fresh press: back to
+              // the key, which is exactly that press.
+              if (error.name === "NotAllowedError") return this.setState("idle")
+              this.setState("error")
+            })
           }
         },
 
         tally() {
+          if (this.state === "playing") this.el.classList.remove("is-buffering")
+
           const now = this.media.currentTime
           if (this.lastTime !== null && !this.media.paused) {
             const step = now - this.lastTime
@@ -200,64 +272,8 @@ defmodule WebWeb.LogEntry do
           }
         },
 
-        async start() {
-          const src = this.el.dataset.src
-          if (!src || !this.media || this.el.classList.contains("is-playing")) return
-
-          this.playing = true
-          this.el.classList.add("is-playing")
-
-          if (this.el.dataset.kind !== "video") {
-            this.media.src = src
-          } else {
-            // hls.js first, native second — deliberately, and not the other
-            // way round. Desktop Chrome answers canPlayType("…mpegurl") with
-            // "maybe", which is truthy but not a promise: HLS is not a
-            // supported feature there, and trusting it means a silently dead
-            // player on the builds where it does not work. iOS Safari, which
-            // genuinely needs the native path, reports isSupported() as false
-            // because it has no MSE for video — so it falls through here on
-            // its own, with no user-agent sniffing.
-            try {
-              const { default: Hls } = await import("@/vendor/hls.light.min.js")
-              if (Hls.isSupported()) {
-                this.hls = new Hls({
-                  enableWorker: true,
-                  // Read ahead by a listenable amount and no more. The point
-                  // of segmenting at all is that someone who opens a
-                  // twenty-minute log and watches two minutes of it costs two
-                  // minutes of bandwidth. backBufferLength then drops what
-                  // has already played, so a long recording does not grow in
-                  // memory for the whole of its runtime.
-                  maxBufferLength: 20,
-                  maxBufferSize: 20 * 1000 * 1000,
-                  backBufferLength: 30
-                })
-                this.hls.loadSource(src)
-                this.hls.attachMedia(this.media)
-              } else {
-                this.media.src = src
-              }
-            } catch (_error) {
-              // If the chunk cannot be fetched at all, a direct src is still
-              // worth trying — it is what Safari would have used anyway.
-              this.media.src = src
-            }
-          }
-
-          this.media.play().catch(() => {})
-        },
-
-        // LiveView patches this element's class attribute back to what the
-        // server rendered, which drops `is-playing` and puts the poster and
-        // the play key back over a video that is still running. Counting the
-        // play triggers exactly that patch, so this is not an edge case.
-        updated() {
-          if (this.playing) this.el.classList.add("is-playing")
-        },
-
         destroyed() {
-          if (this.hls) this.hls.destroy()
+          clearTimeout(this.watchdog)
         }
       }
     </script>

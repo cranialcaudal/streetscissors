@@ -126,7 +126,7 @@ defmodule Web.Audio.Log do
   def media_url(%__MODULE__{status: status}) when status != "ready", do: nil
 
   def media_url(%__MODULE__{kind: "video", media_dir: dir}),
-    do: Web.Uploads.entry_web_path(dir, Web.Media.master_playlist())
+    do: Web.Uploads.entry_web_path(dir, Web.Media.video_rendition())
 
   def media_url(%__MODULE__{media_dir: dir}),
     do: Web.Uploads.entry_web_path(dir, Web.Media.audio_rendition())

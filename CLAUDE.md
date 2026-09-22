@@ -148,21 +148,34 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     (`LogEntry.plate/1` + a figures panel), everything else is one chronological run of cards,
     and the years are a footnote. **No card mounts a player** — opening `/logs` fetches posters
     and nothing else, which a test pins.
-  - **Delivery is HLS.** `Web.Media.Transcoder` (supervised, concurrency 1, `nice`-d) drives
-    ffmpeg through a `Port`, parsing `-progress pipe:1` into throttled PubSub broadcasts on
-    `"log:<id>"`. Video becomes a two-rung fMP4 ladder (720p + 480p, keyframes forced onto a
-    shared grid so a player can switch); **audio skips HLS** for one progressive `.m4a` plus an
-    ffmpeg `showwavespic` waveform as its poster. `Web.Media.FFmpeg` owns every argument list and
-    resolves its binaries through `:ffmpeg_bin`/`:ffprobe_bin` so the suite runs against stubs in
-    `test/support/`. The transcoder decides an entry's real `kind` from the probe, so a file
-    uploaded as video with no video track is corrected to audio rather than pointing at a
-    playlist that was never written.
+  - **Delivery is one progressive file** (since 2026-09-22; it was an HLS ladder played by
+    hls.js). `Web.Media.Transcoder` (supervised, concurrency 1, `nice`-d) drives ffmpeg through
+    a `Port`, parsing `-progress pipe:1` into throttled PubSub broadcasts on `"log:<id>"`. Video
+    becomes one 720p `video.mp4` (`+faststart`), audio one `.m4a` plus an ffmpeg `showwavespic`
+    waveform as its poster, and the browser's own `<video>`/`<audio>` plays either — no player
+    library. **Video is pinned to `fps=30` and `-level:v 4.0`**: the booth's WebM has 1 ms
+    timestamps and no frame rate, and without the filter ffmpeg padded it out to a real
+    1000 fps, which libx264 labelled level 6.0 and which Safari and many hardware decoders
+    refused. `Web.Media.FFmpeg` owns every argument list and resolves its binaries through
+    `:ffmpeg_bin`/`:ffprobe_bin` so the suite runs against stubs in `test/support/`. The
+    transcoder decides an entry's real `kind` from the probe, so a file uploaded as video with
+    no video track is corrected to audio rather than pointing at a file that was never written.
+  - **Sources are gone after a transcode, so an encode change is applied with
+    `Web.Media.reencode/1`**: it re-runs a ready entry from its own rendition (its MP4, or a
+    legacy ladder's `v0/index.m3u8`), clearing the trims already baked in. On prod, through
+    `bin/web rpc`.
+  - **The player (`LogEntry.plate/1` + `.LogPlayer`) owns its plate**: `phx-update="ignore"`,
+    so a patch — counting a witness is one — never resets it. Its state is a class that only
+    repeats what the media element reported: `is-loading` from the click, `is-playing` on the
+    element's own `playing` event, `is-error` on an `error` event, a refused `play()` or 15 s
+    of nothing, with **Try again** and **Open the file**. `start()` calls `play()` inside the
+    click with nothing awaited first, because Safari refuses a `play()` that isn't.
   - Each entry owns a directory `logs/<slug>-<token>/` (`Web.Uploads.entry_dir/1`). The token is
     for **cache safety**: a re-transcode writes a new directory and swaps the pointer, so nothing
     at a path ever changes and the one-year `immutable` header is honest.
   - **Caddy serves `/uploads/*` off disk** (both Caddyfiles), so no BEAM process is in the byte
-    path for a page of segments. It must set `Content-Type` for `.m3u8`/`.m4s` explicitly — Go's
-    MIME table knows neither, and hls.js refuses a playlist typed as octet-stream.
+    path, with Range requests for seeking. Its `.m3u8`/`.m4s` `Content-Type` rules are dormant
+    leftovers of the HLS era, kept so an old URL still answers correctly.
     `WebWeb.Plugs.MediaServe` is the dev-time equivalent (Range, ETag, HEAD).
   - `/admin/logs` is a **recording booth**: `getUserMedia` preview, one record button, then trim
     in/out and a poster frame chosen over the take. Those are *numbers* — ffmpeg applies them

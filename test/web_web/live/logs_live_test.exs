@@ -67,7 +67,7 @@ defmodule WebWeb.LogsLiveTest do
       # Three entries, one plate, one media element — the feature's. If a card
       # ever grows a player, opening this page starts fetching video for every
       # entry on it, which is the thing this page exists to avoid.
-      assert count(html, ~s(class="log-plate)) == 1
+      assert count(html, ~s(phx-hook="WebWeb.LogEntry.LogPlayer")) == 1
       assert count(html, "<video") == 1
       assert count(html, "<audio") == 0
       # And even that one is told to fetch nothing until it is asked to.
@@ -217,13 +217,40 @@ defmodule WebWeb.LogsLiveTest do
       assert_raise Ecto.NoResultsError, fn -> live(conn, "/logs/2026-01-01") end
     end
 
-    test "the player is handed the playlist but told to preload nothing", %{conn: conn} do
+    test "the player is handed one MP4 but told to preload nothing", %{conn: conn} do
       log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
 
       {:ok, _view, html} = live(conn, "/logs/#{log.slug}")
 
-      assert html =~ "/uploads/logs/2026-09-18-abc12345/master.m3u8"
+      assert html =~ ~s(data-src="/uploads/logs/2026-09-18-abc12345/video.mp4")
       assert html =~ ~s(preload="none")
+      refute html =~ "m3u8"
+    end
+
+    # The hook owns the plate once it mounts. Without `ignore`, the patch that
+    # counts a witness would put the plate's class back and reset the player.
+    test "LiveView leaves the plate to the player", %{conn: conn} do
+      log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+
+      assert has_element?(view, ~s(#log-plate-#{log.id}[phx-update="ignore"][phx-hook]))
+    end
+
+    # A failure says so, with a way to try again and a way round the player.
+    test "the plate carries a hidden failure panel with a retry and the file", %{conn: conn} do
+      log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+
+      assert has_element?(view, ".log-plate-error[hidden][role=alert]")
+      assert has_element?(view, ".log-plate-error button.log-retry", "Try again")
+
+      assert has_element?(
+               view,
+               ~s(.log-plate-error a.log-file[href="/uploads/logs/2026-09-18-abc12345/video.mp4"]),
+               "Open the file"
+             )
     end
 
     test "the media element carries no hidden attribute", %{conn: conn} do

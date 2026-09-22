@@ -13,27 +13,18 @@ defmodule Web.Media.FFmpeg do
     * **Trim is `-ss` + `-t`, not `-ss` + `-to`.** With input seeking, `-to`
       is read against the input timeline in some versions and the seek point
       in others. A duration has no such ambiguity.
-    * **Seeking an HLS playlist has to be an output seek.** `-ss` *before* an
-      `.m3u8` input yields zero frames and the encoder then fails to open at
-      all; `-ss` after it works. That is what lets a poster be re-picked from
-      a finished rendition once the source is gone.
+    * **A video is pinned to 30 fps.** The recording booth's WebM carries
+      1 ms timestamps and no frame rate, so left to itself ffmpeg took it for
+      1000 fps and duplicated frames to fill that — six thousand frames per
+      six seconds, which libx264 then labelled H.264 level 6.0 and which many
+      decoders (Safari among them) refused. `fps=30` in the filter graph is
+      the fix; `-level:v 4.0` states the result.
   """
 
   require Logger
 
-  # The ladder, largest first. A rung is only cut if it would actually make
-  # the picture smaller — see `rungs/1`.
-  @rungs [
-    %{
-      name: "720",
-      height: 720,
-      width: 1280,
-      bitrate: "2200k",
-      maxrate: "2400k",
-      bufsize: "4400k"
-    },
-    %{name: "480", height: 480, width: 854, bitrate: "800k", maxrate: "900k", bufsize: "1600k"}
-  ]
+  # The one video rendition: fitted inside 1280x720, never upscaled.
+  @video_box %{width: 1280, height: 720}
 
   @doc "Path to the ffmpeg binary. Overridable as `config :web, :ffmpeg_bin`."
   def ffmpeg_bin, do: Application.get_env(:web, :ffmpeg_bin, "ffmpeg")
@@ -96,114 +87,47 @@ defmodule Web.Media.FFmpeg do
   defp parse_duration(_json), do: nil
 
   @doc """
-  The rungs worth encoding for a source of the given height.
+  The video rendition: one progressive MP4 that every browser plays natively,
+  with no player library and no segment requests.
 
-  A 480p source encoded against both rungs produces two byte-identical
-  renditions, because neither box makes it smaller — so anything at or below
-  the bottom rung gets one rendition at its native size, and the ladder only
-  appears when there is a real difference to switch between.
+  `fps=30` drops the duplicate frames a 1 ms-timebase recording would
+  otherwise be padded out with (see the module docs), which is also what
+  makes the `-g 60` keyframe grid mean two seconds. `+faststart` moves the
+  index to the front, so playback begins before the file has downloaded, and
+  seeking is a Range request away. A 60 fps phone clip comes out at 30 —
+  for a spoken log that costs nothing.
   """
-  def rungs(height) when is_integer(height) do
-    case Enum.filter(@rungs, &(&1.height < height)) do
-      # Nothing downscales it: one rendition at its own size.
-      [] -> [List.last(@rungs)]
-      # Only the bottom rung downscales it, so the top one renders native and
-      # there is still a real pair to switch between.
-      [smallest] -> [hd(@rungs), smallest]
-      kept -> kept
-    end
-  end
-
-  def rungs(_height), do: @rungs
-
-  @doc """
-  The HLS ladder: one invocation, source decoded once, `n` renditions out.
-
-  Keyframes are forced onto a fixed 60-frame grid (`-g`/`-keyint_min` with
-  scene detection off) because a player can only switch rungs at a segment
-  boundary, and boundaries only line up across renditions if the keyframes do.
-  """
-  def ladder_args(source, dir, opts) do
-    rungs = Keyword.fetch!(opts, :rungs)
+  def video_args(source, dir, opts) do
     audio? = Keyword.get(opts, :audio?, true)
-    n = length(rungs)
 
     trim_args(opts) ++
       ["-i", source] ++
-      ["-filter_complex", filter_complex(rungs)] ++
-      Enum.flat_map(0..(n - 1), &["-map", "[v#{&1}]"]) ++
-      if(audio?, do: List.duplicate(["-map", "0:a:0"], n) |> List.flatten(), else: []) ++
-      ["-c:v", "libx264", "-preset", "veryfast", "-profile:v", "high", "-pix_fmt", "yuv420p"] ++
-      Enum.flat_map(Enum.with_index(rungs), fn {rung, i} ->
-        [
-          "-b:v:#{i}",
-          rung.bitrate,
-          "-maxrate:v:#{i}",
-          rung.maxrate,
-          "-bufsize:v:#{i}",
-          rung.bufsize
-        ]
-      end) ++
-      ["-g", "60", "-keyint_min", "60", "-sc_threshold", "0"] ++
+      ["-map", "0:v:0"] ++
+      if(audio?, do: ["-map", "0:a:0"], else: []) ++
+      ["-vf", "fps=30," <> scale(@video_box)] ++
+      ["-c:v", "libx264", "-preset", "veryfast", "-profile:v", "high", "-level:v", "4.0"] ++
+      ["-pix_fmt", "yuv420p", "-crf", "23", "-maxrate", "2500k", "-bufsize", "5000k"] ++
+      ["-g", "60", "-keyint_min", "60"] ++
       if(audio?, do: ["-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000"], else: []) ++
-      [
-        "-f",
-        "hls",
-        "-hls_time",
-        "6",
-        "-hls_playlist_type",
-        "vod",
-        "-hls_segment_type",
-        "fmp4",
-        "-var_stream_map",
-        var_stream_map(n, audio?),
-        "-master_pl_name",
-        Web.Media.master_playlist(),
-        "-hls_segment_filename",
-        Path.join(dir, "v%v/seg%03d.m4s")
-      ] ++
+      ["-movflags", "+faststart"] ++
       progress_args() ++
-      [Path.join(dir, "v%v/index.m3u8")]
+      [Path.join(dir, Web.Media.video_rendition())]
   end
 
-  defp filter_complex([single]) do
-    "[0:v]#{scale(single)}[v0]"
-  end
-
-  defp filter_complex(rungs) do
-    n = length(rungs)
-    labels = Enum.map(0..(n - 1), &"[s#{&1}]") |> Enum.join()
-
-    chains =
-      rungs
-      |> Enum.with_index()
-      |> Enum.map(fn {rung, i} -> "[s#{i}]#{scale(rung)}[v#{i}]" end)
-      |> Enum.join(";")
-
-    "[0:v]split=#{n}#{labels};#{chains}"
-  end
-
-  # The box is the smaller of the rung and the source, so a rendition never
-  # upscales — `force_original_aspect_ratio=decrease` then fits inside it
+  # The box is the smaller of the target and the source, so the rendition
+  # never upscales — `force_original_aspect_ratio=decrease` then fits inside it
   # keeping the aspect, and `force_divisible_by=2` keeps both sides even,
   # which yuv420p requires.
-  defp scale(rung) do
-    "scale=w='min(#{rung.width},iw)':h='min(#{rung.height},ih)'" <>
+  defp scale(box) do
+    "scale=w='min(#{box.width},iw)':h='min(#{box.height},ih)'" <>
       ":force_original_aspect_ratio=decrease:force_divisible_by=2"
-  end
-
-  defp var_stream_map(n, audio?) do
-    0..(n - 1)
-    |> Enum.map(fn i -> if audio?, do: "v:#{i},a:#{i}", else: "v:#{i}" end)
-    |> Enum.join(" ")
   end
 
   @doc """
   A progressive audio rendition: what an audio-only entry is played from.
 
-  No HLS here on purpose. Ten minutes of speech is about 7 MB, which one
-  Range request serves better than a hundred segments would — and it needs no
-  player library in the browser at all.
+  Ten minutes of speech is about 7 MB, served by Range requests and played
+  by the browser's own `<audio>` — the same shape as the video rendition.
   """
   def audio_args(source, dir, opts) do
     trim_args(opts) ++
@@ -228,9 +152,10 @@ defmodule Web.Media.FFmpeg do
   @doc """
   A single still, scaled to 960 wide.
 
-  `at` is a timestamp within the *finished* media, so `input` may be either
-  the source file or a rendition's playlist — see the note about output
-  seeking in this module's docs.
+  `at` is a timestamp within the *finished* media, so `input` is the
+  rendition itself. The seek is an output seek (`-ss` after `-i`): exact on
+  any input, including a legacy HLS playlist, where an input seek yields no
+  frames at all.
   """
   def poster_args(input, output, at) do
     ["-i", input, "-ss", format_seconds(at), "-frames:v", "1"] ++
