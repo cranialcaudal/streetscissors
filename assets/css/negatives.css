@@ -149,10 +149,6 @@
 }
 
 /* Controls ride on the image so nothing below it competes for height. */
-.stage-image-wrapper {
-  position: relative;
-}
-
 /* Bare marks on the image, not buttons on it: no box, no fill, always present
    so you never have to go looking for them. The drop shadow is what keeps a
    thin chevron legible over a bright frame. */
@@ -499,6 +495,20 @@
   object-fit: contain !important;
 }
 
+/* The icon and its label are separate elements, so the gap belongs here
+   rather than on a utility class — Tailwind runs source(none) and `mr-1`
+   never generated, which is why these used to sit flush against each other. */
+.index-toggle-btn,
+.nav-pill-btn,
+.download-icon-btn,
+.download-sheet-btn,
+.view-sheet-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
 .index-toggle-btn {
   background: var(--paper-raised);
   color: var(--accent-color);
@@ -634,6 +644,10 @@
 
 /* Image container strictly bounded to screen height */
 .stage-image-wrapper {
+  /* Positioned because the arrows, the download and the grease-pencil marks
+     are all laid over it. Declared once, here: this used to be split across
+     two blocks 480 lines apart. */
+  position: relative;
   flex: 1 !important;
   min-height: 0 !important;
   min-width: 0 !important;
@@ -783,6 +797,232 @@
   text-align: center;
   padding: 6rem 2rem;
   color: var(--ink-3);
+}
+
+
+/* ---- The archive beside the sheet ----------------------------------------
+   Contents on the left, the photograph on the right, whenever the screen can
+   hold both. The same shape as the contents rail on /how-to and the meals
+   page — grid, fixed rail, `minmax(0, 1fr)` so the sheet column can actually
+   shrink — with one difference: 31 rolls is far taller than a viewport, so
+   this rail scrolls inside itself.
+
+   It folds at 1200px, and that number is geometry rather than taste. The rail
+   and its gap cost 280px, and .sheet-plate is
+   `min(column, --stage-h × aspect-ratio)`: a landscape sheet on a 900px-tall
+   viewport wants 775px, which 1152 − 280 clears and 1052 − 280 does not. */
+
+.negatives-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 3.5rem;
+  align-items: start;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.roll-rail {
+  position: sticky;
+  /* The site header is sticky and ~91px tall; anything less parks the rail
+     underneath it. Same offset the how-to rail uses. */
+  top: 8.5rem;
+  border-left: 1px solid var(--rule);
+  padding-left: 1.1rem;
+  max-height: calc(100vh - 11rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.roll-rail-head {
+  font-family: var(--font-data, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.roll-rail-sort {
+  color: var(--accent-color);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid transparent;
+  align-self: flex-start;
+}
+
+.roll-rail-sort:hover {
+  border-bottom-color: var(--accent-color);
+}
+
+.roll-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roll-rail-item {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  grid-template-areas: 'num date' 'num format';
+  column-gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.4rem 0.5rem;
+  margin-left: -0.5rem;
+  color: var(--ink-2);
+  font-family: var(--font-data, monospace);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.roll-rail-item:hover {
+  color: var(--ink);
+  background: rgba(243, 238, 228, 0.06);
+}
+
+/* Solid accent marks the roll you are on, the way the header marks the
+   current section — not an outline, which reads as merely hovered. */
+.roll-rail-item.is-current {
+  color: var(--paper);
+  background: var(--accent-color);
+}
+
+.roll-rail-num {
+  grid-area: num;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.roll-rail-item.is-current .roll-rail-num {
+  color: var(--paper);
+}
+
+.roll-rail-date {
+  grid-area: date;
+  font-size: 0.72rem;
+}
+
+.roll-rail-format {
+  grid-area: format;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.roll-rail-item.is-current .roll-rail-format {
+  color: var(--paper);
+  opacity: 0.8;
+}
+
+/* Keyboard bindings need to be in the DOM to register their window listener,
+   but have nothing to show. */
+.sr-keys {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Where the reader is in the run of rolls. Linear navigation without this is
+   a corridor with no doors numbered. */
+.sheet-position {
+  font-family: var(--font-data, monospace);
+  color: var(--ink-3);
+  margin-left: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--rule);
+}
+
+/* An arrow at the end of the archive. Kept in the layout rather than removed,
+   so the sheet does not shift sideways on the first and last roll. */
+.stage-arrow.is-spent {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.empty-state-icon {
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 0.75rem;
+  opacity: 0.3;
+}
+
+/* ---- Index table ---------------------------------------------------------
+   The sortable headers and the row link are anchors now, so a sorted index or
+   a particular roll can be opened in a new tab like anything else on the web. */
+
+.sortable-th a {
+  display: block;
+  color: inherit;
+}
+
+.index-date {
+  font-family: var(--font-data, monospace);
+  color: var(--accent-color);
+}
+
+.index-file {
+  font-family: var(--font-data, monospace);
+  font-size: 0.85rem;
+  color: var(--ink-3);
+}
+
+.index-roll {
+  font-weight: 700;
+}
+
+/* The row's one focusable target, stretched over the whole row so anywhere on
+   it opens the sheet. Seven links per row would be seven tab stops for one
+   destination. */
+.index-row {
+  position: relative;
+}
+
+.index-row-link {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.index-row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.index-row:hover .index-row-link {
+  color: var(--accent-color);
+}
+
+/* The download sits above the stretched link, or the row would swallow it. */
+.actions-cell {
+  position: relative;
+  z-index: 1;
+  text-align: right;
+}
+
+/* Below 1200px the rail is gone and this is the only way to the index; above
+   it, the rail is already on screen and this would be a second door to the
+   same room. */
+@media (min-width: 1201px) {
+  .stage-footer--index {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) {
+  .negatives-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .roll-rail {
+    display: none;
+  }
 }
 
 /* Responsive adjustments */

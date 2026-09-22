@@ -93,35 +93,35 @@ defmodule WebWeb.PcLiveTest do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "roll007_2026-07-22_120_bw")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "a bare roll number navigates too", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "7")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "case does not matter", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "ROLL007_2026-07-22_120_BW")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "a frame name navigates to that frame's own page", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "roll007_2026-07-22_120_bw_02")
 
-      assert_redirect(view, "/negatives/roll/7/frame/2")
+      assert_redirect(view, "/negatives/roll/007/frame/2")
     end
 
     test "`open` does the same as a bare name", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "open roll007_2026-07-22_120_bw")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "roll007 is not ambiguous — a roll answers to its number", %{conn: conn} do
@@ -130,7 +130,7 @@ defmodule WebWeb.PcLiveTest do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "roll007")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "a genuinely ambiguous query lists numbered choices instead of guessing",
@@ -140,8 +140,8 @@ defmodule WebWeb.PcLiveTest do
       out = run(view, "120")
 
       assert out =~ "matches"
-      assert out =~ "/negatives?slug=roll007_2026-07-22_120_bw"
-      assert out =~ "/negatives/roll/7/frame/"
+      assert out =~ "/negatives/roll/007"
+      assert out =~ "/negatives/roll/007/frame/"
     end
 
     test "a digit then picks from the pending list", %{conn: conn} do
@@ -149,14 +149,14 @@ defmodule WebWeb.PcLiveTest do
       run(view, "120")
       run(view, "1")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "with no pending list a digit is a roll number, not a choice", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/pc")
       run(view, "7")
 
-      assert_redirect(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      assert_redirect(view, "/negatives/roll/007")
     end
 
     test "an out-of-range choice says so rather than crashing", %{conn: conn} do
@@ -183,7 +183,7 @@ defmodule WebWeb.PcLiveTest do
       assert out =~ "pc-rendered-media"
       assert out =~ "/negatives/preview/"
       # Rendering is not navigating.
-      refute_redirected(view, "/negatives?slug=roll007_2026-07-22_120_bw")
+      refute_redirected(view, "/negatives/roll/007")
     end
 
     test "view works on a bare name from anywhere, without cd-ing first", %{conn: conn} do
@@ -198,7 +198,7 @@ defmodule WebWeb.PcLiveTest do
       out = run(view, "frames 7")
 
       assert out =~ "3 frames"
-      assert out =~ "/negatives/roll/7/frame/1"
+      assert out =~ "/negatives/roll/007/frame/1"
       # Listed by their real filenames in the roll's frames/ directory, with
       # the older <slug>_NN spelling offered as the way to open one.
       assert out =~ "03.png"
@@ -212,7 +212,7 @@ defmodule WebWeb.PcLiveTest do
       out = run(view, "find 120")
 
       assert out =~ "C:\\NEGATIVES\\Contact Sheets\\roll007_2026-07-22_120_bw.png"
-      assert out =~ "/negatives?slug="
+      assert out =~ "/negatives/roll/"
     end
 
     test "find reports honestly when nothing matches", %{conn: conn} do

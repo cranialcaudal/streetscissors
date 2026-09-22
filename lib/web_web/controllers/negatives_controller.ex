@@ -55,7 +55,40 @@ defmodule WebWeb.NegativesController do
     end
   end
 
+  # A sheet is a few hundred kilobytes and the archive is 31 of them. Without a
+  # validator every visit after the cache expires refetches all of it in full,
+  # so this mirrors WebWeb.Plugs.MediaServe: size and mtime are enough, because
+  # the contents at a path only change when the file does.
   defp send_image(conn, path) do
+    case File.stat(path) do
+      {:ok, stat} -> send_validated(conn, path, etag(stat))
+      _ -> send_body(conn, path)
+    end
+  end
+
+  defp send_validated(conn, path, etag) do
+    conn = put_resp_header(conn, "etag", etag)
+
+    if fresh?(conn, etag) do
+      send_resp(conn, 304, "")
+    else
+      send_body(conn, path)
+    end
+  end
+
+  defp etag(%{size: size, mtime: mtime}) do
+    hash = :erlang.phash2({size, mtime}, 4_294_967_296)
+    ~s("#{Integer.to_string(hash, 16)}-#{Integer.to_string(size, 16)}")
+  end
+
+  defp fresh?(conn, etag) do
+    case get_req_header(conn, "if-none-match") do
+      [] -> false
+      values -> Enum.any?(values, &(String.trim(&1) == etag or String.trim(&1) == "*"))
+    end
+  end
+
+  defp send_body(conn, path) do
     content_type =
       case Path.extname(path) |> String.downcase() do
         ".png" -> "image/png"

@@ -10,20 +10,31 @@ defmodule WebWeb.NegativesLiveTest do
     assert html =~ "Full Index by Scan Date"
     assert has_element?(view, ".single-presentation-viewport")
 
-    # Toggle to index view
-    view
-    |> element("button.index-toggle-btn")
-    |> render_click()
+    # Every control is a link now, so the toggle is a patch and lands in the
+    # URL — which is what lets Back undo it.
+    view |> element("a.index-toggle-btn") |> render_click()
 
     assert render(view) =~ "Contact Sheets Index"
     assert has_element?(view, ".minimal-index-table")
 
-    # Toggle back to single view
-    view
-    |> element("button.index-toggle-btn")
-    |> render_click()
+    view |> element("a.index-toggle-btn") |> render_click()
 
     assert has_element?(view, ".single-presentation-viewport")
+  end
+
+  # The archive's contents sit beside the sheet when there is room for both;
+  # below 1200px CSS folds the rail away and the full table takes over.
+  test "the rail lists every roll and marks the one on screen", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/negatives")
+
+    assert has_element?(view, "nav.roll-rail")
+    assert has_element?(view, "a.roll-rail-item.is-current[aria-current]")
+
+    sheets = Web.Negatives.list_contact_sheets()
+
+    for sheet <- sheets do
+      assert has_element?(view, "a.roll-rail-item", sheet.roll)
+    end
   end
 
   # The index is browsed along two axes: when it was scanned, and what it was
@@ -34,23 +45,133 @@ defmodule WebWeb.NegativesLiveTest do
     # Default: newest scans first.
     assert render(view) =~ "newest first"
 
-    view |> element("th", "Scan Date") |> render_click()
-    assert_patched(view, "/negatives?mode=index&sort=date&dir=asc")
+    # Defaults stay out of the query string, the way /logs and /blog already
+    # build theirs — `sort=date&dir=desc` says only "as usual".
+    # Verified routes encode the query in a stable order of their own, which
+    # is why these read alphabetically rather than in the order built.
+    view |> element("th a", "Scan Date") |> render_click()
+    assert_patched(view, "/negatives?dir=asc&mode=index")
     assert render(view) =~ "oldest first"
 
-    view |> element("th", "Format") |> render_click()
-    assert_patched(view, "/negatives?mode=index&sort=format&dir=desc")
+    view |> element("th a", "Format") |> render_click()
+    assert_patched(view, "/negatives?mode=index&sort=format")
     assert render(view) =~ "film type"
 
     # Clicking the active column flips it rather than restarting.
-    view |> element("th", "Format") |> render_click()
-    assert_patched(view, "/negatives?mode=index&sort=format&dir=asc")
+    view |> element("th a", "Format") |> render_click()
+    assert_patched(view, "/negatives?dir=asc&mode=index&sort=format")
   end
 
   test "a sorted index can be linked to directly", %{conn: conn} do
     {:ok, _view, html} = live(conn, "/negatives?mode=index&sort=format&dir=asc")
     assert html =~ "film type"
     assert html =~ "oldest first"
+  end
+
+  # Every step the reader takes is a step the browser knows about. This is the
+  # whole point of the rewrite: `patch` pushes a history entry, so Back means
+  # "the roll before this one" rather than "leave the archive".
+  describe "walking the archive" do
+    setup do
+      root = Fixture.archive!()
+
+      for {roll, date} <- [{"011", "2026-01-01"}, {"012", "2026-02-01"}, {"013", "2026-03-01"}] do
+        Fixture.put_roll!(root, roll: roll, date: date, format: "120")
+        Fixture.put_sheet!(root, "roll#{roll}_#{date}_120_bw", 2400, 3000)
+      end
+
+      :ok
+    end
+
+    test "the front door opens on the newest roll", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/negatives")
+      assert html =~ "Roll #013"
+      assert html =~ "1 of 3"
+    end
+
+    test "stepping forward lands in the URL", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/negatives")
+
+      view |> element("a.next-btn") |> render_click()
+      assert_patched(view, "/negatives/roll/012")
+      assert render(view) =~ "2 of 3"
+
+      view |> element("a.next-btn") |> render_click()
+      assert_patched(view, "/negatives/roll/011")
+      assert render(view) =~ "3 of 3"
+    end
+
+    test "the archive is a list, not a loop", %{conn: conn} do
+      # Newest roll: nothing before it.
+      {:ok, view, _html} = live(conn, "/negatives/roll/13")
+      refute has_element?(view, "a.prev-btn")
+      assert has_element?(view, ".stage-arrow--prev.is-spent")
+      assert has_element?(view, "a.next-btn")
+
+      # Oldest roll: nothing after it.
+      {:ok, view, _html} = live(conn, "/negatives/roll/11")
+      assert has_element?(view, "a.prev-btn")
+      refute has_element?(view, "a.next-btn")
+      assert has_element?(view, ".stage-arrow--next.is-spent")
+    end
+
+    test "a roll can be linked to, and opens on itself", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/negatives/roll/012")
+      assert html =~ "Roll #012"
+      assert html =~ "2 of 3"
+    end
+
+    test "roll tokens resolve however they are spelled", %{conn: conn} do
+      for token <- ["12", "012", "roll012"] do
+        {:ok, _view, html} = live(conn, "/negatives/roll/#{token}")
+        assert html =~ "Roll #012", "failed for #{token}"
+      end
+    end
+
+    test "an unknown roll falls back to the archive", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/negatives"}}} = live(conn, "/negatives/roll/9999")
+    end
+
+    test "the old ?slug= form is patched to the roll's real address", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/negatives/roll/012"}}} =
+               live(conn, "/negatives?slug=roll012_2026-02-01_120_bw")
+    end
+
+    test "a roll in the rail is a link to that roll", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/negatives")
+
+      view |> element("a.roll-rail-item[href='/negatives/roll/011']") |> render_click()
+      assert_patched(view, "/negatives/roll/011")
+      assert render(view) =~ "Roll #011"
+    end
+
+    test "arrow keys walk the archive, and stop at the ends", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/negatives/roll/13")
+
+      press(view, "key_next", "ArrowRight")
+      assert_patched(view, "/negatives/roll/012")
+
+      press(view, "key_prev", "ArrowLeft")
+      assert_patched(view, "/negatives/roll/013")
+
+      # Already at the newest: the key does nothing rather than wrapping.
+      press(view, "key_prev", "ArrowLeft")
+      assert render(view) =~ "Roll #013"
+    end
+
+    test "the neighbouring sheets are prefetched", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/negatives/roll/012")
+
+      assert html =~ ~s(rel="prefetch")
+      assert html =~ "roll013_2026-03-01_120_bw"
+      assert html =~ "roll011_2026-01-01_120_bw"
+    end
+  end
+
+  # The keyboard is the one control that cannot be a link, so it is the one
+  # place that still pushes a patch of its own.
+  defp press(view, event, key) do
+    view |> element("[phx-window-keydown='#{event}']") |> render_keydown(%{"key" => key})
   end
 
   # A frame URL exists so a single photograph can be linked to and still name
@@ -69,7 +190,7 @@ defmodule WebWeb.NegativesLiveTest do
     assert html =~ "/negatives/frame/13/3"
     # The provenance the URL exists to carry.
     assert html =~ "From Roll #013"
-    assert has_element?(view, "a.frame-origin[href*='slug=']")
+    assert has_element?(view, "a.frame-origin[href='/negatives/roll/013']")
 
     # Neighbours move within the roll: frame 3 is the last of {1, 3}, so it has
     # a previous and no next — the strip does not wrap into another sheet.
@@ -90,7 +211,7 @@ defmodule WebWeb.NegativesLiveTest do
     assert html =~ "Roll #014"
     refute html =~ "frame-strip"
 
-    view |> element("button.next-btn") |> render_click()
+    view |> element("a.next-btn") |> render_click()
 
     # Roll #13 does have prints, so the strip appears and points at *its* frames.
     html = render(view)
@@ -99,7 +220,7 @@ defmodule WebWeb.NegativesLiveTest do
     assert html =~ "/negatives/frame/13/1"
 
     # And going back drops it again rather than carrying roll 13's frames over.
-    view |> element("button.prev-btn") |> render_click()
+    view |> element("a.prev-btn") |> render_click()
     html = render(view)
     assert html =~ "Roll #014"
     refute html =~ "frame-strip"
@@ -160,8 +281,12 @@ defmodule WebWeb.NegativesLiveTest do
       [_first | _] ->
         assert has_element?(view, ".stage-image")
         # Controls ride on the image rather than in a bar beneath it.
-        assert has_element?(view, "button.stage-arrow.prev-btn")
-        assert has_element?(view, "button.stage-arrow.next-btn")
+        assert has_element?(view, "a.stage-arrow.prev-btn") or
+                 has_element?(view, ".stage-arrow--prev.is-spent")
+
+        assert has_element?(view, "a.stage-arrow.next-btn") or
+                 has_element?(view, ".stage-arrow--next.is-spent")
+
         assert has_element?(view, "a.stage-download")
 
         # Starts on the most recent roll (not random) and stages the preview
@@ -173,12 +298,9 @@ defmodule WebWeb.NegativesLiveTest do
         assert has_element?(view, ".sheet-meta", most_recent.date)
         refute has_element?(view, ".sheet-meta", most_recent.filename)
 
-        # Click next and prev buttons
-        view |> element("button.next-btn") |> render_click()
-        assert has_element?(view, ".stage-image")
-
-        view |> element("button.prev-btn") |> render_click()
-        assert has_element?(view, ".stage-image")
+      # Stepping between rolls is exercised against a multi-roll archive in
+      # "walking the archive" below; this fixture holds a single sheet, so
+      # both arrows are correctly spent.
 
       [] ->
         assert render(view) =~ "No contact sheets found"
@@ -195,7 +317,7 @@ defmodule WebWeb.NegativesLiveTest do
     end
 
     test "a roll with nothing printed carries no marks", %{conn: conn, slug: slug} do
-      {:ok, _view, html} = live(conn, "/negatives?slug=#{slug}")
+      {:ok, _view, html} = live(conn, "/negatives/roll/013")
 
       # The page is otherwise exactly the page it has always been.
       assert html =~ "sheet-plate"
@@ -206,7 +328,7 @@ defmodule WebWeb.NegativesLiveTest do
          %{conn: conn, folder: folder, slug: slug} do
       Fixture.put_print!(folder, 3)
 
-      {:ok, view, html} = live(conn, "/negatives?slug=#{slug}")
+      {:ok, view, html} = live(conn, "/negatives/roll/013")
 
       assert html =~ "sheet-marks"
       assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/3']")
@@ -224,7 +346,7 @@ defmodule WebWeb.NegativesLiveTest do
       Fixture.put_print!(folder, 2)
       Fixture.put_print!(folder, 4)
 
-      {:ok, view, _html} = live(conn, "/negatives?slug=#{slug}")
+      {:ok, view, _html} = live(conn, "/negatives/roll/013")
 
       assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/2']")
       assert has_element?(view, "a.sheet-mark[href='/negatives/roll/013/frame/4']")
@@ -239,7 +361,7 @@ defmodule WebWeb.NegativesLiveTest do
       # describes the roll, so where anything sits is no longer known.
       File.write!(Path.join(folder, "009.tiff"), "a strip scanned later")
 
-      {:ok, _view, html} = live(conn, "/negatives?slug=#{slug}")
+      {:ok, _view, html} = live(conn, "/negatives/roll/013")
 
       refute html =~ "sheet-marks"
       # The print is still reachable, just not from the sheet.
@@ -251,7 +373,7 @@ defmodule WebWeb.NegativesLiveTest do
          %{conn: conn, folder: folder, slug: slug} do
       Fixture.put_print!(folder, 3)
 
-      {:ok, view, _html} = live(conn, "/negatives?slug=#{slug}")
+      {:ok, view, _html} = live(conn, "/negatives/roll/013")
 
       assert has_element?(view, "a.frame-thumb[href='/negatives/roll/013/frame/3']")
       refute has_element?(view, "a.frame-thumb[href='/negatives/frame/013/3']")

@@ -103,6 +103,20 @@ defmodule WebWeb.SEOTest do
       assert xml =~ "/guestbook"
     end
 
+    # A roll only became addressable when /negatives/roll/:roll was added, and
+    # these URLs are built as plain strings rather than ~p sigils — so the
+    # compiler will not notice if the route moves. This is what does.
+    test "lists each roll, and the printed frames under it", %{conn: conn} do
+      xml = conn |> get(~p"/sitemap.xml") |> response(200)
+
+      assert xml =~ "/negatives/roll/001"
+      # The committed fixture archive has one print on roll 1.
+      assert xml =~ "/negatives/roll/001/frame/1"
+      # Padded, so one roll is one URL rather than three.
+      refute xml =~ "/negatives/roll/1<"
+      refute xml =~ "?slug="
+    end
+
     # Scoped to a dated post: undated fixtures fall back to the file's mtime,
     # which is today on any fresh checkout, so a sitemap-wide refute only ever
     # passed on a machine whose fixture files happened to be old.

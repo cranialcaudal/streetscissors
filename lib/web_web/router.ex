@@ -83,9 +83,10 @@ defmodule WebWeb.Router do
 
       # Other features
       live "/negatives", NegativesLive, :index
-      # A single published frame, addressable so it can be linked to on its own
-      # and carry the sheet it was cut from. Above the image routes below, which
+      # A roll and a frame each have their own address, the frame nested under
+      # the roll it was cut from. Both sit above the image routes below, which
       # serve bytes rather than pages.
+      live "/negatives/roll/:roll", NegativesLive, :sheet
       live "/negatives/roll/:roll/frame/:frame", NegativesLive, :frame
       get "/negatives/image/:filename", NegativesController, :serve_image
       get "/negatives/preview/:filename", NegativesController, :serve_preview
@@ -93,7 +94,11 @@ defmodule WebWeb.Router do
       # The print itself rather than the downscaled copy the page shows.
       get "/negatives/frame/:roll/:frame/original", NegativesController, :serve_frame_original
       live "/pc", PcLive
+      # An old alias for the archive. It used to diverge — sorting from it
+      # rewrote the address bar to /negatives — so it now carries the same
+      # routes rather than half of them.
       live "/archive", NegativesLive, :index
+      live "/archive/roll/:roll", NegativesLive, :sheet
       live "/guestbook", GuestbookLive
       live "/fitness", FitnessLive.Index, :index
       live "/fitness/wiki", FitnessLive.Wiki, :index

@@ -225,10 +225,30 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   for this — so each line's `x`/`length` make its *ink* span 0..1000 and the `viewBox` trims 3.5%
   off each end of the ink band.
   `/negatives` runs three modes off one LiveView: the sheet view (image first, all controls
-  beneath it), the sortable index (`?mode=index&sort=date|format&dir=asc|desc` — the sort is
-  patched into the URL so it can be linked), and a **frame view**
+  beneath it), the sortable index (`?mode=index&sort=format&dir=asc`), and a **frame view**
   (`/negatives/roll/:roll/frame/:n`) that gives an individual photograph its own address and
   links back to the contact sheet it was cut from.
+  **The URL is the whole of the view state, and every control is a link.** A roll has its own
+  address (`/negatives/roll/013`, padded — `13`/`roll013` resolve and canonicalise to it), so
+  `handle_params/3` is the only place that sets state and the browser's own Back button walks
+  the archive a step at a time. `WebWeb.NegativesLive.Format` composes every destination and
+  **omits defaults** (`logs_path/2` and `blog_query/2` are the same idea), so one control never
+  clobbers another — sorting used to hardcode `/negatives?mode=index&…`, which dropped the roll
+  you were on and rewrote the path when you came in via `/archive`. The old `?slug=` form
+  patches to the roll's real address. The arrows **stop at the ends rather than wrapping**: the
+  archive is a list, and "12 of 31" would otherwise be a lie. `phx-window-keydown` gives ← → and
+  Escape (one element per key — a bare binding ships every keystroke to the server), and it is
+  the only thing left that pushes a patch of its own, because a key cannot be a link.
+  **The archive's contents sit in a left rail beside the sheet** (`.negatives-layout`, the same
+  grid as `/how-to`'s contents rail), scrolling inside itself because 31 rolls is taller than a
+  screen, with a colocated hook keeping the current roll in view. It folds at **1200px, which is
+  geometry not taste**: the rail plus its gap costs 280px and `.sheet-plate` is
+  `min(column, --stage-h × aspect-ratio)`, so a landscape sheet wants 775px and 1152−280 clears
+  it while 1052−280 does not. Below that the rail hides and the full table is the index.
+  The index's **Frames column counts real exposures** via `Sheet.frame_count/1` (`catalog.csv`'s
+  `frames` is the *strip* count, out by 3–6×); it reads a `frames.json` per roll, which is why
+  it belongs to the table that renders on request and not to the rail that renders every visit.
+  Sheets are prefetched one neighbour either side — stepping otherwise stalls on a ~300KB fetch.
   **A frame is a finished print, not a strip scan.** `Negatives.list_frames/1` reads a roll's
   `frames/` directory — the archive pipeline's own output, `NN.png` from `film-develop
   develop` — and frame numbers run 1..N across every exposure on the roll, as `frames.json`

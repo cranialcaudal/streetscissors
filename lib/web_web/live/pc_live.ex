@@ -448,10 +448,11 @@ defmodule WebWeb.PcLive do
 
   # Routes are built here, through ~p, so they stay verified — which is why
   # Web.Pc.Index stores kind + id rather than a URL string.
-  defp route_for(%{kind: :sheet, id: %{slug: slug}}), do: ~p"/negatives?slug=#{slug}"
+  defp route_for(%{kind: :sheet, id: %{roll: roll}}),
+    do: ~p"/negatives/roll/#{WebWeb.NegativesLive.Format.pad(roll)}"
 
   defp route_for(%{kind: :frame, id: %{roll_num: roll, frame: frame}}),
-    do: ~p"/negatives/roll/#{roll}/frame/#{frame}"
+    do: ~p"/negatives/roll/#{WebWeb.NegativesLive.Format.pad(roll)}/frame/#{frame}"
 
   defp route_for(%{kind: :post, id: %{slug: slug}}), do: ~p"/blog/#{slug}"
   defp route_for(%{kind: :log, id: %{slug: slug}}), do: ~p"/logs/#{slug}"

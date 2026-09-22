@@ -86,6 +86,39 @@ defmodule Web.Negatives.Sheet do
   def aspect_ratio(_sheet), do: nil
 
   @doc """
+  How many exposures a roll actually holds.
+
+  `catalog.csv`'s `frames` column counts *strip scans*, not frames — roll 13
+  reads 4 when it holds twelve exposures, and every 35mm roll is out by six.
+  `frames.json` has the real number, so this counts what the analysis
+  described.
+
+  Returns `nil` when the roll has no analysis or the analysis has gone stale,
+  because the honest answer there is "unknown": the strip count is wrong and a
+  stale analysis's frame count is wronger. The caller shows a question mark,
+  which is also what a roll with no catalog entry has always shown.
+
+  This reads a file per roll, so it belongs to the full index — which renders
+  on request — and not to the rail beside the sheet, which renders on every
+  visit and shows only what `list_contact_sheets/2` already knows.
+  """
+  @spec frame_count(map()) :: pos_integer() | nil
+  def frame_count(%{roll: roll}) do
+    with {:ok, dir} <- Negatives.roll_dir(roll),
+         {:ok, strips} <- analysis(dir),
+         :ok <- manifest_matches?(dir, strips) do
+      case Enum.reduce(strips, 0, fn strip, acc -> acc + length(strip.frames) end) do
+        0 -> nil
+        count -> count
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  def frame_count(_sheet), do: nil
+
+  @doc """
   Marks for the frames of `sheet` that appear in `available`.
 
   Positions are fractions of the sheet, 0..1, so the caller can place them over

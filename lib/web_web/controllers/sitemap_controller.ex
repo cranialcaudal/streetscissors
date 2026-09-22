@@ -78,14 +78,19 @@ defmodule WebWeb.SitemapController do
     _ -> []
   end
 
-  # Each published frame gets its own address — see NegativesLive's :frame
-  # action — but a roll has no separate bare URL of its own, so this is the
-  # only negatives content actually addressable for a sitemap to list.
+  # A roll and each of its printed frames are separately addressable, so both
+  # are listed. Built as strings rather than ~p sigils, which means the
+  # compiler will not catch a route change here — the test below is what does.
   defp negatives_urls do
     Enum.flat_map(Web.Negatives.list_contact_sheets(), fn sheet ->
-      Enum.map(Web.Negatives.list_frames(sheet.roll), fn frame ->
-        {"/negatives/roll/#{sheet.roll}/frame/#{frame.frame}", nil, "yearly", "0.5"}
-      end)
+      roll = WebWeb.NegativesLive.Format.pad(sheet.roll)
+
+      frames =
+        Enum.map(Web.Negatives.list_frames(sheet.roll), fn frame ->
+          {"/negatives/roll/#{roll}/frame/#{frame.frame}", nil, "yearly", "0.5"}
+        end)
+
+      [{"/negatives/roll/#{roll}", nil, "monthly", "0.6"} | frames]
     end)
   rescue
     # Reads the archive off disk; a bad roll folder must not 500 the sitemap.
