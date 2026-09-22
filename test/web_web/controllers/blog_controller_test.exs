@@ -28,7 +28,7 @@ defmodule WebWeb.BlogControllerTest do
     conn = get(conn, ~p"/blog/frontmatter-and-embeds")
     html = html_response(conn, 200)
     assert html =~ "Fixture Post With Frontmatter"
-    # The meta line: the day, then read time and views — no icon row.
+    # The meta line: the day, then read time and witnesses — no icon row.
     assert html =~ "Wed 1 Jul 2026"
     assert html =~ "min read"
     refute html =~ "fa-paragraph"
@@ -85,11 +85,11 @@ defmodule WebWeb.BlogControllerTest do
 
       assert [lead_html] = Regex.run(~r{<article class="writing-lead">.*?</article>}s, html)
       assert lead_html =~ "Fixture Post With Frontmatter"
-      assert lead_html =~ "3 views"
+      assert lead_html =~ "3 witnessed"
 
-      # The contents column follows the sort: views, not read time.
+      # The contents column follows the sort: witnesses, not read time.
       assert html =~ "More"
-      assert html =~ "0 views"
+      assert html =~ "0 witnessed"
     end
   end
 

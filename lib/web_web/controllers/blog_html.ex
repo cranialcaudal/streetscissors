@@ -28,7 +28,7 @@ defmodule WebWeb.BlogHTML do
       <span class="writing-meta-dot" aria-hidden="true">·</span>
       <span>{@post.read_min} min read</span>
       <span class="writing-meta-dot" aria-hidden="true">·</span>
-      <span>{views(@post.hit_count)}</span>
+      <span>{witnessed(@post.hit_count)}</span>
     </p>
     """
   end
@@ -86,10 +86,10 @@ defmodule WebWeb.BlogHTML do
     "Showing #{noun}#{filter}, #{order}"
   end
 
-  @doc "The figure a contents row shows: read time, or views when sorted by them."
-  def contents_figure(post, "witnessed"), do: views(post.hit_count)
+  @doc "The figure a contents row shows: read time, or witnesses when sorted by them."
+  def contents_figure(post, "witnessed"), do: witnessed(post.hit_count)
   def contents_figure(post, _sort), do: "#{post.read_min} min"
 
-  defp views(1), do: "1 view"
-  defp views(count), do: "#{count} views"
+  # Witnesses, not page loads — the same word, and the same count, as the logs.
+  defp witnessed(count), do: "#{count} witnessed"
 end

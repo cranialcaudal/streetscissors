@@ -237,18 +237,38 @@ defmodule Web.Audio do
     |> Repo.insert()
   end
 
-  @doc "The total play count for one log."
+  @doc """
+  How many people witnessed one log — distinct witnesses, not plays. Someone
+  who watches an entry five times witnessed it once. See `witnesses_by_log/0`
+  for who counts as one witness.
+  """
   def get_play_count(audio_log_id) do
-    Repo.one(from p in Play, where: p.audio_log_id == ^audio_log_id, select: count(p.id)) || 0
+    from(p in Play, where: p.audio_log_id == ^audio_log_id, select: {p.id, p.ip_address})
+    |> Repo.all()
+    |> MapSet.new(&witness_key/1)
+    |> MapSet.size()
   end
 
-  @doc "Play counts for every log, as `%{audio_log_id => count}`."
+  @doc "Witness counts for every log, as `%{audio_log_id => count}`."
   def get_all_play_counts do
-    Repo.all(
-      from p in Play,
-        group_by: p.audio_log_id,
-        select: {p.audio_log_id, count(p.id)}
-    )
-    |> Map.new()
+    Map.new(witnesses_by_log(), fn {id, witnesses} -> {id, MapSet.size(witnesses)} end)
   end
+
+  @doc """
+  The witnesses of every log, as `%{audio_log_id => MapSet}`. A witness is an
+  IP address; a play recorded without one still counts, once, as itself.
+  Every play stays on record — only the reading collapses repeats — and
+  callers can union the sets to count people across several entries.
+  """
+  def witnesses_by_log do
+    from(p in Play, select: {p.audio_log_id, p.id, p.ip_address})
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn {log_id, id, ip}, acc ->
+      key = witness_key({id, ip})
+      Map.update(acc, log_id, MapSet.new([key]), &MapSet.put(&1, key))
+    end)
+  end
+
+  defp witness_key({id, nil}), do: {:play, id}
+  defp witness_key({_id, ip}), do: ip
 end

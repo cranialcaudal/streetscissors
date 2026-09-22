@@ -32,10 +32,9 @@ defmodule WebWeb.LogsLive.Index do
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
      |> assign(:client_ip, client_ip(socket))
-     |> assign(:play_counts, Audio.get_all_play_counts())
      |> assign(:keywords, Audio.list_keywords())
      |> assign(:logs, Audio.list_ready_logs())
-     |> assign_total_plays()}
+     |> assign_witnesses()}
   end
 
   def handle_params(params, _uri, socket) do
@@ -63,10 +62,7 @@ defmodule WebWeb.LogsLive.Index do
         # watcher — and under "most witnessed" it would pull the entry you
         # just started out of the theater mid-play. The order settles on the
         # next patch or visit, which is when a reader expects it to.
-        {:noreply,
-         socket
-         |> assign(:play_counts, Audio.get_all_play_counts())
-         |> assign_total_plays()}
+        {:noreply, assign_witnesses(socket)}
     end
   end
 
@@ -79,11 +75,22 @@ defmodule WebWeb.LogsLive.Index do
 
   defp play_target(_socket, _id), do: nil
 
-  # Only counts plays of logs actually on this page, so the readout can never
-  # exceed what the archive below it accounts for.
-  defp assign_total_plays(socket) do
-    %{logs: logs, play_counts: play_counts} = socket.assigns
-    assign(socket, :total_plays, Enum.sum_by(logs, &Map.get(play_counts, &1.id, 0)))
+  # Every figure counts witnesses, not plays: each card is how many people
+  # saw that entry, and the console total is how many people saw any entry
+  # on this page — a union, so someone who watched three counts once. Only
+  # logs actually on this page count, so the readout can never exceed what
+  # the archive below it accounts for.
+  defp assign_witnesses(socket) do
+    witnesses = Audio.witnesses_by_log()
+
+    total =
+      socket.assigns.logs
+      |> Enum.reduce(MapSet.new(), &MapSet.union(&2, Map.get(witnesses, &1.id, MapSet.new())))
+      |> MapSet.size()
+
+    socket
+    |> assign(:play_counts, Map.new(witnesses, fn {id, set} -> {id, MapSet.size(set)} end))
+    |> assign(:total_plays, total)
   end
 
   # Captured at mount and kept in assigns: connect_info is only readable while

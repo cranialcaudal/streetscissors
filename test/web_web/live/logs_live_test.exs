@@ -75,7 +75,8 @@ defmodule WebWeb.LogsLiveTest do
          %{conn: conn} do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
-      Audio.record_play(loud.id, "127.0.0.1")
+      # Someone other than this connection, so its play is a second witness.
+      Audio.record_play(loud.id, "10.0.0.9")
 
       {:ok, view, html} = live(conn, "/logs?sort=witnessed")
       assert html =~ ~s(id="log-plate-#{loud.id}")
@@ -90,6 +91,24 @@ defmodule WebWeb.LogsLiveTest do
       # The readout still moves, it is only the running order that holds.
       assert after_play =~ ~s(<dd>2</dd>)
       refute after_play =~ ~s(id="log-plate-#{quiet.id}")
+    end
+
+    # Witnesses, not plays: watching again is not a second witness, and the
+    # console counts people across the archive rather than adding up entries.
+    test "a replay from the same witness moves nothing", %{conn: conn} do
+      first = log_fixture(recorded_on: ~D[2026-09-18])
+      second = log_fixture(recorded_on: ~D[2026-09-17])
+      Audio.record_play(second.id, "10.0.0.9")
+
+      {:ok, view, _html} = live(conn, "/logs")
+
+      for _ <- 1..3, do: render_hook(view, "track_play", %{"id" => to_string(first.id)})
+      render_hook(view, "track_play", %{"id" => to_string(second.id)})
+
+      assert Audio.get_play_count(first.id) == 1
+      assert Audio.get_play_count(second.id) == 2
+      # This connection and 10.0.0.9: two people, though three entry-witnesses.
+      assert render(view) =~ ~r{<dt>Witnessed</dt>\s*<dd>2</dd>}
     end
 
     test "the sort lives in the URL so a view can be linked to", %{conn: conn} do

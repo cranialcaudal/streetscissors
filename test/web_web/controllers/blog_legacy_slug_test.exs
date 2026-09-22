@@ -52,7 +52,19 @@ defmodule WebWeb.BlogLegacySlugTest do
     Web.Analytics.record_hit("/blog/tides-out", "Firefox", "visitor-b")
 
     html = conn |> get(~p"/blog") |> html_response(200)
-    assert html =~ "2 views"
+    assert html =~ "2 witnessed"
+  end
+
+  test "one reader at both addresses is one witness", %{conn: conn, dir: dir} do
+    write_post(dir, "tides-out.md")
+
+    Web.Analytics.record_hit("/blog/Tide%27s%20Out", "Firefox", "visitor-a")
+    Web.Analytics.record_hit("/blog/tides-out", "Firefox", "visitor-a")
+    Web.Analytics.record_hit("/blog/tides-out", "Firefox", "visitor-a")
+
+    html = conn |> get(~p"/blog") |> html_response(200)
+    assert html =~ "1 witnessed"
+    refute html =~ "2 witnessed"
   end
 
   defp write_post(dir, filename) do

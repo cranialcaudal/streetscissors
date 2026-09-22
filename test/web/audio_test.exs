@@ -295,5 +295,32 @@ defmodule Web.AudioTest do
       assert Audio.get_play_count(log.id) == 2
       assert Audio.get_all_play_counts() == %{log.id => 2}
     end
+
+    # The figure is witnesses, not plays: someone who watches five times
+    # witnessed it once.
+    test "repeat plays from one witness count once" do
+      log = log_fixture()
+      other = log_fixture(recorded_on: ~D[2026-01-01])
+
+      for _ <- 1..5, do: Audio.record_play(log.id, "127.0.0.1")
+      Audio.record_play(log.id, "127.0.0.2")
+      Audio.record_play(other.id, "127.0.0.1")
+
+      assert Audio.get_play_count(log.id) == 2
+      assert Audio.get_all_play_counts() == %{log.id => 2, other.id => 1}
+
+      assert Audio.witnesses_by_log() == %{
+               log.id => MapSet.new(["127.0.0.1", "127.0.0.2"]),
+               other.id => MapSet.new(["127.0.0.1"])
+             }
+    end
+
+    test "a play with no address still counts, once" do
+      log = log_fixture()
+      Audio.record_play(log.id, nil)
+      Audio.record_play(log.id, "127.0.0.1")
+
+      assert Audio.get_play_count(log.id) == 2
+    end
   end
 end

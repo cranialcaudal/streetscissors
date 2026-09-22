@@ -128,17 +128,19 @@ defmodule WebWeb.BlogController do
 
   # View counts keyed by clean slug. Merges the pre-rename /manuscripts prefix,
   # and folds a post's old title-shaped address ("/blog/Tide's%20Out")
-  # into its clean one, so historical hits survive both moves. Counts are
-  # distinct visitors per address, so someone who read it at both is counted
-  # twice — the same trade the /manuscripts merge already made.
+  # into its clean one, so historical hits survive both moves. A count is
+  # witnesses, not page loads: the visitor sets are unioned across every
+  # address a post has lived at, so someone who read it at two of them — or
+  # ten times at one — witnessed it once.
   defp hit_counts do
     Map.merge(
-      Web.Analytics.all_hits_by_prefix("/manuscripts/latent-sensus/%"),
-      Web.Analytics.all_hits_by_prefix("/blog/%"),
-      fn _slug, old, new -> old + new end
+      Web.Analytics.visitors_by_prefix("/manuscripts/latent-sensus/%"),
+      Web.Analytics.visitors_by_prefix("/blog/%"),
+      fn _slug, old, new -> MapSet.union(old, new) end
     )
-    |> Enum.reduce(%{}, fn {slug, count}, acc ->
-      Map.update(acc, Keywords.slugify(slug), count, &(&1 + count))
+    |> Enum.reduce(%{}, fn {slug, visitors}, acc ->
+      Map.update(acc, Keywords.slugify(slug), visitors, &MapSet.union(&1, visitors))
     end)
+    |> Map.new(fn {slug, visitors} -> {slug, MapSet.size(visitors)} end)
   end
 end

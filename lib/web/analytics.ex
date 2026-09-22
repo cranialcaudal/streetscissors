@@ -219,6 +219,17 @@ defmodule Web.Analytics do
   who arrived under two different encodings.
   """
   def all_hits_by_prefix(prefix) do
+    prefix
+    |> visitors_by_prefix()
+    |> Map.new(fn {slug, visitors} -> {slug, MapSet.size(visitors)} end)
+  end
+
+  @doc """
+  The visitors behind `all_hits_by_prefix/1`, as `%{slug => MapSet of
+  ip_hash}`, before they are counted — so a caller merging a post's several
+  addresses can union the sets and count one reader once.
+  """
+  def visitors_by_prefix(prefix) do
     from(h in Hit,
       where: like(h.path, ^prefix),
       distinct: true,
@@ -229,6 +240,5 @@ defmodule Web.Analytics do
       slug = path |> String.split("/") |> List.last() |> URI.decode()
       Map.update(acc, slug, MapSet.new([ip_hash]), &MapSet.put(&1, ip_hash))
     end)
-    |> Map.new(fn {slug, visitors} -> {slug, MapSet.size(visitors)} end)
   end
 end
