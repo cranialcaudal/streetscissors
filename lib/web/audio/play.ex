@@ -4,6 +4,7 @@ defmodule Web.Audio.Play do
 
   schema "audio_plays" do
     belongs_to :audio_log, Web.Audio.Log
+    field :witness, :string
     field :ip_address, :string
     field :user_agent, :string
     field :country, :string
@@ -18,6 +19,7 @@ defmodule Web.Audio.Play do
     play
     |> cast(attrs, [
       :audio_log_id,
+      :witness,
       :ip_address,
       :user_agent,
       :country,
@@ -26,5 +28,6 @@ defmodule Web.Audio.Play do
       :longitude
     ])
     |> validate_required([:audio_log_id])
+    |> unique_constraint([:audio_log_id, :witness])
   end
 end

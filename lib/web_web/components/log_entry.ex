@@ -142,18 +142,61 @@ defmodule WebWeb.LogEntry do
           this.hls = null
           this.counted = false
           this.playing = false
+          this.watched = 0
+          this.lastTime = null
 
           if (this.button) {
             this.button.addEventListener("click", () => this.start())
           }
 
           if (this.media) {
-            // One play per mount, so scrubbing back and forth is not a crowd.
-            this.media.addEventListener("play", () => {
-              if (this.counted) return
-              this.counted = true
-              this.pushEvent("track_play", { id: this.el.dataset.logId })
-            })
+            // A witness is someone who watched, not someone who pressed play:
+            // count only time that actually played — small forward steps
+            // between timeupdates, so a seek or scrub adds nothing — and send
+            // it once, when 30 seconds have played (half the entry, if it is
+            // shorter than a minute). The server keeps one row per browser.
+            this.media.addEventListener("timeupdate", () => this.tally())
+            this.media.addEventListener("seeking", () => { this.lastTime = null })
+          }
+        },
+
+        tally() {
+          const now = this.media.currentTime
+          if (this.lastTime !== null && !this.media.paused) {
+            const step = now - this.lastTime
+            if (step > 0 && step < 1.5) this.watched += step
+          }
+          this.lastTime = now
+
+          if (this.counted) return
+          const duration = this.media.duration
+          const needed = isFinite(duration) && duration > 0 ? Math.min(30, duration / 2) : 30
+          if (this.watched < needed) return
+
+          this.counted = true
+          this.pushEvent("track_play", { id: this.el.dataset.logId, witness: this.witness() })
+        },
+
+        // An anonymous token this browser keeps for itself — random, and
+        // nothing about the person. If storage is blocked it lasts the page.
+        witness() {
+          const key = "streetscissors_witness"
+          const fresh = () =>
+            (crypto.randomUUID && crypto.randomUUID()) ||
+            Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+              b.toString(16).padStart(2, "0")
+            ).join("")
+
+          try {
+            let token = localStorage.getItem(key)
+            if (!token) {
+              token = fresh()
+              localStorage.setItem(key, token)
+            }
+            return token
+          } catch (_error) {
+            this.pageWitness = this.pageWitness || fresh()
+            return this.pageWitness
           }
         },
 

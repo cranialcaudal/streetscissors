@@ -4,9 +4,10 @@ defmodule WebWeb.ClientIP do
 
   Caddy fronts this app on localhost, so `peer_data`/`remote_ip` is always
   `127.0.0.1` — the actual client is the first entry of `x-forwarded-for`.
-  Getting this wrong silently defeats anything keyed on the client: the audio
-  play tracker still records a constant `127.0.0.1` for exactly this reason,
-  and per-IP rate limits would degrade into one global bucket.
+  Getting this wrong silently defeats anything keyed on the client: until
+  2026-09-22 the log play tracker recorded Caddy's `::1` for every viewer for
+  exactly this reason, and per-IP rate limits would degrade into one global
+  bucket.
 
   LiveView sockets only carry these when the socket declares them in
   `connect_info` — `endpoint.ex` lists `:peer_data` and `:x_headers`.

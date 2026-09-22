@@ -181,8 +181,13 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   `"new-york"` are one token. A post's keywords live in its frontmatter (`keywords:`, or Obsidian's
   `tags:`; `Blog.set_keywords/2` rewrites the line in place from the admin); a log's live in the
   `audio_logs.keywords` column, normalized in the changeset. Both sections sort by **most recent**
-  or **most witnessed** with the sort and `?keyword=` filter in the URL — "witnessed" means
-  `analytics_hits` page views for posts and `audio_plays` rows for logs.
+  or **most witnessed** with the sort and `?keyword=` filter in the URL. "Witnessed" counts
+  people, not loads: for posts, distinct `ip_hash` in `analytics_hits` unioned across every
+  address the post has lived at; for logs, distinct `audio_plays.witness` tokens — an anonymous
+  id the browser keeps in `localStorage`, sent by the `.LogPlayer` hook only after 30 s have
+  actually played (half the entry if shorter), one row per browser per log by unique index, and
+  never recorded for an admin session. Plays from before 2026-09-22 have no token (they were all
+  logged against Caddy's `::1`) and count for nothing.
 
 - **Admin content managers** are split one per section: `/admin/blog` (batch `.md` drop, flags
   posts missing keywords, image library) and `/admin/logs` (metadata-first form; the upload is

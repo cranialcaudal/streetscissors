@@ -23,7 +23,7 @@ defmodule WebWeb.LogsLive.Index do
   else; the media is only reached from an entry's own page.
   """
 
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     {return_to, return_label} = return_context(Map.get(params, "from"))
 
     {:ok,
@@ -32,6 +32,8 @@ defmodule WebWeb.LogsLive.Index do
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
      |> assign(:client_ip, client_ip(socket))
+     # The admin watching the entries back is not a witness.
+     |> assign(:is_admin, session["admin_user"] == true)
      |> assign(:keywords, Audio.list_keywords())
      |> assign(:logs, Audio.list_ready_logs())
      |> assign_witnesses()}
@@ -48,14 +50,19 @@ defmodule WebWeb.LogsLive.Index do
   # `id` arrives from the socket, so it is attacker-controlled: parse it
   # defensively and only count a play for a log actually on this page. The old
   # String.to_integer/1 raised on any non-numeric value, and an unknown id hit
-  # the audio_plays foreign key — either one crashed the LiveView.
-  def handle_event("track_play", %{"id" => id}, socket) do
+  # the audio_plays foreign key — either one crashed the LiveView. The hook
+  # sends this only after 30 seconds have actually played; `witness` is the
+  # browser's own token, checked in Audio.record_play/4.
+  def handle_event("track_play", _params, %{assigns: %{is_admin: true}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("track_play", %{"id" => id} = params, socket) do
     case play_target(socket, id) do
       nil ->
         {:noreply, socket}
 
       log_id ->
-        Audio.record_play(log_id, socket.assigns.client_ip)
+        Audio.record_play(log_id, params["witness"], socket.assigns.client_ip)
 
         # The readouts move; the running order does not. Re-sorting here
         # would let watching something reorder the page underneath the
@@ -95,13 +102,9 @@ defmodule WebWeb.LogsLive.Index do
 
   # Captured at mount and kept in assigns: connect_info is only readable while
   # mounting, and reaching for it from handle_event/3 raises — which is what
-  # the first real play on this page would have done.
-  defp client_ip(socket) do
-    case get_connect_info(socket, :peer_data) do
-      %{address: address} when is_tuple(address) -> address |> :inet.ntoa() |> to_string()
-      _ -> "unknown"
-    end
-  end
+  # the first real play on this page would have done. Behind Caddy the peer is
+  # always the proxy, so the viewer's address comes from x-forwarded-for.
+  defp client_ip(socket), do: WebWeb.ClientIP.from_socket(socket)
 
   # Total functions: an unknown value falls back to the default rather than
   # crashing on a hand-edited URL.

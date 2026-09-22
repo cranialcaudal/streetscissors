@@ -1,6 +1,9 @@
 defmodule WebWeb.LogsLiveTest do
   use WebWeb.ConnCase
 
+  @this_browser "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b"
+  @someone_else "8c7d6e5f-4a3b-4c2d-9e1f-0a9b8c7d6e5f"
+
   import Phoenix.LiveViewTest
   import Web.AudioFixtures
 
@@ -75,15 +78,15 @@ defmodule WebWeb.LogsLiveTest do
          %{conn: conn} do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
-      # Someone other than this connection, so its play is a second witness.
-      Audio.record_play(loud.id, "10.0.0.9")
+      # Someone other than this browser, so its play is a second witness.
+      Audio.record_play(loud.id, @someone_else, "10.0.0.9")
 
       {:ok, view, html} = live(conn, "/logs?sort=witnessed")
       assert html =~ ~s(id="log-plate-#{loud.id}")
 
       # Playing the featured entry must not pull it out of the theater
       # mid-play, which is exactly what re-sorting on every play did.
-      render_hook(view, "track_play", %{"id" => to_string(loud.id)})
+      render_hook(view, "track_play", %{"id" => to_string(loud.id), "witness" => @this_browser})
       after_play = render(view)
 
       assert after_play =~ ~s(id="log-plate-#{loud.id}")
@@ -98,16 +101,22 @@ defmodule WebWeb.LogsLiveTest do
     test "a replay from the same witness moves nothing", %{conn: conn} do
       first = log_fixture(recorded_on: ~D[2026-09-18])
       second = log_fixture(recorded_on: ~D[2026-09-17])
-      Audio.record_play(second.id, "10.0.0.9")
+      Audio.record_play(second.id, @someone_else, "10.0.0.9")
 
       {:ok, view, _html} = live(conn, "/logs")
 
-      for _ <- 1..3, do: render_hook(view, "track_play", %{"id" => to_string(first.id)})
-      render_hook(view, "track_play", %{"id" => to_string(second.id)})
+      for _ <- 1..3,
+          do:
+            render_hook(view, "track_play", %{
+              "id" => to_string(first.id),
+              "witness" => @this_browser
+            })
+
+      render_hook(view, "track_play", %{"id" => to_string(second.id), "witness" => @this_browser})
 
       assert Audio.get_play_count(first.id) == 1
       assert Audio.get_play_count(second.id) == 2
-      # This connection and 10.0.0.9: two people, though three entry-witnesses.
+      # This browser and someone else: two people, though three entry-witnesses.
       assert render(view) =~ ~r{<dt>Witnessed</dt>\s*<dd>2</dd>}
     end
 
@@ -124,9 +133,9 @@ defmodule WebWeb.LogsLiveTest do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
 
-      Audio.record_play(loud.id, "127.0.0.1")
-      Audio.record_play(loud.id, "127.0.0.2")
-      Audio.record_play(quiet.id, "127.0.0.3")
+      Audio.record_play(loud.id, @this_browser, "127.0.0.1")
+      Audio.record_play(loud.id, @someone_else, "127.0.0.2")
+      Audio.record_play(quiet.id, @this_browser, "127.0.0.3")
 
       {:ok, _view, html} = live(conn, "/logs?sort=witnessed")
 
@@ -245,10 +254,32 @@ defmodule WebWeb.LogsLiveTest do
       other = log_fixture(recorded_on: ~D[2026-01-01])
 
       {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
-      render_hook(view, "track_play", %{"id" => to_string(other.id)})
+      render_hook(view, "track_play", %{"id" => to_string(other.id), "witness" => @this_browser})
 
       assert Audio.get_play_count(log.id) == 1
       assert Audio.get_play_count(other.id) == 0
+    end
+
+    test "the admin watching an entry back is not a witness", %{conn: conn} do
+      log = log_fixture()
+      conn = Plug.Test.init_test_session(conn, admin_user: true)
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+      render_hook(view, "track_play", %{"id" => to_string(log.id), "witness" => @this_browser})
+
+      {:ok, index, _html} = live(conn, "/logs")
+      render_hook(index, "track_play", %{"id" => to_string(log.id), "witness" => @this_browser})
+
+      assert Audio.get_play_count(log.id) == 0
+    end
+
+    test "a play with no witness token is not counted", %{conn: conn} do
+      log = log_fixture()
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+      render_hook(view, "track_play", %{"id" => to_string(log.id)})
+
+      assert Audio.get_play_count(log.id) == 0
     end
   end
 

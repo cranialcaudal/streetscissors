@@ -15,7 +15,7 @@ defmodule WebWeb.LogsLive.Show do
   decides, and the index composes on the same rule.
   """
 
-  def mount(%{"slug" => slug}, _session, socket) do
+  def mount(%{"slug" => slug}, session, socket) do
     log =
       case Audio.get_ready_log_by_slug(slug) do
         {:ok, log} -> log
@@ -34,6 +34,8 @@ defmodule WebWeb.LogsLive.Show do
      |> assign(:canonical_path, ~p"/logs/#{log.slug}")
      |> assign(:log, log)
      |> assign(:client_ip, client_ip(socket))
+     # The admin watching the entries back is not a witness.
+     |> assign(:is_admin, session["admin_user"] == true)
      |> assign(:play_count, Audio.get_play_count(log.id))}
   end
 
@@ -45,21 +47,20 @@ defmodule WebWeb.LogsLive.Show do
   # log in scope, so ignore it and count against the mounted log. The old
   # String.to_integer/1 on that value crashed the LiveView on any non-numeric
   # input, and an unknown id tripped the audio_plays foreign key.
-  def handle_event("track_play", _params, socket) do
+  def handle_event("track_play", _params, %{assigns: %{is_admin: true}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("track_play", params, socket) do
     log = socket.assigns.log
-    Audio.record_play(log.id, socket.assigns.client_ip)
+    Audio.record_play(log.id, params["witness"], socket.assigns.client_ip)
     {:noreply, assign(socket, :play_count, Audio.get_play_count(log.id))}
   end
 
   # Captured at mount and kept in assigns: connect_info is only readable while
   # mounting, and reaching for it from handle_event/3 raises — which is what
-  # the first real play on this page would have done.
-  defp client_ip(socket) do
-    case get_connect_info(socket, :peer_data) do
-      %{address: address} when is_tuple(address) -> address |> :inet.ntoa() |> to_string()
-      _ -> "unknown"
-    end
-  end
+  # the first real play on this page would have done. Behind Caddy the peer is
+  # always the proxy, so the viewer's address comes from x-forwarded-for.
+  defp client_ip(socket), do: WebWeb.ClientIP.from_socket(socket)
 
   def render(assigns) do
     ~H"""

@@ -222,31 +222,45 @@ defmodule Web.Audio do
   # --- Play tracking ---
 
   @doc """
-  Records a play event for a log. This is the "witnessed" count — the hook
-  fires on the media element's `play` event, once per mount, so seeking does
-  not inflate it. `<video>` and `<audio>` both fire it, so the same hook
-  serves either kind.
+  Records that someone witnessed a log. A witness is an anonymous token the
+  browser keeps for itself, and the hook only sends it once 30 seconds have
+  actually played (half the entry, if it is shorter than a minute) — so a
+  press of play and a quick exit is not a witness, and scrubbing adds nothing.
+  `<video>` and `<audio>` both drive it, so the same hook serves either kind.
+
+  One row per witness per log: the unique index makes a replay a no-op. A
+  missing or malformed token is `:ignored`, never counted. The IP is kept
+  only for reference.
   """
-  def record_play(audio_log_id, ip_address, user_agent \\ nil) do
-    %Play{}
-    |> Play.changeset(%{
-      audio_log_id: audio_log_id,
-      ip_address: ip_address,
-      user_agent: user_agent
-    })
-    |> Repo.insert()
+  def record_play(audio_log_id, witness, ip_address, user_agent \\ nil)
+
+  def record_play(audio_log_id, witness, ip_address, user_agent) when is_binary(witness) do
+    if Regex.match?(~r/\A[A-Za-z0-9-]{8,64}\z/, witness) do
+      %Play{}
+      |> Play.changeset(%{
+        audio_log_id: audio_log_id,
+        witness: witness,
+        ip_address: ip_address,
+        user_agent: user_agent
+      })
+      |> Repo.insert(on_conflict: :nothing, conflict_target: [:audio_log_id, :witness])
+    else
+      :ignored
+    end
   end
 
+  def record_play(_audio_log_id, _witness, _ip_address, _user_agent), do: :ignored
+
   @doc """
-  How many people witnessed one log — distinct witnesses, not plays. Someone
-  who watches an entry five times witnessed it once. See `witnesses_by_log/0`
-  for who counts as one witness.
+  How many people witnessed one log — distinct witnesses, not plays. Rows
+  from before witnesses existed carry no token and count for nothing.
   """
   def get_play_count(audio_log_id) do
-    from(p in Play, where: p.audio_log_id == ^audio_log_id, select: {p.id, p.ip_address})
-    |> Repo.all()
-    |> MapSet.new(&witness_key/1)
-    |> MapSet.size()
+    from(p in Play,
+      where: p.audio_log_id == ^audio_log_id and not is_nil(p.witness),
+      select: count(p.witness, :distinct)
+    )
+    |> Repo.one()
   end
 
   @doc "Witness counts for every log, as `%{audio_log_id => count}`."
@@ -255,20 +269,14 @@ defmodule Web.Audio do
   end
 
   @doc """
-  The witnesses of every log, as `%{audio_log_id => MapSet}`. A witness is an
-  IP address; a play recorded without one still counts, once, as itself.
-  Every play stays on record — only the reading collapses repeats — and
-  callers can union the sets to count people across several entries.
+  The witnesses of every log, as `%{audio_log_id => MapSet of tokens}`, so
+  callers can union them to count people across several entries.
   """
   def witnesses_by_log do
-    from(p in Play, select: {p.audio_log_id, p.id, p.ip_address})
+    from(p in Play, where: not is_nil(p.witness), select: {p.audio_log_id, p.witness})
     |> Repo.all()
-    |> Enum.reduce(%{}, fn {log_id, id, ip}, acc ->
-      key = witness_key({id, ip})
-      Map.update(acc, log_id, MapSet.new([key]), &MapSet.put(&1, key))
+    |> Enum.reduce(%{}, fn {log_id, witness}, acc ->
+      Map.update(acc, log_id, MapSet.new([witness]), &MapSet.put(&1, witness))
     end)
   end
-
-  defp witness_key({id, nil}), do: {:play, id}
-  defp witness_key({_id, ip}), do: ip
 end
