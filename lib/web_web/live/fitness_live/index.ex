@@ -138,7 +138,7 @@ defmodule WebWeb.FitnessLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="blog-bento-wrapper steel">
+    <div class="blog-bento-wrapper steel fitness-landing">
       <!-- Header -->
       <header class="blog-header-card">
         <h1 class="blog-header-title">Fitness & Sport</h1>
@@ -148,7 +148,7 @@ defmodule WebWeb.FitnessLive.Index do
     <!-- Section Navigation -->
       <WebWeb.FitnessSubnav.subnav active={:regimen} is_admin={@is_admin} />
 
-      <%!-- The big picture, above the fuelling panel and the day-by-day regimen.
+      <%!-- The big picture, above the day-by-day regimen and the fuelling rail.
             Visitors get untimed chips; the clock times render for the admin only. --%>
       <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
 
@@ -164,90 +164,95 @@ defmodule WebWeb.FitnessLive.Index do
         <% extra_modules =
           Enum.reject(@days, &(&1.slug in primary_slugs or &1.slug == fuelling_slug)) %>
 
-        <%!-- Fuelling is pinned above the week and open by default. It is a daily
-              reference rather than an occasional module, and filed among the
-              Additional Modules it sat collapsed a full page-scroll down where it
-              was missed entirely. It stays inside #weekly-routine and keeps its
-              .day-details class and data-day, because GymRoutine keys saved ticks
-              on `vault_gym_<data-day>_<index>` scoped to this element — move it
-              out or rename the scope and every saved tick silently detaches. --%>
-        <div :if={fuelling} class="regimen-list" style="margin-bottom: 2.5rem;">
-          <details class="day-details" data-day={fuelling.slug} open>
-            <summary class="day-summary">
-              <span class="day-title">{fuelling.title}</span>
-              <.icon name="hero-chevron-down" class="summary-icon" />
-            </summary>
-            <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
-              {raw(fuelling.html)}
+        <div class="fitness-layout">
+          <div class="fitness-main">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
+              <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 2px;">
+                Weekly Regimen
+              </h2>
+              <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
             </div>
-          </details>
-        </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
-          <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 2px;">
-            Weekly Regimen
-          </h2>
-          <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
-        </div>
+            <div class="regimen-list">
+              <%= for day <- primary_days do %>
+                <details class="day-details" data-day={day.slug} open={day.slug == @today_slug}>
+                  <summary class="day-summary">
+                    <span class="day-title">{day.title}</span>
+                    <.icon name="hero-chevron-down" class="summary-icon" />
+                  </summary>
+                  <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
+                    {raw(day.html)}
 
-        <div class="regimen-list">
-          <%= for day <- primary_days do %>
-            <details class="day-details" data-day={day.slug} open={day.slug == @today_slug}>
-              <summary class="day-summary">
-                <span class="day-title">{day.title}</span>
-                <.icon name="hero-chevron-down" class="summary-icon" />
-              </summary>
-              <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
-                {raw(day.html)}
-
-                <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
+                    <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
                       cycle) render each option as its own dropdown, with the one
                       in rotation open. Which one is live comes from
                       Web.Fitness.Rotation off the ISO week — it used to be prose
                       that checklist_only/1 stripped, so the page showed a single
                       option and gave no sign the others existed. --%>
-                <div :if={day.options != []} class="option-list">
-                  <details
-                    :for={option <- day.options}
-                    class="option-details"
-                    data-option={"#{day.slug}_#{option.key}"}
-                    open={option.active?}
-                  >
-                    <summary class="option-summary">
-                      <span class="option-label">{option.label}</span>
-                      <span :if={option.active?} class="option-badge">this week</span>
+                    <div :if={day.options != []} class="option-list">
+                      <details
+                        :for={option <- day.options}
+                        class="option-details"
+                        data-option={"#{day.slug}_#{option.key}"}
+                        open={option.active?}
+                      >
+                        <summary class="option-summary">
+                          <span class="option-label">{option.label}</span>
+                          <span :if={option.active?} class="option-badge">this week</span>
+                          <.icon name="hero-chevron-down" class="summary-icon" />
+                        </summary>
+                        <div class="option-content vault-day markdown-body">
+                          {raw(option.html)}
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                </details>
+              <% end %>
+            </div>
+
+            <%= if length(extra_modules) > 0 do %>
+              <div style="margin-top: 3rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
+                <h2 style="font-size: 1.8rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 1px;">
+                  Additional Modules
+                </h2>
+              </div>
+              <div class="regimen-list">
+                <%= for day <- extra_modules do %>
+                  <details class="day-details" data-day={day.slug}>
+                    <summary class="day-summary">
+                      <span class="day-title">{day.title}</span>
                       <.icon name="hero-chevron-down" class="summary-icon" />
                     </summary>
-                    <div class="option-content vault-day markdown-body">
-                      {raw(option.html)}
+                    <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
+                      {raw(day.html)}
                     </div>
                   </details>
-                </div>
+                <% end %>
               </div>
-            </details>
-          <% end %>
-        </div>
-
-        <%= if length(extra_modules) > 0 do %>
-          <div style="margin-top: 3rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
-            <h2 style="font-size: 1.8rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 1px;">
-              Additional Modules
-            </h2>
-          </div>
-          <div class="regimen-list">
-            <%= for day <- extra_modules do %>
-              <details class="day-details" data-day={day.slug}>
-                <summary class="day-summary">
-                  <span class="day-title">{day.title}</span>
-                  <.icon name="hero-chevron-down" class="summary-icon" />
-                </summary>
-                <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
-                  {raw(day.html)}
-                </div>
-              </details>
             <% end %>
           </div>
-        <% end %>
+
+          <%!-- Fuelling is a daily reference, not the day's work, so it rides
+                beside the regimen in a sticky rail (the /negatives roll rail's
+                shape) and folds below it on narrow screens — it comes after the
+                workout in the markup for exactly that reason. It stays inside
+                #weekly-routine and keeps its .day-details class and data-day,
+                because GymRoutine keys saved ticks on
+                `vault_gym_<data-day>_<index>` scoped to this element — move it
+                out or rename the scope and every saved tick silently detaches. --%>
+          <aside :if={fuelling} class="fuelling-rail" aria-label="Daily fuelling">
+            <details class="day-details" data-day={fuelling.slug} open>
+              <summary class="day-summary">
+                <span class="day-title">{fuelling.title}</span>
+                <.icon name="hero-chevron-down" class="summary-icon" />
+              </summary>
+              <div class="day-content vault-day markdown-body">
+                {raw(fuelling.html)}
+              </div>
+            </details>
+          </aside>
+        </div>
       </div>
 
       <%= if @logging_slug do %>

@@ -49,19 +49,23 @@ defmodule WebWeb.FitnessLandingTest do
       assert html =~ "100 g protein"
     end
 
-    # It is a daily reference, so it sits above the week and open — not
-    # collapsed among the Additional Modules, where it went unnoticed.
-    test "fuelling is pinned open above the weekly regimen", %{conn: conn} do
+    # The day's workout comes first. Fuelling is a daily reference, so it
+    # rides open in a side rail — after the workout in the markup, which is
+    # where it lands when the rail folds on a narrow screen.
+    test "fuelling sits open in a side rail after the workout", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")
 
+      assert html =~ ~s(class="fuelling-rail")
       assert html =~ ~s(data-day="nutrition-module" open)
 
-      {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
       {weekly, _} = :binary.match(html, "Weekly Regimen")
       {additional, _} = :binary.match(html, "Additional Modules")
+      {rail, _} = :binary.match(html, ~s(class="fuelling-rail"))
+      {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
 
-      assert fuelling < weekly
-      assert fuelling < additional
+      assert weekly < rail
+      assert additional < rail
+      assert rail < fuelling
     end
 
     # GymRoutine keys saved ticks on `vault_gym_<data-day>_<index>` scoped to
@@ -124,7 +128,7 @@ defmodule WebWeb.FitnessLandingTest do
   end
 
   describe "The Week" do
-    test "renders every day above the fuelling panel and the regimen", %{conn: conn} do
+    test "renders every day above the regimen and the fuelling rail", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")
 
       assert Regex.scan(~r/data-week-day="/, html) |> length() == 7

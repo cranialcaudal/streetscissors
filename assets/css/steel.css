@@ -471,3 +471,95 @@
     padding-left: 0.75rem !important;
   }
 }
+
+/* ── Fitness landing: the workout, with fuelling beside it ─────────
+   The day's work takes the main column; Daily Fuelling is a reference,
+   so it rides in a sticky rail on the right — the /negatives roll rail's
+   mechanics — and scrolls inside itself, being taller than a screen.
+   The page widens only here (1000px → 1320px) so the workout column keeps
+   the ~900px it had. It folds at 1100px, where that column would drop
+   below ~680px; the rail then falls after the workout, which is where it
+   sits in the markup. The day panels' rules are all !important, so the
+   rail's smaller voice has to be too. The wrapper carries .steel itself,
+   so the widening is a compound selector, not a descendant one. */
+.blog-bento-wrapper.steel.fitness-landing {
+  max-width: 1320px;
+}
+
+.steel .fitness-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 3rem;
+  align-items: start;
+}
+
+.steel .fuelling-rail {
+  position: sticky;
+  /* Clears the sticky site header, same offset as the roll rail. */
+  top: 8.5rem;
+  max-height: calc(100vh - 11rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--rule);
+  padding-left: 1.25rem;
+}
+
+.steel .fuelling-rail .day-details {
+  border-bottom: none !important;
+}
+
+.steel .fuelling-rail .day-summary {
+  padding: 0 0 0.75rem !important;
+  border-left: none;
+}
+
+.steel .fuelling-rail .day-summary:hover {
+  background: none !important;
+}
+
+.steel .fuelling-rail .day-title {
+  font-size: 0.95rem !important;
+}
+
+.steel .fuelling-rail .vault-day h2,
+.steel .fuelling-rail .vault-day h3 {
+  font-size: 0.75rem !important;
+  margin: 1.5rem 0 0.25rem !important;
+}
+
+/* A fuelling line is a bold label then prose. As flex items those split
+   into cramped side-by-side columns at rail width, so here the row flows
+   as text with the checkbox leading it. */
+.steel .fuelling-rail .vault-day li {
+  display: block !important;
+  font-size: 0.95rem !important;
+  line-height: 1.45 !important;
+  min-height: 0;
+}
+
+.steel .fuelling-rail .vault-day li input[type='checkbox'] {
+  float: left;
+  margin: 0.15rem 0.75rem 0 0 !important;
+}
+
+.steel .fuelling-rail .vault-day ul {
+  margin: 0 0 1rem !important;
+}
+
+@media (max-width: 1100px) {
+  .steel .fitness-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .steel .fuelling-rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-left: none;
+    padding-left: 0;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+  }
+}
