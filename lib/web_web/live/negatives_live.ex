@@ -707,12 +707,15 @@ defmodule WebWeb.NegativesLive do
         mounted() { this.reveal(true) },
         updated() { this.reveal(false) },
         reveal(immediate) {
+          const list = this.el.querySelector(".roll-rail-list")
           const current = this.el.querySelector("[aria-current]")
-          if (!current) return
+          if (!list || !current) return
 
-          const rail = this.el.getBoundingClientRect()
+          // The list is the scroll container, not the rail — the rail also
+          // holds the count, which must not be scrolled away.
+          const bounds = list.getBoundingClientRect()
           const item = current.getBoundingClientRect()
-          if (item.top >= rail.top && item.bottom <= rail.bottom) return
+          if (item.top >= bounds.top && item.bottom <= bounds.bottom) return
 
           current.scrollIntoView({
             block: "nearest",
