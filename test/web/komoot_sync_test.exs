@@ -48,12 +48,15 @@ defmodule Web.Rides.KomootSyncTest do
   end
 
   # Serves the listing with an ETag and honours If-None-Match, the way the
-  # real API does — its ETag is a plain md5 of the listing body. With a
-  # `:log` agent, every request path is recorded.
+  # real API does — its ETag is a plain md5 of the listing body. Share tokens
+  # answer the way Komoot's do: the read is a 204 until one is created, and
+  # the create is a 201 carrying it (`broken_share_tokens: true` fails both).
+  # With a `:log` agent, every request path is recorded.
   defp stub_komoot(opts \\ []) do
     tours = Keyword.get(opts, :tours, [@tour])
     log = Keyword.get(opts, :log)
     broken_images = Keyword.get(opts, :broken_images, false)
+    broken_share_tokens = Keyword.get(opts, :broken_share_tokens, false)
 
     Req.Test.stub(Web.Komoot.Client, fn conn ->
       if log, do: Agent.update(log, &[conn.request_path | &1])
@@ -61,6 +64,22 @@ defmodule Web.Rides.KomootSyncTest do
       cond do
         String.starts_with?(conn.request_path, "/v006/account/email/") ->
           Req.Test.json(conn, @login_body)
+
+        String.ends_with?(conn.request_path, "/share_token") ->
+          [_, tour_id] = Regex.run(~r{/tours/(\d+)/}, conn.request_path)
+
+          cond do
+            broken_share_tokens ->
+              Plug.Conn.send_resp(conn, 500, "")
+
+            conn.method == "GET" ->
+              Plug.Conn.send_resp(conn, 204, "")
+
+            true ->
+              conn
+              |> Plug.Conn.put_status(201)
+              |> Req.Test.json(%{"token" => "share-" <> tour_id})
+          end
 
         String.contains?(conn.request_path, "/maps/") ->
           if broken_images do
@@ -177,6 +196,58 @@ defmodule Web.Rides.KomootSyncTest do
 
     assert {:ok, %{imported: 2}} = KomootSync.sync()
     assert Enum.all?(Rides.list_rides(), &(&1.visibility == "private"))
+  end
+
+  test "a private tour gets a share token once, so Komoot's embed can show it" do
+    {:ok, log} = Agent.start_link(fn -> [] end)
+    stub_komoot(log: log, tours: [%{@tour | "status" => "private"}, @other_tour])
+
+    assert {:ok, %{imported: 2, failed: 0}} = KomootSync.sync()
+
+    assert %{"444" => private, "111" => public} = Rides.komoot_index()
+    assert private.share_token == "share-444"
+    assert public.share_token == nil
+
+    # A read that finds none, then the create — and only for the private tour.
+    assert share_token_requests(log) == [
+             "/v007/tours/444/share_token",
+             "/v007/tours/444/share_token"
+           ]
+
+    # Kept from then on: a full re-read doesn't ask again.
+    assert {:ok, %{skipped: 2}} = KomootSync.sync(force: true)
+    assert length(share_token_requests(log)) == 2
+  end
+
+  @tag :capture_log
+  test "a failed share token fails the tour until a pass gets one" do
+    stub_komoot(tours: [%{@tour | "status" => "private"}], broken_share_tokens: true)
+
+    assert {:ok, %{failed: 1}} = KomootSync.sync()
+    assert [%{share_token: nil}] = Rides.list_rides()
+
+    # The ETag wasn't stored, so the next hourly pass reads the listing again
+    # and asks again — no force needed.
+    stub_komoot(tours: [%{@tour | "status" => "private"}])
+    assert {:ok, %{updated: 1, failed: 0, unchanged: false}} = KomootSync.sync()
+    assert [%{share_token: "share-444"}] = Rides.list_rides()
+  end
+
+  test "a tour made private later gets its token on that pass" do
+    stub_komoot()
+    assert {:ok, %{imported: 1}} = KomootSync.sync()
+    assert [%{share_token: nil}] = Rides.list_rides()
+
+    stub_komoot(tours: [%{@tour | "status" => "private"}])
+    assert {:ok, %{updated: 1}} = KomootSync.sync()
+    assert [%{visibility: "private", share_token: "share-444"}] = Rides.list_rides()
+  end
+
+  defp share_token_requests(log) do
+    log
+    |> Agent.get(& &1)
+    |> Enum.reverse()
+    |> Enum.filter(&String.ends_with?(&1, "/share_token"))
   end
 
   # Komoot does not always bump changed_at when privacy is the only edit.

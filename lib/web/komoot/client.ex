@@ -116,6 +116,53 @@ defmodule Web.Komoot.Client do
   end
 
   @doc """
+  The share token of a tour, creating one when the tour has none — what
+  Komoot's own Share dialog does, and what lets its embed show a tour that
+  isn't public.
+
+  The `format=v2` read answers `204` when no token exists yet (the plain one
+  answers `404`), and the create needs a HAL `Accept` header or it is refused
+  with `406`. Both answer `{"token": …}`.
+  """
+  @spec share_token(auth, String.t()) :: {:ok, String.t()} | {:error, term}
+  def share_token(auth, tour_id) do
+    url = "/v007/tours/#{tour_id}/share_token?format=v2"
+
+    case Req.get(req(), url: url, auth: basic(auth)) do
+      {:ok, %{status: 200, body: %{"token" => token}}} when is_binary(token) and token != "" ->
+        {:ok, token}
+
+      {:ok, %{status: 204}} ->
+        create_share_token(auth, url)
+
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp create_share_token(auth, url) do
+    case Req.post(req(),
+           url: url,
+           auth: basic(auth),
+           json: %{},
+           headers: [accept: "application/hal+json"]
+         ) do
+      {:ok, %{status: status, body: %{"token" => token}}}
+      when status in [200, 201] and is_binary(token) and token != "" ->
+        {:ok, token}
+
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
   Downloads an image (static map thumbnail) from an absolute URL. Returns
   `{:ok, binary, content_type}` for a 200 image response.
   """

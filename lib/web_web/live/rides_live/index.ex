@@ -79,16 +79,15 @@ defmodule WebWeb.RidesLive.Index do
         selected={@sport}
       />
 
-      <%!-- The lightbox: the newest activity in view owns the first screen. --%>
+      <%!-- The lightbox: the newest activity in view owns the first screen,
+            drawn by Komoot itself, with what the watch measured beneath. --%>
       <article :if={@featured} class="activity-feature">
         <Activity.meta ride={@featured} />
         <h2 class="activity-title">
           <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured)}</.link>
         </h2>
-        <.link navigate={~p"/fitness/rides/#{@featured.id}"} class="activity-map-link">
-          <Activity.route_map ride={@featured} />
-        </.link>
-        <Activity.figures ride={@featured} />
+        <Activity.plate ride={@featured} link loading="eager" />
+        <Activity.health ride={@featured} />
       </article>
 
       <Activity.shelf

@@ -7,7 +7,12 @@ defmodule WebWeb.RidesLive.Show do
   def mount(%{"id" => id}, _session, socket) do
     ride = Rides.get_ride(id) || raise Ecto.NoResultsError, queryable: Web.Rides.Ride
 
-    {:ok, assign(socket, ride: ride, page_title: Activity.title(ride))}
+    {:ok,
+     assign(socket,
+       ride: ride,
+       komoot_url: Rides.tour_url(ride),
+       page_title: Activity.title(ride)
+     )}
   end
 
   def render(assigns) do
@@ -19,20 +24,21 @@ defmodule WebWeb.RidesLive.Show do
         <Activity.meta ride={@ride} />
         <h1 class="activity-title">{Activity.title(@ride)}</h1>
 
-        <iframe
-          :if={@ride.visibility == "public"}
-          src={"https://www.komoot.com/tour/#{@ride.komoot_id}/embed?profile=1"}
-          class="activity-embed"
-          title="Komoot tour"
-          loading="lazy"
+        <%!-- Komoot's embed for every tour it will show — a private one through
+              its share token — else the static map cached at sync time. --%>
+        <Activity.plate ride={@ride} downhill loading="eager" />
+
+        <Activity.health ride={@ride} trace />
+
+        <a
+          :if={@komoot_url}
+          href={@komoot_url}
+          class="activity-komoot"
+          target="_blank"
+          rel="noopener"
         >
-        </iframe>
-
-        <%!-- Komoot's embed refuses tours that aren't public, so those show the
-              static map cached at sync time instead. --%>
-        <Activity.route_map :if={@ride.visibility != "public"} ride={@ride} />
-
-        <Activity.figures ride={@ride} downhill />
+          Open on Komoot <span aria-hidden="true">↗</span>
+        </a>
       </article>
     </div>
     """

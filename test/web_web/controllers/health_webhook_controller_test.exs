@@ -77,6 +77,58 @@ defmodule WebWeb.HealthWebhookControllerTest do
     assert entry.fiber_grams == 41
   end
 
+  describe "workouts" do
+    # Health Auto Export's v2 workout, invented values, route included so the
+    # test proves it is dropped.
+    @workout %{
+      "id" => "HK-RIDE-1",
+      "name" => "Outdoor Cycling",
+      "start" => "2026-07-08 11:00:05 -0700",
+      "end" => "2026-07-08 13:00:00 -0700",
+      "heartRate" => %{"avg" => %{"qty" => 139.6}, "max" => %{"qty" => 168}},
+      "activeEnergyBurned" => %{"qty" => 2600, "units" => "kJ"},
+      "heartRateData" => [
+        %{"date" => "2026-07-08 11:00:05 -0700", "Avg" => 101, "Max" => 110},
+        %{"date" => "2026-07-08 11:01:05 -0700", "Avg" => 130, "Max" => 141}
+      ],
+      "route" => [%{"latitude" => 1.0, "longitude" => 2.0}]
+    }
+
+    test "are stored and pair with the ride they were recorded on", %{conn: conn} do
+      ride = Web.RidesFixtures.ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
+
+      conn = post(conn, ~p"/api/health/ingest", %{"data" => %{"workouts" => [@workout]}})
+      assert %{"workouts" => 1, "ok" => 0} = json_response(conn, 200)
+
+      assert %{avg_hr: 140, max_hr: 168, active_kcal: 621, hr_trace: [0, 101, 60, 130]} =
+               Web.Rides.get_ride(ride.id).health
+    end
+
+    test "a repeated export updates rather than duplicates", %{conn: conn} do
+      post(conn, ~p"/api/health/ingest", %{"data" => %{"workouts" => [@workout]}})
+      post(conn, ~p"/api/health/ingest", %{"data" => %{"workouts" => [@workout]}})
+
+      assert Web.Rides.count_workouts() == 1
+    end
+
+    test "can arrive alongside metrics", %{conn: conn} do
+      conn =
+        post(conn, ~p"/api/health/ingest", %{
+          "data" => %{
+            "metrics" => [metric("dietary_fiber", "g", 30)],
+            "workouts" => [@workout]
+          }
+        })
+
+      assert %{"ok" => 1, "workouts" => 1} = json_response(conn, 200)
+    end
+
+    test "a payload with neither is refused", %{conn: conn} do
+      conn = post(conn, ~p"/api/health/ingest", %{"data" => %{"symptoms" => []}})
+      assert json_response(conn, 422)
+    end
+  end
+
   test "rejects a bad token", %{conn: conn} do
     conn =
       conn

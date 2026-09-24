@@ -111,7 +111,74 @@ defmodule WebWeb.RidesLiveTest do
     {:ok, view, _html} = live(conn, ~p"/fitness/rides")
     assert has_element?(view, ".activity-feature .activity-meta", "Bike touring")
     assert has_element?(view, ".activity-feature .activity-meta", "Fri 11 Sep 2026")
-    assert has_element?(view, ".activity-feature .activity-figure-label", "Uphill")
+    assert has_element?(view, ".activity-card-stats", "2,625 ft up")
+  end
+
+  test "the featured activity is Komoot's embed; the cards keep Komoot's map", %{conn: conn} do
+    ride = ride_fixture(%{komoot_id: "987654321"})
+    :ok = Thumbs.store(ride, "fake-jpeg")
+
+    {:ok, view, _html} = live(conn, ~p"/fitness/rides")
+
+    assert has_element?(
+             view,
+             ".activity-feature iframe.activity-embed[src='https://www.komoot.com/tour/987654321/embed?profile=1']"
+           )
+
+    # Komoot's embed carries its own stats, so the page doesn't repeat them…
+    refute has_element?(view, ".activity-feature .activity-figures")
+    refute has_element?(view, ".activity-feature img.activity-map")
+    # …and the shelf still shows the route, at full colour.
+    assert has_element?(view, ".activity-card img[src='/fitness/rides/#{ride.id}/thumb']")
+  end
+
+  test "a private tour is embedded through its share token", %{conn: conn} do
+    ride = ride_fixture(%{komoot_id: "555", visibility: "private", share_token: "tok"})
+
+    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
+
+    assert has_element?(
+             index,
+             ".activity-feature iframe[src='https://www.komoot.com/tour/555/embed?share_token=tok&profile=1']"
+           )
+
+    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+    assert has_element?(show, "iframe.activity-embed[src*='share_token=tok']")
+
+    assert has_element?(
+             show,
+             "a.activity-komoot[href='https://www.komoot.com/tour/555?share_token=tok']"
+           )
+  end
+
+  test "heart and energy come from the Apple Health workout paired with a ride", %{conn: conn} do
+    ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
+    workout_fixture(%{started_at: ~U[2026-07-08 18:00:20Z], avg_hr: 142, max_hr: 171})
+
+    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
+    assert has_element?(index, ".activity-feature .activity-health", "Apple Health")
+    assert has_element?(index, ".activity-feature .activity-figure-value", "142 bpm")
+    assert has_element?(index, ".activity-card-health", "142 bpm · 612 kcal")
+    # The trace belongs to the ride's own page.
+    refute has_element?(index, ".heart-trace")
+
+    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+    assert has_element?(show, ".activity-figure-label", "Max heart rate")
+    assert has_element?(show, ".activity-figure-value", "171 bpm")
+    assert has_element?(show, "#heart-trace-#{ride.id}[phx-hook] svg path.heart-trace-line")
+    assert has_element?(show, ".heart-trace-caption", "96–171 bpm")
+  end
+
+  test "a ride with no paired workout shows no health panel", %{conn: conn} do
+    ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
+    workout_fixture(%{started_at: ~U[2026-07-08 18:30:00Z]})
+
+    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
+    refute has_element?(index, ".activity-health")
+    refute has_element?(index, ".activity-card-health")
+
+    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+    refute has_element?(show, ".activity-health")
   end
 
   test "the year's mileage is one quiet line per year, below everything", %{conn: conn} do
@@ -142,17 +209,21 @@ defmodule WebWeb.RidesLiveTest do
 
     {:ok, view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
     assert html =~ "Lakes loop"
-    assert has_element?(view, ".activity-figure-label", "Downhill")
     assert html =~ "https://www.komoot.com/tour/987654321/embed?profile=1"
+    refute has_element?(view, ".activity-figures")
+    assert has_element?(view, "a.activity-komoot[href='https://www.komoot.com/tour/987654321']")
   end
 
-  test "show uses the cached route image for a tour that isn't public", %{conn: conn} do
+  test "show falls back to the cached route image for a private tour with no share token yet",
+       %{conn: conn} do
     ride = ride_fixture(%{visibility: "private"})
     :ok = Thumbs.store(ride, "fake-jpeg")
 
-    {:ok, _view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+    {:ok, view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
     assert html =~ ~s(src="/fitness/rides/#{ride.id}/thumb")
+    assert has_element?(view, ".activity-figure-label", "Downhill")
     refute html =~ "komoot.com/tour/"
+    refute has_element?(view, "a.activity-komoot")
   end
 
   test "thumbnails are served for every ride", %{conn: conn} do

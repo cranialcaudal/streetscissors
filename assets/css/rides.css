@@ -2,9 +2,10 @@
    ACTIVITIES — /fitness/rides and each ride page
    ═══════════════════════════════════════════════════════════════════
    A lightbox, in the manner of /negatives: the newest activity owns the
-   first screen — Komoot's route map at full width, its figures in a
-   panel beneath — then one shelf per sport, largest first, each a
-   sideways run of cards. The year's mileage is a footnote.
+   first screen — Komoot's own embed at full width, what the watch
+   measured in a panel beneath — then one shelf per sport, largest first,
+   each a sideways run of cards carrying Komoot's route map. The year's
+   mileage is a footnote.
 
    Tokens only, so the section's .steel re-inking carries it. Sport
    families take The Week's pigments (bike jade, run orange), so an
@@ -30,13 +31,19 @@
 .steel.activities .activity-map,
 .steel.activities .activity-embed,
 .steel.activities .activity-figures,
+.steel.activities .heart-trace,
 .steel.activities .activity-card,
 .steel.activities .activities-empty {
   border-radius: var(--activity-radius) !important;
 }
 
+.steel.activities .heart-trace-tip {
+  border-radius: var(--activity-radius-sm) !important;
+}
+
 .steel.activities .activity-pill,
 .steel.activities .activity-dot,
+.steel.activities .heart-trace-dot,
 .steel.activities .activity-shelf-btn {
   border-radius: 999px !important;
 }
@@ -161,10 +168,12 @@
   color: var(--ink-4);
 }
 
+/* Komoot's embed: its map, stats strip and elevation profile, at the
+   height Komoot's own embed code gives it so nothing scrolls inside. */
 .activity-embed {
   display: block;
   width: 100%;
-  height: 580px;
+  height: 700px;
   background: var(--paper-sunk);
   border: 1px solid var(--rule);
 }
@@ -209,6 +218,180 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-3);
+}
+
+/* ── Heart & energy: what the watch measured ───────────────────── */
+
+.activity-health { margin-top: 1.75rem; }
+
+.activity-health-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.activity-health-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* The heart is a mark, not text, so it may wear hot metal. */
+.activity-health-mark { color: var(--color-orange); }
+
+.activity-health-source {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.activity-health .activity-figures { margin-top: 0.75rem; }
+
+/* The trace: one 2px hot-metal line on a 10% wash, bpm rules in the panel's
+   hairline with their numbers in the left gutter, stopwatch time beneath. */
+.heart-trace {
+  margin: 1rem 0 0;
+  padding: 1rem 1.25rem 0.75rem 3.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.heart-trace-caption {
+  margin: 0 0 1rem -2rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.heart-trace-plot {
+  position: relative;
+  height: 170px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.heart-trace-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.heart-trace-line {
+  fill: none;
+  stroke: var(--color-orange);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.heart-trace-area {
+  fill: var(--color-orange);
+  opacity: 0.1;
+}
+
+.heart-trace-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.heart-trace-tick {
+  position: absolute;
+  right: 100%;
+  padding-right: 0.6rem;
+  transform: translateY(-50%);
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.45rem;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--rule-strong);
+  pointer-events: none;
+}
+
+.heart-trace-cursor[hidden] { display: none; }
+
+.heart-trace-dot {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  background: var(--color-orange);
+  box-shadow: 0 0 0 2px var(--paper-raised);
+}
+
+.heart-trace-tip {
+  position: absolute;
+  top: 0;
+  left: 0.6rem;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  white-space: nowrap;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-cursor.is-flipped .heart-trace-tip {
+  left: auto;
+  right: 0.6rem;
+}
+
+.heart-trace-tip-value { color: var(--ink); }
+
+/* Pressable, so it wears the accent at rest, on a 44px target. */
+.activity-komoot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  margin-top: 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.activity-komoot:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 /* ── Shelves: one sport per row ────────────────────────────────── */
@@ -322,23 +505,17 @@
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: var(--paper-sunk);
-  border-bottom: 1px solid var(--rule);
+  /* The sport's pigment rules the edge between map and text. */
+  border-bottom: 2px solid var(--sport-color, var(--rule));
 }
 
-/* Muted so a shelf reads as one calm run rather than a patchwork of city
-   grids and green trails; the colour comes back on the card you point at. */
+/* Komoot's map as Komoot draws it: full colour, the way its own tour cards
+   show a route. */
 .activity-card-map img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.3) brightness(0.92);
-  transition: filter 0.25s ease;
-}
-
-.activity-card:hover .activity-card-map img,
-.activity-card:focus-visible .activity-card-map img {
-  filter: none;
 }
 
 .activity-card-blank { height: 100%; }
@@ -374,6 +551,13 @@
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
+}
+
+.activity-card-health {
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
 
 /* ── The year's mileage: a footnote ────────────────────────────── */
@@ -423,7 +607,10 @@
   /* An odd figure out (the ride page's fifth) spans the row, not a hole. */
   .activity-figure:last-child:nth-child(odd) { grid-column: span 2; }
 
-  .activity-embed { height: 420px; }
+  .activity-embed { height: 600px; }
+
+  .heart-trace { padding: 0.85rem 0.85rem 0.6rem 2.75rem; }
+  .heart-trace-plot { height: 140px; }
 
   /* Touch scrolls a strip natively, so the buttons step aside. */
   .activity-shelf-nav { display: none; }

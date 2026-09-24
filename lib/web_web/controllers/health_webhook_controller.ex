@@ -2,6 +2,7 @@ defmodule WebWeb.HealthWebhookController do
   use WebWeb, :controller
 
   alias Web.Fitness
+  alias Web.Rides
 
   # Health Auto Export metric names → biometric field + unit conversion
   @metric_map %{
@@ -21,10 +22,10 @@ defmodule WebWeb.HealthWebhookController do
 
   def ingest(conn, params) do
     with :ok <- check_token(conn),
-         {:ok, entries} <- parse_payload(params) do
+         {:ok, entries, workouts} <- parse_payload(params) do
       results = Enum.map(entries, &Fitness.upsert_biometric/1)
       ok = Enum.count(results, &match?({:ok, _}, &1))
-      json(conn, %{ok: ok, total: length(results)})
+      json(conn, %{ok: ok, total: length(results), workouts: Rides.ingest_workouts(workouts)})
     else
       :unauthorized ->
         conn |> put_status(401) |> json(%{error: "unauthorized"})
@@ -47,15 +48,19 @@ defmodule WebWeb.HealthWebhookController do
     end
   end
 
-  # Health Auto Export: {data: {metrics: [{name, units, data: [{date, qty}]}]}}
-  defp parse_payload(%{"data" => %{"metrics" => metrics}}) do
+  # Health Auto Export: {data: {metrics: [{name, units, data: [{date, qty}]}],
+  # workouts: [...]}}. An automation sends one kind or the other; a manual
+  # export can carry both. Workouts are the rides' heart rate and energy
+  # (`Web.Rides.AppleHealth`), not daily biometrics.
+  defp parse_payload(%{"data" => %{} = data})
+       when is_map_key(data, "metrics") or is_map_key(data, "workouts") do
     by_date =
-      Enum.reduce(metrics, %{}, fn metric, acc ->
-        parse_metric(metric, acc)
-      end)
+      data["metrics"]
+      |> List.wrap()
+      |> Enum.reduce(%{}, fn metric, acc -> parse_metric(metric, acc) end)
 
     entries = Enum.map(by_date, fn {date, fields} -> Map.put(fields, "date", date) end)
-    {:ok, entries}
+    {:ok, entries, List.wrap(data["workouts"])}
   end
 
   # iOS Shortcuts flat format: {"date": "2026-06-13", "hrv_ms": 45, "sleep_hours": 7.5, ...}
@@ -66,7 +71,7 @@ defmodule WebWeb.HealthWebhookController do
 
   defp parse_payload(%{"date" => _} = flat) do
     entry = Map.take(flat, ["date" | @flat_fields])
-    {:ok, [entry]}
+    {:ok, [entry], []}
   end
 
   defp parse_payload(_), do: {:error, "unexpected payload shape"}

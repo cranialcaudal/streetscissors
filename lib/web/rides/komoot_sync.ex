@@ -6,7 +6,9 @@ defmodule Web.Rides.KomootSync do
   deleted here. Nothing about a ride is entered on the site.
 
   Each ride is built from the tour listing alone, plus one static-map
-  thumbnail cached by `Web.Rides.Thumbs` — no GPS track is downloaded.
+  thumbnail cached by `Web.Rides.Thumbs` — no GPS track is downloaded. A
+  private tour also gets its Komoot share token, asked for once, because
+  Komoot's embed refuses a tour that isn't public without one.
 
   Entirely optional: with no KOMOOT_EMAIL / KOMOOT_PASSWORD configured the
   sync reports `:disabled` and does nothing. Every field beyond the tour id
@@ -106,7 +108,7 @@ defmodule Web.Rides.KomootSync do
         {:ok, %{summary | unchanged: true}}
 
       {:ok, tours, new_etag} ->
-        summary = sync_tour_list(tours, summary)
+        summary = sync_tour_list(tours, summary, auth)
 
         # Only trust the new ETag when the whole listing landed cleanly.
         # Storing it after a failed import would 304 the next pass and the
@@ -123,7 +125,7 @@ defmodule Web.Rides.KomootSync do
   defp store_etag(nil), do: SiteSettings.delete_setting(@etag_key)
   defp store_etag(etag), do: SiteSettings.put_setting(@etag_key, etag)
 
-  defp sync_tour_list(tours, summary) do
+  defp sync_tour_list(tours, summary, auth) do
     known = Rides.komoot_index()
 
     summary =
@@ -132,8 +134,8 @@ defmodule Web.Rides.KomootSync do
 
         outcome =
           case Map.fetch(known, komoot_id) do
-            {:ok, ride} -> update_tour(ride, tour, komoot_id)
-            :error -> import_tour(tour, komoot_id)
+            {:ok, ride} -> update_tour(ride, tour, komoot_id, auth)
+            :error -> import_tour(tour, komoot_id, auth)
           end
 
         Map.update!(acc, outcome, &(&1 + 1))
@@ -160,11 +162,11 @@ defmodule Web.Rides.KomootSync do
     end)
   end
 
-  defp import_tour(tour, komoot_id) do
+  defp import_tour(tour, komoot_id, auth) do
     case Rides.create_ride(tour_attrs(tour, komoot_id)) do
       {:ok, ride} ->
         fetch_thumbnail(ride)
-        :imported
+        with_share_token({:imported, ride}, auth)
 
       {:error, changeset} ->
         Logger.warning("Komoot tour #{komoot_id} import failed: #{inspect(changeset.errors)}")
@@ -180,7 +182,7 @@ defmodule Web.Rides.KomootSync do
   # ride has no komoot_changed_at yet, once as a backfill. Komoot does not
   # reliably bump changed_at when the *only* edit is a tour's privacy, so
   # visibility is compared on every read as well.
-  defp update_tour(ride, tour, komoot_id) do
+  defp update_tour(ride, tour, komoot_id, auth) do
     attrs = tour_attrs(tour, komoot_id)
 
     stale? =
@@ -188,34 +190,67 @@ defmodule Web.Rides.KomootSync do
         (is_nil(ride.komoot_changed_at) or
            DateTime.compare(attrs.komoot_changed_at, ride.komoot_changed_at) == :gt)
 
-    cond do
-      stale? or attrs.visibility != ride.visibility ->
-        case Rides.update_ride(ride, attrs) do
-          {:ok, updated} ->
-            # The static-map URL encodes the route's own polyline and the CDN
-            # serves it `immutable`, so an unchanged URL can only ever return
-            # the bytes already on disk — and most edits are a rename.
-            if updated.map_image_url != ride.map_image_url or not Thumbs.exists?(updated) do
-              fetch_thumbnail(updated)
-            end
+    outcome =
+      cond do
+        stale? or attrs.visibility != ride.visibility ->
+          case Rides.update_ride(ride, attrs) do
+            {:ok, updated} ->
+              # The static-map URL encodes the route's own polyline and the CDN
+              # serves it `immutable`, so an unchanged URL can only ever return
+              # the bytes already on disk — and most edits are a rename.
+              if updated.map_image_url != ride.map_image_url or not Thumbs.exists?(updated) do
+                fetch_thumbnail(updated)
+              end
 
-            :updated
+              {:updated, updated}
 
-          {:error, _changeset} ->
-            :failed
-        end
+            {:error, _changeset} ->
+              {:failed, ride}
+          end
 
-      is_binary(ride.map_image_url) and not Thumbs.exists?(ride) ->
-        fetch_thumbnail(ride)
-        :skipped
+        is_binary(ride.map_image_url) and not Thumbs.exists?(ride) ->
+          fetch_thumbnail(ride)
+          {:skipped, ride}
 
-      true ->
-        :skipped
-    end
+        true ->
+          {:skipped, ride}
+      end
+
+    with_share_token(outcome, auth)
   rescue
     error ->
       Logger.warning("Komoot tour #{komoot_id} update failed: #{Exception.message(error)}")
       :failed
+  end
+
+  # A private tour can only be embedded through its share link, so one is
+  # asked for the first time the sync sees the tour private without it, and
+  # kept from then on (it survives a flip to public and back). Not getting
+  # one fails the tour, which leaves the ETag unstored so the next pass asks
+  # again — the same rule a failed import follows.
+  defp with_share_token({:failed, _ride}, _auth), do: :failed
+
+  defp with_share_token({outcome, ride}, auth) do
+    if ride.visibility == "private" and is_nil(ride.share_token) do
+      case store_share_token(ride, auth) do
+        :ok when outcome == :skipped -> :updated
+        :ok -> outcome
+        :error -> :failed
+      end
+    else
+      outcome
+    end
+  end
+
+  defp store_share_token(ride, auth) do
+    with {:ok, token} <- Client.share_token(auth, ride.komoot_id),
+         {:ok, _ride} <- Rides.update_ride(ride, %{share_token: token}) do
+      :ok
+    else
+      error ->
+        Logger.warning("Komoot share token failed for tour #{ride.komoot_id}: #{inspect(error)}")
+        :error
+    end
   end
 
   defp tour_attrs(tour, komoot_id) do

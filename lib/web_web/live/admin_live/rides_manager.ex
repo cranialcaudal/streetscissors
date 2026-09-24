@@ -15,7 +15,15 @@ defmodule WebWeb.AdminLive.RidesManager do
      |> load_rides()}
   end
 
-  defp load_rides(socket), do: assign(socket, rides: Rides.list_rides())
+  defp load_rides(socket) do
+    rides = Rides.list_rides()
+
+    assign(socket,
+      rides: rides,
+      workouts: Rides.count_workouts(),
+      matched: Enum.count(rides, & &1.health)
+    )
+  end
 
   def handle_event("sync_komoot", _params, socket) do
     {:noreply,
@@ -71,7 +79,8 @@ defmodule WebWeb.AdminLive.RidesManager do
           <p class="rides-admin-hint">
             The rides page mirrors every tour you record on Komoot, checked hourly.
             Edits, privacy changes, and deletions in the app carry over on their own.
-            Private tours are listed too, with the route image in place of Komoot's embed.
+            Private tours are listed too, embedded through a Komoot share link the sync
+            asks for once. Until that link arrives, they show the route image instead.
           </p>
           <button phx-click="sync_komoot" class="theme-btn" disabled={@sync_running}>
             {if @sync_running, do: "Syncing…", else: "Sync now"}
@@ -86,6 +95,19 @@ defmodule WebWeb.AdminLive.RidesManager do
       </section>
 
       <section class="rides-admin-panel">
+        <h2>Apple Health</h2>
+        <p class="rides-admin-hint">
+          Heart rate and energy come from Apple Health, since Komoot keeps neither.
+          Health Auto Export posts workouts to <code>/api/health/ingest</code>
+          with the token from <.link navigate={~p"/fitness/biometrics"}>Biometrics</.link>.
+          Each workout pairs with the tour that started within ten minutes of it.
+        </p>
+        <p class="rides-admin-hint">
+          {@workouts} workouts received · {@matched} of {length(@rides)} activities matched
+        </p>
+      </section>
+
+      <section class="rides-admin-panel">
         <h2>Archive ({length(@rides)})</h2>
         <table class="rides-admin-table">
           <thead>
@@ -95,6 +117,7 @@ defmodule WebWeb.AdminLive.RidesManager do
               <th>Sport</th>
               <th>Distance</th>
               <th>Komoot</th>
+              <th>Heart</th>
               <th></th>
             </tr>
           </thead>
@@ -107,6 +130,7 @@ defmodule WebWeb.AdminLive.RidesManager do
               <td class={ride.visibility == "private" && "rides-admin-private"}>
                 {ride.visibility}
               </td>
+              <td>{ride.health && Units.bpm(ride.health.avg_hr)}</td>
               <td>
                 <.link navigate={~p"/fitness/rides/#{ride.id}"} class="rides-admin-view">view</.link>
               </td>

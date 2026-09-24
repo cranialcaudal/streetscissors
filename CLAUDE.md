@@ -102,17 +102,25 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   (`Web.Rides` + `Web.Rides.KomootSync`). **Komoot is the only input**: `/fitness/rides` mirrors
   every *recorded* tour, private ones included, as the **Activities** page — a lightbox in the
   manner of `/negatives`: sport pills filter the page via `?sport=`, the newest activity in view is
-  featured with Komoot's route map and a figures panel, then one sideways-scrolling **shelf per
-  sport**, largest first (`WebWeb.Activity` components; the ‹ › buttons are the `.ShelfScroll`
-  colocated hook), and the mileage is one quiet Pacific-local line per year at the foot.
+  featured as **Komoot's own live embed** (`Activity.plate/1` — map, stats strip and elevation
+  profile; Komoot picks mi/km from the visitor's `Accept-Language`), then one sideways-scrolling
+  **shelf per sport**, largest first, each card carrying Komoot's cached route image at full colour
+  (`WebWeb.Activity` components; the ‹ › buttons are the `.ShelfScroll` colocated hook), and the
+  mileage is one quiet Pacific-local line per year at the foot. Where the embed shows, the page
+  does not repeat Komoot's figures; `figures/1` and `route_map/1` are only the fallback.
   Activities under 0.2 mi (or with no distance) are excluded at the query — `Rides.list_rides/0`
   and `get_ride/1` — while `komoot_index/0` still sees them so the sync doesn't re-import them.
   These pages are the one place `.steel` gets rounded corners back: `rides.css` outranks steel's
   `border-radius: 0 !important` with `.steel.activities …` selectors. `Web.Rides.Units` speaks
   Komoot's vocabulary (sport names, Distance/Duration/Avg speed/Uphill) and formats Pacific dates.
-  `visibility` no longer hides anything — it only decides whether a ride page uses Komoot's
-  `/tour/:id/embed` (which refuses non-public tours) or the static map cached by
-  `Web.Rides.Thumbs` at `/fitness/rides/:id/thumb`. Each ride is built from the tour *listing*
+  `visibility` no longer hides anything. Komoot's `/tour/:id/embed` 302s a non-public tour to
+  `/is-private`, so the sync gets each private tour a **share token** once
+  (`Client.share_token/2`: a `?format=v2` GET answers 204 until one exists, and the create is a
+  POST that needs `Accept: application/hal+json` or Komoot answers 406) and `Rides.embed_url/1`
+  adds `share_token=`. A token that fails counts the tour as failed, so the ETag isn't stored and
+  the next pass asks again. Anyone on the site can therefore open a private tour on Komoot — a
+  decision made 2026-09-24. A private tour with no token yet falls back to the static map cached
+  by `Web.Rides.Thumbs` at `/fitness/rides/:id/thumb`. Each ride is built from the tour *listing*
   alone: there is no stored GPS track, planned routes, GPX upload, privacy zones, or live tracking
   (all removed 2026-09-14; `/fitness/rides/live` and `/live` redirect to the archive). The hourly
   Quantum pass copies edits via `changed_at`, mirrors privacy on every read, and **deletes rides
@@ -125,6 +133,15 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   **or flipped private/public**. The ETag is stored only when the listing processed with zero
   failures (otherwise a broken import would never be retried), and the admin "Sync now" button
   passes `force: true`.
+  **Heart rate and energy are not Komoot's.** The Komoot Apple Watch app sends them to Apple
+  Health, and every tour's `kcal_active` is 0. Health Auto Export posts workouts (JSON v2, route
+  off) to the existing `POST /api/health/ingest`, beside the daily `metrics`.
+  `Web.Rides.AppleHealth` reads either export format into a `health_workouts` row
+  (`Web.Rides.Workout`, upserted on HealthKit's id, GPS route never stored), and
+  `Rides.attach_health/1` pairs each ride with the workout that started nearest to it, within
+  10 minutes, at read time into the virtual `ride.health`. So arrival order doesn't matter.
+  `Activity.health/1` shows avg/max bpm and active kcal, and on the ride page a server-drawn SVG
+  heart-rate trace with a `.HeartTrace` crosshair hook.
   Newsletter + subscribers,
   guestbook, contact messages, analytics, a `/pc` terminal
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom
