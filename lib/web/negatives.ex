@@ -50,28 +50,82 @@ defmodule Web.Negatives do
   @preview_max_dim 2000
   @preview_quality 82
 
+  # Narrower copies of a preview, by width in pixels, for the places a page
+  # shows a photograph small: a strip of thumbnails 92 pixels tall was loading
+  # a 2000-pixel image for each one. A width outside this list is not served —
+  # the list is what stops `?w=` being a way to fill the disk one size at a time.
+  @widths [480, 960]
+
+  @doc "The widths a preview is also kept at, narrowest first."
+  def widths, do: @widths
+
+  @doc """
+  A preview's address at one of `widths/0`: the same URL with `w=` added,
+  whether or not it already carries a `?v=` of its own.
+  """
+  def sized_url(url, width) when width in @widths do
+    url <> if(String.contains?(url, "?"), do: "&", else: "?") <> "w=#{width}"
+  end
+
+  @doc """
+  An `srcset` offering a preview at every width it is kept at, so the browser
+  takes the smallest that fills the space it has. The full preview is listed
+  at its nominal #{@preview_max_dim} pixels.
+  """
+  def srcset(url) do
+    @widths
+    |> Enum.map(&"#{sized_url(url, &1)} #{&1}w")
+    |> Kernel.++(["#{url} #{@preview_max_dim}w"])
+    |> Enum.join(", ")
+  end
+
   @doc """
   Resolves a downscaled WebP preview for a contact sheet, generating it on
   first request (or when the original has changed since). Falls back to the
   original image if generation fails, so previews degrade rather than 404.
+
+  `width`, when it is one of `widths/0`, asks for the narrower copy instead;
+  anything else is the full preview.
   """
-  def preview_path(filename) do
+  def preview_path(filename, width \\ nil) do
     with {:ok, original} <- image_path(filename) do
       preview = Path.join(previews_path(), Path.rootname(Path.basename(filename)) <> ".webp")
 
       cond do
-        preview_fresh?(preview, original) -> {:ok, preview}
-        generate_preview(original, preview) -> {:ok, preview}
+        preview_fresh?(preview, original) -> {:ok, sized(preview, width)}
+        generate_preview(original, preview) -> {:ok, sized(preview, width)}
         true -> {:ok, original}
       end
     end
   end
 
+  # The narrower copy of a preview, made from the preview itself — a small
+  # WebP, so this is quick — and kept beside it as `<name>-<width>.webp`.
+  # Anything that goes wrong answers with the preview it was asked to shrink:
+  # a picture that is larger than it needed to be is still the picture.
+  defp sized(preview, width) when width in @widths do
+    copy = Path.rootname(preview) <> "-#{width}.webp"
+
+    cond do
+      preview_fresh?(copy, preview) -> copy
+      generate_preview(preview, copy, "#{width}x>") -> copy
+      true -> preview
+    end
+  end
+
+  defp sized(preview, _width), do: preview
+
   defp preview_fresh?(preview, original) do
     File.regular?(preview) and File.stat!(preview).mtime >= File.stat!(original).mtime
   end
 
-  defp generate_preview(original, preview) do
+  # `geometry` is ImageMagick's: the default fits the longest side, and a
+  # sized copy passes `<width>x>` to fit the width alone. Both only shrink.
+  defp generate_preview(
+         original,
+         preview,
+         geometry \\ "#{@preview_max_dim}x#{@preview_max_dim}>"
+       ) do
     File.mkdir_p!(Path.dirname(preview))
     # Temp file + rename so a concurrent request never reads a half-written preview
     tmp = "#{preview}.tmp-#{System.unique_integer([:positive])}.webp"
@@ -79,7 +133,7 @@ defmodule Web.Negatives do
     args = [
       original,
       "-resize",
-      "#{@preview_max_dim}x#{@preview_max_dim}>",
+      geometry,
       "-quality",
       "#{@preview_quality}",
       tmp
@@ -179,9 +233,10 @@ defmodule Web.Negatives do
   Downscaled WebP preview of a finished print, generated on first request — a
   1200dpi scan is tens of megabytes and often a TIFF, so it is not what a page
   should load. Cached in a `previews/` subdir beside the prints; falls back to
-  the original if generation fails.
+  the original if generation fails. `width` asks for a narrower copy, as in
+  `preview_path/2`.
   """
-  def frame_preview_path(roll, frame) do
+  def frame_preview_path(roll, frame, width \\ nil) do
     with {:ok, original} <- frame_path(roll, frame) do
       preview =
         original
@@ -190,8 +245,8 @@ defmodule Web.Negatives do
         |> Path.join(Path.rootname(Path.basename(original)) <> ".webp")
 
       cond do
-        preview_fresh?(preview, original) -> {:ok, preview}
-        generate_preview(original, preview) -> {:ok, preview}
+        preview_fresh?(preview, original) -> {:ok, sized(preview, width)}
+        generate_preview(original, preview) -> {:ok, sized(preview, width)}
         true -> {:ok, original}
       end
     end

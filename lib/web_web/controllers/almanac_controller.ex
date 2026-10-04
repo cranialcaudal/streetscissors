@@ -58,10 +58,5 @@ defmodule WebWeb.AlmanacController do
     end
   end
 
-  defp not_found(conn) do
-    conn
-    |> put_status(:not_found)
-    |> put_view(WebWeb.ErrorHTML)
-    |> render("404.html")
-  end
+  defp not_found(conn), do: WebWeb.NotFound.render(conn)
 end

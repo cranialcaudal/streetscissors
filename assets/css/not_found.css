@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════════════════
+   NOT FOUND — the page for an address with nothing filed at it
+   ═══════════════════════════════════════════════════════════════════
+   WebWeb.ErrorHTML draws this as a whole document, outside every layout,
+   so it brings its own wordmark and its own ways back in. Tokens only:
+   paper ground, ink text, and the site's rule that ink reads and poppy
+   acts — every link here wears --accent-ink at rest, and every target is
+   at least 44px tall.
+   ─────────────────────────────────────────────────────────────────── */
+
+.lost {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 8vh, 5rem) 1.5rem 4rem;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.lost-mark {
+  display: inline-block;
+  margin-bottom: clamp(2.5rem, 9vh, 5rem);
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lost-slug,
+.lost-label {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.lost-slug {
+  color: var(--accent-ink);
+}
+
+.lost-label {
+  color: var(--ink-3);
+}
+
+.lost-title {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: clamp(2.6rem, 8vw, 4.25rem);
+  line-height: 1.02;
+}
+
+.lost-lede {
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.lost-lede code {
+  font-family: var(--font-data);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.lost-near,
+.lost-ways {
+  margin-top: 2.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.lost-list,
+.lost-ways ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One row per piece: what it is, in the instrument voice, then its name. */
+.lost-link {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 1rem;
+  min-height: 44px;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+
+.lost-kind {
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.lost-name {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  color: var(--accent-ink);
+  overflow-wrap: anywhere;
+}
+
+.lost-go {
+  font-family: var(--font-ui);
+  color: var(--accent-ink);
+}
+
+.lost-link:hover .lost-name,
+.lost-link:focus-visible .lost-name {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.lost-ways ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.75rem;
+}
+
+.lost-ways a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.lost-ways a:hover,
+.lost-ways a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (max-width: 520px) {
+  .lost-link {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .lost-kind {
+    grid-column: 1 / -1;
+  }
+}

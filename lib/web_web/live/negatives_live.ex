@@ -481,8 +481,11 @@ defmodule WebWeb.NegativesLive do
               <WebWeb.Microformats.entry_fields path={Format.frame_path(@sheet.roll, @frame.frame)} />
               <div class="presentation-stage">
                 <div class="stage-image-wrapper">
+                  <%!-- A phone takes the 960 copy; a wide screen the full preview. --%>
                   <img
                     src={@frame.url}
+                    srcset={Negatives.srcset(@frame.url)}
+                    sizes="(max-width: 900px) 100vw, 70vw"
                     alt={"Roll ##{@sheet.roll}, frame #{@frame.frame}"}
                     class="stage-image u-photo"
                   />
@@ -704,7 +707,12 @@ defmodule WebWeb.NegativesLive do
                         class="frame-thumb"
                         aria-label={"View frame #{frame.frame} of roll ##{@sheet.roll}"}
                       >
-                        <img src={frame.url} alt={"Frame #{frame.frame}"} loading="lazy" />
+                        <%!-- 92 pixels tall on the page: the narrowest copy, not the preview. --%>
+                        <img
+                          src={Negatives.sized_url(frame.url, 480)}
+                          alt={"Frame #{frame.frame}"}
+                          loading="lazy"
+                        />
                         <span class="frame-thumb-num">{frame.frame}</span>
                       </.link>
                     </div>

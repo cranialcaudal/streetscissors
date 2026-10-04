@@ -1,0 +1,62 @@
+<%!-- A whole document, not a block for a layout to wrap. The endpoint draws
+      this for an address no route matches, where no pipeline has run and the
+      site's own layout has nothing to stand on (WebWeb.ErrorHTML). --%>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#17140f" />
+    <meta name="robots" content="noindex" />
+    <title>Not on file · streetscissors</title>
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/favicon-32.png"} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sorts+Mill+Goudy:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href={~p"/assets/css/app.css"} />
+  </head>
+  <body>
+    <main class="lost">
+      <a href={~p"/"} class="lost-mark" aria-label="streetscissors, home">
+        <.wordmark />
+      </a>
+
+      <p class="lost-slug">404 · Not on file</p>
+      <h1 class="lost-title">Lost in the cut.</h1>
+      <p class="lost-lede">
+        <span :if={@path}>Nothing is filed at <code>{@path}</code>.</span>
+        The page was trimmed from the final edit, moved, or never existed.
+      </p>
+
+      <section :if={@suggestions != []} class="lost-near" aria-labelledby="lost-near-label">
+        <h2 id="lost-near-label" class="lost-label">Closest to what you asked for</h2>
+        <ul class="lost-list">
+          <li :for={suggestion <- @suggestions}>
+            <a href={suggestion.path} class="lost-link">
+              <span class="lost-kind">{suggestion.kind}</span>
+              <span class="lost-name">{suggestion.title}</span>
+              <span class="lost-go" aria-hidden="true">&rarr;</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <nav class="lost-ways" aria-labelledby="lost-ways-label">
+        <h2 id="lost-ways-label" class="lost-label">
+          {if @suggestions == [], do: "Start from", else: "Or start from"}
+        </h2>
+        <ul>
+          <li><a href={~p"/blog"}>Writing</a></li>
+          <li><a href={~p"/logs"}>Captain's logs</a></li>
+          <li><a href={~p"/negatives"}>Negatives</a></li>
+          <li><a href={~p"/fitness"}>Fitness</a></li>
+          <li><a href={~p"/almanac"}>The almanac</a></li>
+          <li><a href={~p"/"}>Home</a></li>
+        </ul>
+      </nav>
+    </main>
+  </body>
+</html>

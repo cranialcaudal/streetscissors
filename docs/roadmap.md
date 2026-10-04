@@ -64,8 +64,8 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 - **Index parity.** The blog and the logs behave alike: newest first, most witnessed, and keyword filters.
 - **Cross-links.** A post can gather related frames, and a log can point at the post it belongs with, without hand-written HTML. (Every piece already links to its day.)
 - **Reading polish.**
-  - A 404 page that suggests nearby work instead of only a way home.
-  - Print styles for the essays.
+  - Done: the 404 page reads the address that missed and offers the nearest real work: the post with the closest name, the rolls nearest that number, the recordings nearest that day. It is also one whole styled page however the miss came about; an unknown address used to get a bare, unstyled block.
+  - Done: print styles for the essays. A printed post is the words, their date and where they were published, with each link's address written out after it.
   - The year as a book: the year's essays and frames as an EPUB or PDF, beside the printable year page.
 - **Route audit:** done. Every live page is either linked from somewhere or deliberately unlisted. The kitchen and the finished England trip are unlisted, and the calendar reference moved behind the admin.
 
@@ -98,7 +98,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 - **Restores.** Restore a snapshot onto a scratch copy on a schedule, to prove the backups work.
 - **Rollback.** Document how to return to the previous release in one command, and try it once.
 - **Dependencies.** Upgrade the framework and libraries on a schedule rather than when something breaks.
-- **Images.** Serve sized copies of photographs everywhere a full scan isn't needed.
+- **Images:** done. A photograph is kept at two narrower widths besides its full preview, and a page asks for the one that fits: the strip of prints under a sheet, a frame on a phone, a frame embedded in a post, a roll on a day page. The tab icon and the mark in the homepage's top bar are small files now rather than full-size pictures scaled down by the browser.
 
 ## 10. Cleanup
 

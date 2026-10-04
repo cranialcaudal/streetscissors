@@ -10,19 +10,30 @@ defmodule WebWeb.NegativesController do
     end
   end
 
-  def serve_preview(conn, %{"filename" => filename}) do
-    case Negatives.preview_path(filename) do
+  def serve_preview(conn, %{"filename" => filename} = params) do
+    case Negatives.preview_path(filename, width(params)) do
       {:ok, path} -> send_image(conn, path)
       :error -> not_found(conn)
     end
   end
 
-  def serve_frame(conn, %{"roll" => roll, "frame" => frame}) do
-    case Negatives.frame_preview_path(roll, frame) do
+  def serve_frame(conn, %{"roll" => roll, "frame" => frame} = params) do
+    case Negatives.frame_preview_path(roll, frame, width(params)) do
       {:ok, path} -> send_image(conn, path)
       :error -> not_found(conn)
     end
   end
+
+  # `?w=` asks for a narrower copy. Only the widths Negatives keeps are
+  # honoured; anything else is the full preview, not a new file on disk.
+  defp width(%{"w" => w}) do
+    case Integer.parse(w) do
+      {width, ""} -> if width in Negatives.widths(), do: width
+      _ -> nil
+    end
+  end
+
+  defp width(_params), do: nil
 
   # The print as it was scanned and developed — tens of megabytes, often a
   # TIFF. Never what a page loads, always what a download link points at.

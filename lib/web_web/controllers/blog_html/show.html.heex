@@ -18,6 +18,11 @@
       <span class="writing-control-label">Filed under:</span>
       <.keyword_links keywords={@post.keywords} variant={:chips} />
     </footer>
+
+    <%!-- Shown only in print (writing.css): a sheet of paper has no address bar. --%>
+    <p class="blog-post-colophon">
+      streetscissors · {WebWeb.SEO.absolute(~p"/blog/#{@post.slug}")}
+    </p>
   </article>
 
   <%!-- Letters about this post, and the sites that cite it (WebWeb.LettersLive).

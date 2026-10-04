@@ -34,6 +34,9 @@ defmodule Web.Blog.EmbedsTest do
     html = Embeds.transform("<p>![[roll001/1|My caption]]</p>")
     assert html =~ ~s(<figure class="blog-embed blog-embed-frame">)
     assert html =~ ~s(src="/negatives/frame/roll001/1")
+    # A phone is offered a narrower copy than a wide screen.
+    assert html =~ ~s(srcset="/negatives/frame/roll001/1?w=480 480w, )
+    assert html =~ ~s|sizes="(max-width: 900px) 100vw, 900px"|
     assert html =~ "<figcaption>My caption</figcaption>"
   end
 

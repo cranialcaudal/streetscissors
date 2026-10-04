@@ -336,6 +336,31 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   never recorded for an admin session. Plays from before 2026-09-22 have no token (they were all
   logged against Caddy's `::1`) and count for nothing.
 
+- **The 404** (`WebWeb.ErrorHTML`, `WebWeb.NotFound`, `Web.Nearby`). The page is a **whole
+  document** (`error_html/not_found.html.heex`), not a block for a layout: an address no route
+  matches has been through no pipeline, and a LiveView that raises on mount is rendered with
+  layouts off, so both used to go out as a bare unstyled `<div>`. Controllers and plugs say
+  "not here" through `WebWeb.NotFound.render/1`, which turns the layouts off, so a missing
+  post, an unknown route and an admin page asked for without a session are the same page.
+  `Web.Nearby.suggest/1` reads the missed address and offers up to three real things: posts
+  by closeness of name, logs and days by date, rolls by number, exercises by name. **An
+  address outside the site's own sections is offered nothing and costs no file read or
+  query** — most 404s are scanners. It never raises. Styled by `not_found.css`.
+
+- **Print**: `writing.css` ends with the post page's `@media print` rules (the year's are in
+  `almanac.css`): chrome, the letter form and embed controls are dropped, external links print
+  their address after them, and `.blog-post-colophon` (hidden on screen) says where the page
+  was published.
+
+- **Sized photographs**: `Web.Negatives` keeps each preview at `widths/0` (480 and 960) as
+  well as at 2000, as `<name>-<width>.webp` beside it, made from the preview on first
+  request. `?w=` on `/negatives/frame/…` and `/negatives/preview/…` asks for one; **a width
+  not in the list is the full preview**, which is what stops `?w=` filling the disk.
+  `Negatives.sized_url/2` and `srcset/1` build the addresses. The strip of prints and the
+  almanac's day thumbnails ask for 480; the frame view and a frame embedded in a post carry a
+  `srcset`. The contact sheet itself is left at one size: its neighbours are prefetched, and a
+  prefetch cannot follow a `srcset`.
+
 - **Share cards** (`Web.ShareCard`, `WebWeb.ShareController`): the `og:image` of a post, a
   frame and a roll is a 1200x630 card of the work itself. A post is its title set in Goudy on
   paper over the wordmark and date; a frame or a sheet is the picture whole on the darkroom's

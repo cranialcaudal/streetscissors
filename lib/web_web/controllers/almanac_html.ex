@@ -9,6 +9,15 @@ defmodule WebWeb.AlmanacHTML do
 
   embed_templates "almanac_html/*"
 
+  @doc """
+  An entry's picture at the size a day page shows it: 160 pixels wide. A
+  roll's is its contact sheet, so it is asked for at the narrowest width the
+  archive keeps rather than as the full preview; a log's poster is small as
+  it is.
+  """
+  def thumb(%{kind: :roll, image: image}), do: Web.Negatives.sized_url(image, 480)
+  def thumb(%{image: image}), do: image
+
   @doc "What a section of a day is called."
   def kind_heading(:post), do: "Writing"
   def kind_heading(:log), do: "Captain's logs"

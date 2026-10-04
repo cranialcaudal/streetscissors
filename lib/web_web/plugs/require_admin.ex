@@ -15,7 +15,6 @@ defmodule WebWeb.Plugs.RequireAdmin do
   """
 
   import Plug.Conn
-  import Phoenix.Controller
 
   def init(opts), do: opts
 
@@ -23,13 +22,7 @@ defmodule WebWeb.Plugs.RequireAdmin do
     if get_session(conn, "admin_user") do
       conn
     else
-      conn
-      |> put_status(:not_found)
-      |> put_view(WebWeb.ErrorHTML)
-      |> put_root_layout(false)
-      |> put_layout(false)
-      |> render("404.html")
-      |> halt()
+      conn |> WebWeb.NotFound.render() |> halt()
     end
   end
 end

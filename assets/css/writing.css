@@ -459,6 +459,9 @@
 }
 .writing .blog-post-keywords { align-items: center; }
 
+/* Where the page came from: said only on paper, where the address bar is not. */
+.writing .blog-post-colophon { display: none; }
+
 /* ── Phones ────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
@@ -473,4 +476,119 @@
   .writing-entry-figure { grid-column: 2; grid-row: 1; }
   .writing-entry-arrow { grid-column: 3; grid-row: 1; }
   .writing-entry-body { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ── Print ─────────────────────────────────────────────────────── */
+
+/* An essay on paper: the words, the day they are dated, and where they were
+   published. Everything that only works on a screen is left off — the
+   header's controls, the letter form, an embed's sliders — and a link, which
+   cannot be followed from a page, says where it goes instead. Scoped to the
+   post page; the year's printed edition has rules of its own in almanac.css. */
+@media print {
+  @page {
+    margin: 22mm 20mm 24mm;
+  }
+
+  .blog-universal-header,
+  .flash-group,
+  #admin-indicator,
+  #newsletter-overlay,
+  .writing .letters,
+  .writing .blog-post-draft,
+  .writing .blog-embed-controls,
+  /* The reading time and the witness count are the screen's; the date stays. */
+  .writing .blog-post-header .writing-meta-dot,
+  .writing .blog-post-header .writing-meta-dot ~ span {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .main-content-wrapper {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .writing.blog-bento-wrapper {
+    display: block;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .writing .blog-post-panel {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .writing .blog-post-header {
+    margin-bottom: 1.5rem;
+    border-bottom: 0.5pt solid black;
+  }
+
+  .writing .blog-post-title {
+    font-size: 26pt;
+    color: black;
+  }
+
+  .writing .blog-post-content {
+    font-size: 11.5pt;
+    line-height: 1.5;
+    color: black;
+  }
+
+  .writing .blog-post-content p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* A heading stays with what it heads; a picture, a quotation and a table
+     are not cut across two sheets. */
+  .writing .blog-post-content :is(h1, h2, h3, h4) {
+    break-after: avoid;
+    color: black;
+  }
+
+  .writing .blog-post-content :is(img, figure, blockquote, pre, table, .blog-embed) {
+    break-inside: avoid;
+    max-width: 100%;
+  }
+
+  .writing a,
+  .writing .day-link {
+    color: black !important;
+    text-decoration: none !important;
+  }
+
+  .writing .blog-post-content a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-family: var(--font-data);
+    font-size: 0.72em;
+    overflow-wrap: anywhere;
+  }
+
+  /* Keywords are filters on a screen and a line of words on paper. */
+  .writing .blog-post-keywords {
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 0.5pt solid black;
+  }
+
+  .writing .writing-keywords--chips a {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .writing .blog-post-colophon {
+    display: block;
+    margin: 1rem 0 0;
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    color: black;
+  }
 }

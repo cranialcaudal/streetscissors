@@ -180,8 +180,11 @@ defmodule Web.Blog.Embeds do
       {:ok, _path} ->
         src = "/negatives/frame/roll#{String.pad_leading(roll, 3, "0")}/#{frame}"
 
+        # The column a post is set in is never wider than this, so a phone
+        # is offered the 960 copy rather than the full preview.
         figure(
-          ~s(<img src="#{src}" alt="#{alt(caption)}" loading="lazy" />),
+          ~s|<img src="#{src}" srcset="#{Negatives.srcset(src)}" | <>
+            ~s|sizes="(max-width: 900px) 100vw, 900px" alt="#{alt(caption)}" loading="lazy" />|,
           caption,
           "blog-embed-frame"
         )

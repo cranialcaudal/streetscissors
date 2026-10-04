@@ -113,10 +113,7 @@ defmodule WebWeb.BlogController do
         |> render(:show, post: post, return_to: return_to, return_label: return_label)
 
       {:error, _} ->
-        conn
-        |> put_status(:not_found)
-        |> put_view(WebWeb.ErrorHTML)
-        |> render("404.html")
+        WebWeb.NotFound.render(conn)
     end
   end
 

@@ -217,12 +217,7 @@ defmodule WebWeb.PageController do
       |> assign(:robots, "noindex, nofollow")
       |> render(:calendar, html_content: Earmark.as_html!(markdown, gfm: true))
     else
-      conn
-      |> put_status(:not_found)
-      |> put_view(WebWeb.ErrorHTML)
-      |> put_root_layout(false)
-      |> put_layout(false)
-      |> render("404.html")
+      WebWeb.NotFound.render(conn)
     end
   end
 end
