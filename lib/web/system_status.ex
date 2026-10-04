@@ -30,6 +30,8 @@ defmodule Web.SystemStatus do
       backup_mirror(),
       negatives_mirror(),
       written_content(),
+      content_mirror(),
+      recordings_mirror(),
       komoot(),
       mail_queue()
     ]
@@ -73,11 +75,44 @@ defmodule Web.SystemStatus do
     end
   end
 
-  # A standing warning until content/ joins the nightly backup (roadmap §3):
-  # the posts, the fitness vault and the email templates are copied nowhere
-  # on a schedule.
+  # `at` is when the vault was last *checked*: a night with nothing new writes
+  # no version, and is still a night the backup ran.
   def written_content do
-    check(:content, "Written content", :warn, "content/ has no automatic backup yet")
+    case Backup.Content.list() do
+      [] ->
+        check(:content, "Written content", :fail, "no version on disk")
+
+      all ->
+        state = if Backup.Content.stale?(), do: :warn, else: :ok
+        kept = "#{length(all)} #{plural(length(all), "version")} kept"
+        check(:content, "Written content", state, kept, Backup.Content.last_run())
+    end
+  end
+
+  def content_mirror do
+    cond do
+      is_nil(Backup.Content.mirror_dir()) ->
+        check(:content_mirror, "Content copy", :off, "no mirror drive configured")
+
+      Backup.Content.mirror_available?() ->
+        check(:content_mirror, "Content copy", :ok, "drive present — versions mirrored")
+
+      true ->
+        check(:content_mirror, "Content copy", :warn, "drive not plugged in")
+    end
+  end
+
+  def recordings_mirror do
+    cond do
+      is_nil(Backup.Uploads.mirror_dir()) ->
+        check(:recordings, "Recordings copy", :off, "no mirror drive configured")
+
+      Backup.Uploads.available?() ->
+        check(:recordings, "Recordings copy", :ok, "drive present — logs mirrored")
+
+      true ->
+        check(:recordings, "Recordings copy", :warn, "drive not plugged in")
+    end
   end
 
   def komoot do

@@ -30,8 +30,41 @@ defmodule Web.SystemStatusTest do
     assert %{state: :off} = SystemStatus.backup_mirror()
   end
 
-  test "written content is a standing warning until it is backed up" do
-    assert %{state: :warn} = SystemStatus.written_content()
+  describe "written content" do
+    setup do
+      dir = Backup.Content.backup_dir()
+      File.rm_rf!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      :ok
+    end
+
+    test "fails until there is a version on disk" do
+      assert %{state: :fail, detail: "no version on disk"} = SystemStatus.written_content()
+    end
+
+    test "is healthy after a run, and says when it last ran" do
+      {:ok, _} = Backup.Content.run()
+
+      assert %{state: :ok, detail: "1 version kept", at: %DateTime{}} =
+               SystemStatus.written_content()
+    end
+
+    test "warns when the schedule has gone quiet" do
+      {:ok, _} = Backup.Content.run()
+      two_days_ago = DateTime.add(DateTime.utc_now(), -48, :hour)
+
+      File.write!(
+        Path.join(Backup.Content.backup_dir(), "last-run"),
+        DateTime.to_iso8601(two_days_ago)
+      )
+
+      assert %{state: :warn} = SystemStatus.written_content()
+    end
+  end
+
+  test "the content and recordings copies are off, not faults, when unconfigured" do
+    assert %{state: :off} = SystemStatus.content_mirror()
+    assert %{state: :off} = SystemStatus.recordings_mirror()
   end
 
   test "the Komoot check follows the last pass" do

@@ -140,6 +140,19 @@ if config_env() == :prod do
   # when the target is not mounted).
   config :web, :photos_mirror_path, System.get_env("PHOTOS_MIRROR_PATH")
 
+  # Off-disk copies of the written content's versions and of the captain's
+  # logs' media. Both folders are made on first use, but only inside a folder
+  # that is already there (Web.Backup.claim_mirror/1), so an unplugged drive
+  # is still skipped rather than recreated on this disk.
+  config :web, :content_mirror_path, System.get_env("CONTENT_MIRROR_PATH")
+  config :web, :uploads_mirror_path, System.get_env("UPLOADS_MIRROR_PATH")
+
+  # Where the content's versions land, pinned for the same reason BACKUP_PATH
+  # is below.
+  if content_backup_path = System.get_env("CONTENT_BACKUP_PATH") do
+    config :web, :content_backup_path, content_backup_path
+  end
+
   # Where snapshots land. Web.Backup falls back to a path under $HOME, which is
   # right for this deploy but leaves nothing to point elsewhere with — staging a
   # release against a copy of the database would otherwise write snapshots of

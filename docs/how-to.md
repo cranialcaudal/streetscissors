@@ -712,8 +712,12 @@ not so they can be reused.
 **Backup**: On this machine, a verified copy of the database taken every night
 at 20:17 Pacific, kept for two weeks. Not a file copy: the database is asked to
 write a clean copy of itself, which is then reopened and checked before it is
-trusted. Plugging in the external drive triggers a copy of everything, including
-the photograph archive, within thirty seconds.
+trusted. Two minutes later the written content gets the same treatment: the
+vault is packed into one archive, the archive is unpacked again and compared
+file by file with what is on disk, and it is kept only if something changed
+since the last one, so the thirty that are kept are thirty versions, not thirty
+nights. Plugging in the external drive triggers a copy of everything, including
+the photograph archive and the recordings, within thirty seconds.
 
 **Caddy**: The web server that faces the internet, holds the encryption
 certificate, and passes requests to the site.

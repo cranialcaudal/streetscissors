@@ -234,6 +234,40 @@ defmodule Web.Backup do
   end
 
   @doc """
+  True when a mirror folder is there, or could be made on a drive that is.
+
+  The written content and the recordings joined the mirror after the drive was
+  set up, so their folders may not exist on it yet. The rule above — never
+  create the mirror, its presence is the signal — would leave them waiting on
+  a `mkdir` nobody remembers to run. It relaxes by exactly one level here: the
+  folder a mirror sits in has to exist already, which on removable media it
+  only does while the drive is mounted. See `claim_mirror/1`.
+  """
+  @spec mirror_reachable?(String.t() | nil) :: boolean()
+  def mirror_reachable?(nil), do: false
+  def mirror_reachable?(dir), do: File.dir?(dir) or File.dir?(Path.dirname(dir))
+
+  @doc """
+  Returns `{:ok, dir}` when a mirror folder is ready to write to, making it if
+  the folder it sits in is there, or `:absent`.
+
+  `File.mkdir/1`, never `mkdir_p`: one level only, so with the drive unplugged
+  the call fails on the missing mount point instead of rebuilding the whole
+  path on the root filesystem and writing the "off-disk" copy onto the disk it
+  was meant to escape.
+  """
+  @spec claim_mirror(String.t() | nil) :: {:ok, String.t()} | :absent
+  def claim_mirror(nil), do: :absent
+
+  def claim_mirror(dir) do
+    cond do
+      File.dir?(dir) -> {:ok, dir}
+      File.dir?(Path.dirname(dir)) and File.mkdir(dir) == :ok -> {:ok, dir}
+      true -> :absent
+    end
+  end
+
+  @doc """
   Brings the mirror up to date. This is what running when the drive is plugged
   in means in practice.
 
@@ -302,6 +336,16 @@ defmodule Web.Backup do
     error ->
       Logger.error("backup on boot crashed: #{Exception.message(error)}")
       :ok
+  end
+
+  @doc """
+  Everything the schedule may have slept through, caught up at boot: the
+  database snapshot, then the written content. One supervised task runs both
+  in turn, so neither delays the endpoint and the two never overlap.
+  """
+  def catch_up do
+    run_on_boot()
+    Web.Backup.Content.run_on_boot()
   end
 
   defp log_boot_run do

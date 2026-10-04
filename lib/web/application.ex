@@ -38,13 +38,13 @@ defmodule Web.Application do
 
       # Quantum scheduled (cron) jobs
       Web.Scheduler,
-      # Catch up a backup the schedule slept through. Quantum does not make up
-      # missed runs, so on a laptop every night the lid is closed produces
-      # nothing at all. Temporary child: it runs once, then exits normally and
-      # is not restarted. After Repo (it needs a connection), and it must not
-      # delay the Endpoint — the task returns immediately and works in its own
-      # process.
-      {Task, &Web.Backup.run_on_boot/0},
+      # Catch up the backups the schedule slept through: the database snapshot,
+      # then the written content. Quantum does not make up missed runs, so on a
+      # laptop every night the lid is closed produces nothing at all. Temporary
+      # child: it runs once, then exits normally and is not restarted. After
+      # Repo (it needs a connection), and it must not delay the Endpoint — the
+      # task returns immediately and works in its own process.
+      {Task, &Web.Backup.catch_up/0},
       # Backs the site up onto the external drive as soon as it is plugged in,
       # rather than waiting for the next scheduled run. Returns :ignore when no
       # mirror is configured, so it costs nothing on a checkout that is not the

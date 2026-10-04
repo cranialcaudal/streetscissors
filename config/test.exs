@@ -86,6 +86,14 @@ config :web, :backup_keep, 3
 config :web, :backup_on_boot, false
 config :web, :backup_mirror_path, nil
 config :web, :photos_mirror_path, nil
+config :web, :uploads_mirror_path, nil
+# The content backup archives the fixture vault, never the author's own: left
+# at its defaults it would tar the real content/ into a tmp dir on every run.
+config :web, :content_backup_path, Path.expand("../tmp/test_content_backups", __DIR__)
+config :web, :content_backup_root, Path.expand("../test/support/fixtures", __DIR__)
+config :web, :content_backup_sources, ["blog", "emails"]
+config :web, :content_backup_keep, 3
+config :web, :content_mirror_path, nil
 # The watcher would otherwise poll for a drive throughout the suite. Tests that
 # exercise it start it themselves with a mirror path pointed at a tmp dir.
 config :web, :backup_mirror_watch, false

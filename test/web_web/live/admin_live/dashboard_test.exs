@@ -10,8 +10,8 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
   # The queue lists posts without keywords, and the committed fixture posts
   # are not all keyworded, so tests that need an empty queue use an empty
-  # blog. They also need a fresh database snapshot, since an overdue one is a
-  # queue row of its own.
+  # blog. They also need a fresh database snapshot and a content backup that
+  # has just run, since an overdue one of either is a queue row of its own.
   defp quiet_site(_context) do
     blog = Path.join(System.tmp_dir!(), "blog-empty-#{System.unique_integer([:positive])}")
     File.mkdir_p!(blog)
@@ -23,9 +23,12 @@ defmodule WebWeb.AdminLive.DashboardTest do
     snapshot = Path.join(Backup.backup_dir(), "web-#{stamp}.db")
     File.write!(snapshot, "")
 
+    {:ok, _} = Backup.Content.run()
+
     on_exit(fn ->
       File.rm_rf!(blog)
       File.rm(snapshot)
+      File.rm_rf!(Backup.Content.backup_dir())
       Application.put_env(:web, :blog_path, original_blog)
     end)
 
@@ -60,12 +63,23 @@ defmodule WebWeb.AdminLive.DashboardTest do
     end
   end
 
-  test "the machine panel reports backups, and admits content has none", %{conn: conn} do
+  test "the machine panel reports the backups and the sync", %{conn: conn} do
+    {:ok, _} = Backup.Content.run()
+    on_exit(fn -> File.rm_rf!(Backup.Content.backup_dir()) end)
+
     {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
 
     assert has_element?(view, "#system", "Database snapshots")
-    assert has_element?(view, "#system", "content/ has no automatic backup yet")
+    assert has_element?(view, "#system", "Written content")
+    assert has_element?(view, "#system", "1 version kept")
     assert has_element?(view, "#system", "Komoot sync")
+  end
+
+  test "an overdue content backup is something that needs you", %{conn: conn} do
+    File.rm_rf!(Backup.Content.backup_dir())
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(view, "#needs-you", "The content backup is overdue")
   end
 
   test "the rail marks the page you're on and counts what's waiting", %{conn: conn} do

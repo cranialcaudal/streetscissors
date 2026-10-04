@@ -185,6 +185,10 @@ config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")
 # Komoot, git or anywhere else — with no backup at all.
 config :web, :photos_mirror_path, System.get_env("PHOTOS_MIRROR_PATH")
 
+# The written content's versions and the captain's logs' media, likewise.
+config :web, :content_mirror_path, System.get_env("CONTENT_MIRROR_PATH")
+config :web, :uploads_mirror_path, System.get_env("UPLOADS_MIRROR_PATH")
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

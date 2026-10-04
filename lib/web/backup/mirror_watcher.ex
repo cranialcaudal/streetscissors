@@ -8,8 +8,10 @@ defmodule Web.Backup.MirrorWatcher do
   drive in is the moment the user expects a backup to happen, so that is when
   it happens.
 
-  Covers both the database snapshots (`Web.Backup.sync_mirror/0`) and the
-  negatives archive (`Web.Backup.Photos.sync/0`).
+  Covers everything that has an off-disk copy: the database snapshots
+  (`Web.Backup.sync_mirror/0`), the written content
+  (`Web.Backup.Content.sync_mirror/0`), the negatives archive
+  (`Web.Backup.Photos.sync/0`) and the recordings (`Web.Backup.Uploads.sync/0`).
 
   **Why polling and not udev or a systemd path unit.** Both of those would fire
   instantly, but neither can call into the running application; they would have
@@ -32,7 +34,9 @@ defmodule Web.Backup.MirrorWatcher do
   require Logger
 
   alias Web.Backup
+  alias Web.Backup.Content
   alias Web.Backup.Photos
+  alias Web.Backup.Uploads
 
   @default_interval_ms :timer.seconds(30)
 
@@ -61,7 +65,7 @@ defmodule Web.Backup.MirrorWatcher do
 
   @impl true
   def handle_info(:startup, state) do
-    present? = Backup.mirror_available?()
+    present? = drive_present?()
 
     if present? do
       Logger.info("backup: mirror drive present at startup, syncing")
@@ -84,7 +88,7 @@ defmodule Web.Backup.MirrorWatcher do
   end
 
   defp check(%{present?: was_present?} = state) do
-    present? = Backup.mirror_available?()
+    present? = drive_present?()
 
     cond do
       present? and not was_present? ->
@@ -101,12 +105,20 @@ defmodule Web.Backup.MirrorWatcher do
     %{state | present?: present?}
   end
 
-  # The database first: it is small, fast, and the thing most likely to have
-  # changed since the last connection. The negatives follow, and only move what
-  # is new after the first run.
+  # The database and the writing first: they are small, fast, and the things
+  # most likely to have changed since the last connection. The negatives and
+  # the recordings follow, and only move what is new after the first run.
   defp sync_everything do
     Backup.sync_mirror()
+    Content.sync_mirror()
     Photos.sync()
+    Uploads.sync()
+  end
+
+  # Any one destination being there means the drive is.
+  defp drive_present? do
+    Backup.mirror_available?() or Content.mirror_available?() or Photos.available?() or
+      Uploads.available?()
   end
 
   defp schedule, do: Process.send_after(self(), :tick, interval_ms())
@@ -114,10 +126,13 @@ defmodule Web.Backup.MirrorWatcher do
   defp interval_ms,
     do: Application.get_env(:web, :backup_mirror_watch_interval_ms, @default_interval_ms)
 
-  # Either destination is reason enough to watch: the photo archive can be
-  # mirrored without the database snapshots being, and vice versa.
+  # Any one destination is reason enough to watch: each can be mirrored
+  # without the others being.
   defp enabled? do
     Application.get_env(:web, :backup_mirror_watch, true) and
-      (not is_nil(Backup.mirror_dir()) or not is_nil(Photos.mirror_dir()))
+      Enum.any?(
+        [Backup.mirror_dir(), Content.mirror_dir(), Photos.mirror_dir(), Uploads.mirror_dir()],
+        &(not is_nil(&1))
+      )
   end
 end

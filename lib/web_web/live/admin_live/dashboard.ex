@@ -103,6 +103,8 @@ defmodule WebWeb.AdminLive.Dashboard do
       check.(:mail).state == :fail && row("!", check.(:mail).detail, ~p"/admin/newsletter", :fail),
       check.(:database).state in [:warn, :fail] &&
         row("!", "The database snapshot is overdue", "#system", :fail),
+      check.(:content).state in [:warn, :fail] &&
+        row("!", "The content backup is overdue", "#system", :fail),
       n.encoding > 0 &&
         row(
           n.encoding,

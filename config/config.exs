@@ -87,7 +87,10 @@ config :web, Web.Scheduler,
     # fires at 20:17 US/Pacific, not 03:17. Quantum also does not make up a run
     # it slept through, so Web.Backup.run_on_boot/0 covers the nights the
     # machine is off or asleep at that minute.
-    {"17 3 * * *", {Web.Backup, :run_scheduled, []}}
+    {"17 3 * * *", {Web.Backup, :run_scheduled, []}},
+    # The written content, two minutes behind it. A version is only written
+    # when something changed, so most nights this hashes the vault and stops.
+    {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}}
   ]
 
 config :web, Oban,

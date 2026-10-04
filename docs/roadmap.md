@@ -23,7 +23,7 @@ Most of the foundation is already built.
 - **Fitness.** The regimen and its exercise wiki are read from the vault, and the activities page mirrors every recorded Komoot tour every hour.
 - **Correspondence.** The guestbook holds each signature until it is approved. The guestbook and contact forms are rate-limited and carry a captcha. The newsletter sends as durable background jobs, with one-click unsubscribe.
 - **Discovery.** There are an RSS feed, a sitemap, a robots file, and a description, canonical URL and share image on every page. AI scrapers are turned away at the proxy.
-- **Plumbing.** The database is snapshotted every night and each snapshot is verified. Snapshots and the negatives are mirrored to an external drive whenever it is plugged in. Deploys are one script with a health gate.
+- **Plumbing.** The database is snapshotted every night and each snapshot is verified. The written content is archived the same night, kept as versions, and each archive is proven by restoring it. Snapshots, versions, the negatives and the recordings are mirrored to an external drive whenever it is plugged in. Deploys are one script with a health gate.
 - **Admin.** One back office in one design, the "composing room". It opens on what is waiting and on the state of the machine: backups, the last Komoot sync, the mail queue. Messages have their own inbox and settings their own page. The newsletter has drafts, a preview and a test send.
 
 ## 2. Answered and followed (in progress)
@@ -36,14 +36,14 @@ A feed is also how people find you, answer you and keep up. This phase gives the
 - **Readable by other sites.** Posts, logs and frames carry the standard IndieWeb markup, so readers and other personal sites understand them without a platform in between. Links to profiles elsewhere are the owner's choice, and there are none by default.
 - **Cited by.** When another site links to a piece and says so by webmention, the link is checked. Once the author approves it, it appears beneath the piece.
 
-## 3. Written content joins the nightly backup
+## 3. Written content joins the nightly backup (done)
 
-The database and the negatives are backed up; the written content in the vault is not yet. That covers posts, the fitness wiki and regimen, and the email templates. It gets the same treatment as the database:
+The vault was the one thing on the site that could not be rebuilt from somewhere else, and it had no copy. Now:
 
-- a scheduled copy, kept on the machine and mirrored to the external drive when present;
-- a line on the admin dashboard saying when it last ran.
-
-This comes before new features because it is the one thing on the site that cannot be rebuilt from somewhere else.
+- Every night the vault, and the few private files that live beside the code, are packed into one archive, which is unpacked again and compared file by file before it counts.
+- An archive is kept only when something changed, so the thirty that are kept are thirty versions rather than thirty nights.
+- Each version is copied to the external drive when it is plugged in, and so are the captain's logs' recordings, which had no second copy either.
+- The admin overview says when the content was last checked and how many versions are kept.
 
 ## 4. Publishing loop
 
@@ -108,7 +108,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 
 - **Phase 1, the admin:** done.
 - **Phase 2, answered and followed:** the almanac, letters, feeds, IndieWeb markup, and webmentions received.
-- **Phase 3, the backup:** written content in the nightly backup.
+- **Phase 3, the backup:** done.
 - **Phase 4, the publishing loop:** the blog editor, drafts, content health, and keyword tools.
 - **Phase 5, public polish:** index parity, cross-links, the 404 page, print styles, the year as a book, and the route audit.
 - **Phase 6, discovery:** the homepage decision, search engines, share images, and sending webmentions.

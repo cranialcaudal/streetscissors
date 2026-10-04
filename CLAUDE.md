@@ -102,6 +102,20 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   would re-encode an unreadable source over and over. It resumes instead from the `audio_logs` rows
   left at `pending`/`processing`, which it requeues on boot.
 
+- **Backups** (`Web.Backup`, `lib/web/backup/`): four things, each kept the way that suits it.
+  The database is a nightly `VACUUM INTO` snapshot, reopened and integrity-checked, 14 kept.
+  The written content (`Backup.Content`: `content/`, `scripts/`, the `/pc` reading files, the
+  recipe seed, `test/private/` — never `.env`) is a `tar.gz` that is unpacked and compared hash
+  for hash before it counts, and **a version is written only when the manifest's fingerprint
+  changed**, so the 30 kept are 30 versions; `last-run` in the backup dir records the nights
+  that found nothing new. The negatives (`Backup.Photos`) and the captain's logs' media
+  (`Backup.Uploads`, minus `staging/`) are rsync mirrors with no `--delete`. Everything goes to
+  the external drive when `Backup.MirrorWatcher` sees it plugged in. The database's and the
+  negatives' mirror folders are never created (their presence is the "drive is in" signal); the
+  two newer ones are made one level deep by `Backup.claim_mirror/1`, only inside a folder that
+  is already there. `Backup.catch_up/0` runs at boot for the nights the machine slept through.
+  The mirror paths are exported by the systemd unit, not `.env`.
+
 - **Feature areas** beyond the blog: fitness (`Web.Fitness` + `Web.Fitness.Vault` markdown regimen/wiki;
   the `/fitness` landing is the regimen accordion — today auto-expanded via `Web.Clock`, a
   tzdata-free US-Pacific helper — under **The Week**: `Web.Fitness.Week` reads
@@ -349,9 +363,8 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   URL** here too: `?box=` (inbox), `?show=` (guestbook), `?filter=missing` (blog), `?tab=`
   (fitness).
   `/admin/dashboard` is the **Overview**: a "Needs you" queue (each row a link to where the thing
-  gets done, shown only when non-zero), counts, traffic, and `Web.SystemStatus` (snapshots, mirror
-  drive, Komoot's last run, failed mail jobs, and a standing warning that `content/` has no
-  automatic backup). Contact messages live at `/admin/inbox`, and site settings at
+  gets done, shown only when non-zero), counts, traffic, and `Web.SystemStatus` (snapshots, the
+  content's versions, the mirror drive, Komoot's last run, failed mail jobs). Contact messages live at `/admin/inbox`, and site settings at
   `/admin/settings` (the Spotify playlist, the newsletter's test address). The newsletter page
   holds drafts (`newsletter_drafts.status = "draft"`, which becomes the send's record when sent), a
   sandboxed preview built from `Web.Email.preview_page/2`, a `[Test]` send, and the subscriber
