@@ -9,6 +9,11 @@
     servers {
         protocols h1 h2
     }
+
+    # The private addresses below are served with Caddy's own CA. Installing
+    # that CA into the system trust store needs root, and this Caddy runs as an
+    # ordinary user under systemd with nobody to ask, so it does not try.
+    skip_install_trust
 }
 
 # Redirect www to non-www
@@ -16,10 +21,11 @@ www.streetscissors.com {
     redir https://streetscissors.com{uri} permanent
 }
 
-streetscissors.com, 10.0.0.187, 100.100.33.116 {
-    # Replace with your email address to avoid rate limits
-    tls admin@streetscissors.com
-
+# Everything both sites below serve: the bot block, the media files, the
+# application, compression, headers and the access log. A snippet rather than
+# one block listing every address, because the two differ in the one thing a
+# site block cannot vary by address: where the certificate comes from.
+(streetscissors) {
     # Block Bad Bots. This is a `handle` rather than a bare `respond` because
     # the media block below is one too: `handle` blocks are mutually exclusive
     # and run in the order written, whereas Caddy's own directive ordering puts
@@ -84,8 +90,6 @@ streetscissors.com, 10.0.0.187, 100.100.33.116 {
         X-Frame-Options "SAMEORIGIN"
         # Prevent sniffing MIME types
         X-Content-Type-Options "nosniff"
-        # HSTS (Strict-Transport-Security) - Uncomment after testing!
-        # Strict-Transport-Security "max-age=31536000;"
         # Remove Server header for obscurity
         -Server
     }
@@ -94,4 +98,28 @@ streetscissors.com, 10.0.0.187, 100.100.33.116 {
     log {
         output file ./caddy_access.log
     }
+}
+
+streetscissors.com {
+    # Replace with your email address to avoid rate limits
+    tls admin@streetscissors.com
+
+    # A browser that has been here once refuses plain HTTP for a year, so a
+    # first request cannot be intercepted on its way to the redirect. No
+    # includeSubDomains: the domain's other names are not this server's to
+    # promise for.
+    header Strict-Transport-Security "max-age=31536000"
+
+    import streetscissors
+}
+
+# The same site by its LAN and Tailscale addresses. These used to share the
+# block above, which had Caddy asking Let's Encrypt for certificates no public
+# CA will issue for a private address: it failed, retried for a month, and
+# HTTPS by address never answered at all. Caddy's own CA signs these instead.
+# A browser will warn that it does not know the issuer, which is true.
+10.0.0.187, 100.100.33.116 {
+    tls internal
+
+    import streetscissors
 }

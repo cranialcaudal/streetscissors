@@ -74,8 +74,10 @@ streetscissors.com {
         X-Frame-Options "SAMEORIGIN"
         # Prevent sniffing MIME types
         X-Content-Type-Options "nosniff"
-        # HSTS (Strict-Transport-Security) - Uncomment after testing!
-        # Strict-Transport-Security "max-age=31536000;"
+        # A browser that has been here once refuses plain HTTP for a year.
+        # No includeSubDomains: the domain's other names are not this
+        # server's to promise for.
+        Strict-Transport-Security "max-age=31536000"
         # Remove Server header for obscurity
         -Server
     }
