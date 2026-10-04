@@ -24,6 +24,8 @@ defmodule WebWeb.AdminLive.DashboardTest do
     File.write!(snapshot, "")
 
     {:ok, _} = Backup.Content.run()
+    # And somewhere for the monitor to write to, or that is a row as well.
+    Web.Notify.put_address("author@example.com")
 
     on_exit(fn ->
       File.rm_rf!(blog)
@@ -73,6 +75,41 @@ defmodule WebWeb.AdminLive.DashboardTest do
     assert has_element?(view, "#system", "Written content")
     assert has_element?(view, "#system", "1 version kept")
     assert has_element?(view, "#system", "Komoot sync")
+  end
+
+  test "a fault the monitor found is in the queue, in its own words", %{conn: conn} do
+    Web.SiteSettings.put_setting(
+      "monitor_state",
+      Jason.encode!(%{
+        "at" => DateTime.to_iso8601(DateTime.utc_now()),
+        "checks" => [
+          %{
+            "key" => "certificate",
+            "label" => "Certificate",
+            "state" => "fail",
+            "detail" => "6 days left — renewal is failing"
+          },
+          %{"key" => "disk", "label" => "Disk", "state" => "ok", "detail" => "26% free (252 GB)"}
+        ],
+        "failing" => %{}
+      })
+    )
+
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(view, "#needs-you", "Certificate: 6 days left — renewal is failing")
+    refute has_element?(view, "#needs-you", "Disk")
+    assert has_element?(view, "#system", "26% free (252 GB)")
+  end
+
+  test "having no address for alerts is itself something to fix", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(
+             view,
+             ~s(#needs-you a[href="/admin/settings"]),
+             "Faults have nobody to write to yet"
+           )
   end
 
   test "an overdue content backup is something that needs you", %{conn: conn} do

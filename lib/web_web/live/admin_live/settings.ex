@@ -11,9 +11,11 @@ defmodule WebWeb.AdminLive.Settings do
 
   import WebWeb.AdminComponents
 
+  alias Web.Notify
   alias Web.SiteSettings
 
   @default_playlist "37i9dQZF1DXcBWIGoYBM5M"
+  @email ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -21,7 +23,8 @@ defmodule WebWeb.AdminLive.Settings do
        assign(socket,
          page_title: "Settings | Admin",
          spotify_playlist_id: SiteSettings.get_setting("spotify_playlist_id", @default_playlist),
-         newsletter_test_email: SiteSettings.get_setting("newsletter_test_email", "")
+         newsletter_test_email: SiteSettings.get_setting("newsletter_test_email", ""),
+         notify_email: Notify.address() || ""
        )}
     else
       {:ok, push_navigate(socket, to: "/")}
@@ -46,10 +49,13 @@ defmodule WebWeb.AdminLive.Settings do
   def handle_event("save_test_email", %{"newsletter_test_email" => raw}, socket) do
     email = String.trim(raw)
 
-    if email != "" and not String.match?(email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/) do
+    if email != "" and not String.match?(email, @email) do
       {:noreply, put_flash(socket, :error, "That doesn't look like an email address.")}
     else
-      {:ok, _} = SiteSettings.put_setting("newsletter_test_email", email)
+      # A setting cannot hold an empty value, so clearing one is deleting it.
+      if email == "",
+        do: SiteSettings.delete_setting("newsletter_test_email"),
+        else: {:ok, _} = SiteSettings.put_setting("newsletter_test_email", email)
 
       message = if email == "", do: "Test address cleared.", else: "Test sends go to #{email}."
 
@@ -57,6 +63,40 @@ defmodule WebWeb.AdminLive.Settings do
        socket
        |> assign(newsletter_test_email: email)
        |> put_flash(:info, message)}
+    end
+  end
+
+  def handle_event("save_notify_email", %{"notify_email" => raw}, socket) do
+    email = String.trim(raw)
+
+    if email != "" and not String.match?(email, @email) do
+      {:noreply, put_flash(socket, :error, "That doesn't look like an email address.")}
+    else
+      Notify.put_address(email)
+
+      # Clearing the setting falls back to NOTIFY_EMAIL when that is set, so
+      # the field shows what is actually in force rather than an empty box.
+      message =
+        case Notify.address() do
+          nil -> "Alerts have nowhere to go until an address is set."
+          address -> "Alerts go to #{address}."
+        end
+
+      {:noreply,
+       socket |> assign(notify_email: Notify.address() || "") |> put_flash(:info, message)}
+    end
+  end
+
+  def handle_event("test_notify", _params, socket) do
+    result =
+      Notify.deliver(
+        "streetscissors: a test from the settings page",
+        "This is the address the site writes to when a signature is waiting or something on the machine has failed.\n\nNothing is wrong. You asked for this one."
+      )
+
+    case result do
+      {:ok, _job} -> {:noreply, put_flash(socket, :info, "Test queued to #{Notify.address()}.")}
+      _ -> {:noreply, put_flash(socket, :error, "Set an address first.")}
     end
   end
 
@@ -116,6 +156,38 @@ defmodule WebWeb.AdminLive.Settings do
         </div>
         <p class="adm-help">
           Where the newsletter's "Send a test" goes by default. It can still be changed per send.
+        </p>
+      </form>
+    </.panel>
+
+    <.panel title="Alerts">
+      <form phx-submit="save_notify_email" id="settings-alerts" class="adm-sheet">
+        <label class="adm-label" for="notify_email">Where the site writes to you</label>
+        <div class="adm-inline-form">
+          <input
+            type="email"
+            id="notify_email"
+            name="notify_email"
+            value={@notify_email}
+            class="adm-input"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+          <button type="submit" class="adm-btn">Save</button>
+          <button
+            :if={@notify_email != ""}
+            type="button"
+            phx-click="test_notify"
+            id="settings-alerts-test"
+            class="adm-btn adm-btn--quiet"
+          >
+            Send a test
+          </button>
+        </div>
+        <p class="adm-help">
+          A guestbook signature waiting for approval, and anything on the machine that has failed:
+          the certificate, the proxy, the domain's address, the disk, a backup. A fault is mailed
+          once, again each day it lasts, and once more when it clears.
         </p>
       </form>
     </.panel>

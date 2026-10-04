@@ -153,6 +153,15 @@ if config_env() == :prod do
     config :web, :content_backup_path, content_backup_path
   end
 
+  # The systemd user units Web.Monitor expects to find active, comma-separated
+  # (the proxy's, typically). Unset, that check is simply not made.
+  config :web,
+         :monitor_units,
+         (System.get_env("MONITOR_UNITS") || "") |> String.split(",", trim: true)
+
+  # Where the site writes to its author when nothing is set in the admin.
+  config :web, :notify_email, System.get_env("NOTIFY_EMAIL")
+
   # Where snapshots land. Web.Backup falls back to a path under $HOME, which is
   # right for this deploy but leaves nothing to point elsewhere with — staging a
   # release against a copy of the database would otherwise write snapshots of

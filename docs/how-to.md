@@ -91,8 +91,11 @@ you know what the file is called, you can find it.
 **`/admin` is the back office.** It opens on an overview that lists only what is
 waiting for you (a guestbook signature to approve, a message in the inbox, a
 recording that failed to convert) with each item a link to the page where it
-gets done, and beside it the state of the machine: when the database was last
-copied, whether the backup drive is plugged in, when Komoot was last checked.
+gets done, and beside it the state of the machine: when the database and the
+writing were last copied, whether the backup drive is plugged in, when Komoot
+was last checked, how long the certificate has left, whether the domain still
+points at the house. The machine makes those checks itself every fifteen
+minutes, and writes to its owner when one of them fails.
 The pages are grouped by the kind of work: **Write** (the blog, the captain's
 logs, the fitness wiki), **Mail** (the inbox, the guestbook, the newsletter) and
 **Sync** (the Komoot activities), plus a page of settings. The admin writes the

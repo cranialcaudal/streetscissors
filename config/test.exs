@@ -94,6 +94,10 @@ config :web, :content_backup_root, Path.expand("../test/support/fixtures", __DIR
 config :web, :content_backup_sources, ["blog", "emails"]
 config :web, :content_backup_keep, 3
 config :web, :content_mirror_path, nil
+
+# The monitor's probes open sockets, query public resolvers and shell out.
+# None run in a pass here; each is tested with its outside world passed in.
+config :web, :monitor_probes, []
 # The watcher would otherwise poll for a drive throughout the suite. Tests that
 # exercise it start it themselves with a mirror path pointed at a tmp dir.
 config :web, :backup_mirror_watch, false

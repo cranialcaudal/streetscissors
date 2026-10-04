@@ -1,0 +1,45 @@
+# The check from outside.
+#
+# The site watches itself (Web.Monitor), but it runs on the machine it
+# watches, so it is silent about exactly the faults that silence it: the power
+# is out, the machine is off, the house has no internet, the router stopped
+# forwarding. Those can only be seen from somewhere else, and this is the
+# somewhere else that needs no account beyond the one the code already lives
+# in. GitHub mails the repository's owner when a scheduled run fails.
+#
+# Three tries a minute apart, so a deploy's restart is not reported as an
+# outage. /health answers 200 only when the proxy, the application and the
+# database are all standing.
+#
+# Two things to know. Scheduled runs are best-effort and can start late. And
+# GitHub turns a schedule off after sixty days without a commit to the
+# repository; it mails a warning first, and the workflow's page has a button
+# to turn it back on.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the site whether it is up
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+              https://streetscissors.com/health || true)
+            if [ "$code" = "200" ]; then
+              echo "up (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt: answered ${code:-nothing}"
+            sleep 60
+          done
+          echo "::error::streetscissors.com/health did not answer 200 in three tries"
+          exit 1

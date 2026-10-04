@@ -116,6 +116,23 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   is already there. `Backup.catch_up/0` runs at boot for the nights the machine slept through.
   The mirror paths are exported by the systemd unit, not `.env`.
 
+- **The machine watches itself** (`Web.Monitor`, every 15 min by Quantum). `Web.Monitor.Probe`
+  makes the checks that cost something: the **certificate** the proxy serves (verified as a
+  browser would; warns under 21 days left, since Caddy renews at 30), the **proxy** (`GET
+  /health` on the site's own name), **DNS** (the A record and this machine's public address,
+  both asked of public resolvers directly because `/etc/hosts` maps the domain to loopback
+  here), the **disk**, and the systemd user **units** in `MONITOR_UNITS`. The pass also watches
+  `SystemStatus.local_checks/0`, stores what it found in the `monitor_state` setting, and the
+  overview reads that (`Monitor.last/0`) rather than probing on mount. Only a `:fail` is mailed:
+  on its second pass running, again each day, and once when it clears. A lookup that could not
+  be made is a `:warn`, never a `:fail`. Mail goes through `Web.Notify` (the `notify_email`
+  setting, else `NOTIFY_EMAIL`; an Oban job on `mailers`), which also announces a held
+  guestbook signature. Every probe takes its outside world as options and `test.exs` runs none.
+  `GET /health` sits in a scope with no pipeline, so it sets no cookie and logs no hit;
+  `.github/workflows/uptime.yml` asks it from outside, which is the only thing that can see the
+  machine being off. **There is no dynamic DNS**: the registrar's panel has no API, so a changed
+  address is mailed with the value to type in.
+
 - **Feature areas** beyond the blog: fitness (`Web.Fitness` + `Web.Fitness.Vault` markdown regimen/wiki;
   the `/fitness` landing is the regimen accordion — today auto-expanded via `Web.Clock`, a
   tzdata-free US-Pacific helper — under **The Week**: `Web.Fitness.Week` reads

@@ -82,18 +82,18 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 ## 8. Correspondence
 
-- **Guestbook.** An email when a new signature arrives, so the approval queue doesn't sit unseen.
+- **Guestbook:** done. A new signature is mailed to the author with its words and a link to approve it.
 - **Newsletter** (optional). Open and click counts, self-hosted through the site's own redirect, with no third-party tracker.
 
 ## 9. Plumbing
 
 The self-hosting is the point, so the plumbing should be boring and automatic.
 
-- **Monitoring.**
-  - An outside uptime check.
-  - A health endpoint.
-  - An alert when the disk runs low.
-  - A check that the certificate is actually renewing.
+- **Monitoring:** done.
+  - Every fifteen minutes the machine checks its certificate, its proxy, where the domain points, its disk and its services, along with the backups.
+  - A fault is mailed to the author once it has failed twice running, again each day it lasts, and once more when it clears.
+  - `/health` answers whether the proxy, the application and the database are all standing, and a scheduled job on GitHub asks it from outside, since nothing on the machine can report the machine being off.
+  - The domain's address is checked against the machine's own. The registrar offers no way to update it automatically, so a change is mailed with the new value to enter.
 - **Restores.** Restore a snapshot onto a scratch copy on a schedule, to prove the backups work.
 - **Rollback.** Document how to return to the previous release in one command, and try it once.
 - **Dependencies.** Upgrade the framework and libraries on a schedule rather than when something breaks.

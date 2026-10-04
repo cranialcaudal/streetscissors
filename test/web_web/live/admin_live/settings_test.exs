@@ -50,4 +50,44 @@ defmodule WebWeb.AdminLive.SettingsTest do
 
     assert SiteSettings.get_setting("newsletter_test_email") == "me@example.com"
   end
+
+  describe "alerts" do
+    use Oban.Testing, repo: Web.Repo
+
+    test "the address the site writes to is saved, and a bad one refused", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/settings")
+
+      view |> form("#settings-alerts", notify_email: "not an address") |> render_submit()
+      assert Web.Notify.address() == nil
+
+      view |> form("#settings-alerts", notify_email: "me@example.com") |> render_submit()
+      assert Web.Notify.address() == "me@example.com"
+      assert has_element?(view, "#flash-info", "Alerts go to me@example.com.")
+    end
+
+    test "a test can be sent once there is an address, and not before", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/settings")
+      refute has_element?(view, "#settings-alerts-test")
+
+      view |> form("#settings-alerts", notify_email: "me@example.com") |> render_submit()
+      view |> element("#settings-alerts-test") |> render_click()
+
+      assert_enqueued(worker: Web.Workers.OwnerMail, args: %{"to" => "me@example.com"})
+    end
+
+    test "clearing either address works rather than crashing", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/settings")
+
+      view |> form("#settings-alerts", notify_email: "me@example.com") |> render_submit()
+      view |> form("#settings-alerts", notify_email: "") |> render_submit()
+      assert Web.Notify.address() == nil
+
+      view
+      |> form("#settings-newsletter", newsletter_test_email: "me@example.com")
+      |> render_submit()
+
+      view |> form("#settings-newsletter", newsletter_test_email: "") |> render_submit()
+      assert SiteSettings.get_setting("newsletter_test_email") == nil
+    end
+  end
 end

@@ -183,6 +183,14 @@ defmodule WebWeb.Router do
     post "/webmention", WebmentionController, :create
   end
 
+  # The health check, asked by the uptime check from outside and by
+  # Web.Monitor through the proxy. No pipeline, for the opposite reason to the
+  # two above: there is nothing to protect and nothing worth recording, so it
+  # sets no session and logs no analytics hit however often it is asked.
+  scope "/", WebWeb do
+    get "/health", HealthController, :show
+  end
+
   # LiveDashboard and the Swoosh mailbox preview.
   #
   # Two independent gates, because one is not enough: `dev_routes` is false on a

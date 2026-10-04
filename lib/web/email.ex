@@ -126,6 +126,37 @@ defmodule Web.Email do
     |> text_body(strip_tags(content) <> unsubscribe_text(subscriber_email))
   end
 
+  @doc """
+  A plain message from the site to its author: a held signature, a fault on
+  the machine. No unsubscribe footer — it is not bulk mail, and the way to
+  stop it is the address in Settings.
+  """
+  def notice(to, subject, body) do
+    paragraphs =
+      body
+      |> String.trim()
+      |> String.split(~r/\n{2,}/)
+      |> Enum.map_join("\n", fn paragraph ->
+        escaped = paragraph |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+        ~s(<p style="margin: 0 0 1.2em;">#{String.replace(escaped, "\n", "<br>")}</p>)
+      end)
+
+    footer = """
+    <div style="padding: 1.5rem 2rem; border-top: 1px solid #{@rule};">
+      <p style="font-family: #{@font_mono}; font-size: 0.8rem; line-height: 1.6; color: #{@ink_3}; margin: 0;">
+        Sent by the site to the address in its settings.
+      </p>
+    </div>
+    """
+
+    new()
+    |> to(to)
+    |> from({"streetscissors", "machine@streetscissors.com"})
+    |> subject(subject)
+    |> html_body(shell(paragraphs, footer))
+    |> text_body(String.trim(body))
+  end
+
   def strip_tags(html) do
     html
     |> String.replace(~r/<[^>]*>/, "")

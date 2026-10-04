@@ -24,6 +24,9 @@ defmodule WebWeb.AdminLive.Dashboard do
     end
   end
 
+  # The checks Web.Monitor makes on a schedule, as opposed to on each mount.
+  @monitored [:certificate, :front_door, :dns, :disk, :units]
+
   defp load(socket) do
     posts = Blog.list_posts()
     logs = Audio.count_by_status()
@@ -66,7 +69,7 @@ defmodule WebWeb.AdminLive.Dashboard do
   defp queue(n) do
     check = fn key -> Enum.find(n.checks, &(&1.key == key)) end
 
-    [
+    people = [
       n.held > 0 &&
         row(
           n.held,
@@ -90,7 +93,10 @@ defmodule WebWeb.AdminLive.Dashboard do
           n.citations,
           plural(n.citations, "site cites", "sites cite") <> " a piece, awaiting approval",
           ~p"/admin/citations?show=held"
-        ),
+        )
+    ]
+
+    broken = [
       n.failed_logs > 0 &&
         row(
           n.failed_logs,
@@ -104,7 +110,18 @@ defmodule WebWeb.AdminLive.Dashboard do
       check.(:database).state in [:warn, :fail] &&
         row("!", "The database snapshot is overdue", "#system", :fail),
       check.(:content).state in [:warn, :fail] &&
-        row("!", "The content backup is overdue", "#system", :fail),
+        row("!", "The content backup is overdue", "#system", :fail)
+    ]
+
+    # What the monitor's last pass found failing: each says what is wrong.
+    faults =
+      for %{key: key, state: :fail, label: label, detail: detail} <- n.checks,
+          key in @monitored,
+          do: row("!", "#{label}: #{detail}", "#system", :fail)
+
+    housekeeping = [
+      check.(:alerts).state == :warn &&
+        row("!", "Faults have nobody to write to yet: set an address", ~p"/admin/settings"),
       n.encoding > 0 &&
         row(
           n.encoding,
@@ -119,7 +136,8 @@ defmodule WebWeb.AdminLive.Dashboard do
           ~p"/admin/blog?filter=missing"
         )
     ]
-    |> Enum.filter(& &1)
+
+    Enum.filter(people ++ broken ++ faults ++ housekeeping, & &1)
   end
 
   defp row(count, text, href, tone \\ :held),

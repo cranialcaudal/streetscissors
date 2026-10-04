@@ -3,9 +3,11 @@ defmodule Web.SystemStatus do
   The machine's own state, as the admin overview reports it: the things that
   should be quietly true on a self-hosted site, each checked and said plainly.
 
-  Every check is cheap — a directory listing, a settings read, one count
-  query — so the overview runs them all on each mount rather than caching.
-  Each returns a map:
+  Every check made here is cheap — a directory listing, a settings read, one
+  count query — so the overview runs them all on each mount rather than
+  caching. The ones that are not cheap (a TLS handshake, a DNS query, a child
+  process) belong to `Web.Monitor`, which makes them on a schedule; `checks/0`
+  only reads what its last pass found. Each returns a map:
 
       %{key: atom, label: String.t(), state: :ok | :warn | :fail | :off,
         detail: String.t(), at: DateTime.t() | nil}
@@ -24,7 +26,14 @@ defmodule Web.SystemStatus do
   # The hourly pass that hasn't been heard from in this long has stopped.
   @komoot_quiet_hours 3
 
-  def checks do
+  @doc "Everything the overview lists: this module's own checks, then the monitor's."
+  def checks, do: local_checks() ++ Web.Monitor.last().checks ++ [alerts()]
+
+  @doc """
+  The checks made here, on the spot. `Web.Monitor` watches these too, and
+  cannot call `checks/0` for them without reading its own last pass back.
+  """
+  def local_checks do
     [
       database_snapshots(),
       backup_mirror(),
@@ -144,6 +153,15 @@ defmodule Web.SystemStatus do
     case failed_mail_count() do
       0 -> check(:mail, "Mail queue", :ok, "no failed sends")
       n -> check(:mail, "Mail queue", :fail, "#{n} #{plural(n, "send")} failed or retrying")
+    end
+  end
+
+  # The monitor mails a fault to this address. Without one it still checks
+  # and still records, and nobody is told.
+  def alerts do
+    case Web.Notify.address() do
+      nil -> check(:alerts, "Alerts", :warn, "no address set — faults are not mailed to anyone")
+      address -> check(:alerts, "Alerts", :ok, "faults are mailed to #{address}")
     end
   end
 

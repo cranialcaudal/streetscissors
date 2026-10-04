@@ -101,6 +101,9 @@ defmodule Web.General do
            |> GuestbookEntry.changeset(attrs)
            |> Repo.insert() do
       Phoenix.PubSub.broadcast(Web.PubSub, "guestbook:admin", {:guestbook_entry_held, entry})
+      # The queue only fills in front of someone who has the admin open. The
+      # letter is for the days nobody does.
+      Web.Notify.guestbook_signature(entry)
       {:ok, entry}
     end
   end

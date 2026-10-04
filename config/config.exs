@@ -90,7 +90,10 @@ config :web, Web.Scheduler,
     {"17 3 * * *", {Web.Backup, :run_scheduled, []}},
     # The written content, two minutes behind it. A version is only written
     # when something changed, so most nights this hashes the vault and stops.
-    {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}}
+    {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}},
+    # The machine checks itself: certificate, proxy, DNS, disk, services, and
+    # the backups above. A fault is mailed on its second pass running.
+    {"*/15 * * * *", {Web.Monitor, :run_scheduled, []}}
   ]
 
 config :web, Oban,
