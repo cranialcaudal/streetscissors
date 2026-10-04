@@ -44,6 +44,7 @@ defmodule WebWeb.LogsLive.Index do
      socket
      |> assign(:sort, parse_sort(params["sort"]))
      |> assign(:keyword, filter_keyword(params["keyword"]))
+     |> assign_keyword_feed()
      |> assign_visible()}
   end
 
@@ -110,6 +111,14 @@ defmodule WebWeb.LogsLive.Index do
   # crashing on a hand-edited URL.
   defp parse_sort("witnessed"), do: "witnessed"
   defp parse_sort(_), do: "recent"
+
+  # Read by the root layout's <link rel="alternate"> on first render; the
+  # visible "Follow" link below keeps up with patches.
+  defp assign_keyword_feed(%{assigns: %{keyword: nil}} = socket),
+    do: assign(socket, :keyword_feed, nil)
+
+  defp assign_keyword_feed(%{assigns: %{keyword: keyword}} = socket),
+    do: assign(socket, :keyword_feed, ~p"/feed?keyword=#{keyword}")
 
   defp filter_keyword(nil), do: nil
 
@@ -214,6 +223,9 @@ defmodule WebWeb.LogsLive.Index do
           >
             {keyword} <span class="tab-count">{count}</span>
           </.link>
+          <a :if={@keyword_feed} href={@keyword_feed} class="console-follow">
+            Follow “{@keyword}” by RSS
+          </a>
         </nav>
 
         <%!-- The theater: whatever leads the current view owns the first screen. --%>

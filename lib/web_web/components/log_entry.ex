@@ -30,7 +30,11 @@ defmodule WebWeb.LogEntry do
     <p class={["log-meta", "log--#{@log.kind}"]}>
       <span class="log-kind">{kind_label(@log)}</span>
       <span class="log-meta-dot" aria-hidden="true">•</span>
-      <span>{Calendar.strftime(@log.recorded_on, "%a %-d %b %Y")}</span>
+      <.link href={~p"/day/#{Date.to_iso8601(@log.recorded_on)}"} class="day-link">
+        <time class="dt-published" datetime={Date.to_iso8601(@log.recorded_on)}>
+          {Calendar.strftime(@log.recorded_on, "%a %-d %b %Y")}
+        </time>
+      </.link>
       <span :if={Log.ordinal(@log)} class="log-meta-dot" aria-hidden="true">•</span>
       <span :if={Log.ordinal(@log)} class="log-ordinal">
         Entry {Log.ordinal(@log)}

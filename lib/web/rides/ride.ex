@@ -5,12 +5,11 @@ defmodule Web.Rides.Ride do
   on the site.
 
   `visibility` mirrors the tour's Komoot privacy. It no longer hides a ride
-  (the archive lists every recorded tour). Komoot's embed refuses anything
-  not public, so a private tour is embedded through its `share_token`, which
-  the sync asks Komoot for once.
+  (the archive lists every recorded tour).
 
-  `health` is never stored: `Web.Rides.attach_health/1` fills it with the
-  Apple Health workout recorded alongside the tour, or leaves it nil.
+  `route_path` is the route's outline for a card, already cut by the privacy
+  zones, and `route_key` the fingerprint of the zones that cut it — read it
+  through `Web.Rides.card_path/1`, which refuses one cut by other zones.
   """
 
   use Ecto.Schema
@@ -30,16 +29,15 @@ defmodule Web.Rides.Ride do
     field :kcal, :integer
     field :visibility, :string, default: "public"
     field :komoot_changed_at, :utc_datetime
-    field :map_image_url, :string
-    field :share_token, :string
-    field :health, :any, virtual: true
+    field :route_path, :string
+    field :route_key, :string
 
     timestamps()
   end
 
   @fields ~w(komoot_id name sport started_at distance_m duration_s time_in_motion_s
              avg_speed_mps ascent_m descent_m kcal visibility komoot_changed_at
-             map_image_url share_token)a
+             route_path route_key)a
 
   @doc false
   def changeset(ride, attrs) do

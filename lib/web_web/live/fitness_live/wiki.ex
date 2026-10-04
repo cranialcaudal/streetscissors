@@ -4,9 +4,7 @@ defmodule WebWeb.FitnessLive.Wiki do
   alias Web.Fitness.Vault
 
   @impl true
-  def mount(_params, session, socket) do
-    is_admin = session["admin_user"] == true
-
+  def mount(_params, _session, socket) do
     # Exercises are file-based content (see Web.Fitness.Vault), not DB rows.
     # list_all_exercises/0 returns [{muscle_group_folder, [exercise, ...]}, ...].
     grouped_sorted =
@@ -17,7 +15,6 @@ defmodule WebWeb.FitnessLive.Wiki do
 
     {:ok,
      socket
-     |> assign(:is_admin, is_admin)
      |> assign(:page_title, "Exercise Wiki")
      |> assign(:return_to, "/fitness")
      |> assign(:return_label, "return to fitness")
@@ -35,7 +32,7 @@ defmodule WebWeb.FitnessLive.Wiki do
       </header>
       
     <!-- Section Navigation -->
-      <WebWeb.FitnessSubnav.subnav active={:wiki} is_admin={@is_admin} />
+      <WebWeb.FitnessSubnav.subnav active={:wiki} />
 
       <div class="blog-bento-card bento-span-full" style="padding: 2rem;">
         <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">

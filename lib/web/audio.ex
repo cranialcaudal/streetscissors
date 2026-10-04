@@ -23,6 +23,22 @@ defmodule Web.Audio do
   end
 
   @doc """
+  How many logs sit at each transcode status, plus `"draft"` for the
+  unpublished ones — the admin's overview reads its queue off this.
+  Statuses with no logs are absent rather than zero.
+  """
+  def count_by_status do
+    by_status =
+      from(l in Log, group_by: l.status, select: {l.status, count(l.id)})
+      |> Repo.all()
+      |> Map.new()
+
+    drafts = Repo.aggregate(from(l in Log, where: l.published == false), :count)
+
+    if drafts > 0, do: Map.put(by_status, "draft", drafts), else: by_status
+  end
+
+  @doc """
   The logs `/logs` renders: published *and* transcoded, newest first.
 
   Both halves matter. An entry exists from the moment its upload lands, long

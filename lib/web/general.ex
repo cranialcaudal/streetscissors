@@ -37,8 +37,25 @@ defmodule Web.General do
     |> Repo.all()
   end
 
+  @doc "Signatures waiting for approval — the admin's badge and queue."
+  def count_held_guestbook_entries do
+    from(g in GuestbookEntry, where: g.approved == false)
+    |> Repo.aggregate(:count)
+  end
+
+  def count_guestbook_entries, do: Repo.aggregate(GuestbookEntry, :count)
+
   def subscribe_guestbook do
     Phoenix.PubSub.subscribe(Web.PubSub, "guestbook")
+  end
+
+  @doc """
+  The admin's own topic: a signature arriving is announced here the moment
+  it is held, so the approval queue fills without a reload. The public topic
+  above only ever hears about approved entries.
+  """
+  def subscribe_guestbook_admin do
+    Phoenix.PubSub.subscribe(Web.PubSub, "guestbook:admin")
   end
 
   @doc """
@@ -79,9 +96,13 @@ defmodule Web.General do
       |> Map.new(fn {k, v} -> {to_string(k), v} end)
       |> Map.put("approved", false)
 
-    %GuestbookEntry{}
-    |> GuestbookEntry.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, entry} <-
+           %GuestbookEntry{}
+           |> GuestbookEntry.changeset(attrs)
+           |> Repo.insert() do
+      Phoenix.PubSub.broadcast(Web.PubSub, "guestbook:admin", {:guestbook_entry_held, entry})
+      {:ok, entry}
+    end
   end
 
   @doc """

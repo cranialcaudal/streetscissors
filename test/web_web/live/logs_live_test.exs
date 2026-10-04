@@ -276,6 +276,16 @@ defmodule WebWeb.LogsLiveTest do
       assert has_element?(view, ~s(a[href="/logs?keyword=ferry"]), "ferry")
     end
 
+    test "emits AudioObject and BreadcrumbList structured data", %{conn: conn} do
+      log = log_fixture(kind: "audio", caption: "Test log entry")
+
+      {:ok, _view, html} = live(conn, "/logs/#{log.slug}")
+
+      assert html =~ ~s("@type":"AudioObject")
+      assert html =~ ~s("@type":"BreadcrumbList")
+      assert html =~ ~s("name":"Captain's Log")
+    end
+
     test "a play is counted against the mounted log whatever the client claims", %{conn: conn} do
       log = log_fixture()
       other = log_fixture(recorded_on: ~D[2026-01-01])

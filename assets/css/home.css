@@ -138,10 +138,15 @@
 /* The mark carries the pill — set larger than the label it sits beside, in
    Spotify's own green, the one colour in the bar that is not the page's.
    line-height: 1 keeps the extra size off the pill's own height. */
-.spotify-pill-main .fa-spotify {
+.spotify-pill-main .fa-spotify,
+.spotify-pill-main .spotify-icon {
   font-size: 1.6em;
+  width: 1.25em;
+  height: 1.25em;
   line-height: 1;
   color: #1db954;
+  fill: #1db954;
+  flex-shrink: 0;
 }
 /* Profile is a round badge — a face rather than a labelled control, but
    still a link, so it wears the same poppy rule — and swells slightly
@@ -182,20 +187,6 @@
   .spotify-pill-profile {
     transition: border-color 0.25s ease;
   }
-}
-/* Phone stand-ins for the top-bar labels (shown at 768px below).
-   Printer's marks, not emoji — a nib and an envelope struck in the page's
-   own ink, so they sit in the same world as Goudy and the hairline rules.
-   The templates append U+FE0E and this forces text presentation besides,
-   so no platform substitutes a glossy colour emoji. */
-.top-bar-glyph {
-  display: none;
-  /* Symbol faces that carry ✒ and ✉ as outlines come first, so the
-     platform's colour-emoji font is never the one that answers — the
-     selector and font-variant-emoji alone are not honoured everywhere. */
-  font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", "DejaVu Sans", serif;
-  font-variant-emoji: text;
-  line-height: 1;
 }
 .bento-section {
   position: relative;
@@ -377,6 +368,19 @@
   padding: 1.25rem 0 0.5rem;
   font-size: 0.75rem;
 }
+
+/* The one way in to the almanac from the front door: the row of cards
+   above is measured to fit a phone's screen, so it stays at three. */
+.home-footer-link {
+  margin-left: 0.75rem;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.home-footer-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 @media (max-width: 768px) {
   .site-title-overlay {
     font-size: 10vw;
@@ -393,8 +397,9 @@
     gap: 0.5rem;
   }
   /* Phones get the top bar as three marks: guestbook, profile, contact.
-     The words and their heroicons give way to a single printer's mark
-     apiece so the row never wraps, and the playlist pill (whose value is
+     The words give way to each link's own line icon (never an emoji: a
+     ✒ or ✉ character got swapped for a colour emoji by some phones)
+     so the row never wraps, and the playlist pill (whose value is
      the hover-out player, which phones have no hover for) drops entirely —
      leaving the Spotify profile as the only music control. */
   .home-top-bar {
@@ -402,7 +407,6 @@
     gap: 0.85rem;
   }
   .home-top-bar .top-bar-text,
-  .home-top-bar .top-bar-icon,
   .home-top-bar .spotify-hover-wrapper {
     display: none !important;
   }
@@ -418,12 +422,11 @@
     gap: 0;
     justify-content: center;
   }
-  /* Sized off the same mark. Inside a frame the glyph no longer has to
+  /* Sized off the same mark. Inside a frame the icon no longer has to
      fill the box to hold its weight beside the photo — the frame does. */
-  .home-top-bar .top-bar-glyph {
-    display: inline;
-    font-size: calc(var(--top-bar-mark) * 0.6);
-    line-height: 1;
+  .home-top-bar .top-bar-icon {
+    width: calc(var(--top-bar-mark) * 0.5);
+    height: calc(var(--top-bar-mark) * 0.5);
   }
 }
 /* Phone layout: one column, every size in vw so the whole bento stack

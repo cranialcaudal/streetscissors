@@ -7,7 +7,7 @@ defmodule WebWeb.AdminLive.LogsManager do
   alias Web.Media.Transcoder
   alias Web.Uploads
 
-  import WebWeb.CmsStyles
+  import WebWeb.AdminComponents
   import WebWeb.LogsLive.Format, only: [format_duration: 1, presence: 1]
 
   @moduledoc """
@@ -283,19 +283,25 @@ defmodule WebWeb.AdminLive.LogsManager do
 
   def render(assigns) do
     ~H"""
-    <.cms_styles />
-    <.theater_styles />
+    <.page_head slug="Write / Captain's Logs" title="Captain's Logs">
+      <:lede>
+        Record here, or drop a file you already have. Trim and poster are numbers the server
+        applies — nothing is re-encoded in the browser.
+      </:lede>
+      <:actions>
+        <.link href={~p"/logs"} target="_blank" class="adm-btn adm-btn--quiet">
+          <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View the logs
+        </.link>
+      </:actions>
+    </.page_head>
 
-    <div class="cms">
-      <h1 class="cms-title">Captain's Logs</h1>
-      <p class="cms-lede">Record here, or drop a file you already have.</p>
-
+    <div class="adm-booth">
       <%!-- The theater. Everything the recorder needs is inside this one
             element, so the hook works against `this.el` rather than hunting
             the document for ids the way the one it replaced did. --%>
       <section
         id="theater"
-        class="cms-panel theater"
+        class="adm-sheet theater"
         phx-hook=".LogRecorder"
         phx-drop-target={@uploads.media.ref}
       >
@@ -304,7 +310,7 @@ defmodule WebWeb.AdminLive.LogsManager do
 
           <div class="theater-placeholder" data-role="placeholder">
             <p class="theater-placeholder-title" data-role="placeholder-title">Camera off</p>
-            <p class="cms-hint" data-role="placeholder-hint">
+            <p class="adm-help" data-role="placeholder-hint">
               Drop a video or audio file here, or arm the camera below.
             </p>
           </div>
@@ -339,7 +345,7 @@ defmodule WebWeb.AdminLive.LogsManager do
             </label>
           </div>
 
-          <p class="cms-error theater-device-error" data-role="device-error" hidden></p>
+          <p class="adm-error theater-device-error" data-role="device-error" hidden></p>
         </div>
 
         <%!-- Review. Trim and poster are numbers, applied by ffmpeg on the
@@ -360,27 +366,31 @@ defmodule WebWeb.AdminLive.LogsManager do
             </label>
           </div>
 
-          <div class="cms-actions">
-            <button type="button" class="cms-link" data-role="retake">Retake</button>
-            <button type="button" class="cms-link" data-role="save-draft">Save as draft</button>
-            <button type="button" class="theater-publish" data-role="publish">Publish</button>
+          <div class="adm-form-actions">
+            <button type="button" class="adm-btn adm-btn--primary" data-role="publish">
+              Publish
+            </button>
+            <button type="button" class="adm-btn adm-btn--quiet" data-role="save-draft">
+              Save as draft
+            </button>
+            <button type="button" class="adm-link adm-link--quiet" data-role="retake">Retake</button>
           </div>
         </div>
 
         <div :for={entry <- @uploads.media.entries} class="theater-upload">
-          <p class="cms-hint">Uploading {entry.client_name} — {entry.progress}%</p>
-          <div class="cms-progress">
-            <div class="cms-progress-bar" style={"width: #{entry.progress}%"}></div>
+          <p class="adm-help">Uploading {entry.client_name} — {entry.progress}%</p>
+          <div class="adm-progress">
+            <div class="adm-progress-bar" style={"width: #{entry.progress}%"}></div>
           </div>
-          <button type="button" class="cms-link" phx-click="cancel_upload" phx-value-ref={entry.ref}>
+          <button type="button" class="adm-link" phx-click="cancel_upload" phx-value-ref={entry.ref}>
             Cancel
           </button>
-          <p :for={err <- upload_errors(@uploads.media, entry)} class="cms-error">
+          <p :for={err <- upload_errors(@uploads.media, entry)} class="adm-error">
             {upload_error_message(err)}
           </p>
         </div>
 
-        <p :for={err <- upload_errors(@uploads.media)} class="cms-error">
+        <p :for={err <- upload_errors(@uploads.media)} class="adm-error">
           {upload_error_message(err)}
         </p>
 
@@ -800,8 +810,8 @@ defmodule WebWeb.AdminLive.LogsManager do
       <%!-- Metadata. The recorder's own choices do not come through this form
             — they are staged over the socket just before the upload — so the
             two can never be read half-applied. --%>
-      <section class="cms-panel">
-        <h2>
+      <section class="adm-sheet" id="log-details">
+        <h2 class="adm-panel-title adm-sheet-title">
           {if @editing, do: "Editing #{Log.title(@editing)}", else: "Details for the next take"}
         </h2>
 
@@ -812,197 +822,120 @@ defmodule WebWeb.AdminLive.LogsManager do
                 allocates an upload entry if a phx-change binding sees it.
                 Outside a form it fails silently on both sides: no entry, no
                 error. --%>
-          <.live_file_input upload={@uploads.media} class="cms-file-input" />
+          <.live_file_input upload={@uploads.media} class="adm-file-input" />
 
-          <div class="cms-field">
-            <.input field={@form[:caption]} type="text" label="Caption (optional)" class="cms-input" />
-          </div>
+          <.input field={@form[:caption]} type="text" label="Caption (optional)" class="adm-input" />
           <div class="theater-row">
-            <.input field={@form[:recorded_on]} type="date" label="Recorded on" class="cms-input" />
+            <.input field={@form[:recorded_on]} type="date" label="Recorded on" class="adm-input" />
             <.input
               field={@form[:kind]}
               type="select"
               label="Kind"
               options={[{"Video", "video"}, {"Audio", "audio"}]}
-              class="cms-input"
+              class="adm-input"
             />
           </div>
-          <div class="cms-field">
-            <.input field={@form[:keywords]} type="text" label="Keywords" class="cms-input" />
-          </div>
-          <div class="cms-field">
-            <.input field={@form[:description]} type="textarea" label="Notes" class="cms-input" />
-          </div>
-          <div class="cms-field">
-            <.input field={@form[:published]} type="checkbox" label="Published" />
-          </div>
+          <.input
+            field={@form[:keywords]}
+            type="text"
+            label="Keywords"
+            placeholder="ferry, bowling-green"
+            class="adm-input"
+          />
+          <.input
+            field={@form[:description]}
+            type="textarea"
+            label="Notes"
+            class="adm-input adm-input--prose"
+          />
+          <.input field={@form[:published]} type="checkbox" label="Published" />
 
-          <div :if={@editing} class="cms-actions">
-            <button type="submit" class="theater-publish">Save changes</button>
-            <button type="button" phx-click="cancel_edit" class="cms-link">Cancel</button>
+          <div :if={@editing} class="adm-form-actions">
+            <button type="submit" class="adm-btn adm-btn--primary">Save changes</button>
+            <button type="button" phx-click="cancel_edit" class="adm-link adm-link--quiet">
+              Cancel
+            </button>
           </div>
         </.form>
       </section>
+    </div>
 
-      <section class="cms-panel">
-        <h2>Archive</h2>
+    <.panel title="Archive" count={length(@logs)}>
+      <.empty :if={@logs == []}>Nothing recorded yet.</.empty>
 
-        <p :if={@logs == []} class="cms-empty">Nothing recorded yet.</p>
+      <div :if={@logs != []} class="adm-list" id="logs">
+        <article :for={log <- @logs} id={"log-#{log.id}"} class="adm-item adm-item--thumb">
+          <img
+            :if={Log.poster_url(log)}
+            src={Log.poster_url(log)}
+            alt=""
+            class="adm-item-thumb"
+            loading="lazy"
+          />
+          <span :if={is_nil(Log.poster_url(log))} class="adm-item-thumb">{log.kind}</span>
 
-        <div class="cms-list">
-          <article :for={log <- @logs} class="cms-item">
-            <div class="cms-item-head">
-              <div>
-                <h3 class="cms-item-title">{Log.title(log)}</h3>
-                <p class="cms-item-meta">
-                  <span class={["theater-status", "is-#{log.status}"]}>
-                    {status_label(log.status)}
-                  </span>
-                  · {log.kind} · {format_duration(log.duration) || "—"} · {log.slug}
-                  <span :if={not log.published}>· draft</span>
-                </p>
-              </div>
-
-              <div class="cms-item-actions">
-                <.link :if={log.status == "ready"} navigate={~p"/logs/#{log.slug}"} class="cms-link">
-                  View
-                </.link>
-                <button phx-click="edit" phx-value-id={log.id} class="cms-link">Edit</button>
-                <button
-                  :if={log.status == "failed"}
-                  phx-click="retry"
-                  phx-value-id={log.id}
-                  class="cms-link"
-                >
-                  Retry
-                </button>
-                <button phx-click="toggle_published" phx-value-id={log.id} class="cms-link">
-                  {if log.published, do: "Unpublish", else: "Publish"}
-                </button>
-                <button
-                  phx-click="delete"
-                  phx-value-id={log.id}
-                  data-confirm="Purge this log and its media?"
-                  class="cms-link danger"
-                >
-                  Delete
-                </button>
-              </div>
+          <div class="adm-item-main">
+            <h3 class="adm-item-title">{Log.title(log)}</h3>
+            <div class="adm-item-meta">
+              <.pill tone={status_tone(log.status)}>{status_label(log.status)}</.pill>
+              <.pill :if={not log.published} tone="draft">Draft</.pill>
+              <span>{log.kind}</span>
+              <span>{format_duration(log.duration) || "—"}</span>
+              <span>{log.slug}</span>
             </div>
 
-            <p :if={presence(log.caption)} class="cms-hint">{log.caption}</p>
+            <p :if={presence(log.caption)} class="adm-item-body">{log.caption}</p>
 
             <div :if={Map.has_key?(@progress, log.id)} class="theater-transcode">
-              <div class="cms-progress">
-                <div class="cms-progress-bar" style={"width: #{@progress[log.id]}%"}></div>
+              <div class="adm-progress">
+                <div class="adm-progress-bar" style={"width: #{@progress[log.id]}%"}></div>
               </div>
-              <span class="cms-hint">Transcoding — {@progress[log.id]}%</span>
+              <span class="adm-help">Transcoding — {@progress[log.id]}%</span>
             </div>
 
-            <p :if={log.status == "failed"} class="cms-error">{log.transcode_error}</p>
+            <p :if={log.status == "failed"} class="adm-error">{log.transcode_error}</p>
 
-            <p
+            <div
               :if={log.status == "ready" and is_nil(presence(log.keywords))}
-              class="cms-keyword-missing"
+              class="adm-item-meta"
             >
-              No keywords — it will not appear under any filter.
-            </p>
-          </article>
-        </div>
-      </section>
-    </div>
+              <.pill tone="held">No keywords</.pill>
+              <span>it won't appear under any filter</span>
+            </div>
+          </div>
+
+          <div class="adm-item-actions">
+            <.link :if={log.status == "ready"} navigate={~p"/logs/#{log.slug}"} class="adm-link">
+              View
+            </.link>
+            <button phx-click="edit" phx-value-id={log.id} class="adm-link">Edit</button>
+            <button
+              :if={log.status == "failed"}
+              phx-click="retry"
+              phx-value-id={log.id}
+              class="adm-link"
+            >
+              Retry
+            </button>
+            <button phx-click="toggle_published" phx-value-id={log.id} class="adm-link">
+              {if log.published, do: "Unpublish", else: "Publish"}
+            </button>
+            <button
+              phx-click="delete"
+              phx-value-id={log.id}
+              data-confirm="Delete this log and its media? This cannot be undone."
+              class="adm-link adm-link--danger"
+            >
+              Delete
+            </button>
+          </div>
+        </article>
+      </div>
+    </.panel>
     """
   end
 
-  # The booth's own styling. Admin pages carry their own <style> block in this
-  # app — the admin layout is a deliberate dark exception to the paper design
-  # system — and this is the part only the logs manager needs.
-  defp theater_styles(assigns) do
-    ~H"""
-    <style>
-      .theater-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-
-      /* The screen: always 16/9, always dark, whether or not anything is in it. */
-      .theater-screen {
-        position: relative;
-        aspect-ratio: 16 / 9;
-        overflow: hidden;
-        background: #08090b;
-        border: 1px solid #2a2a2a;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .theater-video { width: 100%; height: 100%; object-fit: contain; background: #08090b; }
-      .theater.is-armed .theater-placeholder { display: none; }
-
-      .theater-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 0.25rem; text-align: center; padding: 1rem; }
-      .theater-placeholder-title { color: #777; text-transform: uppercase; letter-spacing: 2px;
-        font-size: 0.8rem; margin: 0; }
-
-      /* Tally light: the one thing on the page allowed to be red. */
-      .theater-tally { position: absolute; top: 0.75rem; left: 0.75rem; display: flex; align-items: center;
-        gap: 0.5rem; padding: 0.25rem 0.6rem; background: rgba(0,0,0,0.65); border-radius: 999px;
-        font-variant-numeric: tabular-nums; font-size: 0.8rem; color: #fff; }
-      .theater-dot { width: 9px; height: 9px; border-radius: 50%; background: #e5484d;
-        box-shadow: 0 0 10px rgba(229,72,77,0.9); animation: theater-blink 1.4s infinite; }
-      @keyframes theater-blink { 50% { opacity: 0.25; } }
-      @media (prefers-reduced-motion: reduce) { .theater-dot { animation: none; } }
-
-      .theater-meter { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 48px;
-        pointer-events: none; opacity: 0.85; }
-
-      .theater-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: 1rem; }
-
-      .theater-modes { display: flex; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
-      .theater-mode { background: none; border: 0; padding: 0.45rem 0.9rem; cursor: pointer;
-        color: #999; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
-      .theater-mode.is-active { background: #ff6600; color: #111; font-weight: 700; }
-
-      /* 48px tall, so the one control that matters clears the target minimum. */
-      .theater-record { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 48px;
-        padding: 0 1.25rem; cursor: pointer; background: #1a1a1a; border: 1px solid #3a3a3a;
-        border-radius: 999px; color: #eee; font-size: 0.8rem; text-transform: uppercase;
-        letter-spacing: 1.5px; }
-      .theater-record:hover { border-color: #ff6600; }
-      .theater-record-mark { width: 14px; height: 14px; border-radius: 50%; background: #e5484d; }
-      .theater.is-recording .theater-record-mark { border-radius: 2px; }
-
-      .theater-devices { display: flex; gap: 1rem; margin-left: auto; flex-wrap: wrap; }
-      .theater-device { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.7rem;
-        text-transform: uppercase; letter-spacing: 1px; color: #777; }
-      .theater-device select { background: #111; color: #ddd; border: 1px solid #333;
-        border-radius: 6px; padding: 0.35rem 0.5rem; max-width: 220px; }
-
-      .theater-review { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid #2a2a2a; }
-      .theater-trim { display: grid; gap: 0.75rem; }
-      .theater-range { display: grid; gap: 0.3rem; font-size: 0.72rem; text-transform: uppercase;
-        letter-spacing: 1px; color: #888; }
-      .theater-range b { color: #ff6600; font-variant-numeric: tabular-nums; }
-      .theater-range input[type="range"] { width: 100%; accent-color: #ff6600; }
-
-      .theater-publish { background: #ff6600; color: #111; border: 0; border-radius: 6px;
-        min-height: 40px; padding: 0 1.1rem; font-weight: 700; font-size: 0.78rem;
-        text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
-      .theater-publish:hover { background: #ff7d26; }
-
-      .theater-upload { margin-top: 1rem; }
-      .theater-transcode { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
-      .theater-transcode .cms-progress { flex: 1; margin-top: 0; }
-
-      .theater-status { text-transform: uppercase; letter-spacing: 1px; font-size: 0.7rem; }
-      .theater-status.is-ready { color: #4ade80; }
-      .theater-status.is-failed { color: #f87171; }
-      .theater-status.is-processing, .theater-status.is-pending { color: #fbbf24; }
-
-      @media (max-width: 640px) {
-        .theater-row { grid-template-columns: 1fr; }
-        .theater-devices { margin-left: 0; }
-      }
-    </style>
-    """
-  end
+  defp status_tone("ready"), do: "live"
+  defp status_tone("failed"), do: "failed"
+  defp status_tone(_pending_or_processing), do: "held"
 end

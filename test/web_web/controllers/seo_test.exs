@@ -55,6 +55,18 @@ defmodule WebWeb.SEOTest do
 
         assert html =~ ~s("@type":"Person")
         assert html =~ ~s("name":"Ada Example")
+        assert html =~ "streetscissors · Ada Example"
+      end)
+    end
+
+    test "about page contains ProfilePage structured data and author name", %{conn: conn} do
+      with_author("Cesar Anthony Moreno", fn ->
+        html = conn |> get(~p"/about") |> html_response(200)
+
+        assert html =~ "About · Cesar Anthony Moreno"
+        assert html =~ ~s("@type":"ProfilePage")
+        assert html =~ ~s("name":"Cesar Anthony Moreno")
+        assert html =~ ~s("name":"UC Davis")
       end)
     end
 
@@ -164,6 +176,50 @@ defmodule WebWeb.SEOTest do
       assert robots =~ "Disallow: /dev/"
       # The site should still be indexable overall.
       assert robots =~ "User-agent: *\nAllow: /"
+    end
+  end
+
+  describe "structured data (JSON-LD)" do
+    test "blog post includes BlogPosting and BreadcrumbList", %{conn: conn} do
+      html = conn |> get(~p"/blog/frontmatter-and-embeds") |> html_response(200)
+
+      assert html =~ ~s("@type":"BlogPosting")
+      assert html =~ ~s("headline":"Fixture Post With Frontmatter")
+      assert html =~ ~s("@type":"BreadcrumbList")
+      assert html =~ ~s("name":"Writing")
+    end
+
+    test "blog index includes BreadcrumbList", %{conn: conn} do
+      html = conn |> get(~p"/blog") |> html_response(200)
+
+      assert html =~ ~s("@type":"BreadcrumbList")
+      assert html =~ ~s("name":"Writing")
+    end
+  end
+
+  describe "PWA support" do
+    test "serves manifest.json with standalone display and theme colors", %{conn: conn} do
+      conn = get(conn, "/manifest.json")
+      assert response(conn, 200)
+      body = json_response(conn, 200)
+
+      assert body["name"] == "streetscissors"
+      assert body["display"] == "standalone"
+      assert body["theme_color"] == "#17140f"
+      assert body["background_color"] == "#f3eee4"
+      assert is_list(body["icons"])
+      assert length(body["icons"]) >= 3
+    end
+
+    test "serves service worker sw.js", %{conn: conn} do
+      conn = get(conn, "/sw.js")
+      assert response(conn, 200)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves google site verification HTML file", %{conn: conn} do
+      conn = get(conn, "/google0a37fc5aaf651faf.html")
+      assert response(conn, 200) =~ "google-site-verification: google0a37fc5aaf651faf.html"
     end
   end
 end

@@ -32,6 +32,10 @@ defmodule Web.Application do
       # job a restart interrupted. After Repo, which it reads on boot.
       Web.Media.Transcoder,
 
+      # The flatbed scanner: one scan at a time, run as a port so the admin's
+      # scanner page is never blocked by one.
+      Web.Scanner.Bed,
+
       # Quantum scheduled (cron) jobs
       Web.Scheduler,
       # Catch up a backup the schedule slept through. Quantum does not make up

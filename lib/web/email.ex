@@ -48,6 +48,18 @@ defmodule Web.Email do
     """
   end
 
+  @doc """
+  A whole page around `shell/2`, for showing a message outside a mail client —
+  the admin's preview frame — with the shell's paper filling the frame rather
+  than stopping where the message does.
+  """
+  def preview_page(content, footer) do
+    """
+    <!doctype html>
+    <html><body style="margin: 0; background: #{@paper};">#{shell(content, footer)}</body></html>
+    """
+  end
+
   @doc "The footer humans actually click, appended to the HTML body."
   def unsubscribe_html(recipient) do
     """

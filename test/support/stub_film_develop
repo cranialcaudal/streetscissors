@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Stands in for film-develop, which is a Python image analysis the suite has
+# no business running.
+#
+#   analyze --mode M ROLL       writes ROLL/frames.json describing every strip
+#                               scan in the folder as 656x2152 with two
+#                               frames — the golden roll's numbers, which two
+#                               strips of compose to exactly 8x10 at 300 dpi
+#   develop RAW --roll ROLL --frame N   copies RAW to ROLL/frames/NN.png
+#
+# STUB_FILM_DEVELOP_FAIL=1 fails instead, with something on stderr to report.
+set -euo pipefail
+
+if [ "${STUB_FILM_DEVELOP_FAIL:-0}" = "1" ]; then
+  echo "film-develop: could not find the film edge" >&2
+  exit 3
+fi
+
+case "${1:-}" in
+  analyze)
+    for last; do :; done
+    roll="$last"
+    strips=""
+    n=0
+    for path in "$roll"/*; do
+      [ -f "$path" ] || continue
+      case "${path,,}" in
+        *.tif|*.tiff|*.png|*.jpg|*.jpeg) ;;
+        *) continue ;;
+      esac
+      a=$((n * 2 + 1)); b=$((n * 2 + 2))
+      [ -z "$strips" ] || strips="$strips,"
+      strips="$strips{\"file\":\"$(basename "$path")\",\"index\":$n,\"width\":656,\"height\":2152,\"frames\":[{\"frame\":$a,\"region\":[0,0,656,700]},{\"frame\":$b,\"region\":[0,726,656,700]}]}"
+      n=$((n + 1))
+    done
+    printf '{"roll":"stub","frames_per_strip":2,"strips":[%s]}' "$strips" > "$roll/frames.json"
+    ;;
+  develop)
+    raw="$2"; roll=""; frame=""
+    shift 2
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --roll) roll="$2"; shift 2 ;;
+        --frame) frame="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$roll/frames"
+    cp "$raw" "$roll/frames/$(printf '%02d' "$frame").png"
+    ;;
+  *)
+    echo "stub film-develop: unknown command ${1:-}" >&2
+    exit 2
+    ;;
+esac

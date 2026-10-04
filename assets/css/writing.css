@@ -169,6 +169,9 @@
 
 .writing-clear:hover { color: var(--ink); }
 
+/* The keyword's feed sits after "Clear filter", quieter than it. */
+.writing-follow { font-weight: 500; }
+
 /* ── The lead story ────────────────────────────────────────────── */
 
 .writing-lead {

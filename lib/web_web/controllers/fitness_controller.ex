@@ -107,66 +107,6 @@ defmodule WebWeb.FitnessController do
     end
   end
 
-  def export_biometrics_csv(conn, _params) do
-    if get_session(conn, "admin_user") == true do
-      # Fetch all biometrics sorted by date desc
-      biometrics = Fitness.list_biometrics()
-
-      headers = [
-        "date",
-        "weight_lbs",
-        "bmi",
-        "body_fat_percent",
-        "sleep_hours",
-        "calories_in",
-        "protein_grams",
-        "fiber_grams",
-        "water_oz",
-        "resting_hr",
-        "screentime_hours"
-      ]
-
-      height = Web.Fitness.Biometric.height_inches()
-
-      rows =
-        biometrics
-        |> Enum.map(fn b ->
-          [
-            b.date,
-            b.weight_lbs || "NA",
-            Web.Fitness.Biometric.bmi(b, height) || "NA",
-            b.body_fat_percentage || "NA",
-            b.sleep_hours || "NA",
-            b.calories_in || "NA",
-            b.protein_grams || "NA",
-            b.fiber_grams || "NA",
-            b.water_oz || "NA",
-            b.resting_hr || "NA",
-            b.screentime_hours || "NA"
-          ]
-        end)
-
-      csv_content =
-        [headers | rows]
-        |> Enum.map(fn row ->
-          Enum.map(row, &escape_csv_field/1)
-          |> Enum.join(",")
-        end)
-        |> Enum.join("\n")
-
-      filename = "biometrics_log_#{Date.to_string(Date.utc_today())}.csv"
-
-      conn
-      |> put_resp_content_type("text/csv")
-      |> put_resp_header("content-disposition", ~s[attachment; filename="#{filename}"])
-      |> send_resp(200, csv_content)
-    else
-      conn
-      |> put_flash(:error, "Unauthorized")
-      |> redirect(to: "/fitness")
-    end
-  end
-
   defp escape_csv_field(nil), do: ""
 
   defp escape_csv_field(val) when is_binary(val) do

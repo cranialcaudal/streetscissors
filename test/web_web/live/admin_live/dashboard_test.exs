@@ -1,40 +1,90 @@
 defmodule WebWeb.AdminLive.DashboardTest do
   use WebWeb.ConnCase
   import Phoenix.LiveViewTest
+  import Web.GeneralFixtures
 
-  alias Web.Newsletter.Subscriber
-  alias Web.Repo
+  alias Web.Backup
+  alias Web.Contact
 
-  test "admin can remove a subscriber from the dashboard", %{conn: conn} do
-    sub = Repo.insert!(%Subscriber{email: "gone@example.com", active: true})
+  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
 
-    conn = init_test_session(conn, %{"admin_user" => "true"})
-    {:ok, view, html} = live(conn, "/admin/dashboard")
+  # The queue lists posts without keywords, and the committed fixture posts
+  # are not all keyworded, so tests that need an empty queue use an empty
+  # blog. They also need a fresh database snapshot, since an overdue one is a
+  # queue row of its own.
+  defp quiet_site(_context) do
+    blog = Path.join(System.tmp_dir!(), "blog-empty-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(blog)
+    original_blog = Application.get_env(:web, :blog_path)
+    Application.put_env(:web, :blog_path, blog)
 
-    assert html =~ "gone@example.com"
+    File.mkdir_p!(Backup.backup_dir())
+    stamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d-%H%M%S")
+    snapshot = Path.join(Backup.backup_dir(), "web-#{stamp}.db")
+    File.write!(snapshot, "")
 
-    view
-    |> element("button[phx-click='delete_subscriber'][phx-value-id='#{sub.id}']")
-    |> render_click()
+    on_exit(fn ->
+      File.rm_rf!(blog)
+      File.rm(snapshot)
+      Application.put_env(:web, :blog_path, original_blog)
+    end)
 
-    refute render(view) =~ "gone@example.com"
-    refute Repo.get(Subscriber, sub.id)
+    :ok
   end
 
-  # The admin layout's flash group wore the same never-generated utility
-  # classes as the public one.
-  test "saving a setting is confirmed in a notice", %{conn: conn} do
-    conn = init_test_session(conn, %{"admin_user" => "true"})
-    {:ok, view, _html} = live(conn, "/admin/dashboard")
+  test "anonymous visitors are redirected away", %{conn: conn} do
+    assert {:error, {:redirect, %{to: "/"}}} = live(conn, "/admin/dashboard")
+  end
 
-    view
-    |> form("form[phx-submit=save_settings]", spotify_playlist_id: "abc123")
-    |> render_submit()
+  test "each waiting thing is a link to the page where it gets done", %{conn: conn} do
+    guestbook_entry_fixture(%{approved: false})
+    {:ok, _} = Contact.create_message(%{name: "Ada", email: "ada@example.com", message: "Hi"})
+
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
 
     assert has_element?(
              view,
-             ".admin-layout #flash-info.flash-notice",
-             "Settings saved! Playlist ID: abc123"
+             ~s(#needs-you a[href="/admin/guestbook?show=held"]),
+             "signature waits for approval"
            )
+
+    assert has_element?(view, ~s(#needs-you a[href="/admin/inbox?box=inbox"]), "in the inbox")
+  end
+
+  describe "on a quiet site" do
+    setup :quiet_site
+
+    test "the queue says so when nothing is waiting", %{conn: conn} do
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/dashboard")
+      assert html =~ "Nothing needs you."
+    end
+  end
+
+  test "the machine panel reports backups, and admits content has none", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(view, "#system", "Database snapshots")
+    assert has_element?(view, "#system", "content/ has no automatic backup yet")
+    assert has_element?(view, "#system", "Komoot sync")
+  end
+
+  test "the rail marks the page you're on and counts what's waiting", %{conn: conn} do
+    guestbook_entry_fixture(%{approved: false})
+    guestbook_entry_fixture(%{approved: false})
+
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(view, ~s(#adm-rail a[href="/admin/dashboard"][aria-current="page"]))
+    refute has_element?(view, ~s(#adm-rail a[href="/admin/blog"][aria-current="page"]))
+    assert has_element?(view, ~s(#adm-rail a[href="/admin/guestbook"] .adm-badge), "2")
+  end
+
+  # The indicator is in the root layout, so these read the dead render. The
+  # login sets the flag to a real `true`, which is what SetCurrentUser checks.
+  test "the admin indicator shows on public pages but not in the admin", %{conn: conn} do
+    conn = init_test_session(conn, %{"admin_user" => true})
+
+    assert conn |> get("/blog") |> html_response(200) =~ ~s(id="admin-indicator")
+    refute conn |> get("/admin/dashboard") |> html_response(200) =~ ~s(id="admin-indicator")
   end
 end

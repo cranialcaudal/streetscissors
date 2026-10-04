@@ -1,0 +1,475 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ALMANAC — /day/:date and /almanac/:year (WebWeb.AlmanacHTML)
+   ═══════════════════════════════════════════════════════════════════
+   The site read by date, on the ordinary paper ground. A day page sets
+   the date large in Goudy and lists what was made; a year page lays the
+   twelve months out like a contact sheet, one cell per day, with a mark
+   for each kind of work: ink square for writing, poppy dot for a log,
+   laurel outline for a roll of film, dusk bar for an activity.
+
+   The print rules at the bottom are the printed edition: the year page,
+   printed, is a clean ink-on-white object with no header or controls.
+   ─────────────────────────────────────────────────────────────────── */
+
+.almanac {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem) 5rem;
+  color: var(--ink);
+}
+
+.almanac-head {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.almanac-slug {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.almanac-slug a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.almanac-slug a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.almanac-date {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* app.css sets every <time> in the data voice; the date here is display type. */
+.almanac-date time {
+  font-family: inherit;
+  font-variant-numeric: normal;
+}
+
+.almanac-weekday {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-style: italic;
+  font-size: 0.45em;
+  color: var(--ink-3);
+}
+
+.almanac-lede {
+  max-width: 62ch;
+  margin: 1rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* ── A piece's date, linking to its day ─────────────────────────── */
+
+/* Every post, log and activity carries its date in a meta line styled by
+   its own section; wrapped in this, the date links to /day/:date and keeps
+   the meta line's ink, with a dotted rule to say it can be pressed. */
+.day-link {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.day-link:hover {
+  text-decoration-style: solid;
+}
+
+/* ── A day ────────────────────────────────────────────────────────── */
+
+.almanac-kind {
+  margin-bottom: 2.75rem;
+}
+
+.almanac-kind-title {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.almanac-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almanac-entry {
+  border-bottom: 1px solid var(--rule);
+}
+
+.almanac-entry-link {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 44px;
+  padding: 0.9rem 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.almanac-entry-link:hover .almanac-entry-title {
+  color: var(--accent-ink);
+}
+
+.almanac-entry-image {
+  flex: 0 0 auto;
+  width: 160px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+.almanac-entry-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.almanac-entry-title {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.almanac-entry-note {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.almanac-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.almanac-step,
+.almanac-years a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.almanac-step:hover,
+.almanac-years a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── A year ───────────────────────────────────────────────────────── */
+
+.almanac-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.almanac-years {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.almanac-print {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  background: transparent;
+  border: 1px solid var(--accent-ink);
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.almanac-print:hover {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--paper);
+}
+
+.almanac-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+
+.almanac-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The marks. One shape per kind, so the sheet reads in black and white too. */
+.almanac-mark {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+}
+
+.almanac-mark--post { background: var(--ink); }
+.almanac-mark--log { background: var(--color-orange); border-radius: 50%; }
+.almanac-mark--roll { border: 1.5px solid var(--color-jade); }
+.almanac-mark--ride { width: 10px; height: 3px; background: var(--color-dodger); }
+
+.almanac-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem 1.75rem;
+}
+
+.almanac-month-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.2rem;
+}
+
+.almanac-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almanac-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+}
+
+/* The week's initials above each month, Monday first. */
+.almanac-cal-head {
+  aspect-ratio: auto;
+  padding: 0 0 0 3px;
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+
+.almanac-cell-num {
+  display: block;
+  padding: 2px 0 0 3px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  color: var(--ink-4);
+}
+
+.almanac-cell.has-work {
+  background: var(--paper-raised);
+  outline: 1px solid var(--rule-strong);
+}
+
+.almanac-cell-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  text-decoration: none;
+}
+
+.almanac-cell-link .almanac-cell-num {
+  color: var(--ink);
+}
+
+.almanac-cell-link:hover {
+  background: var(--paper-sunk);
+}
+
+.almanac-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px 3px;
+}
+
+/* The ledger: the same year as words, month by month. */
+.almanac-ledger {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule-strong);
+  columns: 2 22rem;
+  column-gap: 3rem;
+}
+
+.almanac-ledger-month {
+  break-inside: avoid;
+  margin-bottom: 2rem;
+}
+
+.almanac-ledger-title {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.35rem;
+}
+
+.almanac-ledger-days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almanac-ledger-days > li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.almanac-ledger-date {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.almanac-ledger-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almanac-ledger-entries li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.almanac-ledger-entries a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.almanac-ledger-entries a:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 1000px) {
+  .almanac-sheet {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .almanac-sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 1rem;
+  }
+
+  .almanac-entry-image {
+    width: 96px;
+  }
+}
+
+/* ── The printed edition ──────────────────────────────────────────── */
+
+/* Printed, the year page is the whole object: no header, no controls, ink
+   on white, four months to a row, the ledger starting a fresh page. White
+   is named rather than read from a token because it is the paper the
+   printer holds, not the site's. */
+@media print {
+  .blog-universal-header,
+  .flash-group,
+  #admin-indicator,
+  #newsletter-overlay,
+  .almanac-print,
+  .almanac-years,
+  .almanac-steps {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .main-content-wrapper {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .almanac {
+    max-width: none;
+    padding: 0;
+  }
+
+  .almanac-sheet {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem 1rem;
+  }
+
+  .almanac-month {
+    break-inside: avoid;
+  }
+
+  .almanac-cell.has-work {
+    background: none;
+    outline: 0.5pt solid var(--ink);
+  }
+
+  .almanac-ledger {
+    break-before: page;
+    border-top: 0;
+  }
+
+  .almanac a {
+    color: var(--ink) !important;
+    text-decoration: none !important;
+  }
+}

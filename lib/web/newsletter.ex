@@ -1,6 +1,7 @@
 defmodule Web.Newsletter do
   import Ecto.Query, warn: false
   alias Web.Repo
+  alias Web.Newsletter.Draft
   alias Web.Newsletter.Subscriber
 
   alias Web.Email
@@ -89,22 +90,56 @@ defmodule Web.Newsletter do
     Repo.all(Subscriber) |> Enum.sort_by(& &1.inserted_at, {:desc, NaiveDateTime})
   end
 
-  @doc "Logs a completed broadcast so past sends stay visible in the admin UI."
-  def record_send(subject, body, recipient_count) do
-    %Web.Newsletter.Draft{}
-    |> Web.Newsletter.Draft.changeset(%{
+  @doc """
+  Logs a completed broadcast so past sends stay visible in the admin UI.
+
+  Given the draft it was composed from, that row becomes the record of the
+  send rather than leaving a stale draft beside a second, sent copy.
+  """
+  def record_send(subject, body, recipient_count, draft \\ nil) do
+    (draft || %Draft{})
+    |> Draft.changeset(%{
       subject: subject,
       body: body,
       status: "sent",
       sent_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       recipient_count: recipient_count
     })
-    |> Repo.insert()
+    |> Repo.insert_or_update()
+  end
+
+  # --- Drafts ---
+  #
+  # `newsletter_drafts` has always had a `status`; until the admin was rebuilt
+  # it only ever held "sent" rows. A draft is the same row before it goes out.
+
+  def list_drafts do
+    Repo.all(from d in Draft, where: d.status == "draft", order_by: [desc: d.updated_at])
+  end
+
+  @doc "A draft by id, or `nil` — never a row that has already been sent."
+  def get_draft(id), do: Repo.get_by(Draft, id: id, status: "draft")
+
+  @doc "Creates a draft, or updates the one given."
+  def save_draft(draft \\ nil, attrs) do
+    (draft || %Draft{})
+    |> Draft.changeset(Map.put(attrs, "status", "draft"))
+    |> Repo.insert_or_update()
+  end
+
+  def delete_draft(%Draft{status: "draft"} = draft), do: Repo.delete(draft)
+
+  @doc """
+  Sends one copy to a single address, marked `[Test]` and recorded nowhere —
+  for seeing the message in a real inbox before it goes to everyone.
+  """
+  def send_test(address, subject, body) do
+    address
+    |> Email.newsletter("[Test] " <> subject, body)
+    |> Mailer.deliver()
   end
 
   def list_sent do
-    Repo.all(
-      from d in Web.Newsletter.Draft, where: d.status == "sent", order_by: [desc: d.sent_at]
-    )
+    Repo.all(from d in Draft, where: d.status == "sent", order_by: [desc: d.sent_at])
   end
 end

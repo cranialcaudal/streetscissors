@@ -16,9 +16,17 @@ if [ "${STUB_MAGICK_FAIL:-0}" = "1" ]; then
   exit 1
 fi
 
+if command -v magick >/dev/null 2>&1; then
+  exec magick "$@"
+fi
+
 input="$1"
 for last; do :; done
 output="$last"
 
 mkdir -p "$(dirname "$output")"
-cp "$input" "$output"
+if [ -f "$input" ]; then
+  cp "$input" "$output"
+else
+  touch "$output"
+fi

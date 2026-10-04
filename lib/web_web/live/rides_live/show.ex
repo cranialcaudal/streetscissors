@@ -10,7 +10,7 @@ defmodule WebWeb.RidesLive.Show do
     {:ok,
      assign(socket,
        ride: ride,
-       komoot_url: Rides.tour_url(ride),
+       route: Rides.route(ride),
        page_title: Activity.title(ride)
      )}
   end
@@ -24,21 +24,7 @@ defmodule WebWeb.RidesLive.Show do
         <Activity.meta ride={@ride} />
         <h1 class="activity-title">{Activity.title(@ride)}</h1>
 
-        <%!-- Komoot's embed for every tour it will show — a private one through
-              its share token — else the static map cached at sync time. --%>
-        <Activity.plate ride={@ride} downhill loading="eager" />
-
-        <Activity.health ride={@ride} trace />
-
-        <a
-          :if={@komoot_url}
-          href={@komoot_url}
-          class="activity-komoot"
-          target="_blank"
-          rel="noopener"
-        >
-          Open on Komoot <span aria-hidden="true">↗</span>
-        </a>
+        <Activity.plate ride={@ride} route={@route} downhill />
       </article>
     </div>
     """

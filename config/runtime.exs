@@ -44,6 +44,16 @@ if author_name = System.get_env("AUTHOR_NAME") do
   config :web, :author_name, author_name
 end
 
+# Profiles elsewhere that should verify this domain as their owner's
+# (`<link rel="me">`), comma-separated. Unset, the site links to none — the
+# no-cross-linking default in WebWeb.SEO.person_json_ld_tag/0 holds.
+config :web,
+       :rel_me,
+       (System.get_env("REL_ME_URLS") || "")
+       |> String.split(",", trim: true)
+       |> Enum.map(&String.trim/1)
+       |> Enum.filter(&String.starts_with?(&1, "https://"))
+
 # What the /pc terminal calls itself. Unset, it is "The Machine".
 if machine_name = System.get_env("MACHINE_NAME") do
   config :web, :machine_name, machine_name
@@ -60,13 +70,6 @@ if config_env() == :prod do
   config :web, Web.Repo,
     database: database_path,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
-
-  # Komoot static-map thumbnails live beside the database so they persist
-  # on the data volume.
-  config :web,
-         :ride_thumbs_path,
-         System.get_env("RIDE_THUMBS_PATH") ||
-           Path.join(Path.dirname(database_path), "ride_thumbs")
 
   # Uploaded audio for the captain's logs. This MUST resolve outside the
   # release: Web.Uploads defaults to "priv/static/uploads", and a release ships
@@ -107,8 +110,27 @@ if config_env() == :prod do
     email: System.get_env("KOMOOT_EMAIL"),
     password: System.get_env("KOMOOT_PASSWORD")
 
-  # Health Auto Export webhook token (optional — endpoint returns 401 when unset).
-  config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
+  # Privacy zones: `lat,lng,radius_m`, several separated by `;`. Every ride
+  # track is cut where it enters one (Web.Rides.Privacy) before anything is
+  # drawn from it. Unset, routes are published whole. The salt fixes where
+  # the cuts fall; it defaults to the secret key base and only needs setting
+  # to keep the cuts where they are across a change of that key.
+  # The film scanner (admin → Scanner). SCANNER_DEVICE pins a SANE backend by
+  # id prefix (e.g. "epkowa") when more than one scanner is attached; the
+  # areas are where one strip sits in the film holder, as
+  # "left,top,width,height" in millimetres, measured off a bed preview.
+  config :web, :scanner_device, System.get_env("SCANNER_DEVICE")
+
+  config :web, :scanner_areas, %{
+    "35mm" => System.get_env("SCANNER_AREA_35MM"),
+    "120" => System.get_env("SCANNER_AREA_120")
+  }
+
+  config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
+
+  config :web,
+         :ride_privacy_salt,
+         System.get_env("RIDE_PRIVACY_SALT") || System.get_env("SECRET_KEY_BASE")
 
   # Off-disk copy of each database snapshot (optional — skipped when unset or
   # when the target is not mounted).

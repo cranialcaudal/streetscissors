@@ -4,12 +4,6 @@ defmodule Web.Blog.RideEmbedsTest do
   import Web.RidesFixtures
 
   alias Web.Blog.Embeds
-  alias Web.Rides.Thumbs
-
-  setup do
-    File.rm_rf!(Thumbs.dir())
-    :ok
-  end
 
   test "expands a ride embed into a card" do
     ride = ride_fixture(%{name: "Evening Loop"})
@@ -27,11 +21,12 @@ defmodule Web.Blog.RideEmbedsTest do
     assert html =~ "&lt;script&gt;"
   end
 
-  test "includes the thumbnail when cached" do
+  test "includes the route's outline once the ride has a track" do
     ride = ride_fixture()
-    :ok = Thumbs.store(ride, "fake-jpeg")
+    {:ok, ride} = Web.Rides.store_track(ride, [{45.0, 7.0, 300.0, 0}, {45.001, 7.001, 305.0, 9}])
     html = Embeds.transform("![[ride:#{ride.id}]]")
-    assert html =~ ~s(src="/fitness/rides/#{ride.id}/thumb")
+    assert html =~ ~s(<svg class="blog-embed-ride-route")
+    assert html =~ ~s(<path d="#{ride.route_path}")
   end
 
   test "renders captions" do

@@ -193,7 +193,6 @@
 /* ── Live numbers: the only hot metal on the page ─────────────────── */
 
 .steel .activity-figure-value,
-.steel .bio-score-num,
 .steel .steel-figure {
   font-family: var(--font-data);
   font-weight: 800;

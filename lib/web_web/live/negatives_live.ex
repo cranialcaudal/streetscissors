@@ -20,6 +20,9 @@ defmodule WebWeb.NegativesLive do
       |> assign(:from, params["from"])
       |> assign(:return_to, return_to)
       |> assign(:return_label, return_label)
+      # For the letters under a frame: a nested LiveView cannot read the
+      # client's address itself, so the page hands it over.
+      |> assign(:client_ip, WebWeb.ClientIP.from_socket(socket))
 
     {:ok, socket}
   end
@@ -474,13 +477,14 @@ defmodule WebWeb.NegativesLive do
           </nav>
 
           <%= if @view_mode == :frame do %>
-            <main class="single-presentation-viewport">
+            <main class="single-presentation-viewport h-entry">
+              <WebWeb.Microformats.entry_fields path={Format.frame_path(@sheet.roll, @frame.frame)} />
               <div class="presentation-stage">
                 <div class="stage-image-wrapper">
                   <img
                     src={@frame.url}
                     alt={"Roll ##{@sheet.roll}, frame #{@frame.frame}"}
-                    class="stage-image"
+                    class="stage-image u-photo"
                   />
                 </div>
 
@@ -500,16 +504,32 @@ defmodule WebWeb.NegativesLive do
                   </.link>
 
                   <div class="flanked-title">
-                    <span class="title-main">Frame {@frame.frame}</span>
+                    <span class="title-main p-name">Frame {@frame.frame}</span>
                     <%!-- The provenance the URL exists to carry: wherever this
                           photograph is linked from, it names the roll it was cut
                           from and links back to that sheet. --%>
-                    <.link
-                      patch={sheet_path(assigns, @sheet, mode: :single)}
-                      class="title-sub frame-origin"
-                    >
-                      From Roll #{@sheet.roll} • {@sheet.date} • {@sheet.format} Film
-                    </.link>
+                    <span class="title-sub">
+                      <.link
+                        patch={sheet_path(assigns, @sheet, mode: :single)}
+                        class="frame-origin"
+                      >
+                        From Roll #{@sheet.roll}
+                      </.link>
+                      •
+                      <%!-- The day the roll was scanned, which is the day it
+                            sits on in the almanac. --%>
+                      <.link
+                        :if={match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}
+                        href={~p"/day/#{@sheet.date}"}
+                        class="frame-origin"
+                      >
+                        <time class="dt-published" datetime={@sheet.date}>{@sheet.date}</time>
+                      </.link>
+                      <span :if={!match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}>
+                        {@sheet.date}
+                      </span>
+                      • {@sheet.format} Film
+                    </span>
                   </div>
 
                   <.link
@@ -541,6 +561,18 @@ defmodule WebWeb.NegativesLive do
                     <.icon name="hero-photo" class="size-5" /> Back to the contact sheet
                   </.link>
                 </footer>
+              </div>
+
+              <%!-- Keyed by frame: the arrows patch, and a new id is what
+                    remounts the letters for the photograph now showing. --%>
+              <div class="frame-letters">
+                {live_render(@socket, WebWeb.LettersLive,
+                  id: "letters-frame-#{@sheet.roll}-#{@frame.frame}",
+                  session: %{
+                    "piece" => Web.Pieces.frame(@sheet.roll, @frame.frame),
+                    "remote_ip" => @client_ip
+                  }
+                )}
               </div>
             </main>
           <% else %>

@@ -12,9 +12,6 @@
             stylesheet rule, which is why they rendered as loose words beside
             the framed playlist pill. Their frame lives in home.css. --%>
       <a href={~p"/guestbook"} class="top-bar-link" aria-label="Guestbook">
-        <%!-- Nib, then U+FE0E — the text-presentation selector, written as an
-              entity because a bare one would be invisible to the next reader. --%>
-        <span class="top-bar-glyph" aria-hidden="true">&#x2712;&#xFE0E;</span>
         <.icon name="hero-book-open" class="size-4 top-bar-icon" />
         <span class="top-bar-text">Guestbook</span>
       </a>
@@ -25,7 +22,16 @@
                 dropdown shows on :focus-within as well as :hover, and stays
                 open while focus moves on into the player. --%>
           <div class="spotify-pill-main" tabindex="0">
-            <i class="fab fa-spotify" aria-hidden="true"></i>
+            <svg
+              class="spotify-icon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.5 17.3c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.2-.8-.5-.1-.4.2-.7.5-.8 4.1-1 7.6-.5 10.3 1.2.3.2.4.6.2.9zm1.5-3.3c-.3.4-.8.5-1.2.3-3-1.8-7.5-2.4-11-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 4.1-1.2 9.1-.6 12.5 1.5.4.1.5.7.2 1zm.1-3.4C15.5 8.4 9 8.2 5.2 9.3c-.6.2-1.2-.2-1.3-.7-.2-.6.2-1.2.7-1.3 4.4-1.3 11.5-1.1 16 1.6.5.3.7 1 .4 1.5-.3.5-1 .7-1.5.4z" />
+            </svg>
             <span>Latest Playlist</span>
           </div>
           <div class="spotify-player-dropdown">
@@ -61,8 +67,6 @@
       >
         <span class="top-bar-text">Newsletter and Contact</span>
         <.icon name="hero-envelope" class="size-4 top-bar-icon" />
-        <%!-- Envelope + U+FE0E; see the nib above. --%>
-        <span class="top-bar-glyph" aria-hidden="true">&#x2709;&#xFE0E;</span>
       </button>
     </div>
   </nav>
@@ -128,7 +132,9 @@
       </a>
     </div>
     <footer class="home-footer">
-      &copy; 2026 streetscissors.
+      &copy; 2026 Cesar Anthony Moreno &middot; streetscissors.
+      <a href={~p"/almanac"} class="home-footer-link">The almanac</a>
+      <WebWeb.Microformats.representative_card />
       <a
         href={~p"/admin/login"}
         title="Admin Dashboard"

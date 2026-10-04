@@ -5,7 +5,7 @@
 
 # Redirect www to non-www
 www.streetscissors.com {
-    redir https://streetscissors.com{uri}
+    redir https://streetscissors.com{uri} permanent
 }
 
 streetscissors.com {

@@ -15,6 +15,17 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
     {:ok, _view, html} = live(admin_conn(conn), "/admin/rides")
     assert html =~ "Sync now"
     assert html =~ "Home loop"
-    assert html =~ "rides-admin-private"
+    assert html =~ ~s(class="adm-pill adm-pill--quiet ride-private")
+    # Nothing to draw until the sync has read its track.
+    assert html =~ "No track yet"
+    # With no zone set, the page says routes go out whole.
+    assert html =~ "routes are published whole"
+  end
+
+  test "the page says when the sync last ran", %{conn: conn} do
+    Web.Rides.KomootSync.record_run({:error, :auth_failed})
+
+    {:ok, _view, html} = live(admin_conn(conn), "/admin/rides")
+    assert html =~ ":auth_failed"
   end
 end

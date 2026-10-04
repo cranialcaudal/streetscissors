@@ -14,6 +14,18 @@ defmodule Web.Contact do
     |> Repo.all()
   end
 
+  def list_messages(status) when is_binary(status) do
+    from(m in Message, where: m.status == ^status, order_by: [desc: m.inserted_at])
+    |> Repo.all()
+  end
+
+  @doc "Messages per status (`inbox`, `attention`, `archive`); empty statuses are absent."
+  def count_by_status do
+    from(m in Message, group_by: m.status, select: {m.status, count(m.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
   def mark_as_read(id) do
     case Repo.get(Message, id) do
       nil ->
@@ -24,6 +36,8 @@ defmodule Web.Contact do
         |> Repo.update()
     end
   end
+
+  def get_message(id), do: Repo.get(Message, id)
 
   def update_status(id, status) do
     case Repo.get(Message, id) do

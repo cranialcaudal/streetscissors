@@ -3,6 +3,8 @@ defmodule WebWeb.PageController do
 
   import WebWeb.Navigation, only: [return_context: 1]
 
+  alias WebWeb.SEO
+
   def home(conn, _params) do
     # Random contact sheet for the photo hero card; nil when the
     # negatives directory is unavailable so the card degrades to its
@@ -13,9 +15,21 @@ defmodule WebWeb.PageController do
         sheets -> Enum.random(sheets)
       end
 
+    author = SEO.author_name()
+    title = if author, do: "streetscissors · #{author}", else: "streetscissors"
+
+    desc =
+      if author,
+        do: "Photographs, essays and recordings from the streetscissors darkroom by #{author}.",
+        else: "Photographs, essays and recordings from the streetscissors darkroom."
+
     conn
     |> assign(:is_home, true)
     |> assign(:hero_sheet, hero_sheet)
+    |> assign(:page_title, title)
+    |> assign(:og_title, title)
+    |> assign(:og_description, desc)
+    |> assign(:canonical_path, ~p"/")
     |> render(:home)
   end
 
@@ -36,8 +50,34 @@ defmodule WebWeb.PageController do
       end
 
     {return_to, return_label} = return_context(params["from"])
+    author = SEO.author_name() || "Cesar Anthony Moreno"
+    crumbs = [{"Home", ~p"/"}, {"About", ~p"/about"}]
 
-    render(conn, :about,
+    profile_json_ld = %{
+      "@context" => "https://schema.org",
+      "@type" => "ProfilePage",
+      "mainEntity" => %{
+        "@type" => "Person",
+        "name" => author,
+        "url" => SEO.absolute("/about"),
+        "jobTitle" => "Researcher",
+        "worksFor" => %{
+          "@type" => "Organization",
+          "name" => "UC Davis"
+        }
+      }
+    }
+
+    conn
+    |> assign(:page_title, "About · #{author}")
+    |> assign(:og_title, "About · #{author}")
+    |> assign(
+      :og_description,
+      "About #{author} — researcher at UC Davis studying cognitive science, writer, and photographer behind streetscissors."
+    )
+    |> assign(:canonical_path, ~p"/about")
+    |> assign(:json_ld, [profile_json_ld, SEO.breadcrumb_json_ld(crumbs)])
+    |> render(:about,
       return_to: return_to,
       return_label: return_label,
       html_content: html_content
@@ -45,7 +85,7 @@ defmodule WebWeb.PageController do
   end
 
   @how_to_path "docs/how-to.md"
-  @how_to_description "How the streetscissors site and the film pipeline behind it actually work — written for beginners, in parts."
+  @how_to_description "How the streetscissors site and the film pipeline behind it actually work: written for beginners, in parts."
 
   def how_to(conn, params) do
     # `docs/`, not `content/`: the manual documents the software and is licensed
@@ -69,6 +109,36 @@ defmodule WebWeb.PageController do
     |> assign(:og_description, @how_to_description)
     |> assign(:meta_description, @how_to_description)
     |> assign(:canonical_path, ~p"/how-to")
+    |> render(:how_to,
+      html_content: html_content,
+      contents: contents,
+      return_to: return_to,
+      return_label: return_label
+    )
+  end
+
+  @roadmap_path "docs/roadmap.md"
+  @roadmap_description "The plan for finishing the streetscissors site: what already stands, what gets built next, and in what order."
+
+  def roadmap(conn, params) do
+    # Same shell as the manual: docs/roadmap.md is read off disk at request
+    # time, so edits go live without a redeploy.
+    {html_content, contents} =
+      case File.read(@roadmap_path) do
+        {:ok, markdown} ->
+          Web.Docs.render(markdown)
+
+        {:error, _} ->
+          {"<p>The roadmap could not be read.</p>", []}
+      end
+
+    {return_to, return_label} = return_context(params["from"])
+
+    conn
+    |> assign(:page_title, "Roadmap")
+    |> assign(:og_description, @roadmap_description)
+    |> assign(:meta_description, @roadmap_description)
+    |> assign(:canonical_path, ~p"/roadmap")
     |> render(:how_to,
       html_content: html_content,
       contents: contents,

@@ -4,11 +4,37 @@ defmodule WebWeb.RidesLiveTest do
   import Phoenix.LiveViewTest
   import Web.RidesFixtures
 
-  alias Web.Rides.Thumbs
+  alias Web.Rides
+  alias Web.Rides.Privacy
 
-  setup do
-    File.rm_rf!(Thumbs.dir())
-    :ok
+  # An invented street: due north from the "house" at 45.0, 7.0, a point
+  # every ~22 m for ~2.2 km, altitude climbing with it.
+  @house {45.0, 7.0}
+  @track for i <- 0..100, do: {45.0 + i * 0.0002, 7.0, 300.0 + i, i * 5_000}
+
+  defp tracked_ride(attrs \\ %{}) do
+    ride = ride_fixture(attrs)
+    {:ok, ride} = Rides.store_track(ride, @track)
+    ride
+  end
+
+  defp with_zone(_context) do
+    Application.put_env(:web, :ride_privacy_zones, "45.0,7.0,400")
+    on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
+  end
+
+  # Every coordinate pair the plate hands to the browser.
+  defp published_points(view, ride) do
+    view
+    |> element("#route-#{ride.id}")
+    |> render()
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.attribute("data-route")
+    |> hd()
+    |> Jason.decode!()
+    |> Map.fetch!("segments")
+    |> Enum.concat()
+    |> Enum.map(fn [lng, lat | _] -> {lat, lng} end)
   end
 
   test "old ride paths redirect to /fitness/rides", %{conn: conn} do
@@ -114,71 +140,78 @@ defmodule WebWeb.RidesLiveTest do
     assert has_element?(view, ".activity-card-stats", "2,625 ft up")
   end
 
-  test "the featured activity is Komoot's embed; the cards keep Komoot's map", %{conn: conn} do
-    ride = ride_fixture(%{komoot_id: "987654321"})
-    :ok = Thumbs.store(ride, "fake-jpeg")
+  test "the featured activity is drawn by the site: map, profile, figures and outline", %{
+    conn: conn
+  } do
+    ride = tracked_ride()
 
-    {:ok, view, _html} = live(conn, ~p"/fitness/rides")
+    {:ok, view, html} = live(conn, ~p"/fitness/rides")
 
-    assert has_element?(
-             view,
-             ".activity-feature iframe.activity-embed[src='https://www.komoot.com/tour/987654321/embed?profile=1']"
-           )
+    assert has_element?(view, ".activity-feature #route-#{ride.id}[phx-hook='RouteMap']")
+    assert has_element?(view, ".activity-feature .activity-profile path.activity-profile-line")
+    assert has_element?(view, ".activity-feature .activity-figures")
+    assert has_element?(view, ".activity-card svg.activity-card-route path")
 
-    # Komoot's embed carries its own stats, so the page doesn't repeat them…
-    refute has_element?(view, ".activity-feature .activity-figures")
-    refute has_element?(view, ".activity-feature img.activity-map")
-    # …and the shelf still shows the route, at full colour.
-    assert has_element?(view, ".activity-card img[src='/fitness/rides/#{ride.id}/thumb']")
+    # With no zone set the whole track is published, both ends marked.
+    points = published_points(view, ride)
+    assert List.first(points) == @house
+    assert length(points) == 101
+
+    # Nothing of Komoot's is shown or linked: it would show the route whole.
+    refute html =~ "komoot.com"
+    refute html =~ "<iframe"
   end
 
-  test "a private tour is embedded through its share token", %{conn: conn} do
-    ride = ride_fixture(%{komoot_id: "555", visibility: "private", share_token: "tok"})
+  describe "with a privacy zone" do
+    setup :with_zone
 
-    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
+    test "no point within the zone's radius reaches either page", %{conn: conn} do
+      ride = tracked_ride()
 
-    assert has_element?(
-             index,
-             ".activity-feature iframe[src='https://www.komoot.com/tour/555/embed?share_token=tok&profile=1']"
-           )
+      for path <- [~p"/fitness/rides", ~p"/fitness/rides/#{ride.id}"] do
+        {:ok, view, html} = live(conn, path)
+        points = published_points(view, ride)
 
-    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-    assert has_element?(show, "iframe.activity-embed[src*='share_token=tok']")
+        assert points != []
+        assert Enum.all?(points, &(Privacy.distance_m(&1, @house) > 400))
 
-    assert has_element?(
-             show,
-             "a.activity-komoot[href='https://www.komoot.com/tour/555?share_token=tok']"
-           )
-  end
+        # The route's far end is still its finish; its near end is a cut.
+        assert List.last(points) == {45.02, 7.0}
+        assert html =~ ~s(&quot;start&quot;:false)
+        assert html =~ ~s(&quot;finish&quot;:true)
+      end
+    end
 
-  test "heart and energy come from the Apple Health workout paired with a ride", %{conn: conn} do
-    ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-    workout_fixture(%{started_at: ~U[2026-07-08 18:00:20Z], avg_hr: 142, max_hr: 171})
+    test "a ride that never leaves the zone shows its figures and no route", %{conn: conn} do
+      ride = ride_fixture()
+      {:ok, ride} = Rides.store_track(ride, Enum.take(@track, 10))
 
-    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
-    assert has_element?(index, ".activity-feature .activity-health", "Apple Health")
-    assert has_element?(index, ".activity-feature .activity-figure-value", "142 bpm")
-    assert has_element?(index, ".activity-card-health", "142 bpm · 612 kcal")
-    # The trace belongs to the ride's own page.
-    refute has_element?(index, ".heart-trace")
+      {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+      refute has_element?(view, "[phx-hook='RouteMap']")
+      assert has_element?(view, ".activity-map--blank")
+      assert has_element?(view, ".activity-figures")
 
-    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-    assert has_element?(show, ".activity-figure-label", "Max heart rate")
-    assert has_element?(show, ".activity-figure-value", "171 bpm")
-    assert has_element?(show, "#heart-trace-#{ride.id}[phx-hook] svg path.heart-trace-line")
-    assert has_element?(show, ".heart-trace-caption", "96–171 bpm")
-  end
+      {:ok, index, _html} = live(conn, ~p"/fitness/rides")
+      refute has_element?(index, ".activity-card svg")
+    end
 
-  test "a ride with no paired workout shows no health panel", %{conn: conn} do
-    ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-    workout_fixture(%{started_at: ~U[2026-07-08 18:30:00Z]})
+    test "an outline cut by other zones is not shown", %{conn: conn} do
+      tracked_ride()
+      Application.put_env(:web, :ride_privacy_zones, "45.0,7.0,900")
 
-    {:ok, index, _html} = live(conn, ~p"/fitness/rides")
-    refute has_element?(index, ".activity-health")
-    refute has_element?(index, ".activity-card-health")
+      {:ok, view, _html} = live(conn, ~p"/fitness/rides")
+      refute has_element?(view, ".activity-card svg")
+    end
 
-    {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-    refute has_element?(show, ".activity-health")
+    test "a zone setting that can't be read hides every route", %{conn: conn} do
+      ride = tracked_ride()
+      Application.put_env(:web, :ride_privacy_zones, "45.0;7.0,400")
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+        refute has_element?(view, "[phx-hook='RouteMap']")
+      end)
+    end
   end
 
   test "the year's mileage is one quiet line per year, below everything", %{conn: conn} do
@@ -204,34 +237,29 @@ defmodule WebWeb.RidesLiveTest do
     end
   end
 
-  test "show embeds Komoot's own map for a public tour", %{conn: conn} do
-    ride = ride_fixture(%{name: "Lakes loop", komoot_id: "987654321"})
+  test "show draws the route and links nowhere on Komoot, private tour or public", %{conn: conn} do
+    for visibility <- ~w(public private) do
+      ride = tracked_ride(%{name: "Lakes loop", visibility: visibility})
 
-    {:ok, view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-    assert html =~ "Lakes loop"
-    assert html =~ "https://www.komoot.com/tour/987654321/embed?profile=1"
-    refute has_element?(view, ".activity-figures")
-    assert has_element?(view, "a.activity-komoot[href='https://www.komoot.com/tour/987654321']")
+      {:ok, view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+      assert html =~ "Lakes loop"
+      assert has_element?(view, "#route-#{ride.id} [data-role='map']")
+      assert has_element?(view, ".activity-figure-label", "Downhill")
+      refute html =~ "komoot.com"
+    end
   end
 
-  test "show falls back to the cached route image for a private tour with no share token yet",
-       %{conn: conn} do
-    ride = ride_fixture(%{visibility: "private"})
-    :ok = Thumbs.store(ride, "fake-jpeg")
+  test "a ride whose track hasn't synced yet shows its figures over a blank plate", %{conn: conn} do
+    ride = ride_fixture()
 
-    {:ok, view, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-    assert html =~ ~s(src="/fitness/rides/#{ride.id}/thumb")
-    assert has_element?(view, ".activity-figure-label", "Downhill")
-    refute html =~ "komoot.com/tour/"
-    refute has_element?(view, "a.activity-komoot")
+    {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+    assert has_element?(view, ".activity-map--blank")
+    assert has_element?(view, ".activity-figures")
   end
 
-  test "thumbnails are served for every ride", %{conn: conn} do
-    ride = ride_fixture(%{visibility: "private"})
-    :ok = Thumbs.store(ride, "fake-jpeg")
-
-    assert response(get(conn, ~p"/fitness/rides/#{ride.id}/thumb"), 200) == "fake-jpeg"
-    assert response(get(conn, "/fitness/rides/abc/thumb"), 404)
+  test "the old thumbnail address is gone", %{conn: conn} do
+    ride = ride_fixture()
+    assert response(get(conn, "/fitness/rides/#{ride.id}/thumb"), 404)
   end
 
   test "an unknown ride 404s", %{conn: conn} do

@@ -43,6 +43,14 @@ defmodule WebWeb.Router do
       # The manual: how the site and the film pipeline work, rendered from
       # docs/how-to.md so the same file reads on GitHub.
       get "/how-to", PageController, :how_to
+      # The roadmap: where the site is going, rendered from
+      # docs/roadmap.md the same way.
+      get "/roadmap", PageController, :roadmap
+
+      # The site read by date: one day whole, one year at once (Web.Almanac).
+      get "/day/:date", AlmanacController, :day
+      get "/almanac", AlmanacController, :index
+      get "/almanac/:year", AlmanacController, :year
       get "/calendar-markdown", PageController, :calendar_markdown
 
       # The kitchen, rendered from content/fitness/meals.md. Deliberately
@@ -106,15 +114,12 @@ defmodule WebWeb.Router do
       get "/fitness/regimen", LegacyRedirectController, :fitness_regimen
 
       get "/fitness/export/csv", FitnessController, :export_csv
-      live "/fitness/biometrics", FitnessLive.Biometrics, :index
-      get "/fitness/biometrics/export", FitnessController, :export_biometrics_csv
 
       # Rides — must stay above the /fitness/:slug catch-all
       live "/fitness/rides", RidesLive.Index, :index
       # The live page is gone — above :id so old links redirect rather than 404
       get "/fitness/rides/live", RideRedirectController, :index
       live "/fitness/rides/:id", RidesLive.Show, :show
-      get "/fitness/rides/:id/thumb", RideThumbController, :show
 
       # Old fitness-blog post URLs — must stay last among /fitness routes
       get "/fitness/:slug", LegacyRedirectController, :fitness_slug
@@ -125,9 +130,11 @@ defmodule WebWeb.Router do
       get "/live", RideRedirectController, :live
     end
 
+    # AdminNav runs second: it feeds the rail (current page, waiting counts)
+    # and has nothing to compute for a visitor AdminAuth is turning away.
     live_session :admin,
       layout: {WebWeb.Layouts, :admin},
-      on_mount: {WebWeb.AdminAuth, :ensure_admin} do
+      on_mount: [{WebWeb.AdminAuth, :ensure_admin}, {WebWeb.AdminNav, :default}] do
       # Admin
       live "/admin/dashboard", AdminLive.Dashboard
       # The old single "content" hub routed uploads by file extension; blog and
@@ -135,15 +142,15 @@ defmodule WebWeb.Router do
       live "/admin/blog", AdminLive.BlogManager
       live "/admin/logs", AdminLive.LogsManager
       live "/admin/fitness", AdminLive.FitnessManager
+      live "/admin/scanner", AdminLive.Scanner
+      live "/admin/inbox", AdminLive.Inbox
       live "/admin/guestbook", AdminLive.GuestbookManager
+      live "/admin/citations", AdminLive.Citations
       live "/admin/newsletter", AdminLive.Newsletter
       get "/admin/subscribers/export", NewsletterController, :export_csv
       live "/admin/rides", AdminLive.RidesManager
+      live "/admin/settings", AdminLive.Settings
     end
-  end
-
-  pipeline :api do
-    plug :accepts, ["json"]
   end
 
   # RFC 8058 one-click unsubscribe. The POST comes from a mail client or the
@@ -155,14 +162,19 @@ defmodule WebWeb.Router do
     plug :accepts, ["html", "json"]
   end
 
-  scope "/api", WebWeb do
-    pipe_through :api
-    post "/health/ingest", HealthWebhookController, :ingest
-  end
-
   scope "/", WebWeb do
     pipe_through :one_click
     post "/unsubscribe/:token/one-click", UnsubscribeController, :one_click
+  end
+
+  # Webmention receiving (W3C Webmention). Like one-click unsubscribe, the
+  # POST comes from another server with no session or CSRF token, so it
+  # cannot go through :browser; nothing it carries is trusted until the
+  # source has been fetched and the author has approved the mention. No
+  # `accepts` plug: senders vary in what they send as Accept, and the answer
+  # is always a line of plain text.
+  scope "/", WebWeb do
+    post "/webmention", WebmentionController, :create
   end
 
   # LiveDashboard and the Swoosh mailbox preview.

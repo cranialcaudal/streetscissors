@@ -1,70 +1,70 @@
 defmodule WebWeb.AdminLive.FitnessManager do
+  @moduledoc """
+  The fitness vault's editor: the exercise wiki and the regimen's days, each
+  a markdown file under `content/fitness/` (`Web.Fitness.Vault`), so the vault
+  in Obsidian and this page write the same files.
+
+  Which list is showing is in the URL (`?tab=wiki|regimen`). Editing opens in
+  the page rather than over it — fields on the left, the markdown on the
+  right with a preview a click away — and a name filter narrows the wiki.
+  """
+
   use WebWeb, :live_view
+
+  import WebWeb.AdminComponents
 
   alias Web.Fitness.Vault
 
+  @tabs ~w(wiki regimen)
+
   def mount(_params, session, socket) do
     if session["admin_user"] do
-      days = Vault.list_days()
-      exercises = Vault.list_all_exercises()
-      muscle_groups = Vault.list_muscle_groups()
-
       {:ok,
        assign(socket,
-         page_title: "Fitness Manager | Streetscissors",
-         # "days", "exercises"
-         active_tab: "exercises",
-         days: days,
-         exercises: exercises,
-         muscle_groups: muscle_groups,
+         page_title: "Fitness | Admin",
+         tab: "wiki",
+         query: "",
+         days: Vault.list_days(),
+         exercises: Vault.list_all_exercises(),
+         muscle_groups: Vault.list_muscle_groups(),
          editor_mode: nil,
          editing_item: nil,
-         form_data: %{}
+         form_data: %{},
+         preview: false
        )}
     else
       {:ok, push_navigate(socket, to: "/")}
     end
   end
 
-  # --- Handlers ---
-  def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, active_tab: tab, editor_mode: nil)}
+  def handle_params(params, _uri, socket) do
+    tab = if params["tab"] in @tabs, do: params["tab"], else: "wiki"
+    {:noreply, assign(socket, tab: tab, editor_mode: nil, editing_item: nil)}
   end
 
-  def handle_event("cancel_edit", _params, socket) do
-    {:noreply, assign(socket, editor_mode: nil, editing_item: nil)}
+  # --- The lists ---
+
+  def handle_event("filter", %{"query" => query}, socket) do
+    {:noreply, assign(socket, :query, query)}
   end
 
-  def handle_event("new_item", %{"type" => type}, socket) do
-    case type do
-      "day" ->
-        {:noreply,
-         assign(socket,
-           editor_mode: :day,
-           form_data: %{
-             "slug" => "",
-             "title" => "",
-             "description" => "",
-             "tab" => "",
-             "content" => ""
-           }
-         )}
+  def handle_event("new_item", %{"type" => "day"}, socket) do
+    form = %{"slug" => "", "title" => "", "description" => "", "tab" => "", "content" => ""}
+    {:noreply, open_editor(socket, :day, nil, form)}
+  end
 
-      "exercise" ->
-        {:noreply,
-         assign(socket,
-           editor_mode: :exercise,
-           form_data: %{
-             "slug" => "",
-             "title" => "",
-             "muscle_group" => "",
-             "anatomy" => "",
-             "functional_category" => "",
-             "short_description" => "",
-             "content" => ""
-           }
-         )}
-    end
+  def handle_event("new_item", %{"type" => "exercise"}, socket) do
+    form = %{
+      "slug" => "",
+      "title" => "",
+      "muscle_group" => "",
+      "anatomy" => "",
+      "functional_category" => "",
+      "short_description" => "",
+      "content" => ""
+    }
+
+    {:noreply, open_editor(socket, :exercise, nil, form)}
   end
 
   def handle_event("edit_day", %{"slug" => slug}, socket) do
@@ -78,8 +78,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
           "content" => content
         }
 
-        {:noreply,
-         assign(socket, editor_mode: :day, editing_item: %{slug: slug}, form_data: form)}
+        {:noreply, open_editor(socket, :day, %{slug: slug}, form)}
 
       :error ->
         {:noreply, put_flash(socket, :error, "Day not found.")}
@@ -103,47 +102,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
           "original_muscle_group" => raw_data.muscle_group
         }
 
-        {:noreply,
-         assign(socket, editor_mode: :exercise, editing_item: %{slug: slug}, form_data: form)}
+        {:noreply, open_editor(socket, :exercise, %{slug: slug}, form)}
 
       :error ->
         {:noreply, put_flash(socket, :error, "Exercise not found.")}
-    end
-  end
-
-  def handle_event("save_day", %{"day" => params}, socket) do
-    slug = params["slug"]
-
-    if slug == "" do
-      {:noreply, put_flash(socket, :error, "Slug is required.")}
-    else
-      Vault.update_day(slug, params)
-
-      {:noreply,
-       socket
-       |> put_flash(:info, "Day saved.")
-       |> assign(editor_mode: nil, days: Vault.list_days())}
-    end
-  end
-
-  def handle_event("save_exercise", %{"exercise" => params}, socket) do
-    slug = params["slug"]
-
-    if slug == "" do
-      {:noreply, put_flash(socket, :error, "Slug is required.")}
-    else
-      old_group = params["original_muscle_group"]
-      Vault.update_exercise(slug, old_group, params)
-
-      # Reload exercises and muscle groups
-      {:noreply,
-       socket
-       |> put_flash(:info, "Exercise saved.")
-       |> assign(
-         editor_mode: nil,
-         exercises: Vault.list_all_exercises(),
-         muscle_groups: Vault.list_muscle_groups()
-       )}
     end
   end
 
@@ -156,307 +118,343 @@ defmodule WebWeb.AdminLive.FitnessManager do
      |> assign(exercises: Vault.list_all_exercises())}
   end
 
+  # --- The editor ---
+
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply, assign(socket, editor_mode: nil, editing_item: nil)}
+  end
+
+  # Keeps @form_data in step with the fields so the preview shows what is
+  # typed, not what was loaded.
+  def handle_event("editor_change", params, socket) do
+    case params[to_string(socket.assigns.editor_mode)] do
+      %{} = fields -> {:noreply, update(socket, :form_data, &Map.merge(&1, fields))}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_preview", _params, socket) do
+    {:noreply, update(socket, :preview, &(!&1))}
+  end
+
+  def handle_event("save_day", %{"day" => params}, socket) do
+    slug = String.trim(params["slug"] || "")
+
+    if slug == "" do
+      {:noreply, put_flash(socket, :error, "A day needs a slug — it is the file's name.")}
+    else
+      Vault.update_day(slug, params)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Saved #{slug}.md.")
+       |> assign(editor_mode: nil, days: Vault.list_days())}
+    end
+  end
+
+  def handle_event("save_exercise", %{"exercise" => params}, socket) do
+    slug = String.trim(params["slug"] || "")
+
+    if slug == "" do
+      {:noreply, put_flash(socket, :error, "An exercise needs a slug — it is the file's name.")}
+    else
+      Vault.update_exercise(slug, params["original_muscle_group"], params)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Saved #{slug}.md.")
+       |> assign(
+         editor_mode: nil,
+         exercises: Vault.list_all_exercises(),
+         muscle_groups: Vault.list_muscle_groups()
+       )}
+    end
+  end
+
+  defp open_editor(socket, mode, item, form) do
+    assign(socket, editor_mode: mode, editing_item: item, form_data: form, preview: false)
+  end
+
+  defp filtered(exercises, ""), do: exercises
+
+  defp filtered(exercises, query) do
+    needle = String.downcase(String.trim(query))
+
+    exercises
+    |> Enum.map(fn {group, list} ->
+      {group, Enum.filter(list, &String.contains?(String.downcase(&1.name || ""), needle))}
+    end)
+    |> Enum.reject(fn {_group, list} -> list == [] end)
+  end
+
+  defp exercise_count(exercises),
+    do: exercises |> Enum.map(fn {_, list} -> length(list) end) |> Enum.sum()
+
   # --- Rendering ---
+
   def render(assigns) do
     ~H"""
-    <div class="mission-control">
-      <main class="workspace">
-        <%= if @editor_mode do %>
-          {render_editor(assigns)}
-        <% else %>
-          <header class="workspace-header">
-            <div class="header-info">
-              <h1 class="workspace-title">Fitness Database</h1>
-              <p class="workspace-subtitle">Manage routines, biomechanics, and intelligence.</p>
-            </div>
+    <%= if @editor_mode do %>
+      {render_editor(assigns)}
+    <% else %>
+      <.page_head slug="Write / Fitness" title="Fitness">
+        <:lede>
+          The exercise wiki and the regimen's days, as markdown in the vault. The public side is <.link
+            href={~p"/fitness"}
+            target="_blank"
+            class="adm-link"
+          >/fitness</.link>.
+        </:lede>
+        <:actions>
+          <button
+            :if={@tab == "wiki"}
+            phx-click="new_item"
+            phx-value-type="exercise"
+            class="adm-btn adm-btn--primary"
+          >
+            <.icon name="hero-plus" class="size-4" /> New exercise
+          </button>
+          <button
+            :if={@tab == "regimen"}
+            phx-click="new_item"
+            phx-value-type="day"
+            class="adm-btn adm-btn--primary"
+          >
+            <.icon name="hero-plus" class="size-4" /> New day
+          </button>
+        </:actions>
+      </.page_head>
 
-            <div class="header-actions">
-              <button
-                phx-click="switch_tab"
-                phx-value-tab="exercises"
-                class={["action-btn", @active_tab == "exercises" && "accent"]}
-              >
-                <i class="fas fa-dumbbell"></i> Wiki
-              </button>
-              <button
-                phx-click="switch_tab"
-                phx-value-tab="days"
-                class={["action-btn", @active_tab == "days" && "accent"]}
-              >
-                <.icon name="hero-calendar" class="size-4" /> Regimen
-              </button>
-            </div>
-          </header>
+      <.tabs label="Vault">
+        <:tab
+          patch={~p"/admin/fitness?tab=wiki"}
+          active={@tab == "wiki"}
+          count={exercise_count(@exercises)}
+        >
+          Exercise wiki
+        </:tab>
+        <:tab patch={~p"/admin/fitness?tab=regimen"} active={@tab == "regimen"} count={length(@days)}>
+          Regimen
+        </:tab>
+      </.tabs>
 
-          <div class="workspace-content">
-            <%= case @active_tab do %>
-              <% "exercises" -> %>
-                {render_exercises(assigns)}
-              <% "days" -> %>
-                {render_days(assigns)}
-            <% end %>
-          </div>
-        <% end %>
-      </main>
-
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&family=JetBrains+Mono:wght@400;700&display=swap');
-
-        :root {
-          --panel-bg: rgba(10, 10, 12, 0.98);
-          --border-color: rgba(255, 255, 255, 0.08);
-          --accent-primary: #4ade80; /* Fitness Green */
-          --accent-secondary: #00f2ff;
-          --text-muted: #666;
-          --glass-surface: rgba(255, 255, 255, 0.02);
-        }
-
-        .mission-control { display: flex; height: 100%; min-height: 80vh; background: #000; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; }
-
-        .workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at 70% 20%, rgba(74, 222, 128, 0.05), transparent 50%), #000; }
-        .workspace-header { padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
-        .workspace-title { font-size: 2.2rem; font-weight: 800; margin: 0; letter-spacing: -1px; background: linear-gradient(to bottom, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .workspace-subtitle { color: #555; margin: 0.5rem 0 0 0; font-size: 1rem; }
-        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
-        .action-btn { padding: 0.8rem 1.5rem; border-radius: 30px; font-weight: 800; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 0.8rem; transition: all 0.3s; font-size: 0.9rem; letter-spacing: 0.5px; background: transparent; color: #aaa; }
-        .action-btn.accent { background: var(--accent-primary); border: none; color: #000; }
-        .action-btn.accent:hover { transform: scale(1.02); box-shadow: 0 10px 30px rgba(74, 222, 128, 0.2); }
-        .workspace-content { flex: 1; overflow-y: auto; padding: 3rem 4rem; position: relative; }
-
-        .items-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2rem; }
-        .writing-item { background: #080808; border: 1px solid var(--border-color); border-radius: 20px; padding: 2.5rem; display: flex; flex-direction: column; min-height: 200px; position: relative; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        .writing-item:hover { border-color: rgba(74, 222, 128, 0.3); transform: translateY(-8px); background: #0c0c0e; box-shadow: 0 30px 60px rgba(0,0,0,0.5); }
-        .item-type { font-size: 0.7rem; color: #444; margin-bottom: 0.8rem; letter-spacing: 2px; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; }
-        .item-title { font-size: 1.4rem; font-weight: 500; margin: 0 0 1.5rem 0; color: #fff; line-height: 1.25; }
-        .item-meta { display: flex; align-items: center; justify-content: space-between; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 1.2rem; }
-        .pill-sm { font-size: 0.7rem; color: #888; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
-        .mtime { font-size: 0.75rem; color: #333; }
-        .item-actions { position: absolute; top: 1.5rem; right: 1.5rem; display: flex; gap: 0.8rem; opacity: 0; transition: opacity 0.3s; }
-        .writing-item:hover .item-actions { opacity: 1; }
-        .icon-btn { width: 36px; height: 36px; border-radius: 10px; background: #000; border: 1px solid #222; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
-        .icon-btn:hover { color: #fff; border-color: #444; background: #111; }
-        .icon-btn.delete:hover { border-color: #f00; color: #f00; }
-
-        .list-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
-        .list-header-row h2 { margin: 0; font-size: 1.4rem; color: var(--accent-primary); }
-
-        .editor-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; background: #111; border-bottom: 1px solid var(--border-color); }
-        .editor-top-bar .meta { display: flex; align-items: center; gap: 1rem; }
-        .editor-top-bar .label { font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #666; background: #222; padding: 0.3rem 0.6rem; border-radius: 4px; }
-        .editor-top-bar .title { font-size: 1.2rem; font-weight: 600; }
-        .editor-top-bar .actions { display: flex; gap: 1rem; }
-        .editor-btn { padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 800; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; letter-spacing: 1px; background: transparent; color: #fff; transition: 0.3s; }
-        .editor-btn.accent { background: var(--accent-primary); border: none; color: #000; }
-        .editor-btn.accent:hover { opacity: 0.9; }
-
-        .editor-scaffold { display: flex; flex-direction: column; height: calc(100vh - 80px); }
-        .editor-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; background: #080808; border-bottom: 1px solid var(--border-color); }
-        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .input-group label { font-family: 'JetBrains Mono'; font-size: 0.7rem; color: #666; letter-spacing: 1px; }
-        .sc-input { background: #111; border: 1px solid #222; color: #fff; padding: 0.8rem; border-radius: 6px; font-family: 'Outfit'; outline: none; }
-        .sc-input:focus { border-color: var(--accent-primary); }
-        .markdown-workspace { flex: 1; padding: 0; }
-        .main-textarea { width: 100%; height: 100%; min-height: 500px; background: #050505; color: #e5e5e5; border: none; padding: 2rem; font-family: 'JetBrains Mono'; font-size: 0.95rem; line-height: 1.6; resize: none; outline: none; }
-      </style>
-    </div>
+      {if @tab == "wiki", do: render_exercises(assigns), else: render_days(assigns)}
+    <% end %>
     """
   end
 
   defp render_exercises(assigns) do
+    assigns = assign(assigns, :shown, filtered(assigns.exercises, assigns.query))
+
     ~H"""
-    <div class="list-header-row">
-      <h2>Exercise Wiki</h2>
-      <button phx-click="new_item" phx-value-type="exercise" class="action-btn accent">
-        + New Exercise
-      </button>
-    </div>
-    <%= for {group, exercises} <- @exercises do %>
-      <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: #888; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 2px;">
-        {group}
-      </h3>
-      <div class="items-list">
-        <%= for ex <- exercises do %>
-          <div class="writing-item manuscript">
-            <div class="item-main">
-              <div class="item-type">
-                <i class="fas fa-dumbbell"></i> {ex.functional_category || "Uncategorized"}
-              </div>
-              <h3 class="item-title">{ex.name}</h3>
-              <div class="item-meta">
-                <span class="tag pill-sm">{ex.anatomy || "Unknown Anatomy"}</span>
-              </div>
-            </div>
-            <div class="item-actions">
-              <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="icon-btn">
-                <.icon name="hero-pencil-square" class="size-4" />
-              </button>
-              <button
-                phx-click="delete_exercise"
-                phx-value-slug={ex.slug}
-                phx-value-group={group}
-                class="icon-btn delete"
-                phx-confirm="Delete exercise?"
-              >
-                <.icon name="hero-trash" class="size-4" />
-              </button>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
+    <form phx-change="filter" id="exercise-filter" class="adm-inline-form adm-filter" role="search">
+      <input
+        type="search"
+        name="query"
+        value={@query}
+        class="adm-input"
+        placeholder="Filter by name"
+        aria-label="Filter exercises by name"
+        phx-debounce="150"
+        autocomplete="off"
+      />
+    </form>
+
+    <.empty :if={@shown == []}>
+      {if @query == "", do: "The wiki is empty.", else: "No exercise matches “#{@query}”."}
+    </.empty>
+
+    <section :for={{group, exercises} <- @shown} class="adm-panel">
+      <h2 class="adm-group-title">{group}<span class="adm-count">{length(exercises)}</span></h2>
+      <.rows id={"exercises-#{group}"} rows={exercises}>
+        <:col :let={ex} label="Exercise" class="adm-cell-title adm-w-name">{ex.name}</:col>
+        <:col :let={ex} label="Category" class="adm-w-mid">{ex.functional_category || "—"}</:col>
+        <:col :let={ex} label="Anatomy">{ex.anatomy || "—"}</:col>
+        <:action :let={ex}>
+          <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="adm-link">Edit</button>
+        </:action>
+        <:action :let={ex}>
+          <button
+            phx-click="delete_exercise"
+            phx-value-slug={ex.slug}
+            phx-value-group={group}
+            data-confirm={"Delete #{ex.name} from the wiki? The file goes too."}
+            class="adm-link adm-link--danger"
+          >
+            Delete
+          </button>
+        </:action>
+      </.rows>
+    </section>
     """
   end
 
   defp render_days(assigns) do
     ~H"""
-    <div class="list-header-row">
-      <h2>Weekly Regimen</h2>
-      <button phx-click="new_item" phx-value-type="day" class="action-btn accent">+ New Day</button>
-    </div>
-    <div class="items-list">
-      <%= for day <- @days do %>
-        <div class="writing-item manuscript">
-          <div class="item-main">
-            <div class="item-type"><.icon name="hero-calendar-days" class="size-4" /> MODULE</div>
-            <h3 class="item-title">{day.title}</h3>
-            <div class="item-meta">
-              <span class="tag pill-sm">{day.tab}</span>
-            </div>
-          </div>
-          <div class="item-actions">
-            <button phx-click="edit_day" phx-value-slug={day.slug} class="icon-btn">
-              <.icon name="hero-pencil-square" class="size-4" />
-            </button>
-          </div>
-        </div>
-      <% end %>
-    </div>
+    <.rows id="days" rows={@days}>
+      <:col :let={day} label="Day" class="adm-cell-title">{day.title}</:col>
+      <:col :let={day} label="Tab">{day.tab}</:col>
+      <:col :let={day} label="File">{day.slug}.md</:col>
+      <:action :let={day}>
+        <button phx-click="edit_day" phx-value-slug={day.slug} class="adm-link">Edit</button>
+      </:action>
+      <:empty>No days in the regimen yet.</:empty>
+    </.rows>
     """
   end
 
   defp render_editor(assigns) do
     ~H"""
-    <div class="full-screen-editor">
-      <header class="editor-top-bar">
-        <div class="meta">
-          <span class="label">
-            <%= case @editor_mode do %>
-              <% :exercise -> %>
-                EXERCISE
-              <% :day -> %>
-                DAY
-            <% end %>
-          </span>
-          <span class="title">{@form_data["title"] || "New Item"}</span>
-        </div>
-        <div class="actions">
-          <button phx-click="cancel_edit" class="editor-btn secondary">CANCEL</button>
-          <button form="editor-form" type="submit" class="editor-btn accent">SAVE</button>
-        </div>
-      </header>
+    <.page_head
+      slug={"Write / Fitness / " <> if(@editor_mode == :exercise, do: "Exercise", else: "Day")}
+      title={presence(@form_data["title"]) || new_title(@editor_mode)}
+    >
+      <:actions>
+        <button type="button" phx-click="cancel_edit" class="adm-btn adm-btn--quiet">Cancel</button>
+        <button form="editor-form" type="submit" class="adm-btn adm-btn--primary">Save</button>
+      </:actions>
+    </.page_head>
 
-      <div class="editor-scaffold">
-        <form id="editor-form" phx-submit={"save_#{@editor_mode}"}>
-          <div class="editor-controls">
-            <div class="input-group">
-              <label>SLUG (filename)</label>
-              <input
-                name={"#{@editor_mode}[slug]"}
-                value={@form_data["slug"]}
-                class="sc-input"
-                required
-              />
-            </div>
-            <div class="input-group">
-              <label>TITLE</label>
-              <input
-                name={"#{@editor_mode}[title]"}
-                value={@form_data["title"]}
-                class="sc-input"
-                required
-              />
-            </div>
+    <form
+      id="editor-form"
+      class="adm-editor"
+      phx-submit={"save_#{@editor_mode}"}
+      phx-change="editor_change"
+    >
+      <div class="adm-sheet">
+        <.field label="Slug (the file's name)">
+          <input
+            name={"#{@editor_mode}[slug]"}
+            value={@form_data["slug"]}
+            class="adm-input"
+            required
+            readonly={@editing_item != nil}
+          />
+        </.field>
+        <.field label="Title">
+          <input
+            name={"#{@editor_mode}[title]"}
+            value={@form_data["title"]}
+            class="adm-input"
+            required
+          />
+        </.field>
 
-            <%= if @editor_mode == :exercise do %>
-              <div class="input-group">
-                <label>MUSCLE GROUP (FOLDER)</label>
-                <input
-                  name="exercise[muscle_group]"
-                  value={@form_data["muscle_group"]}
-                  list="muscle-groups"
-                  class="sc-input"
-                  placeholder="e.g. chest"
-                  required
-                />
-                <datalist id="muscle-groups">
-                  <%= for group <- @muscle_groups do %>
-                    <option value={group}></option>
-                  <% end %>
-                </datalist>
-                <input
-                  type="hidden"
-                  name="exercise[original_muscle_group]"
-                  value={@form_data["original_muscle_group"]}
-                />
-              </div>
-              <div class="input-group">
-                <label>ANATOMY</label>
-                <input
-                  name="exercise[anatomy]"
-                  value={@form_data["anatomy"]}
-                  class="sc-input"
-                  placeholder="e.g. Pectoralis Major"
-                />
-              </div>
-              <div class="input-group">
-                <label>FUNCTIONAL CATEGORY</label>
-                <input
-                  name="exercise[functional_category]"
-                  value={@form_data["functional_category"]}
-                  class="sc-input"
-                  placeholder="e.g. Absolute Strength"
-                />
-              </div>
-              <div class="input-group">
-                <label>THUMBNAIL URL</label>
-                <input
-                  name="exercise[thumbnail_url]"
-                  value={@form_data["thumbnail_url"]}
-                  class="sc-input"
-                />
-              </div>
-              <div class="input-group">
-                <label>VIDEO URL</label>
-                <input name="exercise[video_url]" value={@form_data["video_url"]} class="sc-input" />
-              </div>
-              <div class="input-group" style="grid-column: 1 / -1;">
-                <label>SHORT DESCRIPTION</label>
-                <input
-                  name="exercise[short_description]"
-                  value={@form_data["short_description"]}
-                  class="sc-input"
-                />
-              </div>
-            <% end %>
+        <%= if @editor_mode == :exercise do %>
+          <.field label="Muscle group (folder)">
+            <input
+              name="exercise[muscle_group]"
+              value={@form_data["muscle_group"]}
+              list="muscle-groups"
+              class="adm-input"
+              placeholder="e.g. chest"
+              required
+            />
+            <datalist id="muscle-groups">
+              <option :for={group <- @muscle_groups} value={group}></option>
+            </datalist>
+            <input
+              type="hidden"
+              name="exercise[original_muscle_group]"
+              value={@form_data["original_muscle_group"]}
+            />
+          </.field>
+          <.field label="Anatomy">
+            <input
+              name="exercise[anatomy]"
+              value={@form_data["anatomy"]}
+              class="adm-input"
+              placeholder="e.g. Pectoralis Major"
+            />
+          </.field>
+          <.field label="Functional category">
+            <input
+              name="exercise[functional_category]"
+              value={@form_data["functional_category"]}
+              class="adm-input"
+              placeholder="e.g. Absolute Strength"
+            />
+          </.field>
+          <.field label="Thumbnail URL">
+            <input
+              name="exercise[thumbnail_url]"
+              value={@form_data["thumbnail_url"]}
+              class="adm-input"
+            />
+          </.field>
+          <.field label="Video URL">
+            <input name="exercise[video_url]" value={@form_data["video_url"]} class="adm-input" />
+          </.field>
+          <.field label="Short description">
+            <textarea name="exercise[short_description]" class="adm-input adm-input--prose" rows="3">{@form_data["short_description"]}</textarea>
+          </.field>
+        <% end %>
 
-            <%= if @editor_mode == :day do %>
-              <div class="input-group">
-                <label>TAB NAME</label>
-                <input name="day[tab]" value={@form_data["tab"]} class="sc-input" required />
-              </div>
-              <div class="input-group" style="grid-column: 1 / -1;">
-                <label>DESCRIPTION</label>
-                <input name="day[description]" value={@form_data["description"]} class="sc-input" />
-              </div>
-            <% end %>
-          </div>
-
-          <div class="markdown-workspace">
-            <textarea name={"#{@editor_mode}[content]"} class="main-textarea"><%= @form_data["content"] %></textarea>
-          </div>
-        </form>
+        <%= if @editor_mode == :day do %>
+          <.field label="Tab name">
+            <input name="day[tab]" value={@form_data["tab"]} class="adm-input" required />
+          </.field>
+          <.field label="Description">
+            <textarea name="day[description]" class="adm-input adm-input--prose" rows="3">{@form_data["description"]}</textarea>
+          </.field>
+        <% end %>
       </div>
-    </div>
+
+      <div class="adm-editor-body">
+        <div class="adm-tabs" role="tablist" aria-label="Markdown">
+          <button
+            type="button"
+            class="adm-tab"
+            role="tab"
+            aria-selected={to_string(!@preview)}
+            aria-current={!@preview && "page"}
+            phx-click={@preview && "toggle_preview"}
+          >
+            Write
+          </button>
+          <button
+            type="button"
+            class="adm-tab"
+            role="tab"
+            aria-selected={to_string(@preview)}
+            aria-current={@preview && "page"}
+            phx-click={!@preview && "toggle_preview"}
+          >
+            Preview
+          </button>
+        </div>
+        <%!-- The textarea stays in the form while previewing, or the save
+              would go out without the body. --%>
+        <textarea
+          name={"#{@editor_mode}[content]"}
+          class="adm-input adm-input--code"
+          hidden={@preview}
+          phx-debounce="400"
+          aria-label="Markdown"
+        >{@form_data["content"]}</textarea>
+        <div :if={@preview} class="adm-prose">
+          {raw(Earmark.as_html!(@form_data["content"] || "", gfm: true))}
+        </div>
+      </div>
+    </form>
     """
   end
+
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+
+  defp field(assigns) do
+    ~H"""
+    <label class="adm-field">
+      <span class="adm-label">{@label}</span>
+      {render_slot(@inner_block)}
+    </label>
+    """
+  end
+
+  defp presence(nil), do: nil
+  defp presence(value), do: if(String.trim(value) == "", do: nil, else: value)
+
+  defp new_title(:exercise), do: "New exercise"
+  defp new_title(:day), do: "New day"
 end

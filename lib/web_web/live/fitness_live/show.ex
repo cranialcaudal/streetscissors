@@ -122,7 +122,7 @@ defmodule WebWeb.FitnessLive.Show do
               cursor: pointer; transition: background 0.2s, transform 0.15s;
             "
           >
-            <i class="fas fa-dna" style="font-size: 0.7rem;"></i>
+            <.icon name="hero-heart" class="size-3" />
             {@exercise.anatomy}
           </.link>
         <% end %>
@@ -154,7 +154,7 @@ defmodule WebWeb.FitnessLive.Show do
               cursor: pointer; transition: background 0.2s, transform 0.15s;
             "
           >
-            <i class="fas fa-book-medical" style="font-size: 0.7rem;"></i>
+            <.icon name="hero-book-open" class="size-3" />
             {format_group(@exercise.muscle_group)}
           </.link>
         <% end %>

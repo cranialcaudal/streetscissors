@@ -2,7 +2,7 @@ defmodule WebWeb.AdminLive.BlogManager do
   use WebWeb, :live_view
 
   alias Web.Blog
-  import WebWeb.CmsStyles
+  import WebWeb.AdminComponents
 
   @moduledoc """
   Admin for the blog: typed work only.
@@ -15,6 +15,10 @@ defmodule WebWeb.AdminLive.BlogManager do
 
   The image library lives here rather than in a general hub: it exists to
   produce markdown image links for posts.
+
+  `?filter=missing` narrows the list to posts without keywords — the ones the
+  public filters can't reach — which is where the overview's "no keywords"
+  row points.
   """
 
   @images_dir Path.join(["priv", "static", "images", "uploads"])
@@ -25,6 +29,7 @@ defmodule WebWeb.AdminLive.BlogManager do
      |> assign(:page_title, "Blog | Admin")
      |> assign(:uploaded, [])
      |> assign(:keyword_edit, nil)
+     |> assign(:filter, "all")
      |> load_posts()
      |> assign(:images, list_images())
      |> allow_upload(:markdown,
@@ -41,6 +46,11 @@ defmodule WebWeb.AdminLive.BlogManager do
        auto_upload: true,
        progress: &handle_progress/3
      )}
+  end
+
+  def handle_params(params, _uri, socket) do
+    filter = if params["filter"] == "missing", do: "missing", else: "all"
+    {:noreply, assign(socket, :filter, filter)}
   end
 
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -69,7 +79,7 @@ defmodule WebWeb.AdminLive.BlogManager do
 
   def handle_event("delete_post", %{"slug" => slug}, socket) do
     Blog.delete_post(slug)
-    {:noreply, socket |> load_posts() |> put_flash(:info, "Redacted.")}
+    {:noreply, socket |> load_posts() |> put_flash(:info, "Deleted #{slug}.md.")}
   end
 
   def handle_event("delete_image", %{"name" => name}, socket) do
@@ -78,7 +88,7 @@ defmodule WebWeb.AdminLive.BlogManager do
       :error -> :ok
     end
 
-    {:noreply, socket |> assign(:images, list_images()) |> put_flash(:info, "Image purged.")}
+    {:noreply, socket |> assign(:images, list_images()) |> put_flash(:info, "Image deleted.")}
   end
 
   defp handle_progress(:markdown, entry, socket) do
@@ -147,175 +157,164 @@ defmodule WebWeb.AdminLive.BlogManager do
   defp upload_error_message(:too_many_files), do: "Too many files at once."
   defp upload_error_message(error), do: to_string(error)
 
+  defp shown(posts, "missing"), do: Enum.filter(posts, &(&1.keywords == []))
+  defp shown(posts, _all), do: posts
+
   def render(assigns) do
+    assigns =
+      assigns
+      |> assign(:shown, shown(assigns.posts, assigns.filter))
+      |> assign(:missing_count, Enum.count(assigns.posts, &(&1.keywords == [])))
+
     ~H"""
-    <div class="cms">
-      <h1 class="cms-title">Blog</h1>
-      <p class="cms-lede">
-        Typed work only — spoken pieces live in <.link navigate={~p"/admin/logs"} class="cms-link">Captain's Logs</.link>.
-      </p>
+    <.page_head slug="Write / Blog" title="Blog">
+      <:lede>
+        Typed work, as markdown files in the vault; this page writes the same files. Spoken pieces
+        live in <.link navigate={~p"/admin/logs"} class="adm-link">Captain's Logs</.link>.
+      </:lede>
+      <:actions>
+        <.link href={~p"/blog"} target="_blank" class="adm-btn adm-btn--quiet">
+          <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View the blog
+        </.link>
+      </:actions>
+    </.page_head>
 
-      <section class="cms-panel">
-        <h2>Post markdown</h2>
-        <p class="cms-hint">
-          Frontmatter carries the metadata: <code>title</code>, <code>description</code>, <code>date</code>, and
-          <code>keywords</code>
-          (<code>tags</code> reads too, for
-          Obsidian's native key). Anything missing falls back to the filename and mtime.
-        </p>
+    <.panel title="Add posts">
+      <form id="markdown-upload-form" phx-change="validate">
+        <.drop_zone
+          upload={@uploads.markdown}
+          title="Drop .md files here"
+          hint="Up to 10 at a time. Frontmatter carries title, description, date and keywords (tags: works too); anything missing falls back to the filename and the file's date."
+          error_message={&upload_error_message/1}
+        />
+      </form>
 
-        <form id="markdown-upload-form" phx-change="validate">
-          <div class="cms-drop" phx-drop-target={@uploads.markdown.ref}>
-            <div class="cms-drop-title">DROP .MD FILES HERE</div>
-            <p class="cms-hint">Up to 10 at a time</p>
-            <label class="cms-browse">
-              BROWSE FILES <.live_file_input upload={@uploads.markdown} class="cms-file-input" />
-            </label>
+      <ul :if={@uploaded != []} class="adm-results">
+        <li :for={result <- @uploaded}>
+          <%= case result do %>
+            <% {:post, slug} -> %>
+              ✓ posted <code>{slug}.md</code>
+            <% {:image, path} -> %>
+              ✓ image at <code>{path}</code>
+          <% end %>
+        </li>
+      </ul>
+    </.panel>
 
-            <div :for={entry <- @uploads.markdown.entries} class="cms-entry">
-              {entry.client_name}
-              <div class="cms-progress">
-                <div class="cms-progress-bar" style={"width: #{entry.progress}%"}></div>
-              </div>
-              <p :for={err <- upload_errors(@uploads.markdown, entry)} class="cms-error">
-                {upload_error_message(err)}
-              </p>
+    <.panel title="Posts" count={length(@posts)}>
+      <.tabs label="Posts">
+        <:tab patch={~p"/admin/blog"} active={@filter == "all"} count={length(@posts)}>All</:tab>
+        <:tab
+          patch={~p"/admin/blog?filter=missing"}
+          active={@filter == "missing"}
+          count={@missing_count}
+        >
+          No keywords
+        </:tab>
+      </.tabs>
+
+      <.empty :if={@shown == []}>
+        {if @filter == "missing", do: "Every post has keywords.", else: "No posts yet."}
+      </.empty>
+
+      <div :if={@shown != []} class="adm-list" id="posts">
+        <article :for={post <- @shown} id={"post-#{post.slug}"} class="adm-item">
+          <div class="adm-item-main">
+            <h2 class="adm-item-title">{post.title}</h2>
+            <div class="adm-item-meta">
+              <span>{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
+              <span>{post.word_count} words</span>
+              <span>/blog/{post.slug}</span>
             </div>
-          </div>
-        </form>
 
-        <ul :if={@uploaded != []} class="cms-results">
-          <li :for={result <- @uploaded}>
-            <%= case result do %>
-              <% {:post, slug} -> %>
-                ✓ posted <code>{slug}.md</code>
-              <% {:image, path} -> %>
-                ✓ image at <code>{path}</code>
-            <% end %>
-          </li>
-        </ul>
-      </section>
-
-      <section class="cms-panel">
-        <h2>Archive ({length(@posts)})</h2>
-
-        <div :if={@posts == []} class="cms-empty">No posts yet.</div>
-
-        <div class="cms-list">
-          <div :for={post <- @posts} class="cms-item">
-            <div class="cms-item-head">
-              <div style="min-width: 0;">
-                <h3 class="cms-item-title">{post.title}</h3>
-                <div class="cms-item-meta">
-                  <span>{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
-                  <span>{post.word_count} words</span>
-                  <span>/blog/{post.slug}</span>
-                </div>
-
-                <div :if={post.keywords != []} class="cms-keywords">
-                  <span :for={keyword <- post.keywords} class="cms-keyword">{keyword}</span>
-                </div>
-                <div
-                  :if={post.keywords == [] and @keyword_edit != post.slug}
-                  class="cms-keyword-missing"
-                >
-                  ⚠ no keywords — this post cannot be filtered
-                </div>
-
-                <form
-                  :if={@keyword_edit == post.slug}
-                  phx-submit="save_keywords"
-                  class="cms-keyword-form"
-                >
-                  <input type="hidden" name="slug" value={post.slug} />
-                  <input
-                    type="text"
-                    name="keywords"
-                    class="cms-input"
-                    value={Enum.join(post.keywords, ", ")}
-                    placeholder="film, ferry, nyc"
-                    autocomplete="off"
-                  />
-                  <button type="submit" class="cms-link">Write</button>
-                  <button type="button" phx-click="cancel_keywords" class="cms-link">Cancel</button>
-                </form>
-              </div>
-
-              <div class="cms-item-actions">
-                <button
-                  :if={@keyword_edit != post.slug}
-                  phx-click="edit_keywords"
-                  phx-value-slug={post.slug}
-                  class="cms-link"
-                >
-                  Keywords
-                </button>
-                <button
-                  phx-click="delete_post"
-                  phx-value-slug={post.slug}
-                  class="cms-link danger"
-                  data-confirm="Purge this post?"
-                >
-                  Delete
-                </button>
-              </div>
+            <div :if={@keyword_edit != post.slug} class="adm-item-meta">
+              <.keyword_chips keywords={post.keywords} />
+              <.pill :if={post.keywords == []} tone="held">no keywords</.pill>
             </div>
+
+            <form
+              :if={@keyword_edit == post.slug}
+              phx-submit="save_keywords"
+              class="adm-inline-form"
+            >
+              <input type="hidden" name="slug" value={post.slug} />
+              <input
+                type="text"
+                name="keywords"
+                class="adm-input"
+                value={Enum.join(post.keywords, ", ")}
+                placeholder="film, ferry, nyc"
+                autocomplete="off"
+                aria-label={"Keywords for #{post.title}"}
+                phx-mounted={JS.focus()}
+              />
+              <button type="submit" class="adm-btn adm-btn--small">Write</button>
+              <button type="button" phx-click="cancel_keywords" class="adm-link adm-link--quiet">
+                Cancel
+              </button>
+            </form>
           </div>
-        </div>
-      </section>
 
-      <section class="cms-panel">
-        <h2>Image library</h2>
-        <p class="cms-hint">
-          Images for embedding in posts. Copy the markdown from a card below.
-        </p>
-
-        <form id="image-upload-form" phx-change="validate">
-          <div class="cms-drop" phx-drop-target={@uploads.image.ref}>
-            <div class="cms-drop-title">DROP IMAGES HERE</div>
-            <p class="cms-hint">.jpg .jpeg .png .gif .webp</p>
-            <label class="cms-browse">
-              BROWSE FILES <.live_file_input upload={@uploads.image} class="cms-file-input" />
-            </label>
-
-            <div :for={entry <- @uploads.image.entries} class="cms-entry">
-              {entry.client_name}
-              <div class="cms-progress">
-                <div class="cms-progress-bar" style={"width: #{entry.progress}%"}></div>
-              </div>
-              <p :for={err <- upload_errors(@uploads.image, entry)} class="cms-error">
-                {upload_error_message(err)}
-              </p>
-            </div>
+          <div class="adm-item-actions">
+            <.link href={~p"/blog/#{post.slug}"} target="_blank" class="adm-link">
+              View <.icon name="hero-arrow-top-right-on-square" class="size-4" />
+            </.link>
+            <button
+              :if={@keyword_edit != post.slug}
+              phx-click="edit_keywords"
+              phx-value-slug={post.slug}
+              class="adm-link"
+            >
+              Keywords
+            </button>
+            <button
+              phx-click="delete_post"
+              phx-value-slug={post.slug}
+              class="adm-link adm-link--danger"
+              data-confirm={"Delete #{post.slug}.md from the vault? This cannot be undone."}
+            >
+              Delete
+            </button>
           </div>
-        </form>
+        </article>
+      </div>
+    </.panel>
 
-        <div :if={@images == []} class="cms-empty">No images uploaded.</div>
+    <.panel title="Image library" count={length(@images)}>
+      <p class="adm-help">Images for embedding in posts. Copy a card's markdown into the post.</p>
 
-        <div :if={@images != []} class="cms-images" style="margin-top: 1.5rem;">
-          <div :for={image <- @images} class="cms-image">
-            <img src={image.path} alt={image.name} />
-            <input
-              type="text"
+      <form id="image-upload-form" phx-change="validate">
+        <.drop_zone
+          upload={@uploads.image}
+          title="Drop images here"
+          hint=".jpg .jpeg .png .gif .webp"
+          error_message={&upload_error_message/1}
+          class="adm-drop--spaced"
+        />
+      </form>
+
+      <.empty :if={@images == []}>No images uploaded.</.empty>
+
+      <div :if={@images != []} class="adm-images">
+        <div :for={{image, index} <- Enum.with_index(@images)} class="adm-image">
+          <img src={image.path} alt={image.name} loading="lazy" />
+          <div class="adm-image-body">
+            <.copy_field
+              id={"image-md-#{index}"}
               value={"![#{Path.rootname(image.name)}](#{image.path})"}
-              readonly
-              onclick="this.select(); navigator.clipboard && navigator.clipboard.writeText(this.value)"
             />
             <button
               phx-click="delete_image"
               phx-value-name={image.name}
-              class="cms-link danger"
-              data-confirm="Purge this image?"
-              style="margin-top: 0.4rem;"
+              class="adm-link adm-link--danger"
+              data-confirm="Delete this image? Posts that embed it will show a broken image."
             >
               Delete
             </button>
           </div>
         </div>
-      </section>
-
-      <.cms_styles />
-    </div>
+      </div>
+    </.panel>
     """
   end
 end

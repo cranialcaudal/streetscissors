@@ -3,6 +3,7 @@ defmodule WebWeb.BlogController do
 
   alias Web.Blog
   alias Web.Keywords
+  alias WebWeb.SEO
   import WebWeb.Navigation, only: [return_context: 1]
 
   def index(conn, params) do
@@ -21,11 +22,14 @@ defmodule WebWeb.BlogController do
       |> sort_posts(sort)
 
     {return_to, return_label} = return_context(params["from"])
+    crumbs = [{"Home", ~p"/"}, {"Writing", ~p"/blog"}]
 
     conn
     |> assign(:page_title, "Writing")
     |> assign(:og_description, "Notes, essays and photographs from the streetscissors darkroom.")
     |> assign(:canonical_path, ~p"/blog")
+    |> assign(:keyword_feed, keyword && ~p"/feed?keyword=#{keyword}")
+    |> assign(:json_ld, SEO.breadcrumb_json_ld(crumbs))
     |> render(:index,
       posts: visible,
       # Tallied across every post, not the filtered set, so the bar does not
@@ -90,6 +94,12 @@ defmodule WebWeb.BlogController do
           |> Map.put(:hit_count, Map.get(hit_counts(), Keywords.slugify(slug), 0))
 
         {return_to, return_label} = return_context(params["from"] || "blog")
+        crumbs = [{"Home", ~p"/"}, {"Writing", ~p"/blog"}, {post.title, ~p"/blog/#{post.slug}"}]
+
+        json_ld = [
+          SEO.article_json_ld(post),
+          SEO.breadcrumb_json_ld(crumbs)
+        ]
 
         conn
         |> assign(:page_title, post.title)
@@ -99,6 +109,7 @@ defmodule WebWeb.BlogController do
         |> assign(:og_description, post.excerpt)
         |> assign(:og_type, "article")
         |> assign(:canonical_path, ~p"/blog/#{post.slug}")
+        |> assign(:json_ld, json_ld)
         |> render(:show, post: post, return_to: return_to, return_label: return_label)
 
       {:error, _} ->

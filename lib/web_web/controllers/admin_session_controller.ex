@@ -7,10 +7,6 @@ defmodule WebWeb.AdminSessionController do
   @attempt_limit 10
   @attempt_window :timer.minutes(15)
 
-  def new(conn, _params) do
-    render(conn, :new)
-  end
-
   def create(conn, %{"password" => password}) do
     case Web.RateLimit.hit("admin_login:#{client_ip(conn)}",
            limit: @attempt_limit,

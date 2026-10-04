@@ -1,352 +1,231 @@
 defmodule WebWeb.AdminLive.Dashboard do
+  @moduledoc """
+  The admin's front page: what needs you, what is on file, who came by, and
+  whether the machine is looking after itself.
+
+  It used to be four unrelated screens stacked into one — traffic, the
+  contact inbox, the subscriber table and a Spotify setting. Those now live
+  on their own pages (Inbox, Newsletter, Settings), and this one only points
+  at them: every row in "Needs you" is a link to the page where the thing
+  gets done, and a row appears only when there is something to do.
+  """
+
   use WebWeb, :live_view
-  alias Web.Newsletter
-  alias Web.Analytics
-  alias Web.Contact
-  alias Web.SiteSettings
+
+  import WebWeb.AdminComponents
+
+  alias Web.{Analytics, Audio, Blog, Contact, General, Newsletter, Rides, SystemStatus}
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
-      subscribers = Newsletter.list_subscribers()
-      hits_today = Analytics.count_hits_today() || 0
-      {total_hits, biweekly_trends} = Analytics.get_biweekly_trends(28)
-      unique_today = Analytics.count_unique_visitors_today() || 0
-      top_pages = Analytics.top_pages(10)
-      messages = Contact.list_messages()
-
-      spotify_playlist_id =
-        SiteSettings.get_setting("spotify_playlist_id", "37i9dQZF1DXcBWIGoYBM5M")
-
-      {:ok,
-       assign(socket,
-         subscribers: subscribers,
-         page_title: "Admin Dashboard",
-         hits_today: hits_today,
-         total_hits: total_hits,
-         biweekly_trends: biweekly_trends,
-         unique_today: unique_today,
-         top_pages: top_pages,
-         messages: messages,
-         spotify_playlist_id: spotify_playlist_id
-       )}
+      {:ok, socket |> assign(page_title: "Overview | Admin") |> load()}
     else
       {:ok, push_navigate(socket, to: "/")}
     end
   end
 
-  def handle_event("message_status", %{"id" => id, "status" => status}, socket) do
-    Contact.update_status(id, status)
-    messages = Contact.list_messages()
-    {:noreply, assign(socket, messages: messages)}
+  defp load(socket) do
+    posts = Blog.list_posts()
+    logs = Audio.count_by_status()
+    messages = Contact.count_by_status()
+    checks = SystemStatus.checks()
+    {views_window, trend} = Analytics.get_biweekly_trends(28)
+
+    assign(socket,
+      queue:
+        queue(%{
+          held: General.count_held_guestbook_entries(),
+          citations: Web.Webmentions.count_held(),
+          attention: Map.get(messages, "attention", 0),
+          inbox: Map.get(messages, "inbox", 0),
+          failed_logs: Map.get(logs, "failed", 0),
+          encoding: Map.get(logs, "pending", 0) + Map.get(logs, "processing", 0),
+          unkeyworded: Enum.count(posts, &(&1.keywords == [])),
+          checks: checks
+        }),
+      on_file: %{
+        posts: length(posts),
+        logs: logs |> Map.drop(["draft"]) |> Map.values() |> Enum.sum(),
+        log_drafts: Map.get(logs, "draft", 0),
+        subscribers: length(Newsletter.list_active_emails()),
+        activities: length(Rides.list_rides()),
+        signatures: General.count_guestbook_entries()
+      },
+      visitors_today: Analytics.count_unique_visitors_today() || 0,
+      views_today: Analytics.count_hits_today() || 0,
+      views_window: views_window,
+      trend: trend,
+      trend_max: trend |> Enum.map(fn {_, _, count} -> count end) |> Enum.max(fn -> 0 end),
+      top_pages: Analytics.top_pages(10),
+      checks: checks
+    )
   end
 
-  def handle_event("delete_message", %{"id" => id}, socket) do
-    Contact.delete_message(id)
-    messages = Contact.list_messages()
-    {:noreply, assign(socket, messages: messages)}
+  # One row per kind of waiting thing, in the order they should be dealt
+  # with: people first, then broken things, then housekeeping.
+  defp queue(n) do
+    check = fn key -> Enum.find(n.checks, &(&1.key == key)) end
+
+    [
+      n.held > 0 &&
+        row(
+          n.held,
+          plural(n.held, "signature waits", "signatures wait") <> " for approval",
+          ~p"/admin/guestbook?show=held"
+        ),
+      n.attention > 0 &&
+        row(
+          n.attention,
+          plural(n.attention, "message is", "messages are") <> " flagged",
+          ~p"/admin/inbox?box=attention"
+        ),
+      n.inbox > 0 &&
+        row(
+          n.inbox,
+          plural(n.inbox, "message", "messages") <> " in the inbox",
+          ~p"/admin/inbox?box=inbox"
+        ),
+      n.citations > 0 &&
+        row(
+          n.citations,
+          plural(n.citations, "site cites", "sites cite") <> " a piece, awaiting approval",
+          ~p"/admin/citations?show=held"
+        ),
+      n.failed_logs > 0 &&
+        row(
+          n.failed_logs,
+          plural(n.failed_logs, "log", "logs") <> " failed to transcode",
+          ~p"/admin/logs",
+          :fail
+        ),
+      check.(:komoot).state == :fail &&
+        row("!", "The last Komoot sync failed", ~p"/admin/rides", :fail),
+      check.(:mail).state == :fail && row("!", check.(:mail).detail, ~p"/admin/newsletter", :fail),
+      check.(:database).state in [:warn, :fail] &&
+        row("!", "The database snapshot is overdue", "#system", :fail),
+      n.encoding > 0 &&
+        row(
+          n.encoding,
+          plural(n.encoding, "log is", "logs are") <> " transcoding now",
+          ~p"/admin/logs",
+          :info
+        ),
+      n.unkeyworded > 0 &&
+        row(
+          n.unkeyworded,
+          plural(n.unkeyworded, "post has", "posts have") <> " no keywords",
+          ~p"/admin/blog?filter=missing"
+        )
+    ]
+    |> Enum.filter(& &1)
   end
 
-  def handle_event("delete_subscriber", %{"id" => id}, socket) do
-    id
-    |> then(&Web.Repo.get(Web.Newsletter.Subscriber, &1))
-    |> case do
-      nil -> :ok
-      subscriber -> Newsletter.delete_subscriber(subscriber)
-    end
+  defp row(count, text, href, tone \\ :held),
+    do: %{count: count, text: text, href: href, tone: tone}
 
-    {:noreply, assign(socket, subscribers: Newsletter.list_subscribers())}
-  end
-
-  def handle_event("switch_to_audio", _params, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/logs")}
-  end
-
-  def handle_event("save_settings", %{"spotify_playlist_id" => raw_input}, socket) do
-    # 1. Trim whitespace
-    input = String.trim(raw_input)
-
-    # 2. Extract ID using Regex (supports URL or direct ID)
-    # Matches /playlist/ID or just the entire string if it looks like an ID
-    playlist_id =
-      case Regex.run(~r/playlist\/([a-zA-Z0-9]+)/, input) do
-        [_, id] ->
-          id
-
-        nil ->
-          # Fallback: assume the input itself is the ID if it doesn't look like a URL
-          if String.contains?(input, "spotify.com"), do: input, else: input
-      end
-
-    # 3. Save and handle result
-    case SiteSettings.put_setting("spotify_playlist_id", playlist_id) do
-      {:ok, _setting} ->
-        {:noreply,
-         socket
-         |> assign(spotify_playlist_id: playlist_id)
-         |> put_flash(:info, "Settings saved! Playlist ID: #{playlist_id}")}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to save settings.")}
-    end
-  end
+  # The count sits in its own column, so the text carries only the noun.
+  defp plural(1, one, _many), do: one
+  defp plural(_n, _one, many), do: many
 
   def render(assigns) do
     ~H"""
-    <div>
-      <h1 class="theme-title" style="margin-bottom: 2rem;">Overview</h1>
+    <.page_head slug="Overview" title="The composing room">
+      <:lede>{today_line()}</:lede>
+    </.page_head>
 
-      <div class="glass-panel" style="padding: 2rem; margin-top: 2rem;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-          <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; text-align: center;">
-            <div style="font-size: 2rem; font-weight: bold; color: var(--theme-color);">
-              {@unique_today}
-            </div>
-            <div style="color: #888; font-size: 0.9rem;">Hits Today</div>
-            <div style="color: #555; font-size: 0.7rem; margin-top: 0.25rem;">
-              Unique hits (24h period)
-            </div>
-          </div>
-          <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; text-align: center;">
-            <div style="font-size: 2rem; font-weight: bold; color: #4ade80;">{@hits_today}</div>
-            <div style="color: #888; font-size: 0.9rem;">Total Page Views</div>
-            <div style="color: #555; font-size: 0.7rem; margin-top: 0.25rem;">Includes reloads</div>
-          </div>
-          <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; text-align: center;">
-            <div style="font-size: 2rem; font-weight: bold; color: #a78bfa;">{@total_hits}</div>
-            <div style="color: #888; font-size: 0.9rem;">Aggregate Hits</div>
-            <div style="color: #555; font-size: 0.7rem; margin-top: 0.25rem;">
-              Last 28 bi-weekly periods
-            </div>
-          </div>
-        </div>
+    <div class="adm-split">
+      <.panel title="Needs you" count={length(@queue)} id="needs-you">
+        <p :if={@queue == []} class="adm-clear">Nothing needs you.</p>
+        <ul :if={@queue != []} class="adm-queue">
+          <li :for={item <- @queue} class={["adm-queue-item", "adm-queue--#{item.tone}"]}>
+            <.link
+              navigate={!String.starts_with?(item.href, "#") && item.href}
+              href={String.starts_with?(item.href, "#") && item.href}
+              class="adm-queue-link"
+            >
+              <span class="adm-queue-count">{item.count}</span>
+              <span class="adm-queue-text">{item.text}</span>
+              <span class="adm-queue-go" aria-hidden="true">Open →</span>
+            </.link>
+          </li>
+        </ul>
+      </.panel>
 
-        <div style="margin-bottom: 2rem;">
-          <h3 style="color: #ddd;">Bi-Weekly Trend (28 Bins)</h3>
-          <div style="display: flex; align-items: flex-end; gap: 4px; height: 100px; padding-top: 1rem; padding-bottom: 0.5rem; overflow-x: auto;">
-            <%= for {start_date, _end, count} <- @biweekly_trends do %>
-              <% max_h = Enum.max(Enum.map(@biweekly_trends, fn {_, _, c} -> c end)) %>
-              <% max_h = if max_h == 0, do: 1, else: max_h %>
-              <% height = trunc(count / max_h * 100) %>
-              <div
-                style={"width: 100%; min-width: 10px; background: " <> (if count > 0, do: "#a78bfa", else: "#333") <> "; height: #{max(height, 2)}%; border-radius: 2px 2px 0 0; position: relative;"}
-                title={"#{Calendar.strftime(start_date, "%b %d")}: #{count}"}
-              >
-              </div>
-            <% end %>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 2rem;">
-          <h3 style="color: #ddd;">Top Pages</h3>
-          <ul style="list-style: none; padding: 0;">
-            <%= for {path, count} <- @top_pages do %>
-              <li style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #333;">
-                <span style="color: #ccc; font-family: monospace;">{path}</span>
-                <span style="color: #888;">{count} hits</span>
-              </li>
-            <% end %>
-          </ul>
-        </div>
-      </div>
-      
-    <!-- Inbox Section -->
-      <div class="glass-panel" style="padding: 2rem; margin-top: 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <h2 class="theme-subtitle" style="margin: 0;">Inbox</h2>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 2rem;">
-          <!-- Needs Attention -->
-          <div>
-            <h3 style="color: #ff6b6b; font-size: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-              Needs Attention
-            </h3>
-            <%= for msg <- Enum.filter(@messages, & &1.status == "attention") do %>
-              <.message_card msg={msg} />
-            <% end %>
-            <%= if Enum.empty?(Enum.filter(@messages, & &1.status == "attention")) do %>
-              <p style="color: #666; font-size: 0.9rem; font-style: italic;">
-                No items needing attention.
-              </p>
-            <% end %>
-          </div>
-          
-    <!-- Inbox -->
-          <div>
-            <h3 style="color: #4ade80; font-size: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-              Inbox
-            </h3>
-            <%= for msg <- Enum.filter(@messages, & &1.status == "inbox") do %>
-              <.message_card msg={msg} />
-            <% end %>
-            <%= if Enum.empty?(Enum.filter(@messages, & &1.status == "inbox")) do %>
-              <p style="color: #666; font-size: 0.9rem; font-style: italic;">Inbox empty.</p>
-            <% end %>
-          </div>
-          
-    <!-- Archive -->
-          <div>
-            <h3 style="color: #888; font-size: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-              Archive
-            </h3>
-            <%= for msg <- Enum.filter(@messages, & &1.status == "archive") |> Enum.take(5) do %>
-              <.message_card msg={msg} />
-            <% end %>
-            <%= if Enum.count(Enum.filter(@messages, & &1.status == "archive")) > 5 do %>
-              <p style="color: #666; font-size: 0.8rem; margin-top: 0.5rem;">
-                ... and {Enum.count(Enum.filter(@messages, &(&1.status == "archive"))) - 5} more archived messages.
-              </p>
-            <% end %>
-          </div>
-        </div>
-      </div>
-
-      <div class="glass-panel" style="padding: 2rem; margin-top: 2rem;">
-        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;">
-          <h2 class="theme-subtitle" style="margin-top: 0;">
-            Newsletter Subscribers ({length(@subscribers)})
-          </h2>
-          <.link href={~p"/admin/subscribers/export"} class="theme-btn" style="font-size: 0.8rem;">
-            <.icon name="hero-arrow-down-tray" class="size-4 mr-2" /> Export CSV
-          </.link>
-        </div>
-
-        <div style="margin-top: 1.5rem; overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; color: var(--ink-2);">
-            <thead>
-              <tr style="border-bottom: 2px solid var(--rule-strong); text-align: left;">
-                <th style="padding: 0.75rem;">Email</th>
-                <th style="padding: 0.75rem;">Status</th>
-                <th style="padding: 0.75rem;">Joined</th>
-                <th style="padding: 0.75rem;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= for sub <- @subscribers do %>
-                <tr style="border-bottom: 1px solid var(--hairline);">
-                  <td style="padding: 0.75rem;">{sub.email}</td>
-                  <td style="padding: 0.75rem;">
-                    <%= if sub.active do %>
-                      <span class="admin-pill admin-pill-active">Active</span>
-                    <% else %>
-                      <span class="admin-pill admin-pill-inactive">Unsubscribed</span>
-                    <% end %>
-                  </td>
-                  <td style="padding: 0.75rem; color: var(--ink-3);">
-                    {Calendar.strftime(sub.inserted_at, "%Y-%m-%d %H:%M")}
-                  </td>
-                  <td style="padding: 0.75rem; text-align: right;">
-                    <button
-                      phx-click="delete_subscriber"
-                      phx-value-id={sub.id}
-                      data-confirm={"Remove #{sub.email} from the subscriber list? This cannot be undone."}
-                      class="theme-btn admin-danger-btn"
-                      style="padding: 0.3rem 0.6rem; font-size: 0.75rem;"
-                    >
-                      <.icon name="hero-trash" class="size-3" />
-                    </button>
-                  </td>
-                </tr>
-              <% end %>
-              <%= if Enum.empty?(@subscribers) do %>
-                <tr>
-                  <td colspan="4" style="padding: 2rem; text-align: center; color: var(--ink-3);">
-                    No subscribers yet.
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="glass-panel" style="padding: 2rem; margin-top: 2rem;">
-        <h2 class="theme-subtitle" style="margin-top: 0;">Site Settings</h2>
-
-        <form phx-submit="save_settings" style="margin-top: 1rem;">
-          <label style="display: block; margin-bottom: 0.5rem; color: #ccc;">
-            Spotify Playlist ID (or URL)
-          </label>
-          <div style="display: flex; gap: 1rem;">
-            <input
-              type="text"
-              name="spotify_playlist_id"
-              value={@spotify_playlist_id}
-              class="glass-input"
-              style="flex: 1;"
-              placeholder="Paste Spotify Playlist URL or ID here..."
-            />
-            <button type="submit" class="theme-btn">Save Setting</button>
-          </div>
-          <p style="color: #666; font-size: 0.8rem; margin-top: 0.5rem;">
-            Updates the bottom-left player. Changes take effect on next page load.
-          </p>
-        </form>
-      </div>
+      <.panel title="The machine" id="system">
+        <ul class="adm-status">
+          <li :for={check <- @checks}>
+            <span class={["adm-status-dot", status_class(check.state)]} aria-hidden="true"></span>
+            <span class="adm-status-name">{check.label}</span>
+            <span class="adm-status-detail">
+              {check.detail}<span :if={check.at}> · {ago(check.at)}</span>
+            </span>
+          </li>
+        </ul>
+      </.panel>
     </div>
+
+    <.panel title="On file">
+      <div class="adm-stats">
+        <.stat value={@on_file.posts} label="Posts" href={~p"/admin/blog"} />
+        <.stat
+          value={@on_file.logs}
+          label="Captain's logs"
+          note={@on_file.log_drafts > 0 && "#{@on_file.log_drafts} unpublished"}
+          href={~p"/admin/logs"}
+        />
+        <.stat value={@on_file.subscribers} label="Subscribers" href={~p"/admin/newsletter"} />
+        <.stat value={@on_file.activities} label="Activities" href={~p"/admin/rides"} />
+        <.stat value={@on_file.signatures} label="Signatures" href={~p"/admin/guestbook"} />
+      </div>
+    </.panel>
+
+    <.panel title="Traffic">
+      <div class="adm-stats">
+        <.stat
+          value={@visitors_today}
+          label="Visitors today"
+          note="distinct, since midnight"
+          tone="act"
+        />
+        <.stat value={@views_today} label="Views today" note="every load, reloads included" />
+        <.stat value={@views_window} label="Views, 56 weeks" note="28 fortnights, below" />
+      </div>
+
+      <div class="adm-trend" role="img" aria-label="Views per fortnight over the last 56 weeks">
+        <span
+          :for={{{start, _end, count}, index} <- Enum.with_index(@trend)}
+          class={["adm-trend-bar", index == length(@trend) - 1 && "is-current"]}
+          style={"--h: #{bar_height(count, @trend_max)}%"}
+          data-label={"#{Calendar.strftime(start, "%b %d")} · #{count}"}
+        >
+        </span>
+      </div>
+      <div :if={@trend != []} class="adm-trend-axis">
+        <span>{@trend |> List.first() |> elem(0) |> Calendar.strftime("%b %Y")}</span>
+        <span>this fortnight</span>
+      </div>
+
+      <h3 class="adm-group-title adm-group-title--spaced">Most viewed, all time</h3>
+      <.empty :if={@top_pages == []}>No views recorded yet.</.empty>
+      <ol :if={@top_pages != []} class="adm-ranked">
+        <li :for={{path, count} <- @top_pages}>
+          <span class="adm-ranked-path">{path}</span>
+          <span class="adm-ranked-count">{count}</span>
+        </li>
+      </ol>
+    </.panel>
     """
   end
 
-  defp message_card(assigns) do
-    ~H"""
-    <div style={"padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 1rem; border-left: 3px solid " <> case @msg.status do "attention" -> "#ff6b6b"; "inbox" -> "#4ade80"; _ -> "#666" end}>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; align-items: flex-start;">
-        <div>
-          <span style="font-weight: bold; color: white;">{@msg.name}</span>
-          <span style="font-weight: normal; color: #888; display: block; font-size: 0.85rem;">
-            {@msg.email}
-          </span>
-        </div>
-        <span style="font-size: 0.75rem; color: #666;">
-          {Calendar.strftime(@msg.inserted_at, "%Y-%m-%d %H:%M")}
-        </span>
-      </div>
-      <p style="color: #ddd; white-space: pre-wrap; margin: 0.5rem 0 1rem 0; font-size: 0.95rem;">
-        {@msg.message}
-      </p>
+  defp bar_height(_count, 0), do: 2
+  defp bar_height(count, max), do: max(round(count / max * 100), 2)
 
-      <div style="display: flex; gap: 0.5rem;">
-        <%= if @msg.status != "inbox" do %>
-          <button
-            phx-click="message_status"
-            phx-value-id={@msg.id}
-            phx-value-status="inbox"
-            style="font-size: 0.75rem; background: #333; color: #ccc; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer;"
-          >
-            Move to Inbox
-          </button>
-        <% end %>
-        <%= if @msg.status != "attention" do %>
-          <button
-            phx-click="message_status"
-            phx-value-id={@msg.id}
-            phx-value-status="attention"
-            style="font-size: 0.75rem; background: #5a2525; color: #ffadad; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer;"
-          >
-            Needs Attention
-          </button>
-        <% end %>
-        <%= if @msg.status != "archive" do %>
-          <button
-            phx-click="message_status"
-            phx-value-id={@msg.id}
-            phx-value-status="archive"
-            style="font-size: 0.75rem; background: #333; color: #888; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer;"
-          >
-            Archive
-          </button>
-        <% else %>
-          <button
-            phx-click="delete_message"
-            phx-value-id={@msg.id}
-            data-confirm="Delete this message? This cannot be undone."
-            style="font-size: 0.75rem; background: #7f1d1d; color: #fecaca; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer;"
-          >
-            Delete
-          </button>
-        <% end %>
-      </div>
-    </div>
-    """
+  defp status_class(:ok), do: "adm-status-dot--ok"
+  defp status_class(:warn), do: "adm-status-dot--warn"
+  defp status_class(:fail), do: "adm-status-dot--fail"
+  defp status_class(:off), do: nil
+
+  defp today_line do
+    Calendar.strftime(Web.Clock.local_today(DateTime.utc_now()), "%A, %B %-d")
   end
 end

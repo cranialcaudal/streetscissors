@@ -316,7 +316,7 @@ defmodule WebWeb.NegativesLiveTest do
       %{root: root, folder: folder, slug: slug}
     end
 
-    test "a roll with nothing printed carries no marks", %{conn: conn, slug: slug} do
+    test "a roll with nothing printed carries no marks", %{conn: conn, slug: _slug} do
       {:ok, _view, html} = live(conn, "/negatives/roll/013")
 
       # The page is otherwise exactly the page it has always been.
@@ -325,7 +325,7 @@ defmodule WebWeb.NegativesLiveTest do
     end
 
     test "a printed frame is circled, and the circle opens it",
-         %{conn: conn, folder: folder, slug: slug} do
+         %{conn: conn, folder: folder, slug: _slug} do
       Fixture.put_print!(folder, 3)
 
       {:ok, view, html} = live(conn, "/negatives/roll/013")
@@ -342,7 +342,7 @@ defmodule WebWeb.NegativesLiveTest do
       assert html =~ "--x:"
     end
 
-    test "only printed frames are circled", %{conn: conn, folder: folder, slug: slug} do
+    test "only printed frames are circled", %{conn: conn, folder: folder, slug: _slug} do
       Fixture.put_print!(folder, 2)
       Fixture.put_print!(folder, 4)
 
@@ -370,7 +370,7 @@ defmodule WebWeb.NegativesLiveTest do
     end
 
     test "the strip below the sheet links to the frame's page, not its bytes",
-         %{conn: conn, folder: folder, slug: slug} do
+         %{conn: conn, folder: folder, slug: _slug} do
       Fixture.put_print!(folder, 3)
 
       {:ok, view, _html} = live(conn, "/negatives/roll/013")

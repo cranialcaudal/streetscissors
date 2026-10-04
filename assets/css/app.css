@@ -11,6 +11,8 @@
  * meta rows, admin manager buttons).
  */
 @source inline("hero-arrow-right hero-arrow-left hero-calendar hero-calendar-days hero-clock hero-chart-bar hero-play hero-pause hero-arrow-path hero-trash hero-pencil-square hero-document-text hero-microphone hero-table-cells hero-newspaper hero-envelope hero-book-open hero-arrow-right-on-rectangle hero-rectangle-stack hero-chevron-down hero-cloud-arrow-up hero-command-line hero-check-circle hero-check hero-paper-airplane hero-map-pin hero-photo hero-magnifying-glass-plus hero-film hero-x-mark hero-arrow-down-tray hero-list-bullet hero-chevron-left hero-chevron-right hero-eye hero-exclamation-circle");
+/* The admin rail and its pages (WebWeb.AdminComponents, AdminNav). */
+@source inline("hero-home hero-inbox hero-cog-6-tooth hero-heart hero-bars-3 hero-arrow-top-right-on-square hero-exclamation-triangle hero-clipboard hero-plus hero-archive-box hero-flag hero-arrow-uturn-left hero-envelope-open hero-shield-check hero-squares-2x2 hero-signal hero-chat-bubble-left-right");
 @source inline("size-3 size-4 size-5 size-6 size-8 size-10 size-12 mr-2 mb-4 text-[#ff6600]");
 
 /* Custom Styles */
@@ -29,11 +31,14 @@
 @import "./header.css";
 @import "./flash.css";
 @import "./home.css";
+@import "../vendor/maplibre-gl.css";
 @import "./rides.css";
 /* Section theme — must follow the component sheets it re-inks */
 @import "./steel.css";
 @import "./fitness_week.css";
 @import "./how-to.css";
+@import "./almanac.css";
+@import "./letters.css";
 @import "./meals.css";
 @import "./mobile.css";
 
@@ -200,8 +205,6 @@ textarea::selection {
 .activity-figure-value,
 .activity-card-stats,
 .activity-totals,
-.bio-table,
-.bio-score-num,
 time {
     font-family: var(--font-data);
     font-variant-numeric: tabular-nums;

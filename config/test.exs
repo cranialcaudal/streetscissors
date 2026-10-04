@@ -41,8 +41,9 @@ config :web, :emails_path, Path.expand("../test/support/fixtures/emails", __DIR_
 # a particular shape of archive build their own in a tmp dir.
 config :web, :negatives_path, Path.expand("../test/support/fixtures/negatives", __DIR__)
 
-# Ride thumbnails go to a throwaway dir in tests
-config :web, :ride_thumbs_path, Path.expand("../tmp/ride_thumbs", __DIR__)
+# Ride privacy: no zones unless a test sets one, and a fixed salt so the
+# cuts fall in the same place on every run.
+config :web, :ride_privacy_salt, "test-salt"
 
 # Uploaded media (captain's log audio) goes to a throwaway dir in tests so a
 # suite run never writes into priv/static
@@ -57,6 +58,15 @@ config :web, :ffprobe_bin, Path.expand("../test/support/stub_ffprobe", __DIR__)
 # And ImageMagick, which Web.Negatives uses to downscale contact sheets and
 # prints. The stub copies rather than converts — nothing here decodes an image.
 config :web, :magick_bin, Path.expand("../test/support/stub_magick", __DIR__)
+
+# The scanner and the film pipeline's own tools are stubs too: no test drives
+# a flatbed, runs the Python analysis or starts GIMP. With no scanner listed,
+# the studio falls back to Web.Scanner.Simulation, which only dev and test
+# turn on.
+config :web, :scanimage_bin, Path.expand("../test/support/stub_scanimage", __DIR__)
+config :web, :film_develop_bin, Path.expand("../test/support/stub_film_develop", __DIR__)
+config :web, :contact_sheet_bin, Path.expand("../test/support/stub_contact_sheet", __DIR__)
+config :web, :scanner_simulation, true
 
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.
@@ -83,6 +93,11 @@ config :web, :backup_mirror_watch, false
 # Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
 config :web, :komoot, email: "test@example.com", password: "test-password"
 config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
+
+# Webmention verification never touches real DNS or the network here: a stub
+# resolver (test/support) and a Req.Test plug stand in for both.
+config :web, :webmention_resolver, {Web.WebmentionsTestResolver, :resolve}
+config :web, :webmention_req_options, plug: {Req.Test, Web.Webmentions}
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

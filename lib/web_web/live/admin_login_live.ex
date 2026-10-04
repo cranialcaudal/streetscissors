@@ -9,67 +9,50 @@ defmodule WebWeb.AdminLoginLive do
     end
   end
 
+  # A dialog over whatever page asked for it: Escape or a click outside goes
+  # home. It says its own error; admin.css hides the layout's flash group
+  # while the dialog is up, so the message isn't repeated behind it.
   def render(assigns) do
     ~H"""
     <div
       id="login-overlay"
-      class="animate-fade-in"
-      style="position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;"
+      class="adm-login"
       phx-window-keydown={JS.navigate("/")}
       phx-key="Escape"
     >
-      <div
-        class="glass-panel"
-        phx-click-away={JS.navigate("/")}
-        style="width: 100%; max-width: 400px; padding: 3rem; text-align: center; border: 1px solid rgba(255,102,0,0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.8); background: rgba(10,10,10,0.95); border-radius: 12px; position: relative;"
-      >
+      <div class="adm-login-card" phx-click-away={JS.navigate("/")}>
         <button
+          type="button"
+          class="adm-login-close"
           phx-click={JS.navigate("/")}
-          style="position: absolute; top: 1.2rem; right: 1.2rem; font-size: 2.5rem; color: #444; background: none; border: none; cursor: pointer; transition: all 0.2s; line-height: 1; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; z-index: 10;"
-          onmouseover="this.style.color='#ff6600'; this.style.background='rgba(255,102,0,0.1)'"
-          onmouseout="this.style.color='#444'; this.style.background='transparent'"
+          aria-label="Close"
         >
-          &times;
+          <.icon name="hero-x-mark" class="size-5" />
         </button>
 
-        <h1 style="font-family: var(--font-heading); font-size: 1.2rem; color: #ff6600; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 2rem;">
-          Admin Access
-        </h1>
+        <p class="adm-slug">streetscissors</p>
+        <h1 class="adm-title">The composing room</h1>
 
-        <%= if Phoenix.Flash.get(@flash, :error) do %>
-          <div style="background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 1rem; border-radius: 4px; margin-bottom: 2rem; font-size: 0.9rem; letter-spacing: 1px;">
-            {Phoenix.Flash.get(@flash, :error)}
-          </div>
-        <% end %>
+        <p :if={msg = Phoenix.Flash.get(@flash, :error)} class="adm-login-error" role="alert">
+          {msg}
+        </p>
 
         <.form for={%{}} action={~p"/admin/login"} method="post">
-          <div style="margin-bottom: 2rem;">
-            <input
-              type="password"
-              name="password"
-              placeholder="ENTER PASSWORD"
-              required
-              autofocus
-              style="width: 100%; background: #000; border: 1px solid #333; color: white; padding: 1.2rem; border-radius: 4px; font-size: 1rem; text-align: center; letter-spacing: 2px;"
-            />
-          </div>
-
-          <button
-            type="submit"
-            class="theme-btn"
-            style="width: 100%; padding: 1.2rem; justify-content: center; font-size: 1rem; border: 1px solid #ff6600; color: #ff6600; background: transparent; letter-spacing: 2px; text-transform: uppercase; font-weight: bold;"
-          >
-            Enter
-          </button>
+          <label class="adm-label" for="admin-password">Password</label>
+          <input
+            id="admin-password"
+            type="password"
+            name="password"
+            class="adm-input"
+            autocomplete="current-password"
+            required
+            autofocus
+          />
+          <button type="submit" class="adm-btn adm-btn--primary">Enter</button>
         </.form>
 
-        <div style="margin-top: 2rem; border-top: 1px solid #222; padding-top: 1.5rem;">
-          <.link
-            href={~p"/"}
-            style="color: #666; font-size: 0.8rem; text-decoration: none; letter-spacing: 2px; text-transform: uppercase;"
-          >
-            ← return to homepage
-          </.link>
+        <div class="adm-login-foot">
+          <.link href={~p"/"}>← Return to the site</.link>
         </div>
       </div>
     </div>

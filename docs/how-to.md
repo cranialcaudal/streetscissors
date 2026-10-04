@@ -2,52 +2,60 @@
 
 A manual for the streetscissors website and the darkroom pipeline behind it.
 
-This page is written for two people. One of them has never programmed and wants
-to know how a photograph gets from a strip of developed film onto the internet.
-The other has just started programming and wants to know how the website itself
-is built. Neither is assumed to know anything in advance. Every unfamiliar word
-is explained the first time it appears, and again in the glossary at the end.
+This page is written for two people. One of them has never programmed and wants to know what this site is and how a photograph gets from a strip of developed film onto the internet. The other has just started programming and wants to know how the website itself is built. Neither is assumed to know anything in advance. Every unfamiliar word is explained the first time it appears, and again in the glossary at the end.
 
-Read it in order or jump to the part you need. Nothing here depends on having
-read what came before it.
+Read it in order or jump to the part you need. Nothing here depends on having read what came before it.
 
 ---
 
-## Part 1 — What this is for
+## Part 1: What this is for
 
-streetscissors is one person's website. It holds written work, spoken
-recordings, photographs made on film, and a training log. It runs on a computer
-in a house, not in a data centre, and it is built on one stubborn idea:
+If you use social media, you already know how to use this site.
+
+A feed gives you four things: a place to put photographs, a place to put words, a way for people to find them, and a way to know they were seen. This site does all four. The photographs live under `/negatives`. The written words live under `/blog`, and the spoken ones under `/logs`. One set of keywords finds things everywhere, and every piece carries its count of witnesses. If all you want is to look at the work, that is the whole manual; the rest of this page is for people who want to know how the thing is built, and for people who want to build one like it.
+
+The difference between this and a feed is not what it does. It is what it refuses to do, and the refusal is the entire point. The first post on this site argued it directly: social media stays in business by fragmenting you. It asks for the profile, the story, the reel, the thread; one person cut into formats, each owned by somebody else, each training you to watch yourself the way the platform watches you. To see an image in parts, the post said, is to never see it at all.
+
+This site is that argument, built:
+
+**One person, whole, in one place.** The essays, the photographs, the training log, the recordings: they live together and they link to each other. A frame links back to the contact sheet it was cut from. A keyword finds the essay and the recording alike. Nothing here is sliced into a format.
+
+**Owned, not rented.** It runs on a computer in a house, not in a data centre. There is no account to be suspended and no terms that can change under you. The automated scrapers that feed the large models are refused at the door. The software is free for anyone to take; the work on it belongs to its maker.
+
+**Shown, not fed.** The indexes sort by most recent or most witnessed, and you choose which. No feed decides what you see next, and no metric tells the writer what to make more of. The guestbook takes signed messages, not likes.
+
+**Answered, not commented.** A feed is also how people keep up with each other and reply, so the site does that too, on its own terms:
+
+- **Every day is a page.** Under `/almanac`, a day with work in it holds everything made that day side by side. A year is laid out like a contact sheet, and it prints as a clean edition.
+- **You can follow a keyword.** The feed at `/feed` carries everything, and `/feed?keyword=film` follows one thread across the blog and the logs. You follow a thought rather than an account.
+- **You can write a letter.** Under any post, log or photograph, you can write to the author about that piece. It is private unless you allow it to be published and the author chooses to publish it.
+- **Other sites can cite a piece.** A site that links to a piece can say so by webmention. Once the link is checked and approved, it appears beneath the piece as "Cited by": a conversation between two homes, with no platform in the middle.
+
+"Owned, not rented" deserves a concrete picture, because that is where the philosophy becomes plumbing. Here is what happens when you open this site, in plain terms.
+
+Your browser asks the internet where `streetscissors.com` lives. That name is rented from a registrar, the way a phone number is rented from a carrier; it points at an address and does nothing else. At that address sits a computer in a house. A small program called Caddy answers the door: it proves the site is who it claims to be (that is what the padlock in your browser means) and scrambles the conversation so nobody between you and the house can read it. Caddy passes the request to the site itself, which reads the folders on that computer's disk and builds the page you see.
+
+Sovereignty, in this context, is not a metaphor. It is the list of things no one else controls: the files are on a disk in the house; the program that serves them is free software running on that same machine; the machine answers to its owner and to nobody's terms of service. A social feed inverts every one of those: your words sit on their disks, served by their programs, under their rules, and the account is yours only until it isn't.
+
+The arrangement rests on one stubborn technical idea:
 
 > **The thing on disk is the thing on the site.**
 
-Most websites keep a copy of your work inside a database, behind a login, in a
-format only that website can read. If the website disappears, so does the work.
-This one is arranged the other way round. The essays are ordinary text files in
-a folder. The photographs are ordinary image files in a folder. The website
-reads those folders directly, every time somebody visits, and shows whatever it
-finds there.
+Most websites keep a copy of your work inside a database, behind a login, in a format only that website can read. If the website disappears, so does the work. This one is arranged the other way round. The essays are ordinary text files in a folder. The photographs are ordinary image files in a folder. The website reads those folders directly, every time somebody visits, and shows whatever it finds there.
 
 That has three consequences that shape everything else in this manual.
 
-**There is no "publish" button for most of it.** Save the file, and it is live.
-Rename the file, and the address changes. Delete the file, and the page is gone.
-No upload form stands between the work and the reader.
+**There is no "publish" button for most of it.** Save the file, and it is live. Rename the file, and the address changes. Delete the file, and the page is gone. No upload form stands between the work and the reader.
 
-**The archive outlives the website.** The folder of negatives is a folder of
-negatives. It can be copied to a drive, opened on any computer, and read in
-thirty years by software nobody has written yet. The website is a way of looking
-at that folder, not the place the folder lives.
+**The archive outlives the website.** The folder of negatives is a folder of negatives. It can be copied to a drive, opened on any computer, and read in thirty years by software nobody has written yet. The website is a way of looking at that folder, not the place the folder lives.
 
-**Backups are of files, not of a service.** Everything that matters can be
-carried away on a disk.
+**Backups are of files, not of a service.** Everything that matters can be carried away on a disk.
 
-The rest of this manual is how that idea is actually implemented — first for
-photographs, then for words, then the machinery underneath both.
+The rest of this manual is how that idea is actually implemented; first for photographs, then for words, then the machinery underneath both. Part 7 shows how to run a copy of the whole thing yourself.
 
 ---
 
-## Part 2 — The map
+## Part 2: The map
 
 The site is divided into sections. Here is what each one is and where its
 contents come from.
@@ -56,7 +64,7 @@ contents come from.
 |---|---|---|
 | `/` | The front door | Hand-built page |
 | `/blog` | Written work | Text files in `content/blog/` |
-| `/logs` | Captain's logs — spoken pieces | Database, plus audio files on disk |
+| `/logs` | Captain's logs; spoken pieces | Database, plus audio files on disk |
 | `/negatives` | Contact sheets and single frames from film | The photo archive folder |
 | `/fitness` | The training regimen and bike rides | Text files, plus rides pulled from Komoot |
 | `/pc` | A pretend 1980s terminal that navigates the site | Built live from all of the above |
@@ -64,25 +72,35 @@ contents come from.
 | `/newsletter` | Sign-up for the mailing list | Database |
 | `/about` | Who made this | A text file |
 | `/how-to` | This page | `docs/how-to.md` |
-| `/admin` | The private side — password protected | — |
+| `/admin` | The private side, behind a password | All of the above, edited in one place |
 
-Two of those deserve a note.
+Three of those deserve a note.
 
 **`/blog` and `/logs` are siblings, not parent and child.** The blog is written
 work; the logs are spoken work. They are separate systems that happen to share
-one vocabulary — see *Keywords* in Part 4. Both can be sorted by **most recent**
+one vocabulary; see *Keywords* in Part 4. Both can be sorted by **most recent**
 or by **most witnessed**, which means most read or most listened to.
 
 **`/pc` is a joke that tells the truth.** It looks like an old DOS prompt. Type
 `roll007` and press Enter and it takes you to that roll of film. It works
-because it asks the same questions the ordinary pages ask — *what rolls exist,
-what posts exist, what recordings exist* — and answers with the real filenames
+because it asks the same questions the ordinary pages ask; *what rolls exist,
+what posts exist, what recordings exist*; and answers with the real filenames
 things have on disk. It is the clearest demonstration of the idea in Part 1: if
 you know what the file is called, you can find it.
 
+**`/admin` is the back office.** It opens on an overview that lists only what is
+waiting for you (a guestbook signature to approve, a message in the inbox, a
+recording that failed to convert) with each item a link to the page where it
+gets done, and beside it the state of the machine: when the database was last
+copied, whether the backup drive is plugged in, when Komoot was last checked.
+The pages are grouped by the kind of work: **Write** (the blog, the captain's
+logs, the fitness wiki), **Mail** (the inbox, the guestbook, the newsletter) and
+**Sync** (the Komoot activities), plus a page of settings. The admin writes the
+same files you would write by hand, so nothing it does is locked inside it.
+
 ---
 
-## Part 3 — Film, from negative to page
+## Part 3: Film, from negative to page
 
 How a roll of exposed film becomes a page on the internet. This is the longest
 part, because it has the most steps that happen away from a keyboard. If you are
@@ -91,7 +109,7 @@ a photographer and read only one section, read this one.
 ### What a contact sheet is
 
 Before digital cameras, you could not see a negative properly by holding it up
-to a lamp. So you laid the whole roll — cut into strips — onto a sheet of
+to a lamp. So you laid the whole roll; cut into strips; onto a sheet of
 photographic paper, pressed a piece of glass on top, and exposed it all at once.
 The result was one print showing every frame on the roll at its true size. That
 is a **contact sheet**. You looked at it with a loupe, marked the good ones with
@@ -109,9 +127,9 @@ means you can type their names from anywhere.
 
 | Command | What it is |
 |---|---|
-| `negatives` | The wizard. Walks you through scanning one roll, start to finish. Also spelled `film-intake` — same program. |
+| `negatives` | The wizard. Walks you through scanning one roll, start to finish. Also spelled `film-intake`; same program. |
 | `digital-contact-sheet-maker` | Builds one contact sheet from a folder of scans. The wizard calls this for you; you can also call it yourself. |
-| `film-develop` | The image mathematics — inverting negatives, correcting colour, finding where one frame ends and the next begins. You rarely run this directly. |
+| `film-develop` | The image mathematics; inverting negatives, correcting colour, finding where one frame ends and the next begins. You rarely run this directly. |
 
 `digital-contact-sheet-maker` drives **GIMP**, the free image editor, without
 ever opening its window. GIMP does the actual laying-out; the script tells it
@@ -155,7 +173,7 @@ want them read.
 into the archive's catalogue, and builds the contact sheet.
 
 **6. There is no step six.** The sheet is on the website. Not "after a deploy",
-not "after an upload" — the website reads that folder directly, so the next
+not "after an upload"; the website reads that folder directly, so the next
 person to load `/negatives` sees it. This is the payoff of Part 1.
 
 ### What happens inside step 5
@@ -168,7 +186,7 @@ have to be solved before it looks like anything.
 **The scanner bed is in the picture.** Around and between the strips is bright
 white scanner glass, and in the gaps of the film holder, pure black. Those pin
 the brightest and darkest values in the image to their extremes, which means any
-automatic "fix the levels" tool — including GIMP's own — measures those instead
+automatic "fix the levels" tool; including GIMP's own; measures those instead
 of the film and does nothing at all. So the first thing the software does is
 *mask out everything that is not film*, and only then measure. This is the step
 everything else depends on.
@@ -176,14 +194,14 @@ everything else depends on.
 **Colour negatives are orange.** C-41 colour film has an orange base built into
 it. Invert an orange-based negative naively and the whole thing comes out blue.
 Stretching each colour channel to its proper endpoints helps but does not fix
-it, because the orange mask is not just a brightness offset — each channel
+it, because the orange mask is not just a brightness offset; each channel
 responds differently. What actually removes the cast is pulling the three
 mid-tones back to a common average afterwards.
 
 **Black-and-white negatives are flat.** They use only part of the available
 range, so a plain inversion looks milky. The correction uses one range shared
-across all three channels — measuring each channel separately would tint a
-picture that is supposed to be grey — and averages to true neutral at the end.
+across all three channels; measuring each channel separately would tint a
+picture that is supposed to be grey; and averages to true neutral at the end.
 
 All of this is measured **per strip, not per roll**. One dark strip should not
 be allowed to drag down the exposure of every other strip on the sheet.
@@ -210,7 +228,7 @@ negatives --redevelop 7        redo the corrections on frames already scanned
 ```
 
 `--analyze` measures each frame's exposure and flags the ones that are thin or
-blown. It is a second opinion, not a verdict — a correctly exposed night
+blown. It is a second opinion, not a verdict; a correctly exposed night
 photograph is supposed to be dark, and the scoring is deliberately built not to
 punish that.
 
@@ -236,7 +254,7 @@ contact sheet and get their own address:
 /negatives/roll/7/frame/3
 ```
 
-The frame page always links back to the sheet it was cut from — a photograph
+The frame page always links back to the sheet it was cut from; a photograph
 should be able to show where it came from.
 
 ### Putting a photograph in a piece of writing
@@ -263,7 +281,7 @@ post never renders a broken image.
 | `negatives --delete 7` | Retire roll 7 and free the number |
 | `digital-contact-sheet-maker <folder>` | Build a sheet from any folder of scans |
 
-A roll number lives in four places — the scan folder, the catalogue row, the
+A roll number lives in four places; the scan folder, the catalogue row, the
 contact sheet, and the sheet's web-sized copy. `--delete` clears all four, which
 is why deleting the folder by hand is not enough: the number stays reserved and
 the sheet stays on the website.
@@ -293,18 +311,58 @@ anything.
 The `previews/` folder is not yours to manage. The first time somebody asks for
 a sheet, the site makes a smaller web-friendly copy of it and keeps it. If you
 rebuild the sheet, the copy is remade automatically, because the site compares
-the two files' timestamps. Never delete a preview by hand to force a refresh —
+the two files' timestamps. Never delete a preview by hand to force a refresh;
 just rebuild the sheet.
+
+### How the coordinates reach the page
+
+When you open `/negatives/roll/012` on the site, each printed photograph is encircled by a red wax mark, and hovering over it shows its frame number. Clicking it opens the photograph.
+
+Nothing in the contact sheet PNG itself says where frame 7 is. The software that built the sheet knows, though, and Elixir replays its rules at request time:
+
+1. **The strip-level rectangles:** Running `negatives --analyze` segments each raw strip scan into individual frame rectangles and writes their dimensions to `frames.json`.
+2. **Replaying the Script-Fu math (`Web.Negatives.SheetLayout`):** The Scheme script (`film-contact-sheet.scm`) that laid out the sheet in GIMP obeyed exact geometric rules: a 75-pixel margin (0.25 inch at 300 DPI), a 24-pixel gap (2 mm) between strips, and a fixed 90° or 270° strip rotation depending on the film format. Elixir re-runs those exact formulas without ever launching GIMP, translating each strip's coordinates into responsive CSS percentages (`--x`, `--y`, `--w`, `--h`).
+3. **The two safety gates:** Misplacing a mark—so that clicking one photo opens another—is worse than showing no mark at all. So before drawing anything, `Web.Negatives.Sheet` verifies two things:
+   - **Gate 1:** The strip files currently on disk must match `frames.json`'s list in exact alphabetical order. If someone added or rescanned a strip without re-running the analysis, the gate closes and no marks are drawn.
+   - **Gate 2:** The code reads the first 24 bytes of the contact sheet PNG to get its physical width and height from the image header. It tests every paper size at 300 DPI (8×10, A4, Letter). If the composed dimensions do not match the real image to the exact pixel, the gate closes.
+
+If both gates pass, the click targets and grease-pencil rings appear in their true physical positions.
+
+### How the wax circles are drawn
+
+On a physical contact sheet, keepers are marked with a red grease pencil (a china marker)—a waxy stick that skips over the photographic gloss, wobbles with the photographer's hand, and loops wide around the frame.
+
+A sterile computer-drawn ellipse would break the feeling of a real darkroom proof sheet. `Web.Negatives.GreasePencil` generates organic wax marks dynamically as pure SVG vectors:
+
+1. **Deterministic seeding:** The circle is seeded by `:erlang.phash2({roll, frame})`. Frame 3 of roll 12 gets the same unique mark on every device and after every server restart, but no two frames on the site ever share the same circle.
+2. **Sine harmonics:** The radius of the circle is perturbed by three low-frequency sine waves (frequencies 2, 3, and 5) with randomized phases, producing a steady-handed organic wobble instead of jagged noise.
+3. **Catmull-Rom splines:** The perturbed coordinates are smoothed into continuous cubic Bézier curves.
+4. **Double wax stroke & gloss skip:** The ring is drawn in two passes—a heavier outer line and a lighter inner stroke where the pencil looped back around. Both strokes use SVG dash patterns normalized to a 100-unit path length to recreate the waxy skip on paper gloss, drawn with `vector-effect: non-scaling-stroke` so the line weight remains an authentic 2 mm pencil stroke regardless of screen zoom.
+
+### Scanning from the admin
+
+Scanning a roll used to mean switching between the terminal wizard (`negatives`), the file manager and Epson's `iscan`. The admin's **Scanner** page (`/admin/scanner`) does the same job from the browser, because the server is the machine the scanner is plugged into:
+
+1. **Name the roll** — number, scan date, format, film. The page shows the folder it will fill and offers the lowest free roll number.
+2. **Scan the strips, one at a time.** Lay a strip in the film holder and press *Scan strip*. The scanner is driven through its transparency unit as negative film, at 300 dpi, cut to the holder slot for that format. The page stays usable while it scans and shows the progress. Strips scanned elsewhere can be dropped in instead; they are kept exactly as they were.
+3. **Put them in order.** Move a strip earlier or later, or turn it 180°. The order of the files is the order of the sheet.
+4. **Analyse and assemble.** These run `film-develop` and `digital-contact-sheet-maker` — the same tools `negatives` uses — so the roll is identical to one made in the terminal. If either fails, the page says what it said; it never makes up a result.
+5. **Publish**, once both gates pass: the strip files match `frames.json`, and the sheet is exactly the size those strips compose to. That adds the roll to `catalog.csv`, and it is on `/negatives`.
+6. **Rescan the keepers.** Put a frame's strip back in the holder and it is scanned at 2400 dpi and developed into `frames/`, which is what gives a frame its own page and its grease-pencil ring.
+
+With no scanner connected the page says so and scans nothing. The slot rectangles for the film holder are set once, in `.env` (`SCANNER_AREA_35MM`, `SCANNER_AREA_120`); the page's **Setup** tab shows what is set and which scanner is in use.
+
+For complete technical specifications, mathematical equations, and driver designs, see `docs/negatives-pipeline.md` and `docs/scanner-gui-blueprint.md` in the repository.
 
 ---
 
-## Part 4 — Words, from file to page
+## Part 4: Words, from file to page
 
 How a piece of writing, a recording or a training note gets published.
 
 ### Writing a post
 
-Blog posts are text files in `content/blog/`, written in **Markdown** — plain
+Blog posts are text files in `content/blog/`, written in **Markdown**; plain
 text with a few marks in it, where `# ` starts a heading and `*stars*` make
 italics. The folder is an [Obsidian](https://obsidian.md) vault, so it can be
 edited in Obsidian, or in any text editor at all, because Markdown files are
@@ -343,40 +401,43 @@ They are put through one shared tidying step, so `New York`, `new-york` and
 pages, which is why a post called "The Ferry at Bowling Green" lives at
 `the-ferry-at-bowling-green`.
 
-The logs use the same vocabulary from a different place — their keywords are
-typed into the admin form rather than into a file — so a keyword filters writing
+The logs use the same vocabulary from a different place; their keywords are
+typed into the admin form rather than into a file; so a keyword filters writing
 and recordings alike.
 
 ### Recording a log
 
-Captain's logs are the spoken half. Unlike the blog, these do live in the
-database, because a recording needs details a filename cannot carry.
+Captain's logs are the spoken half, as video or audio. Unlike the blog, they do
+live in the database, because a recording needs details a filename cannot carry.
 
-1. Record the audio.
-2. Go to `/admin/logs`.
-3. Fill in the title, date, keywords and notes **first**.
-4. Attach the audio file.
-5. Save.
+1. Go to `/admin/logs`, the recording booth.
+2. Choose video or audio, switch the camera or microphone on, and record. Or
+   drop a file you already have onto the screen.
+3. Trim the start and the end, and pick the frame that stands for the
+   recording (its poster).
+4. Add a caption, keywords and notes if you like, then **Publish** or **Save as
+   draft**.
 
-The order matters and is deliberate: the file is only copied to disk once the
-form saves successfully, so a rejected form never leaves a stray recording
-behind. The length of the recording is measured in your browser as you attach
-it, so it is never wrong.
+The trim and the poster are only numbers. The server applies them when it
+converts the recording into a single file every browser can play, so nothing is
+re-encoded in your browser. The original is deleted once that conversion
+succeeds, which makes the trim a one-time decision; the caption, keywords, date
+and poster stay editable.
 
-Each log gets a **stardate** on top of its real date, which is a joke, and its
-own permanent address that never changes even if you rename the piece later.
+A log is titled by the day it was recorded, and that date is its address:
+`/logs/2026-09-18`. A second recording on the same day becomes `2026-09-18-2`.
 
 ### The training log
 
 `/fitness` works like the blog: Markdown files, this time in `content/fitness/`,
 one per day of the week plus reusable blocks. The public page deliberately shows
-only the headings and the checklist items — the notes about where and when and
+only the headings and the checklist items; the notes about where and when and
 why stay in the file and never reach the page.
 
 Bike rides arrive on their own. Once an hour the site logs in to Komoot, asks
 for anything new, and imports it. A ride made private on Komoot disappears from
 the site on the next pass. If Komoot is not set up, nothing happens and nothing
-breaks — you can also drop a GPX file in by hand.
+breaks; you can also drop a GPX file in by hand.
 
 ### The newsletter
 
@@ -390,7 +451,7 @@ same address cannot start mailing them again by accident.
 
 ---
 
-## Part 5 — The machine
+## Part 5: The machine
 
 This part is for the beginner programmer. If you only want to run the site,
 skip to Part 6.
@@ -400,7 +461,7 @@ skip to Part 6.
 **Elixir** is the programming language the site is written in. **Phoenix** is
 the toolkit that turns Elixir into a website. **LiveView** is the part of
 Phoenix that lets a page update itself without you writing any browser
-JavaScript — the page stays connected to the server, and when something changes,
+JavaScript; the page stays connected to the server, and when something changes,
 the server sends just the changed piece. **SQLite** is the database: not a
 server you install and manage, but a single file on disk you can copy.
 
@@ -415,7 +476,7 @@ anything.
 3. Phoenix runs it through a short chain of steps: record the visit, work out
    whether this is an administrator, load the site's settings.
 4. The **router** matches the address against its list and picks the code to run.
-5. That code reads whatever it needs — files from disk, rows from the database —
+5. That code reads whatever it needs; files from disk, rows from the database;
    and renders the page.
 6. The HTML goes back out the way it came.
 
@@ -432,7 +493,7 @@ This is the single most useful thing to know about the codebase.
 | Training regimen | Files, `content/fitness/` | Saving a file |
 | Contact sheets and frames | Files, the photo archive | Scanning a roll |
 | This manual | A file, `docs/how-to.md` | Saving a file |
-| Captain's logs | Database + audio files | The admin form |
+| Captain's logs | Database + media files | The admin's recording booth |
 | Bike rides | Database | The hourly Komoot sync |
 | Guestbook, subscribers, visit counts | Database | Visitors |
 
@@ -447,7 +508,7 @@ streetscissors/
 ├── lib/web_web/        the web layer: router, pages, live pages, layouts
 ├── assets/css/         the design, hand written
 ├── assets/js/          the small amount of browser code
-├── content/            the Obsidian vault — writing and training notes
+├── content/            the Obsidian vault: writing and training notes
 ├── docs/               this manual
 ├── priv/repo/          database migrations
 ├── test/               the tests
@@ -462,15 +523,15 @@ itself.
 ### The design
 
 The look is called **UC Press / Valley print**. Frederic Goudy cut a typeface
-for the University of California Press in 1938; Sorts Mill Goudy is the free
+for the University of California Press in 1938: Sorts Mill Goudy is the free
 revival of it, and it carries the headings and the body text. IBM Plex Mono is
-the second voice — the one used for buttons, labels, dates and numbers, the way
+the second voice; the one used for buttons, labels, dates and numbers, the way
 a lab notebook sits beside a printed book.
 
 Two rules matter if you ever touch the styling:
 
-**Every colour is a token.** The stylesheet defines names — paper, ink, the
-three pigments — in one place, and pages use the names rather than the colour
+**Every colour is a token.** The stylesheet defines names; paper, ink, the
+three pigments; in one place, and pages use the names rather than the colour
 values. That is how the whole site can be re-inked at once, and how `/negatives`
 turns itself into a darkroom and `/fitness` into blueprint steel by redefining
 the same names.
@@ -480,9 +541,25 @@ scans no files, so none of its shortcut classes exist. Every rule on this site
 was written by hand. Do not reach for a utility class; it will silently do
 nothing.
 
+### The mobile app and offline caching
+
+The site is an installable **Progressive Web App (PWA)**:
+- Adding it to a mobile home screen installs it as a standalone app with its own icon, running in full-screen without browser address bars.
+- A service worker (`priv/static/sw.js`) pre-caches the site's typography and stylesheets, serves static media cache-first, and falls back gracefully when mobile connectivity drops.
+- WebSocket connections (`/live`) and administrative routes (`/admin`) bypass the cache entirely to ensure real-time LiveView communication is never buffered.
+
+### Discoverability and search engines
+
+Every public page carries structured Schema.org metadata (JSON-LD) identifying:
+- The site and author (`Person` and `WebSite` schemas).
+- Writing as full `BlogPosting` entries with publication dates, headlines, and breadcrumb trails.
+- Captain's logs as `AudioObject` or `VideoObject` entries with runtimes, poster artwork, and streaming URLs.
+- Author profile on `/about` as a dedicated `ProfilePage` tied to the author's name and institutional research affiliation.
+- A comprehensive sitemap (`/sitemap.xml`) updated at request time with real dates for search engine crawlers.
+
 ---
 
-## Part 6 — The shortcuts
+## Part 6: The shortcuts
 
 Everything below is typed into a terminal, from inside the project folder unless
 it says otherwise.
@@ -497,7 +574,7 @@ it says otherwise.
 | `mix assets.build` | Rebuilds the CSS and JavaScript. Run this after editing a stylesheet. |
 
 > Phoenix reloads Elixir and template changes by itself while the server is
-> running — you edit, you refresh, you see it. Stylesheets are the exception
+> running; you edit, you refresh, you see it. Stylesheets are the exception
 > worth remembering: if a CSS change does not appear, run `mix assets.build`.
 
 ### Before you commit anything
@@ -532,7 +609,7 @@ copy of the styles once shadowed the real file, and the site served last
 season's design for weeks without any error anywhere.
 
 > Content is different. A new blog post or a new contact sheet needs **no
-> deploy** — it is read from disk. Deploying is only for changes to the code
+> deploy**; it is read from disk. Deploying is only for changes to the code
 > itself.
 
 ### Looking after the running site
@@ -558,7 +635,7 @@ why every command has `--user` in it.
 > It has already caused one real outage, and the shape of it is worth knowing.
 > The web server it starts runs as root, so the log file it creates belongs to
 > root. The supervised one runs as you, cannot open that file, and so refuses to
-> start — quietly, forever, while the unsupervised copy keeps serving and hides
+> start; quietly, forever, while the unsupervised copy keeps serving and hides
 > the fact. The site looked healthy for five days while the thing meant to keep
 > it alive had failed seventy-three thousand times. Use the `systemctl` commands
 > above.
@@ -584,12 +661,12 @@ but it is not how the site stays up.
 
 ---
 
-## Part 7 — Running your own copy
+## Part 7: Running your own copy
 
 The code is on GitHub at
 [cranialcaudal/streetscissors](https://github.com/cranialcaudal/streetscissors).
 
-You will need **Elixir** and **Erlang** installed. You do not need Node.js — the
+You will need **Elixir** and **Erlang** installed. You do not need Node.js; the
 tools that build the stylesheets and JavaScript are fetched automatically. If
 you want the photography half to work you also need **ImageMagick**, which makes
 the web-sized copies, and **GIMP**, which builds contact sheets.
@@ -605,7 +682,7 @@ Then open http://localhost:4000.
 
 Most of it works immediately. Some of it will be empty, and that is expected:
 
-- **`/blog` will have nothing in it.** The writing is not in the repository —
+- **`/blog` will have nothing in it.** The writing is not in the repository;
   see the licence note below. Put your own Markdown files in `content/blog/`
   and they will appear.
 - **`/negatives` will be empty** unless you point it at a folder of contact
@@ -619,7 +696,7 @@ Most of it works immediately. Some of it will be empty, and that is expected:
 
 The repository is deliberately split in two.
 
-**The software is MIT licensed** — everything under `lib/`, `assets/`,
+**The software is MIT licensed**; everything under `lib/`, `assets/`,
 `config/`, `test/`, `priv/repo/`, `docs/`, and the scripts at the top level.
 Take it, learn from it, build on it, sell it. This manual is included in that.
 
@@ -630,80 +707,80 @@ not so they can be reused.
 
 ---
 
-## Part 8 — Glossary
+## Part 8: Glossary
 
-**Backup** — On this machine, a verified copy of the database taken every night
+**Backup**: On this machine, a verified copy of the database taken every night
 at 20:17 Pacific, kept for two weeks. Not a file copy: the database is asked to
 write a clean copy of itself, which is then reopened and checked before it is
 trusted. Plugging in the external drive triggers a copy of everything, including
 the photograph archive, within thirty seconds.
 
-**Caddy** — The web server that faces the internet, holds the encryption
+**Caddy**: The web server that faces the internet, holds the encryption
 certificate, and passes requests to the site.
 
-**Contact sheet** — One image showing every frame on a roll of film at its true
+**Contact sheet**: One image showing every frame on a roll of film at its true
 size. See Part 3.
 
-**C-41** — The standard process for developing colour negative film. The
+**C-41**: The standard process for developing colour negative film. The
 negatives it produces have an orange cast built into them, which has to be
 undone when scanning.
 
-**Commit** — A saved point in the project's history, with a message explaining
+**Commit**: A saved point in the project's history, with a message explaining
 what changed and why.
 
-**Deploy** — Putting a change to the code onto the live site. Here: `./redeploy.sh`.
+**Deploy**: Putting a change to the code onto the live site. Here: `./redeploy.sh`.
 
-**Elixir** — The programming language the site is written in.
+**Elixir**: The programming language the site is written in.
 
-**Frame** — One photograph on a roll of film. Frames are numbered along the roll.
+**Frame**: One photograph on a roll of film. Frames are numbered along the roll.
 
-**Frontmatter** — The small block of information between two `---` lines at the
+**Frontmatter**: The small block of information between two `---` lines at the
 top of a Markdown file: title, date, keywords.
 
-**GIMP** — A free image editor. Here it is used without its window ever opening,
+**GIMP**: A free image editor. Here it is used without its window ever opening,
 purely as an engine for assembling contact sheets.
 
-**ImageMagick** — A set of image tools that run from the command line. Used here
+**ImageMagick**: A set of image tools that run from the command line. Used here
 to make the web-sized copies of contact sheets.
 
-**LiveView** — The part of Phoenix that lets a page update itself without
+**LiveView**: The part of Phoenix that lets a page update itself without
 custom browser code.
 
-**Markdown** — Plain text with a few marks in it that mean "heading", "italic",
+**Markdown**: Plain text with a few marks in it that mean "heading", "italic",
 "link". Readable as-is; converts to a web page.
 
-**Migration** — A recorded change to the shape of the database, so the same
+**Migration**: A recorded change to the shape of the database, so the same
 change can be replayed anywhere.
 
-**Obsidian** — A note-taking program that works on ordinary Markdown files in an
+**Obsidian**: A note-taking program that works on ordinary Markdown files in an
 ordinary folder. The writing on this site is edited in it, but nothing depends
 on it.
 
-**Phoenix** — The toolkit that turns Elixir into a website.
+**Phoenix**: The toolkit that turns Elixir into a website.
 
-**Preview** — The smaller, web-friendly copy of a contact sheet, made
+**Preview**: The smaller, web-friendly copy of a contact sheet, made
 automatically the first time someone asks for that sheet and remade whenever the
 sheet changes.
 
-**Release** — A self-contained, compiled copy of the site, built by
+**Release**: A self-contained, compiled copy of the site, built by
 `./redeploy.sh` and run by systemd. It contains everything needed to run and
 nothing needed to build.
 
-**Repository (repo)** — The project folder, with its full history. This one
+**Repository (repo)**: The project folder, with its full history. This one
 lives on GitHub.
 
-**Roll** — One length of film, shot, developed and scanned as a unit. Numbered
+**Roll**: One length of film, shot, developed and scanned as a unit. Numbered
 uniquely across the whole archive: roll 7 is roll 7 forever.
 
-**SQLite** — The database. A single file on disk rather than a server.
+**SQLite**: The database. A single file on disk rather than a server.
 
-**Strip** — A roll of film cut into a short length, usually three, four or six
+**Strip**: A roll of film cut into a short length, usually three, four or six
 frames, so it fits in a scanner.
 
-**systemd** — The part of Linux that starts programs and keeps them running.
+**systemd**: The part of Linux that starts programs and keeps them running.
 
-**Tailwind** — A popular CSS toolkit. Installed here but deliberately producing
+**Tailwind**: A popular CSS toolkit. Installed here but deliberately producing
 nothing; all styling on this site is written by hand.
 
-**Witnessed** — This site's word for how many times a piece has been read or
+**Witnessed**; This site's word for how many times a piece has been read or
 listened to. `/blog` and `/logs` can both be sorted by it.

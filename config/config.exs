@@ -97,7 +97,7 @@ config :web, Oban,
   # generates SQLite-compatible queries for the whole job lifecycle.
   engine: Oban.Engines.Lite,
   plugins: [Oban.Plugins.Pruner],
-  queues: [default: 10, mailers: 20],
+  queues: [default: 10, mailers: 20, webmentions: 2],
   # SQLite has no LISTEN/NOTIFY; use the process-group notifier (no DB dependency).
   notifier: Oban.Notifiers.PG,
   # Single node, no DB-backed leadership election (which uses prefixes/locks).

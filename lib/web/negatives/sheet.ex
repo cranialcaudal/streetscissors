@@ -170,6 +170,36 @@ defmodule Web.Negatives.Sheet do
     }
   end
 
+  @doc """
+  Reads frames.json for a roll directory.
+  """
+  def read_analysis(dir), do: analysis(dir)
+
+  @doc """
+  Gate 1. Verifies that strip scans on disk match frames.json in exact filename order.
+  """
+  def verify_gate_1(dir) do
+    with {:ok, strips} <- analysis(dir),
+         :ok <- manifest_matches?(dir, strips) do
+      {:ok, strips}
+    else
+      _ -> {:error, :gate_1_failed}
+    end
+  end
+
+  @doc """
+  Gate 2. Verifies that the contact sheet image matches paper layout rules.
+  """
+  def verify_gate_2(dir, sheet_path) do
+    with {:ok, strips} <- analysis(dir),
+         {:ok, dims} <- dimensions(sheet_path),
+         {:ok, plan} <- compose_matching(strips, dir, dims) do
+      {:ok, plan}
+    else
+      _ -> {:error, :gate_2_failed}
+    end
+  end
+
   # Gate 2. Every paper composes to a sheet exactly its own size, so at most
   # one can match the image on disk — which turns "assume 8x10" into a proof.
   defp compose_matching(strips, dir, dims) do

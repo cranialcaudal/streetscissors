@@ -2,7 +2,7 @@ defmodule Web.Rides.KomootSyncTest do
   use Web.DataCase
 
   alias Web.Rides
-  alias Web.Rides.{KomootSync, Thumbs}
+  alias Web.Rides.KomootSync
 
   @login_body %{"username" => "u123", "password" => "tok"}
 
@@ -19,12 +19,15 @@ defmodule Web.Rides.KomootSyncTest do
     "elevation_down" => 790.0,
     "kcal_active" => 1500,
     "status" => "public",
-    "changed_at" => "2026-06-13T10:00:00.000Z",
-    "map_image" => %{
-      "src" => "https://cdn.komoot.de/maps/444.jpg?width={width}&height={height}&crop={crop}",
-      "templated" => true
-    }
+    "changed_at" => "2026-06-13T10:00:00.000Z"
   }
+
+  # An invented track, nowhere in particular.
+  @track [
+    %{"lat" => 45.0, "lng" => 7.0, "alt" => 300.0, "t" => 0},
+    %{"lat" => 45.001, "lng" => 7.0, "alt" => 305.0, "t" => 20_000},
+    %{"lat" => 45.002, "lng" => 7.001, "alt" => 310.0, "t" => 40_000}
+  ]
 
   @other_tour %{
     "id" => 111,
@@ -40,7 +43,6 @@ defmodule Web.Rides.KomootSyncTest do
   @broken_tour %{"id" => 999, "type" => "tour_recorded", "name" => "Undated"}
 
   setup do
-    File.rm_rf!(Thumbs.dir())
     # The token cache is a named process shared by the whole suite; a token
     # left behind by an earlier test would skip the login these tests stub.
     Web.Komoot.Auth.invalidate()
@@ -48,15 +50,13 @@ defmodule Web.Rides.KomootSyncTest do
   end
 
   # Serves the listing with an ETag and honours If-None-Match, the way the
-  # real API does — its ETag is a plain md5 of the listing body. Share tokens
-  # answer the way Komoot's do: the read is a 204 until one is created, and
-  # the create is a 201 carrying it (`broken_share_tokens: true` fails both).
-  # With a `:log` agent, every request path is recorded.
+  # real API does — its ETag is a plain md5 of the listing body. A tour's own
+  # address answers with its track (`broken_tracks: true` fails it). With a
+  # `:log` agent, every request path is recorded.
   defp stub_komoot(opts \\ []) do
     tours = Keyword.get(opts, :tours, [@tour])
     log = Keyword.get(opts, :log)
-    broken_images = Keyword.get(opts, :broken_images, false)
-    broken_share_tokens = Keyword.get(opts, :broken_share_tokens, false)
+    broken_tracks = Keyword.get(opts, :broken_tracks, false)
 
     Req.Test.stub(Web.Komoot.Client, fn conn ->
       if log, do: Agent.update(log, &[conn.request_path | &1])
@@ -65,29 +65,11 @@ defmodule Web.Rides.KomootSyncTest do
         String.starts_with?(conn.request_path, "/v006/account/email/") ->
           Req.Test.json(conn, @login_body)
 
-        String.ends_with?(conn.request_path, "/share_token") ->
-          [_, tour_id] = Regex.run(~r{/tours/(\d+)/}, conn.request_path)
-
-          cond do
-            broken_share_tokens ->
-              Plug.Conn.send_resp(conn, 500, "")
-
-            conn.method == "GET" ->
-              Plug.Conn.send_resp(conn, 204, "")
-
-            true ->
-              conn
-              |> Plug.Conn.put_status(201)
-              |> Req.Test.json(%{"token" => "share-" <> tour_id})
-          end
-
-        String.contains?(conn.request_path, "/maps/") ->
-          if broken_images do
-            Plug.Conn.send_resp(conn, 500, "no image")
+        conn.request_path =~ ~r{^/v007/tours/\d+$} ->
+          if broken_tracks do
+            Plug.Conn.send_resp(conn, 500, "")
           else
-            conn
-            |> Plug.Conn.put_resp_header("content-type", "image/jpeg")
-            |> Plug.Conn.send_resp(200, "fake-jpeg-bytes")
+            Req.Test.json(conn, %{"_embedded" => %{"coordinates" => %{"items" => @track}}})
           end
 
         conn.request_path =~ ~r{/v007/users/} ->
@@ -104,7 +86,7 @@ defmodule Web.Rides.KomootSyncTest do
     end)
   end
 
-  test "a recorded tour is imported from the listing alone" do
+  test "a recorded tour is imported from the listing, with its track" do
     {:ok, log} = Agent.start_link(fn -> [] end)
     stub_komoot(log: log)
 
@@ -124,12 +106,15 @@ defmodule Web.Rides.KomootSyncTest do
     assert ride.kcal == 1500
     assert ride.visibility == "public"
     assert ride.komoot_changed_at == ~U[2026-06-13 10:00:00Z]
-    assert ride.map_image_url =~ "width=800"
-    refute ride.map_image_url =~ "{crop}"
-    assert Thumbs.exists?(ride)
 
-    # Login, listing, map image — no per-tour request of any kind.
-    assert Agent.get(log, &length/1) == 3
+    # The track is stored as recorded, and the card's outline drawn from it.
+    assert %Rides.Route{segments: [[{45.0, 7.0, 300.0, +0.0}, _, _]], start?: true, finish?: true} =
+             Rides.route(ride)
+
+    assert Rides.card_path(ride) =~ ~r/^M[\d.]+ [\d.]+ L/
+
+    # Login, listing, and one request for the tour's track.
+    assert Agent.get(log, & &1) |> Enum.reverse() |> Enum.drop(2) == ["/v007/tours/444"]
   end
 
   test "tour listing follows pagination links" do
@@ -139,6 +124,9 @@ defmodule Web.Rides.KomootSyncTest do
       cond do
         String.starts_with?(conn.request_path, "/v006/account/email/") ->
           Req.Test.json(conn, @login_body)
+
+        conn.request_path =~ ~r{^/v007/tours/\d+$} ->
+          Req.Test.json(conn, %{"_embedded" => %{"coordinates" => %{"items" => @track}}})
 
         conn.request_path =~ ~r{/v007/users/} ->
           case URI.decode_query(conn.query_string)["page"] do
@@ -198,56 +186,62 @@ defmodule Web.Rides.KomootSyncTest do
     assert Enum.all?(Rides.list_rides(), &(&1.visibility == "private"))
   end
 
-  test "a private tour gets a share token once, so Komoot's embed can show it" do
-    {:ok, log} = Agent.start_link(fn -> [] end)
-    stub_komoot(log: log, tours: [%{@tour | "status" => "private"}, @other_tour])
-
-    assert {:ok, %{imported: 2, failed: 0}} = KomootSync.sync()
-
-    assert %{"444" => private, "111" => public} = Rides.komoot_index()
-    assert private.share_token == "share-444"
-    assert public.share_token == nil
-
-    # A read that finds none, then the create — and only for the private tour.
-    assert share_token_requests(log) == [
-             "/v007/tours/444/share_token",
-             "/v007/tours/444/share_token"
-           ]
-
-    # Kept from then on: a full re-read doesn't ask again.
-    assert {:ok, %{skipped: 2}} = KomootSync.sync(force: true)
-    assert length(share_token_requests(log)) == 2
-  end
-
   @tag :capture_log
-  test "a failed share token fails the tour until a pass gets one" do
-    stub_komoot(tours: [%{@tour | "status" => "private"}], broken_share_tokens: true)
+  test "a track that won't come fails the tour until a pass gets it" do
+    stub_komoot(broken_tracks: true)
 
     assert {:ok, %{failed: 1}} = KomootSync.sync()
-    assert [%{share_token: nil}] = Rides.list_rides()
+    assert [ride] = Rides.list_rides()
+    assert Rides.route(ride) == nil
 
     # The ETag wasn't stored, so the next hourly pass reads the listing again
     # and asks again — no force needed.
-    stub_komoot(tours: [%{@tour | "status" => "private"}])
+    stub_komoot()
     assert {:ok, %{updated: 1, failed: 0, unchanged: false}} = KomootSync.sync()
-    assert [%{share_token: "share-444"}] = Rides.list_rides()
+    assert %Rides.Route{} = Rides.route(hd(Rides.list_rides()))
   end
 
-  test "a tour made private later gets its token on that pass" do
+  test "a track is read once, and again only when the tour is edited" do
+    {:ok, log} = Agent.start_link(fn -> [] end)
+    stub_komoot(log: log)
+
+    track_requests = fn ->
+      Agent.get(log, &Enum.count(&1, fn path -> path == "/v007/tours/444" end))
+    end
+
+    assert {:ok, %{imported: 1}} = KomootSync.sync()
+    assert {:ok, %{skipped: 1}} = KomootSync.sync(force: true)
+    assert track_requests.() == 1
+
+    # A privacy flip is not a route edit.
+    stub_komoot(log: log, tours: [%{@tour | "status" => "private"}])
+    assert {:ok, %{updated: 1}} = KomootSync.sync()
+    assert track_requests.() == 1
+
+    edited =
+      Map.merge(@tour, %{"status" => "private", "changed_at" => "2026-06-14T10:00:00.000Z"})
+
+    stub_komoot(log: log, tours: [edited])
+    assert {:ok, %{updated: 1}} = KomootSync.sync()
+    assert track_requests.() == 2
+  end
+
+  test "a change of privacy zone redraws the cards on the next pass, even an unchanged one" do
     stub_komoot()
     assert {:ok, %{imported: 1}} = KomootSync.sync()
-    assert [%{share_token: nil}] = Rides.list_rides()
+    assert [%{route_path: whole}] = Rides.list_rides()
 
-    stub_komoot(tours: [%{@tour | "status" => "private"}])
-    assert {:ok, %{updated: 1}} = KomootSync.sync()
-    assert [%{visibility: "private", share_token: "share-444"}] = Rides.list_rides()
-  end
+    Application.put_env(:web, :ride_privacy_zones, "45.0,7.0,60")
+    on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
 
-  defp share_token_requests(log) do
-    log
-    |> Agent.get(& &1)
-    |> Enum.reverse()
-    |> Enum.filter(&String.ends_with?(&1, "/share_token"))
+    # Cut by other zones, the stored outline is refused before it is redrawn…
+    assert Rides.card_path(hd(Rides.list_rides())) == nil
+
+    # …and the 304 pass redraws it.
+    assert {:ok, %{unchanged: true}} = KomootSync.sync()
+    assert [ride] = Rides.list_rides()
+    assert Rides.card_path(ride) != nil
+    assert ride.route_path != whole
   end
 
   # Komoot does not always bump changed_at when privacy is the only edit.
@@ -283,18 +277,18 @@ defmodule Web.Rides.KomootSyncTest do
     assert ride.komoot_changed_at == ~U[2026-06-14 10:00:00Z]
   end
 
-  test "a tour deleted on Komoot is deleted here, thumbnail and all" do
+  test "a tour deleted on Komoot is deleted here, track and all" do
     stub_komoot(tours: [@tour, @other_tour])
     assert {:ok, %{imported: 2}} = KomootSync.sync()
 
     gone = Enum.find(Rides.list_rides(), &(&1.komoot_id == "444"))
-    assert Thumbs.exists?(gone)
+    assert MapSet.member?(Rides.tracked_ride_ids(), gone.id)
 
     stub_komoot(tours: [@other_tour])
     assert {:ok, %{deleted: 1}} = KomootSync.sync()
 
     assert [%{komoot_id: "111"}] = Rides.list_rides()
-    refute Thumbs.exists?(gone)
+    refute MapSet.member?(Rides.tracked_ride_ids(), gone.id)
   end
 
   test "an empty listing never wipes the archive" do
@@ -306,15 +300,6 @@ defmodule Web.Rides.KomootSyncTest do
     assert [_ride] = Rides.list_rides()
   end
 
-  @tag :capture_log
-  test "thumbnail download failure does not fail the import" do
-    stub_komoot(broken_images: true)
-
-    assert {:ok, %{imported: 1, failed: 0}} = KomootSync.sync()
-    assert [ride] = Rides.list_rides()
-    refute Thumbs.exists?(ride)
-  end
-
   test "sync is disabled without credentials" do
     original = Application.get_env(:web, :komoot)
     Application.put_env(:web, :komoot, email: nil, password: nil)
@@ -322,6 +307,53 @@ defmodule Web.Rides.KomootSyncTest do
 
     refute KomootSync.enabled?()
     assert :disabled = KomootSync.sync()
+  end
+
+  # The admin reads when the last pass ran and how it went; before this a
+  # sync that failed every hour said so only in the journal.
+  describe "last_run/0" do
+    test "is empty until a pass has run" do
+      assert %{at: nil, status: nil} = KomootSync.last_run()
+    end
+
+    test "a clean pass is recorded with what it changed" do
+      stub_komoot()
+      KomootSync.sync()
+
+      assert %{status: :ok, detail: "1 imported", at: %DateTime{}} = KomootSync.last_run()
+    end
+
+    test "an unchanged listing is recorded as such" do
+      stub_komoot()
+      KomootSync.sync()
+      KomootSync.sync()
+
+      assert %{status: :ok, detail: "unchanged since the last pass"} = KomootSync.last_run()
+    end
+
+    @tag :capture_log
+    test "a pass with failed tours is partial" do
+      stub_komoot(tours: [@broken_tour, @other_tour])
+      KomootSync.sync()
+
+      assert %{status: :partial, detail: "1 imported, 1 failed"} = KomootSync.last_run()
+    end
+
+    test "a failed login is recorded as a failure" do
+      Req.Test.stub(Web.Komoot.Client, fn conn -> Plug.Conn.send_resp(conn, 401, "nope") end)
+      KomootSync.sync()
+
+      assert %{status: :failed, detail: ":auth_failed"} = KomootSync.last_run()
+    end
+
+    test "a disabled sync records nothing" do
+      original = Application.get_env(:web, :komoot)
+      Application.put_env(:web, :komoot, email: nil, password: nil)
+      on_exit(fn -> Application.put_env(:web, :komoot, original) end)
+
+      KomootSync.sync()
+      assert %{at: nil} = KomootSync.last_run()
+    end
   end
 
   @tag :capture_log
@@ -347,8 +379,6 @@ defmodule Web.Rides.KomootSyncTest do
     defp listings(log), do: Enum.filter(requests(log), &String.contains?(&1, "/v007/users/"))
 
     defp logins(log), do: Enum.filter(requests(log), &String.starts_with?(&1, "/v006/account/"))
-
-    defp images(log), do: Enum.count(requests(log), &String.contains?(&1, "/maps/"))
 
     test "an unchanged archive is answered 304 and read no further", %{log: log} do
       stub_komoot(log: log)
@@ -426,32 +456,6 @@ defmodule Web.Rides.KomootSyncTest do
 
       assert {:ok, %{imported: 0, skipped: 1}} = KomootSync.sync()
       assert length(logins(log)) == 2
-    end
-
-    test "a metadata edit does not re-download an unchanged map image", %{log: log} do
-      stub_komoot(log: log)
-      assert {:ok, %{imported: 1}} = KomootSync.sync()
-      assert images(log) == 1
-
-      renamed =
-        Map.merge(@tour, %{"name" => "Renamed", "changed_at" => "2026-06-14T10:00:00.000Z"})
-
-      stub_komoot(log: log, tours: [renamed])
-      assert {:ok, %{updated: 1}} = KomootSync.sync()
-      assert images(log) == 1
-
-      # A re-routed tour, though, gets a genuinely different image URL.
-      rerouted =
-        Map.merge(renamed, %{
-          "changed_at" => "2026-06-15T10:00:00.000Z",
-          "map_image" => %{
-            "src" => "https://cdn.komoot.de/maps/444-v2.jpg?width={width}&height={height}"
-          }
-        })
-
-      stub_komoot(log: log, tours: [rerouted])
-      assert {:ok, %{updated: 1}} = KomootSync.sync()
-      assert images(log) == 2
     end
   end
 end

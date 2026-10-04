@@ -1,0 +1,300 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LETTERS — the foot of a post, a log or a frame (WebWeb.LettersLive)
+   ═══════════════════════════════════════════════════════════════════
+   Letters the author published, the sites that cite the piece, and a way
+   to write one. It sits on three different grounds — the blog's paper,
+   the logs' NX-01 console, the negatives' darkroom — so it reads tokens
+   only and takes whichever it is set on. Surfaces key off --paper-*, since
+   --ink is light in both dark themes. The one thing each theme re-points
+   is --letters-act, the colour of what can be pressed: the site's deepened
+   poppy on paper, the console's amber, and on the darkroom a poppy mixed
+   toward its light ink so small text clears the dark ground.
+   ─────────────────────────────────────────────────────────────────── */
+
+.letters {
+  --letters-act: var(--accent-ink);
+
+  width: 100%;
+  max-width: 760px;
+  margin: 3rem auto 4rem;
+  color: var(--ink);
+}
+
+.nx01 .letters {
+  --letters-act: var(--color-orange);
+}
+
+.darkroom .letters {
+  --letters-act: color-mix(in srgb, var(--accent-color) 60%, var(--ink));
+}
+
+.letters-title {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.letters-published,
+.letters-cited {
+  margin-bottom: 2.5rem;
+}
+
+.letter {
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.letter-body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.letter-sign {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.letters-citations {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.letters-citation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  min-height: 44px;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.letters-citation-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+}
+
+.letters-citation:hover .letters-citation-title {
+  color: var(--letters-act);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.letters-citation-host {
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+/* ── Writing one ──────────────────────────────────────────────────── */
+
+.letters-write {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.letters-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 48px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--letters-act);
+}
+
+.letters-summary::-webkit-details-marker {
+  display: none;
+}
+
+.letters-summary::before {
+  content: "+";
+  display: inline-block;
+  width: 1ch;
+  font-weight: 400;
+}
+
+.letters-write[open] .letters-summary::before {
+  content: "−";
+}
+
+.letters-form,
+.letters-sent {
+  padding: 0.5rem 0 1.75rem;
+}
+
+.letters-hint {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 1.02rem;
+  color: var(--ink-3);
+}
+
+.letters-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.letters .fieldset {
+  margin-bottom: 1rem;
+}
+
+.letters .fieldset > label,
+.letters-captcha {
+  display: block;
+}
+
+.letters .label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.letters-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+}
+
+.letters-input:focus {
+  outline: 2px solid var(--letters-act);
+  outline-offset: 1px;
+}
+
+textarea.letters-input {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.letters-input--prose {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+/* The consent checkbox reads as a sentence, not a label. */
+.letters .label:has(input[type="checkbox"]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.letters input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--letters-act);
+}
+
+.letters-captcha {
+  max-width: 22rem;
+  margin-bottom: 1.25rem;
+}
+
+/* The question is a sentence, not a field name. */
+.letters-captcha .label {
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.letters-send,
+.letters-send:hover {
+  min-height: 48px;
+  padding: 0 1.4rem;
+  background: var(--letters-act);
+  border: 1px solid var(--letters-act);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.letters-send:hover {
+  filter: brightness(1.08);
+}
+
+.letters-link,
+.letters-link:hover {
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--letters-act);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.letters-sent p {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.55;
+}
+
+.letters-error,
+.letters .text-error {
+  margin: 0 0 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: var(--letters-act);
+}
+
+/* Under a frame the stage is centred and full-width; the letters sit
+   beneath it at reading width. */
+.frame-letters {
+  width: 100%;
+  padding: 0 1rem;
+}
+
+@media (max-width: 640px) {
+  .letters-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

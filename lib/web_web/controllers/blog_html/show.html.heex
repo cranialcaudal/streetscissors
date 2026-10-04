@@ -1,11 +1,12 @@
 <div class="blog-bento-wrapper writing">
-  <div class="blog-post-panel">
+  <article class="blog-post-panel h-entry">
+    <WebWeb.Microformats.entry_fields path={~p"/blog/#{@post.slug}"} />
     <header class="blog-post-header">
       <.post_meta post={@post} />
-      <h1 class="blog-post-title">{@post.title}</h1>
+      <h1 class="blog-post-title p-name">{@post.title}</h1>
     </header>
 
-    <div class="blog-post-content prose">
+    <div class="blog-post-content prose e-content">
       {raw(@post.html)}
     </div>
 
@@ -13,5 +14,14 @@
       <span class="writing-control-label">Filed under:</span>
       <.keyword_links keywords={@post.keywords} variant={:chips} />
     </footer>
-  </div>
+  </article>
+
+  <%!-- Letters about this post, and the sites that cite it (WebWeb.LettersLive). --%>
+  {live_render(@conn, WebWeb.LettersLive,
+    id: "letters-post",
+    session: %{
+      "piece" => Web.Pieces.post(@post.slug),
+      "remote_ip" => WebWeb.ClientIP.from_conn(@conn)
+    }
+  )}
 </div>

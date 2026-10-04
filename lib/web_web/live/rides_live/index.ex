@@ -9,12 +9,11 @@ defmodule WebWeb.RidesLive.Index do
   alias Web.Rides.Units
   alias WebWeb.Activity
 
-  def mount(_params, session, socket) do
+  def mount(_params, _session, socket) do
     rides = Rides.list_rides()
 
     {:ok,
      assign(socket,
-       is_admin: session["admin_user"] == true,
        rides: rides,
        shelves: Rides.shelves(rides)
      )}
@@ -25,11 +24,14 @@ defmodule WebWeb.RidesLive.Index do
     sport = selected_sport(params["sport"], shelves)
     visible = if sport, do: Enum.filter(rides, &(&1.sport == sport)), else: rides
 
+    featured = List.first(visible)
+
     {:noreply,
      assign(socket,
        page_title: if(sport, do: "#{Units.sport(sport)} · Activities", else: "Activities"),
        sport: sport,
-       featured: List.first(visible),
+       featured: featured,
+       featured_route: featured && Rides.route(featured),
        visible_shelves: Enum.filter(shelves, fn {key, _} -> is_nil(sport) or key == sport end),
        years: Rides.yearly_totals(visible)
      )}
@@ -66,7 +68,7 @@ defmodule WebWeb.RidesLive.Index do
         <div class="blog-header-subtitle">Recorded on Komoot</div>
       </header>
 
-      <WebWeb.FitnessSubnav.subnav active={:rides} is_admin={@is_admin} />
+      <WebWeb.FitnessSubnav.subnav active={:rides} />
 
       <p :if={@rides == []} class="activities-empty">
         Nothing synced yet. Activities recorded on Komoot land here within the hour.
@@ -79,15 +81,13 @@ defmodule WebWeb.RidesLive.Index do
         selected={@sport}
       />
 
-      <%!-- The lightbox: the newest activity in view owns the first screen,
-            drawn by Komoot itself, with what the watch measured beneath. --%>
+      <%!-- The lightbox: the newest activity in view owns the first screen. --%>
       <article :if={@featured} class="activity-feature">
         <Activity.meta ride={@featured} />
         <h2 class="activity-title">
           <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured)}</.link>
         </h2>
-        <Activity.plate ride={@featured} link loading="eager" />
-        <Activity.health ride={@featured} />
+        <Activity.plate ride={@featured} route={@featured_route} />
       </article>
 
       <Activity.shelf

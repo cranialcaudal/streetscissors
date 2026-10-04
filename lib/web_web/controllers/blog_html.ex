@@ -22,9 +22,11 @@ defmodule WebWeb.BlogHTML do
   def post_meta(assigns) do
     ~H"""
     <p class="writing-meta">
-      <time datetime={Date.to_iso8601(@post.date)}>
-        {Calendar.strftime(@post.date, "%a %-d %b %Y")}
-      </time>
+      <.link href={~p"/day/#{Date.to_iso8601(@post.date)}"} class="day-link">
+        <time class="dt-published" datetime={Date.to_iso8601(@post.date)}>
+          {Calendar.strftime(@post.date, "%a %-d %b %Y")}
+        </time>
+      </.link>
       <span class="writing-meta-dot" aria-hidden="true">·</span>
       <span>{@post.read_min} min read</span>
       <span class="writing-meta-dot" aria-hidden="true">·</span>
@@ -48,7 +50,7 @@ defmodule WebWeb.BlogHTML do
       <li :for={keyword <- @keywords}>
         <a
           href={blog_query(@sort, keyword)}
-          class={if @variant == :chips, do: "writing-chip", else: "writing-keyword"}
+          class={[if(@variant == :chips, do: "writing-chip", else: "writing-keyword"), "p-category"]}
         >
           {keyword}
         </a>
@@ -71,6 +73,11 @@ defmodule WebWeb.BlogHTML do
       <span>{result_text(@count, @keyword, @sort)}</span>
       <a :if={@keyword} href={blog_query(@sort, nil)} class="writing-clear">
         Clear filter <span aria-hidden="true">✕</span>
+      </a>
+      <%!-- Follow a thread, not an account: this keyword across the blog and
+            the logs, as a feed. --%>
+      <a :if={@keyword} href={~p"/feed?keyword=#{@keyword}"} class="writing-clear writing-follow">
+        Follow “{@keyword}” by RSS
       </a>
     </p>
     """

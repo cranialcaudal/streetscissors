@@ -1,6 +1,20 @@
 /* Site-wide mobile refinements. Imported last so its rules win specificity
    ties; !important is required where templates set inline styles. */
 
+/* Safe-area insets for modern mobile displays (notches, dynamic islands, home bars) */
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fast tap response without 300ms delay */
+a, button, input, select, textarea {
+  touch-action: manipulation;
+}
+
 /* Markdown/prose tables (England itinerary, wiki articles) scroll
    horizontally instead of stretching the page. */
 .markdown-content table,
@@ -12,6 +26,16 @@
 }
 
 @media (max-width: 768px) {
+  /* Prevent iOS auto-zoom on input focus */
+  input[type="text"],
+  input[type="email"],
+  input[type="search"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
   /* Headings sized for phones */
   .theme-title {
     font-size: 2rem;
@@ -36,28 +60,6 @@
     justify-content: center;
   }
 
-  /* Admin: sidebar stacks above the content, nav links become a wrap row */
-  .admin-layout {
-    flex-direction: column !important;
-  }
-  .admin-layout > aside {
-    width: 100% !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--rule);
-    padding: 1rem !important;
-  }
-  .admin-layout > aside nav {
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-  }
-  .admin-layout > div {
-    height: auto !important;
-    padding: 1rem !important;
-  }
-
-  /* Wide admin tables scroll inside their panels */
-  .rides-admin-table {
-    display: block;
-    overflow-x: auto;
-  }
+  /* The admin folds its own rail: see the ≤900px block in admin.css. */
 }
+

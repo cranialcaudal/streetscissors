@@ -169,6 +169,10 @@ config :web, :komoot,
   email: System.get_env("KOMOOT_EMAIL"),
   password: System.get_env("KOMOOT_PASSWORD")
 
+# Privacy zones for ride tracks (`lat,lng,radius_m`; see config/runtime.exs).
+config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
+config :web, :ride_privacy_salt, System.get_env("RIDE_PRIVACY_SALT") || "dev"
+
 # Second copy of each snapshot, on a different physical disk. Snapshots that
 # live beside the database only protect against a bad deploy or a mistaken
 # DELETE — one failed volume takes the database and every snapshot together.
@@ -215,3 +219,12 @@ config :swoosh, :api_client, Swoosh.ApiClient.Finch
 config :web, Web.Mailer,
   adapter: Swoosh.Adapters.Resend,
   api_key: System.get_env("RESEND_API_KEY")
+
+# The scanner studio invents its scans when no scanner is attached. Never set
+# in production: an invented strip there lands in the real archive.
+config :web, :scanner_simulation, true
+
+config :web, :scanner_areas, %{
+  "35mm" => System.get_env("SCANNER_AREA_35MM"),
+  "120" => System.get_env("SCANNER_AREA_120")
+}

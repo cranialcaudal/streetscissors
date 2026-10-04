@@ -89,6 +89,19 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       assert post.keywords == ["ferry", "bowling-green"]
     end
 
+    test "?filter=missing lists only the posts without keywords", %{conn: conn, tmp: tmp} do
+      File.write!(
+        Path.join(tmp, "filed.md"),
+        "---\ntitle: Filed\nkeywords: ferry\n---\n\nBody.\n"
+      )
+
+      File.write!(Path.join(tmp, "unfiled.md"), "---\ntitle: Unfiled\n---\n\nBody.\n")
+
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/blog?filter=missing")
+      assert html =~ "Unfiled"
+      refute html =~ "post-filed"
+    end
+
     test "a post can be deleted", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "doomed.md"), "---\ntitle: Doomed\n---\n\nBody.\n")
 

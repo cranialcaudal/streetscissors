@@ -7,7 +7,6 @@ defmodule Web.Fitness do
   alias Web.Repo
 
   alias Web.Fitness.Exercise
-  alias Web.Fitness.Biometric
 
   @doc """
   Returns the list of exercises.
@@ -73,64 +72,6 @@ defmodule Web.Fitness do
   def list_exercise_logs do
     Repo.all(ExerciseLog)
     |> Repo.preload(:exercise)
-  end
-
-  def list_biometrics do
-    Repo.all(from b in Biometric, order_by: [desc: b.date])
-  end
-
-  def get_latest_biometric do
-    Repo.one(from b in Biometric, order_by: [desc: b.date], limit: 1)
-  end
-
-  def get_biometric!(id), do: Repo.get!(Biometric, id)
-
-  def change_biometric(%Biometric{} = biometric, attrs \\ %{}) do
-    Biometric.changeset(biometric, attrs)
-  end
-
-  def create_biometric(attrs \\ %{}) do
-    %Biometric{}
-    |> Biometric.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def update_biometric(%Biometric{} = biometric, attrs) do
-    biometric
-    |> Biometric.changeset(attrs)
-    |> Repo.update()
-  end
-
-  def delete_biometric(%Biometric{} = biometric) do
-    Repo.delete(biometric)
-  end
-
-  @updatable_biometric_fields [
-    :weight_lbs,
-    :resting_hr,
-    :protein_grams,
-    :water_oz,
-    :sleep_hours,
-    :screentime_hours,
-    :body_fat_percentage,
-    :hrv_ms,
-    :active_calories,
-    :calories_in,
-    :fiber_grams,
-    :vo2_max,
-    :spo2_percent,
-    :respiratory_rate,
-    :soreness,
-    :energy
-  ]
-
-  def upsert_biometric(attrs) do
-    %Biometric{}
-    |> Biometric.changeset(attrs)
-    |> Repo.insert(
-      on_conflict: {:replace, @updatable_biometric_fields},
-      conflict_target: :date
-    )
   end
 
   alias Web.Fitness.WorkoutSession

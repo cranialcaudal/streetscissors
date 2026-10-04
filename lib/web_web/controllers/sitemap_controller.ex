@@ -17,7 +17,8 @@ defmodule WebWeb.SitemapController do
   def index(conn, _params) do
     urls =
       static_urls() ++
-        blog_urls() ++ log_urls() ++ fitness_urls() ++ ride_urls() ++ negatives_urls()
+        blog_urls() ++
+        log_urls() ++ fitness_urls() ++ ride_urls() ++ negatives_urls() ++ almanac_urls()
 
     xml = """
     <?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +44,7 @@ defmodule WebWeb.SitemapController do
       {"/fitness/rides", nil, "weekly", "0.6"},
       {"/about", nil, "monthly", "0.7"},
       {"/how-to", nil, "monthly", "0.6"},
+      {"/roadmap", nil, "monthly", "0.6"},
       {"/guestbook", nil, "monthly", "0.4"}
     ]
   end
@@ -67,6 +69,27 @@ defmodule WebWeb.SitemapController do
   rescue
     # The wiki reads a markdown vault off disk; a missing one must not 500 the
     # sitemap and take every other URL with it.
+    _ -> []
+  end
+
+  # Every year and every day with work in it — and only those: an empty day
+  # is a 404, so listing it would send crawlers to a dead end.
+  defp almanac_urls do
+    entries = Web.Almanac.entries()
+
+    years =
+      Enum.map(Web.Almanac.years(entries), fn year ->
+        {"/almanac/#{year}", nil, "monthly", "0.5"}
+      end)
+
+    days =
+      entries
+      |> Enum.map(& &1.date)
+      |> Enum.uniq()
+      |> Enum.map(&{"/day/#{Date.to_iso8601(&1)}", &1, "yearly", "0.3"})
+
+    years ++ days
+  rescue
     _ -> []
   end
 

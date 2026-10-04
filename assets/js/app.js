@@ -27,8 +27,8 @@ import topbar from "../vendor/topbar"
 import { GymRoutine } from "./gym_routine"
 import { MarkdownEditor } from "./markdown_editor"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
-import { BiometricCharts } from "./biometric_charts"
 import { initEmissionsControls } from "./emissions_controls"
+import { RouteMap } from "./route_map"
 
 document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
 window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
@@ -45,7 +45,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, BiometricCharts },
+  hooks: { ...colocatedHooks, GymRoutine, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, RouteMap },
 })
 
 // Show progress bar on live navigation and form submits
@@ -60,6 +60,12 @@ window.addEventListener("phx:copy_to_clipboard", (e) => {
       console.log("Copied to clipboard");
     });
   }
+})
+
+// "Print this year" on /almanac/:year. That page is a controller render with
+// no hooks, so one delegated listener serves any `data-print` button.
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-print]")) window.print()
 })
 
 // connect if there are any LiveViews on the page
@@ -103,6 +109,32 @@ if (process.env.NODE_ENV === "development") {
     }, true)
 
     window.liveReloader = reloader
+  })
+}
+
+// Register Service Worker for PWA / offline support
+if (
+  "serviceWorker" in navigator &&
+  (window.location.protocol === "https:" ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1")
+) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                console.log("[PWA] New content ready.")
+              }
+            })
+          }
+        })
+      })
+      .catch((err) => console.debug("[PWA] SW register skipped:", err))
   })
 }
 

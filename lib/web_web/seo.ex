@@ -20,6 +20,14 @@ defmodule WebWeb.SEO do
   @doc "Absolute site URL, e.g. `https://streetscissors.com`."
   def base_url, do: WebWeb.Endpoint.url()
 
+  @doc "The configured author name, or nil."
+  def author_name do
+    case Application.get_env(:web, :author_name) do
+      name when is_binary(name) and name != "" -> name
+      _ -> nil
+    end
+  end
+
   @doc "Turns a site-relative path into an absolute URL."
   def absolute(nil), do: nil
   def absolute("http" <> _ = url), do: url
@@ -104,6 +112,133 @@ defmodule WebWeb.SEO do
       "name" => site_name(),
       "url" => base_url()
     })
+  end
+
+  @doc "Builds BlogPosting JSON-LD map for a blog post."
+  def article_json_ld(post) do
+    url = absolute("/blog/#{post.slug}")
+    author_name = Application.get_env(:web, :author_name) || site_name()
+
+    date_str =
+      cond do
+        is_struct(post.date, Date) -> Date.to_iso8601(post.date)
+        is_binary(post.date) and post.date != "" -> post.date
+        true -> nil
+      end
+
+    data = %{
+      "@context" => "https://schema.org",
+      "@type" => "BlogPosting",
+      "headline" => post.title,
+      "url" => url,
+      "mainEntityOfPage" => %{"@type" => "WebPage", "@id" => url},
+      "description" =>
+        Map.get(post, :description) || Map.get(post, :excerpt) || @default_description,
+      "author" => %{
+        "@type" => "Person",
+        "name" => author_name,
+        "url" => base_url()
+      },
+      "publisher" => %{
+        "@type" => "Organization",
+        "name" => site_name(),
+        "logo" => %{
+          "@type" => "ImageObject",
+          "url" => absolute(@default_image)
+        }
+      },
+      "image" => [absolute(Map.get(post, :image) || @default_image)]
+    }
+
+    data = if date_str, do: Map.put(data, "datePublished", date_str), else: data
+    data = if date_str, do: Map.put(data, "dateModified", date_str), else: data
+
+    case Map.get(post, :keywords) do
+      kw when is_list(kw) and kw != [] -> Map.put(data, "keywords", Enum.join(kw, ", "))
+      kw when is_binary(kw) and kw != "" -> Map.put(data, "keywords", kw)
+      _ -> data
+    end
+  end
+
+  @doc "Builds VideoObject or AudioObject JSON-LD for a captain's log entry."
+  def media_json_ld(log) do
+    url = absolute("/logs/#{log.slug}")
+    author_name = Application.get_env(:web, :author_name) || site_name()
+    title = Web.Audio.Log.title(log)
+
+    type = if log.kind == "video", do: "VideoObject", else: "AudioObject"
+    upload_date = if log.recorded_on, do: Date.to_iso8601(log.recorded_on), else: nil
+
+    data = %{
+      "@context" => "https://schema.org",
+      "@type" => type,
+      "name" => title,
+      "description" => log.caption || log.description || title,
+      "url" => url,
+      "author" => %{
+        "@type" => "Person",
+        "name" => author_name
+      }
+    }
+
+    data = if upload_date, do: Map.put(data, "uploadDate", upload_date), else: data
+
+    data =
+      if log.poster_path do
+        Map.put(data, "thumbnailUrl", absolute(log.poster_path))
+      else
+        Map.put(data, "thumbnailUrl", absolute(@default_image))
+      end
+
+    if log.media_dir do
+      media_file = if log.kind == "video", do: "video.mp4", else: "audio.m4a"
+      Map.put(data, "contentUrl", absolute("/uploads/#{log.media_dir}/#{media_file}"))
+    else
+      data
+    end
+  end
+
+  @doc "Builds BreadcrumbList JSON-LD from a list of {name, path} tuples."
+  def breadcrumb_json_ld(crumbs) when is_list(crumbs) do
+    items =
+      crumbs
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{name, path}, idx} ->
+        %{
+          "@type" => "ListItem",
+          "position" => idx,
+          "name" => name,
+          "item" => absolute(path)
+        }
+      end)
+
+    %{
+      "@context" => "https://schema.org",
+      "@type" => "BreadcrumbList",
+      "itemListElement" => items
+    }
+  end
+
+  @doc "Renders page-level JSON-LD tags assigned in assigns[:json_ld]."
+  def page_json_ld_tag(assigns) do
+    case assigns[:json_ld] do
+      nil ->
+        ""
+
+      "" ->
+        ""
+
+      data when is_map(data) ->
+        json_ld_tag(data)
+
+      list when is_list(list) ->
+        list
+        |> Enum.filter(&is_map/1)
+        |> Enum.map_join("\n    ", &json_ld_tag/1)
+
+      _ ->
+        ""
+    end
   end
 
   defp json_ld_tag(data) do

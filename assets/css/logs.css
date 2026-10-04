@@ -315,6 +315,23 @@
   color: var(--color-orange);
 }
 
+/* "Follow <keyword> by RSS": a quiet link at the end of the filter bank,
+   only while a keyword is engaged. */
+.console-follow {
+  margin-left: auto;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-orange);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.console-follow:hover {
+  color: var(--ink);
+}
+
 /* ── Status strip, as a definition list ───────────────────
    The markup is dl/dt/dd so a reader hears "Entries, four";
    the caption still sits above the number visually. */

@@ -4,12 +4,7 @@ defmodule Web.RidesTest do
   import Web.RidesFixtures
 
   alias Web.Rides
-  alias Web.Rides.{Thumbs, Units}
-
-  setup do
-    File.rm_rf!(Thumbs.dir())
-    :ok
-  end
+  alias Web.Rides.Units
 
   test "list_rides is newest first and includes private tours" do
     older = ride_fixture(%{started_at: ~U[2026-06-01 08:00:00Z]})
@@ -53,87 +48,20 @@ defmodule Web.RidesTest do
     assert %{komoot_id: ["can't be blank"], started_at: ["can't be blank"]} = errors_on(changeset)
   end
 
-  test "delete_ride removes the cached thumbnail" do
+  test "delete_ride removes the stored track" do
     ride = ride_fixture()
-    :ok = Thumbs.store(ride, "fake-jpeg")
+    {:ok, _ride} = Rides.store_track(ride, [{45.0, 7.0, 300.0, 0}, {45.001, 7.0, 305.0, 20_000}])
+    assert MapSet.member?(Rides.tracked_ride_ids(), ride.id)
 
     {:ok, _ride} = Rides.delete_ride(ride)
-    refute Thumbs.exists?(ride)
+    assert Rides.tracked_ride_ids() == MapSet.new()
   end
 
-  describe "Komoot links" do
-    test "a public tour embeds as itself" do
-      ride = ride_fixture(%{komoot_id: "123", visibility: "public"})
+  test "a ride with no track has no route and no outline" do
+    ride = ride_fixture()
 
-      assert Rides.embed_url(ride) == "https://www.komoot.com/tour/123/embed?profile=1"
-      assert Rides.tour_url(ride) == "https://www.komoot.com/tour/123"
-    end
-
-    test "a private tour embeds through its share token" do
-      ride = ride_fixture(%{komoot_id: "123", visibility: "private", share_token: "abc"})
-
-      assert Rides.embed_url(ride) ==
-               "https://www.komoot.com/tour/123/embed?share_token=abc&profile=1"
-
-      assert Rides.tour_url(ride) == "https://www.komoot.com/tour/123?share_token=abc"
-    end
-
-    test "a private tour with no token yet has no link a visitor could open" do
-      ride = ride_fixture(%{visibility: "private"})
-
-      assert Rides.embed_url(ride) == nil
-      assert Rides.tour_url(ride) == nil
-    end
-  end
-
-  describe "health" do
-    test "a ride carries the workout that started nearest to it" do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:04:00Z], avg_hr: 120})
-      nearest = workout_fixture(%{started_at: ~U[2026-07-08 17:59:30Z], avg_hr: 142})
-
-      assert [%{health: %{id: id}}] = Rides.list_rides()
-      assert id == nearest.id
-      assert Rides.get_ride(ride.id).health.avg_hr == 142
-    end
-
-    test "a workout more than ten minutes off is another outing" do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:11:00Z]})
-
-      assert Rides.get_ride(ride.id).health == nil
-    end
-
-    test "each ride in a list is matched on its own" do
-      ride_fixture(%{started_at: ~U[2026-07-01 16:00:00Z]})
-      ride_fixture(%{started_at: ~U[2026-07-08 16:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 16:00:05Z], avg_hr: 150})
-
-      assert [%{health: %{avg_hr: 150}}, %{health: nil}] = Rides.list_rides()
-    end
-
-    test "ingest stores a workout once, however often the export repeats it" do
-      raw = %{
-        "id" => "HK-1",
-        "name" => "Outdoor Cycling",
-        "start" => "2026-07-08 11:00:10 -0700",
-        "end" => "2026-07-08 13:00:00 -0700",
-        "heartRate" => %{"avg" => %{"qty" => 141.6}, "max" => %{"qty" => 170}},
-        "activeEnergyBurned" => %{"qty" => 600, "units" => "kcal"}
-      }
-
-      assert Rides.ingest_workouts([raw]) == 1
-      assert Rides.ingest_workouts([%{raw | "activeEnergyBurned" => %{"qty" => 610}}]) == 1
-      assert Rides.count_workouts() == 1
-
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      assert %{avg_hr: 142, max_hr: 170, active_kcal: 610} = Rides.get_ride(ride.id).health
-    end
-
-    test "a workout without a readable start is skipped, not fatal" do
-      assert Rides.ingest_workouts([%{"id" => "x"}, "junk", %{"start" => "yesterday"}]) == 0
-      assert Rides.ingest_workouts(nil) == 0
-    end
+    assert Rides.route(ride) == nil
+    assert Rides.card_path(ride) == nil
   end
 
   test "shelves put the biggest sport first, ties to the most recent, each newest first" do

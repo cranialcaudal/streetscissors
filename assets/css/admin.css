@@ -1,16 +1,34 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN — the CMS chrome behind /admin/*
+   ADMIN — "the composing room", the CMS behind /admin/*
    ═══════════════════════════════════════════════════════════════════
-   A deliberate dark exception, in the manner of `.darkroom`/`.steel`:
-   same token names, re-inked, so admin views style with the ordinary
-   --paper/--ink vocabulary and just come out dark. This is the rule
-   the ad-hoc greys scattered through the admin LiveViews were always
-   implicitly assuming — `.admin-layout` previously carried no
-   background at all, so that text rendered pale-on-pale against the
-   site's default paper ground.
+   The back office of the print shop the public site is set in. It is a
+   deliberate dark exception, in the manner of `.darkroom`/`.steel`: the
+   same token names, re-inked, so admin markup styles with the ordinary
+   --paper/--ink vocabulary and comes out dark.
+
+   **Every admin rule lives here.** Pages are built from
+   `WebWeb.AdminComponents` and carry no `<style>` block and no literal
+   colour; the old per-page blocks (CmsStyles, the fitness "mission
+   control", the rides table, the booth) were folded in when the admin was
+   rebuilt on 2026-09-29.
+
+   Type: IBM Plex Mono is the instrument voice (nav, labels, buttons,
+   figures, tables). Sorts Mill Goudy is kept for page titles and for words
+   people wrote — post titles, log captions, signatures, messages.
+
+   Colour follows the site's rule, **ink reads, poppy acts**: anything
+   pressable wears --adm-act at rest, and solid ink marks the current
+   choice. The pigments are lifted for the dark ground; each clears 4.5:1
+   on --paper and --paper-raised (poppy 5.5/5.0, jade 7.0/6.4, amber
+   8.2/7.5, red 5.4/4.9). The site's own #c2451d falls to 3.6 here.
+
+   theme.css styles every bare `button` (and `button:hover`, which outranks
+   a single class), so each button class below states its hover in full —
+   background, border and colour — rather than inheriting a poppy fill.
    ─────────────────────────────────────────────────────────────────── */
 
-.admin-layout {
+.admin-layout,
+.adm-login {
   --paper: #17140f;
   --paper-raised: #211d17;
   --paper-sunk: #100e0b;
@@ -19,45 +37,2030 @@
   --ink: #f3eee4;
   --ink-2: #cfc7b8;
   --ink-3: #98907f;
-  --ink-4: #6b6555;
+  --ink-4: #857e6d;
 
-  --rule: rgba(243, 238, 228, 0.18);
-  --rule-strong: rgba(243, 238, 228, 0.45);
+  --rule: rgba(243, 238, 228, 0.14);
+  --rule-strong: rgba(243, 238, 228, 0.34);
   --hairline: var(--rule);
 
+  --adm-act: #e2683a;
+  --adm-act-strong: #ec7446;
+  --adm-live: #6fae7d;
+  --adm-held: #d9a441;
+  --adm-fail: #e0655a;
+  --adm-info: #7fa3d1;
+
+  --adm-rail-w: 232px;
+
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+/* The root layout pads every page to clear the public sticky header; the
+   admin has no such header. (Not `> .admin-layout`: LiveView's own
+   container sits between the two.) */
+.main-content-wrapper:has(.admin-layout) {
+  padding-top: 0 !important;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: var(--adm-rail-w) minmax(0, 1fr);
+  min-height: 100vh;
   background: var(--paper);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Zero-specificity, so every class below outranks it. */
+:where(.admin-layout) a {
+  color: inherit;
+}
+
+/* ── The rail ─────────────────────────────────────────────────────── */
+
+.adm-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--paper-sunk);
+  border-right: 1px solid var(--rule);
+}
+
+.adm-rail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+}
+
+.adm-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-decoration: none;
+}
+
+.adm-brand-mark {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.adm-brand-slug {
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--adm-act);
+}
+
+.adm-menu-btn {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0 0.8rem;
+  background: none;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.adm-menu-btn:hover {
+  background: none;
+  border-color: var(--ink);
   color: var(--ink);
 }
 
-/* Status pills — subscriber active/inactive, send-history state */
-.admin-pill {
-  font-family: var(--font-data);
-  font-size: 0.85rem;
+.adm-rail-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 0 0.6rem 1rem;
+}
+
+.adm-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  flex: 1;
+}
+
+.adm-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.adm-nav-group + .adm-nav-group {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.9rem;
+}
+
+.adm-nav-heading {
+  margin: 0;
+  padding: 0 0.75rem 0.35rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.adm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 40px;
+  padding: 0 0.75rem;
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
+  font-size: 0.8rem;
   letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
 }
 
-.admin-pill-active {
-  color: var(--color-jade);
+.adm-nav-link:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
 }
 
-.admin-pill-inactive {
-  color: var(--color-red);
+.adm-nav-link[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-left-color: var(--adm-act);
 }
 
-.admin-danger-btn {
-  border-color: var(--color-red) !important;
-  color: var(--color-red) !important;
-  background: transparent !important;
+.adm-nav-label {
+  flex: 1;
 }
 
-.admin-danger-btn:hover {
-  background: var(--color-red) !important;
-  color: var(--paper) !important;
+.adm-nav-link--quiet {
+  color: var(--ink-3);
 }
 
-/* The captain's logs booth says device failures here rather than writing over
-   the plate's own caption. */
+.adm-badge {
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  background: var(--adm-held);
+  color: var(--paper);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.45rem;
+  text-align: center;
+}
+
+.adm-badge--fail {
+  background: var(--adm-fail);
+}
+
+.adm-rail-foot {
+  display: flex;
+  flex-direction: column;
+  margin-top: 1.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* ── Page furniture ───────────────────────────────────────────────── */
+
+.adm-main {
+  min-width: 0;
+  padding: 2.75rem clamp(1rem, 3.5vw, 3.5rem) 5rem;
+}
+
+.adm-page {
+  max-width: 1120px;
+}
+
+.adm-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.adm-head-text {
+  min-width: 0;
+}
+
+.adm-slug {
+  margin: 0 0 0.55rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--adm-act);
+}
+
+.adm-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: clamp(2rem, 3.4vw, 2.75rem);
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.adm-lede {
+  max-width: 62ch;
+  margin: 0.6rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.adm-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.adm-panel {
+  margin-bottom: 2.75rem;
+}
+
+.adm-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-panel-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.adm-count {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-4);
+}
+
+.adm-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* A raised sheet for a form or an instrument that is worked at. */
+.adm-sheet {
+  padding: clamp(1rem, 2.2vw, 1.75rem);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.adm-sheet-title {
+  margin-bottom: 1.25rem;
+}
+
+.adm-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 0 3rem;
+  align-items: start;
+}
+
+.adm-empty {
+  margin: 0;
+  padding: 1.25rem 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink-3);
+}
+
+.adm-help {
+  margin: 0.35rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.adm-help code,
+.adm-lede code {
+  font-family: var(--font-data);
+  font-size: 0.85em;
+  color: var(--ink-2);
+}
+
+.adm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Buttons and links ────────────────────────────────────────────── */
+
+.adm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0 1rem;
+  background: transparent;
+  border: 1px solid var(--adm-act);
+  border-radius: 0;
+  color: var(--adm-act);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.adm-btn:hover {
+  background: var(--adm-act);
+  border-color: var(--adm-act);
+  color: var(--paper);
+}
+
+.adm-btn--primary {
+  background: var(--adm-act);
+  color: var(--paper);
+}
+
+.adm-btn--primary:hover {
+  background: var(--adm-act-strong);
+  border-color: var(--adm-act-strong);
+}
+
+.adm-btn--quiet {
+  border-color: var(--rule-strong);
+  color: var(--ink-2);
+}
+
+.adm-btn--quiet:hover {
+  background: transparent;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.adm-btn--danger {
+  border-color: var(--adm-fail);
+  color: var(--adm-fail);
+}
+
+.adm-btn--danger:hover {
+  background: var(--adm-fail);
+  border-color: var(--adm-fail);
+  color: var(--paper);
+}
+
+.adm-btn--small {
+  min-height: 32px;
+  padding: 0 0.7rem;
+  font-size: 0.66rem;
+}
+
+.adm-btn:disabled,
+.adm-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.adm-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--adm-act);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.admin-layout .adm-link {
+  color: var(--adm-act);
+}
+
+.adm-link:hover {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-layout .adm-link--danger {
+  color: var(--adm-fail);
+}
+
+.admin-layout .adm-link--quiet {
+  color: var(--ink-3);
+}
+
+.adm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+}
+
+.admin-layout :is(a, button, input, select, textarea, summary):focus-visible,
+.adm-login :is(a, button, input):focus-visible {
+  outline: 2px solid var(--adm-act);
+  outline-offset: 2px;
+}
+
+/* ── Forms ────────────────────────────────────────────────────────── */
+
+/* CoreComponents.input/1 wraps each field as .fieldset > label > .label +
+   control; style that markup rather than re-rolling it. */
+.admin-layout .fieldset {
+  margin-bottom: 1rem;
+}
+
+.admin-layout .fieldset > label {
+  display: block;
+}
+
+.admin-layout .label,
+.adm-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-family: var(--font-ui);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.adm-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.55rem 0.75rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+}
+
+.adm-input::placeholder {
+  color: var(--ink-4);
+}
+
+.adm-input:focus {
+  outline: none;
+  border-color: var(--adm-act);
+  box-shadow: 0 0 0 1px var(--adm-act);
+}
+
+textarea.adm-input {
+  min-height: 8rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.adm-input--prose {
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+}
+
+.adm-input--code {
+  font-family: var(--font-data);
+  font-size: 0.82rem;
+}
+
+.admin-layout input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.55rem;
+  vertical-align: middle;
+  accent-color: var(--adm-act);
+}
+
+.admin-layout .label:has(input[type="checkbox"]) {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.adm-field {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.adm-filter {
+  max-width: 24rem;
+  margin: 0 0 1.75rem;
+}
+
+.adm-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 1rem;
+}
+
+.adm-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.adm-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.adm-inline-form .adm-input {
+  flex: 1 1 16rem;
+  width: auto;
+}
+
+.adm-error,
+.admin-layout .text-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0;
+  color: var(--adm-fail);
+  font-size: 0.78rem;
+}
+
+/* ── Status marks ─────────────────────────────────────────────────── */
+
+.adm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid currentColor;
+  font-family: var(--font-data);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.adm-pill--live { color: var(--adm-live); }
+.adm-pill--held { color: var(--adm-held); }
+.adm-pill--attention { color: var(--adm-act); }
+.adm-pill--draft { color: var(--adm-info); }
+.adm-pill--quiet { color: var(--ink-3); }
+
+.adm-pill--failed {
+  background: var(--adm-fail);
+  border-color: var(--adm-fail);
+  color: var(--paper);
+}
+
+.adm-tone--live .adm-stat-value { color: var(--adm-live); }
+.adm-tone--held .adm-stat-value { color: var(--adm-held); }
+.adm-tone--failed .adm-stat-value { color: var(--adm-fail); }
+.adm-tone--act .adm-stat-value { color: var(--adm-act); }
+
+/* ── Tabs: links, so the view lives in the URL ────────────────────── */
+
+.adm-tabs {
+  display: flex;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  margin-bottom: -1px;
+  padding: 0 1rem;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.admin-layout .adm-tab {
+  color: var(--ink-3);
+}
+
+/* The editor's Write/Preview switch is buttons, not links; strip theme.css's
+   button box so they read as the same tabs. */
+button.adm-tab,
+button.adm-tab:hover {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+}
+
+.admin-layout .adm-tab:hover {
+  color: var(--ink);
+}
+
+.admin-layout .adm-tab[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--adm-act);
+}
+
+.admin-layout button.adm-tab[aria-current="page"] {
+  border-bottom: 2px solid var(--adm-act);
+}
+
+.adm-tab-count {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--ink-4);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────── */
+
+.adm-table-wrap {
+  overflow-x: auto;
+}
+
+.adm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+}
+
+.adm-table th {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink-3);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.adm-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+
+.adm-table tbody tr:hover td {
+  background: var(--paper-raised);
+}
+
+.adm-table td.adm-cell-title {
+  font-family: var(--font-heading);
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+
+/* Fixed shares, for tables stacked one per group (the fitness wiki) whose
+   columns should line up down the page. */
+.adm-table .adm-w-name {
+  width: 30%;
+}
+
+.adm-table .adm-w-mid {
+  width: 22%;
+}
+
+.adm-table .adm-cell-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.adm-table-actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.adm-table-actions .adm-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+/* ── Item lists: posts, logs, messages, signatures ────────────────── */
+
+/* No rule of its own on top: a list always sits under a panel head or a
+   row of tabs, which already draws one. */
+.adm-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.adm-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 1.75rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-item--thumb {
+  grid-template-columns: 128px minmax(0, 1fr) auto;
+}
+
+.adm-item-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  color: var(--ink-4);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.adm-item-main {
+  min-width: 0;
+}
+
+.adm-item-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.adm-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  margin-top: 0.4rem;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+
+.adm-item-body {
+  margin: 0.65rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-item-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.adm-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.35rem 1.1rem;
+}
+
+.adm-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.adm-chip {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+}
+
+/* ── Figures ──────────────────────────────────────────────────────── */
+
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+}
+
+.adm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem 1.1rem;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+
+.adm-stat--link:hover {
+  background: var(--paper-raised);
+}
+
+.adm-stat-value {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.9rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.adm-stat-label {
+  color: var(--ink-3);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.adm-stat-note {
+  color: var(--ink-4);
+  font-size: 0.7rem;
+}
+
+/* The overview's "needs you" queue: one row per kind of waiting thing. */
+.adm-queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-queue-link {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 54px;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+
+.adm-queue-link:hover {
+  background: var(--paper-raised);
+}
+
+.adm-queue-count {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.45rem;
+  text-align: right;
+  color: var(--adm-held);
+}
+
+.adm-queue--fail .adm-queue-count { color: var(--adm-fail); }
+.adm-queue--info .adm-queue-count { color: var(--adm-info); }
+
+.adm-queue-text {
+  font-family: var(--font-body);
+  font-size: 1.08rem;
+  color: var(--ink);
+}
+
+.adm-queue-go {
+  color: var(--adm-act);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.adm-clear {
+  margin: 0;
+  padding: 0.4rem 0 1.1rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  color: var(--adm-live);
+}
+
+/* The machine's own state: one row per thing that should be quietly true. */
+.adm-status {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-status li {
+  display: grid;
+  grid-template-columns: 0.6rem minmax(8rem, 12rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.85rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-status-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--ink-4);
+}
+
+.adm-status-dot--ok { background: var(--adm-live); }
+.adm-status-dot--warn { background: var(--adm-held); }
+.adm-status-dot--fail { background: var(--adm-fail); }
+
+.adm-status-name {
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adm-status-detail {
+  color: var(--ink-3);
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+/* Traffic: a row of bars, the current fortnight in poppy. The hover label
+   is CSS, so it needs no script and survives a LiveView patch. */
+.adm-trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 128px;
+  padding-top: 1.5rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.adm-trend-bar {
+  position: relative;
+  flex: 1;
+  min-width: 3px;
+  height: var(--h, 2%);
+  background: var(--ink-4);
+}
+
+.adm-trend-bar.is-current {
+  background: var(--adm-act);
+}
+
+.adm-trend-bar:hover {
+  background: var(--ink);
+}
+
+.adm-trend-bar::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 2;
+  padding: 0.2rem 0.45rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-data);
+  font-size: 0.66rem;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.adm-trend-bar:hover::after {
+  opacity: 1;
+}
+
+.adm-trend-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  color: var(--ink-4);
+  font-family: var(--font-data);
+  font-size: 0.66rem;
+}
+
+.adm-ranked {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-ranked li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+.adm-ranked-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-ranked-count {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ── Uploads ──────────────────────────────────────────────────────── */
+
+.adm-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1.25rem;
+  border: 1px dashed var(--rule-strong);
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.adm-drop:hover,
+.adm-drop.phx-drop-target-active {
+  background: var(--paper-raised);
+  border-color: var(--adm-act);
+}
+
+.adm-drop--spaced {
+  margin: 1rem 0 1.5rem;
+}
+
+.adm-drop-icon {
+  color: var(--ink-3);
+}
+
+.adm-drop-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.adm-file-input {
+  display: none;
+}
+
+.adm-upload {
+  width: 100%;
+  margin-top: 0.5rem;
+  text-align: left;
+}
+
+.adm-upload-name {
+  color: var(--ink-2);
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+}
+
+.adm-progress {
+  height: 3px;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  background: var(--paper-deep);
+}
+
+.adm-progress-bar {
+  height: 100%;
+  background: var(--adm-act);
+  transition: width 0.3s;
+}
+
+.adm-results {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--adm-live);
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+}
+
+.adm-results li {
+  padding: 0.15rem 0;
+}
+
+/* The image library: each card carries its markdown and a Copy button. */
+.adm-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.adm-image {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.adm-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--paper-deep);
+}
+
+.adm-image-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+}
+
+.adm-image-body .adm-link {
+  align-self: flex-start;
+}
+
+.adm-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.adm-copy-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.4rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+}
+
+/* ── Newsletter: composer beside its preview ─────────────────────── */
+
+.adm-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.adm-test-send {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.adm-preview-frame {
+  display: block;
+  width: 100%;
+  height: 560px;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+/* ── Fitness: the vault editor ───────────────────────────────────── */
+
+.adm-editor {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.adm-editor-body textarea {
+  min-height: 62vh;
+}
+
+.adm-prose {
+  min-height: 62vh;
+  padding: 1rem 1.25rem;
+  overflow-wrap: anywhere;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.adm-prose :is(h1, h2, h3, h4) {
+  margin: 1.2em 0 0.4em;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.adm-prose :is(ul, ol) {
+  padding-left: 1.4rem;
+}
+
+.adm-prose a {
+  color: var(--adm-act);
+}
+
+.adm-prose table {
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+}
+
+.adm-prose :is(th, td) {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rule);
+}
+
+.adm-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 2rem 0 0.5rem;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--ink-3);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.adm-group-title:first-child {
+  margin-top: 0;
+}
+
+.adm-group-title--spaced {
+  margin-top: 2.25rem;
+}
+
+/* ── Captain's logs: the recording booth ──────────────────────────── */
+
+.adm-booth {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 2.75rem;
+}
+
+.theater-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+/* The screen: always 16/9, always dark, whether or not anything is in it. */
+.theater-screen {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+.theater-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--paper-deep);
+}
+
+.theater.is-armed .theater-placeholder {
+  display: none;
+}
+
+.theater-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.theater-placeholder-title {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.74rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* Tally light: the one thing in the booth allowed to glow. */
+.theater-tally {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(10, 9, 8, 0.72);
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+.theater-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--adm-fail);
+  box-shadow: 0 0 10px var(--adm-fail);
+  animation: theater-blink 1.4s infinite;
+}
+
+@keyframes theater-blink {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theater-dot { animation: none; }
+}
+
+.theater-meter {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.theater-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.theater-modes {
+  display: flex;
+  border: 1px solid var(--rule-strong);
+}
+
+.theater-mode {
+  min-height: 40px;
+  padding: 0 0.95rem;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.theater-mode:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.theater-mode.is-active,
+.theater-mode.is-active:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* 48px tall, so the one control that matters clears the target minimum.
+   The only round thing in the admin: a record button is a record button. */
+.theater-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  padding: 0 1.3rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.theater-record:hover {
+  background: var(--paper-sunk);
+  border-color: var(--adm-act);
+  color: var(--ink);
+}
+
+.theater-record-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--adm-fail);
+}
+
+.theater.is-recording .theater-record-mark {
+  border-radius: 2px;
+}
+
+.theater-devices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.theater-device {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--ink-3);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.theater-device select {
+  max-width: 220px;
+  min-height: 34px;
+  padding: 0.3rem 0.5rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+}
+
+.theater-review {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.theater-trim {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.theater-range {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--ink-3);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.theater-range b {
+  color: var(--adm-act);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.theater-range input[type="range"] {
+  width: 100%;
+  accent-color: var(--adm-act);
+}
+
+.theater-upload {
+  margin-top: 1rem;
+}
+
+.theater-transcode {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.theater-transcode .adm-progress {
+  flex: 1;
+  margin-top: 0;
+}
+
+/* The booth says device failures here rather than writing over the plate's
+   own caption. */
 .theater-device-error {
   width: 100%;
   margin-top: 0.75rem;
 }
+
+/* ── Login: a dialog over whatever page asked for it ──────────────── */
+
+.adm-login {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background: rgba(10, 9, 8, 0.9);
+}
+
+/* The dialog says its own error, so the layout's notice beneath it would
+   only repeat it. */
+.main-content-wrapper:has(#login-overlay) .flash-group {
+  display: none;
+}
+
+.adm-login-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 2.5rem 2rem 2rem;
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-top: 3px solid var(--adm-act);
+}
+
+.adm-login-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.adm-login-close:hover {
+  background: none;
+  color: var(--adm-act);
+}
+
+.adm-login .adm-slug {
+  margin-bottom: 0.4rem;
+}
+
+.adm-login .adm-title {
+  margin-bottom: 1.75rem;
+}
+
+.adm-login-error {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border-left: 2px solid var(--adm-fail);
+  background: var(--paper-raised);
+  color: var(--adm-fail);
+  font-size: 0.82rem;
+}
+
+.adm-login .adm-input {
+  min-height: 48px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+
+.adm-login .adm-btn {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 1rem;
+}
+
+.adm-login-foot {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.adm-login-foot a {
+  color: var(--ink-3);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.adm-login-foot a:hover {
+  color: var(--adm-act);
+}
+
+/* ── The indicator an admin sees on public pages ─────────────────── */
+
+/* Rendered by root.html.heex outside every theme wrapper, so it wears the
+   public paper tokens, not the composing room's. */
+#admin-indicator {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.2rem 0.2rem 0.2rem 0.75rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#admin-indicator .admin-indicator-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 0.35rem;
+  color: var(--accent-ink);
+}
+
+#admin-indicator :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+#admin-indicator :is(a, button):hover {
+  background: none;
+  color: var(--accent-ink);
+}
+
+#admin-indicator form {
+  display: inline;
+  margin: 0;
+}
+
+/* ── Narrow screens ───────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+  .adm-booth {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .adm-split,
+  .adm-compose {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The rail folds to a bar; Menu opens the navigation beneath it. */
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-rail {
+    top: 0;
+    z-index: 50;
+    height: auto;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .adm-rail-bar {
+    padding: 0.55rem 1rem;
+  }
+
+  .adm-brand {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .adm-brand-mark {
+    font-size: 1.1rem;
+  }
+
+  .adm-menu-btn {
+    display: inline-flex;
+  }
+
+  .adm-rail-body {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    max-height: calc(100vh - 58px);
+    overflow-y: auto;
+    padding: 0.6rem;
+    background: var(--paper-sunk);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  .adm-rail.is-open .adm-rail-body {
+    display: flex;
+  }
+
+  .adm-main {
+    padding: 1.75rem 1rem 3.5rem;
+  }
+
+  .adm-item,
+  .adm-item--thumb {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-item--thumb {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .adm-item-thumb {
+    width: 96px;
+  }
+
+  .adm-item--thumb .adm-item-actions {
+    grid-column: 1 / -1;
+  }
+
+  .adm-item-actions {
+    justify-content: flex-start;
+  }
+
+  .adm-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-status li {
+    grid-template-columns: 0.6rem minmax(0, 1fr);
+  }
+
+  .adm-status-detail {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .theater-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .theater-devices {
+    margin-left: 0;
+  }
+
+  .adm-head-actions {
+    width: 100%;
+  }
+}
+
+/* Fingers, not cursors: every target clears 44px. */
+@media (pointer: coarse) {
+  .adm-btn,
+  .adm-btn--small,
+  .adm-nav-link,
+  .adm-tab,
+  .adm-link {
+    min-height: 44px;
+  }
+}
+
+/* ── Scanner studio ──────────────────────────────────────────────
+   Two columns: the roll and its strips on the left, the sheet they make
+   and its gates on the right. Folds to one at tablet width. */
+
+.adm-scan-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 0 2.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .adm-scan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.adm-scan-path {
+  color: var(--ink-2);
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.adm-scan-actions {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+/* A scan or a tool in flight. */
+.adm-scan-job {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  color: var(--adm-held);
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+}
+
+.adm-scan-job progress {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  border: 0;
+  background: var(--paper-deep);
+  accent-color: var(--adm-act);
+}
+
+.adm-scan-job progress::-webkit-progress-bar { background: var(--paper-deep); }
+.adm-scan-job progress::-webkit-progress-value { background: var(--adm-act); }
+.adm-scan-job progress::-moz-progress-bar { background: var(--adm-act); }
+
+.adm-scan-bed {
+  display: block;
+  max-width: 100%;
+  max-height: 22rem;
+  margin: 0 0 1rem;
+  border: 1px solid var(--rule-strong);
+}
+
+.adm-scan-strips {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-scan-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-scan-strip-name {
+  display: grid;
+  gap: 0.15rem;
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.adm-scan-strip-name span {
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+
+.adm-scan-strip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* A strip, looked at. The mat stays dark whatever the theme: it is behind
+   film. */
+.adm-scan-look {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 10rem;
+  padding: 1rem;
+  background: #000;
+  border: 1px solid var(--rule-strong);
+}
+
+.adm-scan-look img {
+  max-width: 100%;
+  max-height: 24rem;
+}
+
+.adm-scan-look img.is-inverted { filter: invert(1); }
+
+/* The sheet of paper the strips will be laid on: 8x10, with the
+   assembler's own margin and gap in proportion. */
+.adm-scan-sheet {
+  display: flex;
+  aspect-ratio: 2400 / 3000;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+  padding: 3.125%;
+  background: #000;
+  border: 1px solid var(--rule-strong);
+}
+
+.adm-scan-sheet.is-columns { flex-direction: row; gap: 1%; }
+.adm-scan-sheet.is-rows { flex-direction: column; gap: 0.8%; }
+
+.adm-scan-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--rule-strong);
+  color: var(--ink-4);
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+}
+
+.adm-scan-slot.has-strip {
+  border-style: solid;
+  background: var(--paper-raised);
+  color: var(--ink-2);
+}
+
+.adm-scan-gates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.adm-scan-gate {
+  padding: 0.85rem 1rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--adm-held);
+}
+
+.adm-scan-gate.is-pass { border-left-color: var(--adm-live); }
+.adm-scan-gate.is-fail { border-left-color: var(--adm-fail); }
+
+.adm-scan-gate > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+
+.adm-scan-gate p {
+  margin: 0.5rem 0 0;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+}
+
+.adm-scan-frame {
+  max-width: 7rem;
+  margin-bottom: 0;
+}
+
+

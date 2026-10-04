@@ -8,7 +8,7 @@ defmodule Web.Blog.Embeds do
       whole contact sheet: preview image linked to the full-size scan
     * `![[roll012/3]]` — individual frame scan from the roll folder
     * `![[roll012/3|Caption]]` — same, with a caption
-    * `![[ride:123]]` — a Komoot ride card (name, stats, thumbnail)
+    * `![[ride:123]]` — a Komoot ride card (name, stats, route outline)
       linking to the ride page
     * `![[figure:emissions]]` / `![[figure:emissions-cumulative]]` — an
       inline SVG chart rendered from a JSON data file committed under
@@ -20,8 +20,7 @@ defmodule Web.Blog.Embeds do
       frame, food-energy + diet, e-bike grid intensity) plus the same JSON
       inlined as `<script type="application/json">`, so
       `assets/js/emissions_controls.js` can redraw the two figures above
-      client-side without a fetch. Vanilla JS, no framework, matching
-      `assets/js/biometric_charts.js`.
+      client-side without a fetch. Vanilla JS, no framework.
     * `![[figure:emissions-code]]` — `scripts/emissions.R` (the script that
       generates the JSON above), rendered as a collapsed, syntax-highlighted
       `<details>`. Read at compile time via `@external_resource`, not pasted
@@ -130,10 +129,13 @@ defmodule Web.Blog.Embeds do
 
       ride ->
         thumb =
-          if Rides.Thumbs.exists?(ride) do
-            ~s(<img src="/fitness/rides/#{ride.id}/thumb" alt="" loading="lazy" />)
-          else
-            ""
+          case Rides.card_path(ride) do
+            nil ->
+              ""
+
+            path ->
+              ~s(<svg class="blog-embed-ride-route" viewBox="#{Rides.Route.card_box()}" aria-hidden="true">) <>
+                ~s(<path d="#{path}" /></svg>)
           end
 
         meta =

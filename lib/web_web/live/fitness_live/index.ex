@@ -146,7 +146,7 @@ defmodule WebWeb.FitnessLive.Index do
       </header>
       
     <!-- Section Navigation -->
-      <WebWeb.FitnessSubnav.subnav active={:regimen} is_admin={@is_admin} />
+      <WebWeb.FitnessSubnav.subnav active={:regimen} />
 
       <%!-- The big picture, above the day-by-day regimen and the fuelling rail.
             Visitors get untimed chips; the clock times render for the admin only. --%>

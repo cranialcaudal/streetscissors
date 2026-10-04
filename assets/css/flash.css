@@ -15,8 +15,8 @@
    poppy at rest. Square, 44px target.
 
    The group is pinned just under the sticky header, so a notice lands in
-   view wherever the action happened — the log modal, the foot of the
-   biometrics table. It renders from the layout, *outside* `.steel` and
+   view wherever the action happened — the log modal, the foot of a long
+   admin table. It renders from the layout, *outside* `.steel` and
    `.darkroom`, so on those pages it keeps paper tokens: a paper plate
    hanging from the paper header, legible on either ground. Inside
    `.admin-layout` it inherits that chrome's dark re-inking.

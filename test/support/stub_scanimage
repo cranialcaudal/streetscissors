@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Stands in for scanimage, so the suite never drives a flatbed.
+#
+#   -L                  lists what STUB_SCANIMAGE_DEVICES says (default: a
+#                       webcam and nothing else, which is a laptop with no
+#                       scanner plugged in)
+#   --output-file PATH  "scans": prints two progress lines and writes PATH
+#
+# STUB_SCANIMAGE_FAIL=1 exits 1 after writing half a file, the way a scan
+# interrupted at the cable does. STUB_SCANIMAGE_HANG=1 never finishes.
+set -euo pipefail
+
+if [ "${1:-}" = "-L" ]; then
+  if [ -n "${STUB_SCANIMAGE_DEVICES:-}" ]; then
+    printf '%s\n' "$STUB_SCANIMAGE_DEVICES"
+  else
+    echo "device \`v4l:/dev/video0' is a Noname Integrated Camera virtual device"
+  fi
+  exit 0
+fi
+
+output=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --output-file) output="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+[ -n "$output" ] || { echo "stub scanimage: no --output-file" >&2; exit 2; }
+
+printf 'Progress: 10.0%%\r'
+if [ "${STUB_SCANIMAGE_HANG:-0}" = "1" ]; then
+  printf 'half' > "$output"
+  exec sleep 600
+fi
+if [ "${STUB_SCANIMAGE_FAIL:-0}" = "1" ]; then
+  printf 'half' > "$output"
+  echo "scanimage: sane_read: Error during device I/O" >&2
+  exit 1
+fi
+printf 'Progress: 100.0%%\r'
+printf 'strip scan' > "$output"

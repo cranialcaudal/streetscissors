@@ -1,0 +1,87 @@
+<%!-- A year seen at once, laid out like a contact sheet: twelve months, one
+      cell per day, a mark for each kind of work made on it. The print rules in
+      almanac.css make this page the printed edition. --%>
+<div class="almanac almanac-year">
+  <header class="almanac-head">
+    <p class="almanac-slug">The almanac</p>
+    <h1 class="almanac-date">{@almanac.year}</h1>
+    <p class="almanac-lede">{year_summary(@almanac.totals)}</p>
+    <div class="almanac-tools">
+      <nav class="almanac-years" aria-label="Years">
+        <.link :if={@almanac.previous} href={~p"/almanac/#{@almanac.previous}"} rel="prev">
+          <.icon name="hero-arrow-left" class="size-4" /> {@almanac.previous}
+        </.link>
+        <.link :if={@almanac.next} href={~p"/almanac/#{@almanac.next}"} rel="next">
+          {@almanac.next} <.icon name="hero-arrow-right" class="size-4" />
+        </.link>
+      </nav>
+      <button type="button" class="almanac-print" data-print>Print this year</button>
+    </div>
+    <ul class="almanac-legend" aria-label="Key">
+      <li :for={kind <- Web.Almanac.kinds()}>
+        <span class={["almanac-mark", "almanac-mark--#{kind}"]} aria-hidden="true"></span>
+        {kind_heading(kind)}
+      </li>
+    </ul>
+  </header>
+
+  <div class="almanac-sheet">
+    <section :for={month <- @almanac.months} class="almanac-month">
+      <h2 class="almanac-month-title">{Calendar.strftime(month.first, "%B")}</h2>
+      <ol class="almanac-cal">
+        <li
+          :for={initial <- ~w(M T W T F S S)}
+          class="almanac-cell almanac-cal-head"
+          aria-hidden="true"
+        >
+          {initial}
+        </li>
+        <li
+          :for={date <- calendar_cells(month.first)}
+          class={["almanac-cell", date && Map.has_key?(month.days, date) && "has-work"]}
+        >
+          <%= cond do %>
+            <% is_nil(date) -> %>
+            <% entries = month.days[date] -> %>
+              <.link
+                href={day_path(date)}
+                class="almanac-cell-link"
+                aria-label={cell_label(date, entries)}
+              >
+                <span class="almanac-cell-num">{date.day}</span>
+                <span class="almanac-marks" aria-hidden="true">
+                  <span
+                    :for={kind <- kinds_on(entries)}
+                    class={["almanac-mark", "almanac-mark--#{kind}"]}
+                  >
+                  </span>
+                </span>
+              </.link>
+            <% true -> %>
+              <span class="almanac-cell-num">{date.day}</span>
+          <% end %>
+        </li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="almanac-ledger" aria-label="The year, month by month">
+    <div :for={month <- @almanac.months} :if={month.days != %{}} class="almanac-ledger-month">
+      <h2 class="almanac-ledger-title">{Calendar.strftime(month.first, "%B")}</h2>
+      <ol class="almanac-ledger-days">
+        <li :for={{date, entries} <- Enum.sort_by(month.days, fn {date, _} -> date end, Date)}>
+          <.link href={day_path(date)} class="almanac-ledger-date">
+            {Calendar.strftime(date, "%a %-d")}
+          </.link>
+          <ul class="almanac-ledger-entries">
+            <li :for={entry <- entries}>
+              <span class={["almanac-mark", "almanac-mark--#{entry.kind}"]} aria-hidden="true">
+              </span>
+              <.link href={entry.path}>{entry.title}</.link>
+            </li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Stands in for digital-contact-sheet-maker, which starts GIMP.
+#
+# Writes the file named by -o as a PNG whose header says 2400x3000 — an 8x10
+# sheet at 300 dpi, portrait — and nothing else, which is all Gate 2 reads.
+# STUB_CONTACT_SHEET_FAIL=1 fails instead.
+set -euo pipefail
+
+if [ "${STUB_CONTACT_SHEET_FAIL:-0}" = "1" ]; then
+  echo "digital-contact-sheet-maker: GIMP is not installed" >&2
+  exit 4
+fi
+
+output=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) output="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+[ -n "$output" ] || { echo "stub contact sheet: no -o" >&2; exit 2; }
+mkdir -p "$(dirname "$output")"
+base64 -d > "$output" <<'PNG'
+iVBORw0KGgoAAAANSUhEUgAACWAAAAu4CAAAAABA1NzZAAAAAElFTkSuQmCC
+PNG

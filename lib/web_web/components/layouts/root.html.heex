@@ -2,24 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <!-- Fonts -->
+    <meta name="theme-color" content="#17140f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="streetscissors" />
+    
+<!-- PWA Manifest & App Icons -->
+    <link rel="manifest" href={~p"/manifest.json"} />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/preview_logo.png"} />
+    <link rel="icon" type="image/png" sizes="16x16" href={~p"/images/preview_logo.png"} />
+    <link rel="apple-touch-icon" sizes="180x180" href={~p"/images/apple-touch-icon.png"} />
+    
+<!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=League+Spartan:wght@400;500;600;700;800&family=Saira+Condensed:wght@400;500;600;700&family=Sorts+Mill+Goudy:ital@0;1&display=swap"
       rel="stylesheet"
     />
-    
-<!-- Icons -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
-    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/preview_logo.png"} />
-    <link rel="icon" type="image/png" sizes="16x16" href={~p"/images/preview_logo.png"} />
-    <link rel="apple-touch-icon" href={~p"/images/preview_logo.png"} />
 
     <%!-- Per-page metadata (WebWeb.SEO). Pages assign :page_title,
           :og_title, :og_description, :canonical_path, :og_type — all of it
@@ -61,14 +64,24 @@
           literal <script> in this template can't hold a HEEx expression. --%>
     {raw(WebWeb.SEO.person_json_ld_tag())}
     {raw(WebWeb.SEO.website_json_ld_tag())}
+    {raw(WebWeb.SEO.page_json_ld_tag(assigns))}
 
-    <%!-- Lets browsers and feed readers discover the feed; previously nothing
-          on the site linked to /feed at all. --%>
+    <%!-- Lets browsers and feed readers discover the feeds: the whole site,
+          and — when a page is filtered on a keyword — that keyword's thread
+          (`@keyword_feed`, set by the blog and logs indexes). --%>
+    <link rel="alternate" type="application/rss+xml" title="streetscissors" href={~p"/feed"} />
+    <%!-- rel="me" is opt-in (REL_ME_URLS): the site links to no other
+          profile unless its owner lists one — see SEO.person_json_ld_tag/0. --%>
+    <link :for={url <- Application.get_env(:web, :rel_me, [])} rel="me" href={url} />
+    <%!-- Where other sites send webmentions when they cite a piece
+          (WebWeb.WebmentionController). --%>
+    <link rel="webmention" href={WebWeb.SEO.absolute(~p"/webmention")} />
     <link
+      :if={assigns[:keyword_feed]}
       rel="alternate"
       type="application/rss+xml"
-      title="streetscissors — writing"
-      href={~p"/feed"}
+      title={"streetscissors · #{assigns[:keyword]}"}
+      href={assigns[:keyword_feed]}
     />
 
     <.live_title default="streetscissors" suffix="">
@@ -92,47 +105,21 @@
       }
     </style>
 
-    <%= if assigns[:admin_mode] do %>
-      <!-- Admin Mode Indicator -->
-      <div
-        id="admin-indicator"
-        style="
-        position: fixed;
-        bottom: 1rem;
-        right: 1rem;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        background: var(--paper-raised);
-        border: 1px solid rgba(194, 69, 29, 0.5);
-        padding: 0.5rem 1rem;
-        font-family: var(--font-heading);
-        font-size: 0.8rem;
-      "
-      >
-        <span style="color: var(--accent-color); display: flex; align-items: center; gap: 0.4rem;">
-          <i class="fas fa-user-shield" style="font-size: 0.9rem;"></i>
-          <span style="text-transform: uppercase; letter-spacing: 1px;">Admin</span>
+    <%!-- What an admin sees on the public pages: a way back in and a way
+          out. Styled in admin.css (#admin-indicator). Not rendered inside
+          the admin itself, where the rail already says all of this. --%>
+    <%= if assigns[:admin_mode] && !assigns[:admin_chrome] do %>
+      <div id="admin-indicator">
+        <span class="admin-indicator-label">
+          <.icon name="hero-shield-check" class="size-4" /> Admin
         </span>
-        <span style="color: #444;">|</span>
-        <a
-          href="/admin/dashboard"
-          style="color: var(--ink-3); text-decoration: none; transition: color 0.2s;"
-          onmouseover="this.style.color='#fff'"
-          onmouseout="this.style.color='#888'"
-        >
-          <i class="fas fa-tachometer-alt"></i>
+        <a href={~p"/admin/dashboard"} aria-label="Admin overview" title="Admin overview">
+          <.icon name="hero-squares-2x2" class="size-4" />
         </a>
-        <form action="/admin/logout" method="post" style="display: inline; margin: 0; padding: 0;">
+        <form action={~p"/admin/logout"} method="post">
           <input type="hidden" name="_method" value="delete" />
           <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-          <button
-            type="submit"
-            style="background: none; border: none; color: var(--ink-3); cursor: pointer; padding: 0; font-size: inherit; transition: color 0.2s;"
-            onmouseover="this.style.color='var(--accent-color)'"
-            onmouseout="this.style.color='#888'"
-          >
+          <button type="submit" aria-label="Log out" title="Log out">
             <.icon name="hero-arrow-right-on-rectangle" class="size-4" />
           </button>
         </form>

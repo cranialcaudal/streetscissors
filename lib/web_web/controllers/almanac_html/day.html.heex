@@ -1,0 +1,53 @@
+<%!-- One day, whole: the essay, the recording, the roll and the ride side by
+      side, the way a feed never shows them. --%>
+<div class="almanac almanac-day">
+  <header class="almanac-head">
+    <p class="almanac-slug">
+      <.link href={~p"/almanac/#{@day.date.year}"}>The almanac · {@day.date.year}</.link>
+    </p>
+    <h1 class="almanac-date">
+      <time datetime={Date.to_iso8601(@day.date)}>
+        <span class="almanac-weekday">{Calendar.strftime(@day.date, "%A")}</span>
+        {Calendar.strftime(@day.date, "%-d %B %Y")}
+      </time>
+    </h1>
+  </header>
+
+  <section :for={kind <- kinds_on(@day.entries)} class={["almanac-kind", "almanac-kind--#{kind}"]}>
+    <h2 class="almanac-kind-title">{kind_heading(kind)}</h2>
+    <ul class="almanac-entries">
+      <li :for={entry <- Enum.filter(@day.entries, &(&1.kind == kind))} class="almanac-entry">
+        <.link href={entry.path} class="almanac-entry-link">
+          <img
+            :if={entry.image}
+            src={entry.image}
+            alt=""
+            class="almanac-entry-image"
+            loading="lazy"
+          />
+          <span class="almanac-entry-text">
+            <span class="almanac-entry-title">{entry.title}</span>
+            <span :if={entry.note} class="almanac-entry-note">{entry.note}</span>
+          </span>
+        </.link>
+      </li>
+    </ul>
+  </section>
+
+  <nav class="almanac-steps" aria-label="Neighbouring days">
+    <.link :if={@day.previous} href={day_path(@day.previous)} class="almanac-step" rel="prev">
+      <.icon name="hero-arrow-left" class="size-4" />
+      {Calendar.strftime(@day.previous, "%-d %B %Y")}
+    </.link>
+    <span :if={!@day.previous}></span>
+    <.link
+      :if={@day.next}
+      href={day_path(@day.next)}
+      class="almanac-step almanac-step--next"
+      rel="next"
+    >
+      {Calendar.strftime(@day.next, "%-d %B %Y")}
+      <.icon name="hero-arrow-right" class="size-4" />
+    </.link>
+  </nav>
+</div>

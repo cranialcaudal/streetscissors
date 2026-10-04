@@ -4,6 +4,7 @@ defmodule WebWeb.LogsLive.Show do
   alias Web.Audio
   alias Web.Audio.Log
   alias WebWeb.LogEntry
+  alias WebWeb.SEO
   import WebWeb.LogsLive.Format
 
   @moduledoc """
@@ -22,6 +23,17 @@ defmodule WebWeb.LogsLive.Show do
         {:error, :not_found} -> raise Ecto.NoResultsError, queryable: Log
       end
 
+    crumbs = [
+      {"Home", ~p"/"},
+      {"Captain's Log", ~p"/logs"},
+      {Log.title(log), ~p"/logs/#{log.slug}"}
+    ]
+
+    json_ld = [
+      SEO.media_json_ld(log),
+      SEO.breadcrumb_json_ld(crumbs)
+    ]
+
     {:ok,
      socket
      |> assign(:page_title, Log.title(log))
@@ -32,6 +44,7 @@ defmodule WebWeb.LogsLive.Show do
      |> assign(:og_type, "article")
      |> assign(:og_image, Log.poster_url(log))
      |> assign(:canonical_path, ~p"/logs/#{log.slug}")
+     |> assign(:json_ld, json_ld)
      |> assign(:log, log)
      |> assign(:client_ip, client_ip(socket))
      # The admin watching the entries back is not a witness.
@@ -65,7 +78,9 @@ defmodule WebWeb.LogsLive.Show do
   def render(assigns) do
     ~H"""
     <div class="logs-wrapper nx01">
-      <article class="console-frame">
+      {raw(SEO.page_json_ld_tag(assigns))}
+      <article class="console-frame h-entry">
+        <WebWeb.Microformats.entry_fields path={~p"/logs/#{@log.slug}"} />
         <div class="console-rail">
           <span class="rail-tag">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
@@ -74,8 +89,8 @@ defmodule WebWeb.LogsLive.Show do
 
         <header class="console-head">
           <LogEntry.meta log={@log} />
-          <h1 class="logs-title">{Log.title(@log)}</h1>
-          <p :if={presence(@log.caption)} class="logs-bio">{@log.caption}</p>
+          <h1 class="logs-title p-name">{Log.title(@log)}</h1>
+          <p :if={presence(@log.caption)} class="logs-bio p-summary">{@log.caption}</p>
         </header>
 
         <LogEntry.plate log={@log} />
@@ -101,6 +116,12 @@ defmodule WebWeb.LogsLive.Show do
           <.link navigate={~p"/logs"} class="console-btn">All logs</.link>
         </nav>
       </article>
+
+      <%!-- Letters about this log, and the sites that cite it. --%>
+      {live_render(@socket, WebWeb.LettersLive,
+        id: "letters-log-#{@log.slug}",
+        session: %{"piece" => Web.Pieces.log(@log.slug), "remote_ip" => @client_ip}
+      )}
     </div>
     """
   end
