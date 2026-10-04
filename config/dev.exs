@@ -189,6 +189,30 @@ config :web, :photos_mirror_path, System.get_env("PHOTOS_MIRROR_PATH")
 config :web, :content_mirror_path, System.get_env("CONTENT_MIRROR_PATH")
 config :web, :uploads_mirror_path, System.get_env("UPLOADS_MIRROR_PATH")
 
+# A development server keeps its own backups, and keeps to itself.
+#
+# Web.Backup's default folder is the live site's, under $HOME. That is right
+# for the deploy and wrong for `mix phx.server` on the same machine: a snapshot
+# of web_dev.db written there would sit among the live snapshots as the newest
+# of them, which is the one a restore reaches for, and would push a real one
+# out of the fourteen that are kept. BACKUP_PATH and CONTENT_BACKUP_PATH still
+# win, and a public deploy keeps the real default.
+#
+# Nor does it announce anything to other sites. The posts it reads are the
+# real ones, and it would send their citations out again from localhost.
+unless public_deploy? do
+  config :web,
+         :backup_path,
+         System.get_env("BACKUP_PATH") || Path.expand("../tmp/dev_backups/db", __DIR__)
+
+  config :web,
+         :content_backup_path,
+         System.get_env("CONTENT_BACKUP_PATH") ||
+           Path.expand("../tmp/dev_backups/content", __DIR__)
+
+  config :web, :webmention_send, false
+end
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

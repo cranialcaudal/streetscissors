@@ -50,7 +50,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   fitness landing's log buttons) gate per-event on the session flag.
 
 - **Private by default.** The public GitHub repo is the site's code only. `content/` (apart from
-  `content/templates/` and `content/architecture-notes.md`), photos, `scripts/`
+  `content/templates/`), photos, `scripts/`
   and the `/pc` reading files are gitignored and live only on the host. **Never put personal
   details in code**: they belong in `content/` or `.env` with a neutral fallback, so a fresh clone
   still builds and boots. For example:
@@ -586,5 +586,12 @@ checkout or undo a migration.
 There is also a container path (`Dockerfile`, `docker-compose.yml`, `deploy.sh`,
 `Caddyfile.prod`) and `start_prod.sh` for running the release by hand. Production secrets/config
 resolve at runtime in `config/runtime.exs` (`:admin_password`, mailer, etc. come from env there).
-SQLite DB files live in the repo root (`web_dev.db`, `web_test.db`, `street_scissors_prod.db`);
-migrations auto-run on release boot via the supervised `Ecto.Migrator`.
+The live database is outside the checkout (`DATABASE_PATH`, exported by the unit); `web_dev.db`
+and `web_test.db` in the repo root are the development and test databases. Migrations auto-run
+on release boot via the supervised `Ecto.Migrator`.
+
+**This machine is both the server and the workbench**, so `config/dev.exs` keeps a development
+server off the live site's ground: its backups go to `tmp/dev_backups/` rather than the real
+backup folder (where a snapshot of `web_dev.db` would become the newest "live" snapshot), and
+it sends no webmentions. To poke at code without booting the app at all, use
+`mix run --no-start -e …`; against the live release, `_build/prod/rel/web/bin/web rpc '…'`.

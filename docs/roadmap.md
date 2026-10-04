@@ -102,8 +102,8 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 
 ## 10. Cleanup
 
-- **The content folder:** done. Private notes and drafts have folders of their own, so the root holds only what the site reads.
-- **Old notes.** Retire the old architecture notes once the how-to covers the same ground.
+- **The content folder:** done. Private notes have a folder of their own and an unfinished post is a draft in the blog, so the root holds only what the site reads.
+- **Old notes:** done. The manual now explains how a training day is assembled from modules, which was the one thing the old architecture notes still said that nothing else did, and the notes are retired.
 
 ## 11. Sequencing
 

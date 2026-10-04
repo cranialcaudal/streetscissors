@@ -460,15 +460,47 @@ A log is titled by the day it was recorded, and that date is its address:
 
 ### The training log
 
-`/fitness` works like the blog: Markdown files, this time in `content/fitness/`,
-one per day of the week plus reusable blocks. The public page deliberately shows
-only the headings and the checklist items; the notes about where and when and
-why stay in the file and never reach the page.
+`/fitness` works like the blog: Markdown files, this time in `content/fitness/`.
+The public page deliberately shows only the headings and the checklist items;
+the notes about where and when and why stay in the file and never reach the
+page.
 
-Bike rides arrive on their own. Once an hour the site logs in to Komoot, asks
-for anything new, and imports it. A ride made private on Komoot disappears from
-the site on the next pass. If Komoot is not set up, nothing happens and nothing
-breaks; you can also drop a GPX file in by hand.
+A day is assembled from two kinds of file, so that a block of work written once
+can be used on any day that wants it.
+
+- **A day** lives in `weekly/` (or `additional/`, for the sessions that belong
+  to no particular day). It is short: a title, the name on its tab, and a list
+  of the blocks it is made of.
+- **A module** lives in `modules/`. It is one block: a warm-up, a swim set, a
+  long run, with its exercises as a checklist. A module is never a page by
+  itself. It appears only where a day names it.
+
+The list is a line in the day's frontmatter:
+
+```
+---
+title: "Tuesday: Upper Body"
+tab: Tuesday
+modules: shoulder-warmup, upper-pull, universal-cooldown
+---
+```
+
+When the page is asked for, the site reads that line, fetches those three files
+from `modules/`, and sets them one under another beneath whatever the day's own
+file says. A day that alternates (a swim one week, a run the next) lists its
+alternatives as `option_1:`, `option_2:` and so on, and the site shows the one
+whose turn it is.
+
+Names are matched exactly, and a name that matches nothing fails silently: the
+block is simply missing from the page. `/admin/health` lists any module a day
+asks for that is not there, and any module that no day asks for.
+
+`content/templates/` holds a starting file for each kind, for Obsidian to copy
+from. Nothing on the site reads that folder.
+
+Bike rides arrive on their own. Once an hour the site asks Komoot for anything
+new and copies it across, and a tour deleted there leaves the site on the next
+pass. If Komoot is not set up, nothing happens and nothing breaks.
 
 ### The newsletter
 
