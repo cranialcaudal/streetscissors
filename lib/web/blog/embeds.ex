@@ -106,6 +106,20 @@ defmodule Web.Blog.Embeds do
   @r_token_re ~r/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|#[^\n]*|\b\d+\.?\d*\b|\b(?:function|library|for|if|in)\b)/
   @r_keywords ~w(function library for if in)
 
+  @doc """
+  The embeds `transform/1` left as literal text: every `![[...]]` still
+  standing in already-transformed HTML names something that is not there —
+  a roll that was renumbered, a frame never printed, a ride that left Komoot.
+  The page shows them as the text they are; the admin's content health lists
+  them so they get fixed rather than read around.
+  """
+  def unresolved(transformed_html) do
+    @embed_re
+    |> Regex.scan(transformed_html, capture: :first)
+    |> List.flatten()
+    |> Enum.uniq()
+  end
+
   def transform(html) do
     Regex.replace(@embed_re, html, fn full, target, caption ->
       target = String.trim(target)

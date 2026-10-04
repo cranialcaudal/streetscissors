@@ -82,9 +82,8 @@ content/england2026/story.md
 
 # Private notes. No public page renders them — the training plan and the
 # calendar reference name venues, commute days and weekly whereabouts that the
-# published pages deliberately do not carry. Unfinished posts wait in drafts/.
+# published pages deliberately do not carry.
 content/notes/
-content/drafts/
 
 # The /pc terminal's two reading files are the author's own writing (a personal
 # regimen and a signed guide). PcLive reads them at compile time and falls back

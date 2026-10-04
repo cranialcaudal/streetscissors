@@ -45,18 +45,19 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 - Each version is copied to the external drive when it is plugged in, and so are the captain's logs' recordings, which had no second copy either.
 - The admin overview says when the content was last checked and how many versions are kept.
 
-## 4. Publishing loop
+## 4. Publishing loop (done)
 
-- **Blog editor.** Edit a post's source in the admin with a live preview. Saving refuses to overwrite a file that changed on disk since it was opened, so an edit made in Obsidian meanwhile is never lost.
-- **Drafts.** A `draft: true` line in a post's frontmatter keeps it off the site and lists it in the admin. Logs already have this through their published switch.
-- **Content health.** A report covering:
-  - broken internal links;
-  - images and embeds that point at nothing;
-  - posts missing a description or keywords;
-  - files on disk that nothing links to.
-- **Keyword tools.** Rename or merge a keyword across the blog and the logs in one action, and list the keywords used only once.
-- **Matching templates.** The admin's forms produce the same frontmatter as the Obsidian templates.
-- **Archive health for the negatives.** The negatives are made by the film pipeline's own tools, whether they are run from the terminal or from the admin's Scanner page, so this part of the admin reports rather than repairs. It will list which rolls have their grease-pencil marks withheld, the reason (a stale analysis or a sheet whose size doesn't match), and the command that fixes each one.
+- **Blog editor.** A post's file is edited in the admin, frontmatter and all, with the page it makes beside it. Saving refuses to overwrite a file that changed on disk since it was opened, so an edit made in Obsidian meanwhile is never lost: the author takes the version on disk, or saves over it, and the replaced version goes to the vault's trash first.
+- **Drafts.** A `draft: true` line in a post's frontmatter keeps it off the site and lists it in the admin, where it can be published. The author can open a draft at its own address to see it as it will look.
+- **Content health.** One page reports:
+  - links and images that go nowhere, each checked by asking the site itself;
+  - embeds that name a roll, frame or ride that is not there;
+  - published posts missing a description or keywords;
+  - library images no page embeds, and regimen modules no day lists.
+- **Keyword tools.** A keyword is renamed across the blog and the logs in one action, renaming it to one that exists merges the two, and the keywords used only once have a tab of their own.
+- **Matching templates.** A post started in the admin is made from the same template Obsidian inserts.
+- **Archive health for the negatives.** The content health page lists the rolls whose grease-pencil marks are withheld, the reason, and the command that fixes each one. It reports rather than repairs, since the negatives are made by the film pipeline's own tools.
+- **The image library** serves an upload at once. It used to write into a folder the running site does not serve from, so an image answered 404 until the next deploy.
 
 ## 5. Public reading
 
@@ -109,7 +110,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 - **Phase 1, the admin:** done.
 - **Phase 2, answered and followed:** the almanac, letters, feeds, IndieWeb markup, and webmentions received.
 - **Phase 3, the backup:** done.
-- **Phase 4, the publishing loop:** the blog editor, drafts, content health, and keyword tools.
+- **Phase 4, the publishing loop:** done.
 - **Phase 5, public polish:** index parity, cross-links, the 404 page, print styles, the year as a book, and the route audit.
 - **Phase 6, discovery:** the homepage decision, search engines, share images, and sending webmentions.
 - **Phase 7, plumbing:** monitoring, restore tests, rollback, and dependency upgrades.

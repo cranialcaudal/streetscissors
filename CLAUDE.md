@@ -61,8 +61,8 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
 
   The vault's root holds only `about.md` and folders. `content/notes/` is the author's private
   planning (no public page renders it; `notes/calendar.md` shows at the admin-only
-  `/admin/fitness/calendar`) and `content/drafts/` holds unfinished posts, which `Web.Blog`
-  never reads. `/food` and `/england2026` are public but unlisted: out of the sitemap, disallowed
+  `/admin/fitness/calendar`). An unfinished post is a file in `content/blog/` with `draft: true`.
+  `/food` and `/england2026` are public but unlisted: out of the sitemap, disallowed
   in robots.txt, and `noindex, nofollow`.
 
   `config/test.exs` points the vault, trip, emails, blog and negatives paths at invented fixtures
@@ -83,6 +83,22 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     Obsidian-style photo embeds (`![[roll012]]` for a contact sheet, `![[roll012/3|Caption]]`
     for a single frame) expanded post-Earmark by `Web.Blog.Embeds` against `Web.Negatives`.
   - Blog embeds also support `![[ride:123]]` — a ride card via `Web.Rides`, with the route's cut outline.
+  - **Drafts**: `draft: true` in the frontmatter takes a post off the site. `Blog.list_posts/0`
+    and `get_post/1` do not see drafts, so nothing built on them does (index, feeds, sitemap,
+    almanac, `/pc`, letters); only the admin passes `drafts: true` or calls `list_all_posts/0`.
+    The author's own session can open a draft at its address, marked and `noindex`.
+  - **The editor** (`/admin/blog/:slug/edit`, `AdminLive.BlogEditor`) edits the **whole file**,
+    frontmatter included, with the page it makes beside it (`Blog.preview/2`, `Blog.to_html/1`).
+    `Blog.read_source/1` returns the text with a revision (its SHA-256) and
+    `Blog.write_source/4` **refuses to save over a file whose revision moved**, since the vault
+    is edited in Obsidian too. The author then takes the disk's version or saves over it, in
+    which case the replaced text goes to the vault's `.trash/` first. Saves are written beside
+    the file and renamed over it. "New post" (`Blog.create_draft/2`) starts from
+    `content/templates/blog-template.md`, the template Obsidian inserts, as a dated draft.
+  - **The image library** is `Web.Blog.Images`, under the uploads root at `/uploads/images/`.
+    It was `priv/static/images/uploads` in the checkout, which a release does not serve from,
+    so an upload answered 404 until the next deploy. Images from the old folder are still
+    listed at their old address.
   - The old manuscripts section is retired: every `/manuscripts*` URL 301-redirects to `/blog`
     (`LegacyRedirectController`), as do the old `/blog/<category>` and `/fitness/<slug>` paths.
   - There is also a legacy DB `blog_posts` table — plus unused `tags`/`post_tags` tables from an
@@ -320,6 +336,22 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   never recorded for an admin session. Plays from before 2026-09-22 have no token (they were all
   logged against Caddy's `::1`) and count for nothing.
 
+- **Tending the content** (2026-10-04), both under **Write** in the admin's rail:
+  - **`Web.Keywords.Index`** (`/admin/keywords`) is the one place a keyword is changed
+    everywhere: `usage/0` lists each with the posts and logs that carry it (drafts and
+    unpublished logs included, or the old spelling resurfaces when they publish), and
+    `rename/2` rewrites every post's frontmatter and every log's column. Renaming to a keyword
+    that exists **merges** the two.
+  - **`Web.ContentHealth`** (`/admin/health`) reports broken internal links and images,
+    `![[embeds]]` that resolved to nothing (`Blog.Embeds.unresolved/1`), published posts with no
+    description or keywords, library images and regimen modules nothing uses
+    (`Fitness.Vault.audit/0`), and rolls whose marks are withheld with the reason and the
+    command that fixes each (`Negatives.Sheet.status/1`). **A link is checked by dispatching it
+    through `WebWeb.Endpoint`** (`ContentHealth.ask/1`) and reading the status, so there is no
+    second list of valid paths to drift from the router; the request is loopback under a bot
+    user agent, which the analytics plug skips. External links are counted, not followed. The
+    report renders every page it checks, so the LiveView builds it with `start_async`.
+
 - **Answered and followed** (2026-09-29): the social half of a feed, in the site's terms.
   - **`Web.Pieces`** is the one vocabulary for "a piece": refs `"post:<slug>"`, `"log:<slug>"`,
     `"frame:<roll>/<n>"` (roll padded like `/negatives/roll/013`). `resolve/1` checks it exists and
@@ -374,11 +406,11 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   instrument voice; Goudy is kept for page titles and for words people wrote. The pigments are
   lifted for the dark ground (`--adm-act`/`-live`/`-held`/`-fail`, each ≥4.5:1). theme.css styles
   bare `button`s, so every admin button class states its hover in full.
-  The rail groups pages as **Write** (Blog, Captain's Logs, Fitness), **Darkroom** (Scanner), **Mail** (Inbox, Guestbook,
+  The rail groups pages as **Write** (Blog, Captain's Logs, Fitness, Keywords, Content health), **Darkroom** (Scanner), **Mail** (Inbox, Guestbook,
   Citations, Newsletter) and **Sync** (Activities), plus Overview and Settings, with badges for
   open messages (letters included), held signatures, held citations and failed transcodes. It folds to a Menu bar at ≤900px. **View state is in the
-  URL** here too: `?box=` (inbox), `?show=` (guestbook), `?filter=missing` (blog), `?tab=`
-  (fitness).
+  URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords), `?filter=missing|drafts`
+  (blog), `?tab=` (fitness).
   `/admin/dashboard` is the **Overview**: a "Needs you" queue (each row a link to where the thing
   gets done, shown only when non-zero), counts, traffic, and `Web.SystemStatus` (snapshots, the
   content's versions, the mirror drive, Komoot's last run, failed mail jobs). Contact messages live at `/admin/inbox`, and site settings at

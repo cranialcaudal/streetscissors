@@ -441,6 +441,22 @@
 /* ── Post pages ────────────────────────────────────────────────── */
 
 .writing .blog-post-header .writing-meta { margin-bottom: 1rem; }
+
+/* Shown to the author alone, over a post that is still `draft: true`. */
+.writing .blog-post-draft {
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+.writing .blog-post-draft a {
+  margin-left: 0.5rem;
+  color: var(--accent-ink);
+}
 .writing .blog-post-keywords { align-items: center; }
 
 /* ── Phones ────────────────────────────────────────────────────── */

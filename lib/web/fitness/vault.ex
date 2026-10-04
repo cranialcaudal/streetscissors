@@ -263,6 +263,66 @@ defmodule Web.Fitness.Vault do
     end
   end
 
+  @doc "The slug of every exercise in the wiki, whichever muscle group it is filed under."
+  def exercise_slugs do
+    for group <- list_muscle_groups(),
+        file <- ls(Path.join([base_path(), "exercise-wiki", group])),
+        String.ends_with?(file, ".md"),
+        into: MapSet.new(),
+        do: Path.basename(file, ".md")
+  end
+
+  @doc """
+  What in the regimen's files does not join up.
+
+  The regimen is assembled from three folders by name: a day in `weekly/` or
+  `additional/` lists `modules:` and `option_N:` slugs, each of which is a
+  file in `modules/`. A name that is misspelled, or a file that was renamed,
+  fails silently — `get_day/1` renders a missing module as nothing at all, and
+  a module no day names is simply never shown. Returns:
+
+    * `missing_modules` — `{day, module}` pairs a day names with no file
+    * `unused_modules` — module files that no day names
+    * `unlisted_days` — files in `weekly/` or `additional/` that are not in
+      the page's fixed day order, so the site never offers them
+  """
+  def audit do
+    modules = "modules" |> md_slugs() |> MapSet.new()
+
+    named =
+      for day <- @day_order,
+          path = find_day_path(day),
+          File.exists?(path),
+          {key, value} <- parse_frontmatter(path),
+          key == "modules" or Regex.match?(~r/^option_\d+$/, key),
+          # `option_N` is `modules|Label`; `modules` has no label to drop.
+          slug <- value |> String.split("|") |> hd() |> String.split(","),
+          slug = String.trim(slug),
+          slug != "",
+          do: {day, slug}
+
+    used = MapSet.new(named, &elem(&1, 1))
+
+    %{
+      missing_modules: Enum.reject(named, fn {_day, slug} -> MapSet.member?(modules, slug) end),
+      unused_modules: modules |> MapSet.difference(used) |> Enum.sort(),
+      unlisted_days: Enum.sort((md_slugs("weekly") ++ md_slugs("additional")) -- @day_order)
+    }
+  end
+
+  defp md_slugs(folder) do
+    for file <- ls(Path.join(base_path(), folder)),
+        String.ends_with?(file, ".md"),
+        do: Path.basename(file, ".md")
+  end
+
+  defp ls(dir) do
+    case File.ls(dir) do
+      {:ok, files} -> files
+      _ -> []
+    end
+  end
+
   @doc "Returns all exercises grouped by muscle group."
   def list_all_exercises do
     list_muscle_groups()

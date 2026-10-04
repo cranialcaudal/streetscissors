@@ -1323,6 +1323,107 @@ button.adm-tab:hover {
   border: 1px solid var(--rule);
 }
 
+/* ── Blog: the post editor ───────────────────────────────────────── */
+
+/* The file and the page it makes, side by side; they stack below, with
+   the other single-column folds. */
+.adm-editor--post {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.adm-editor--post textarea {
+  min-height: 72vh;
+}
+
+.adm-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* What the frontmatter says, read back: a label column and what it holds. */
+.adm-facts {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+  font-family: var(--font-data);
+  font-size: 0.74rem;
+  color: var(--ink-2);
+}
+
+.adm-facts > div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.adm-facts dt {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.adm-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A save that was refused, and the two versions on the table. */
+.adm-conflict {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem 1.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--adm-held);
+}
+
+.adm-conflict-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--adm-held);
+}
+
+.adm-conflict p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--ink-2);
+}
+
+.adm-conflict-disk {
+  margin-top: 1rem;
+}
+
+.adm-conflict-disk summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  color: var(--adm-act);
+}
+
+.adm-conflict-disk pre {
+  max-height: 22rem;
+  margin: 0.6rem 0 0;
+  padding: 0.75rem 1rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .adm-group-title {
   display: flex;
   align-items: baseline;
@@ -1761,8 +1862,14 @@ button.adm-tab:hover {
 
 @media (max-width: 1100px) {
   .adm-split,
-  .adm-compose {
+  .adm-compose,
+  .adm-editor--post {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked, the preview sits under the source; half a screen each. */
+  .adm-editor--post textarea {
+    min-height: 46vh;
   }
 }
 

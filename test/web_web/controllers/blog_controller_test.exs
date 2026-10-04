@@ -193,4 +193,44 @@ defmodule WebWeb.BlogControllerTest do
     # ...and points at the section that does hold spoken work
     assert html =~ "/logs"
   end
+
+  describe "a draft" do
+    test "is on no public page", %{conn: conn} do
+      assert conn |> get(~p"/blog/draft-post") |> html_response(404)
+
+      for path <- [~p"/blog", ~p"/blog?keyword=unfinished", ~p"/feed", ~p"/sitemap.xml"] do
+        body = conn |> get(path) |> response(200)
+        refute body =~ "Fixture Draft", "#{path} lists the draft"
+        refute body =~ "draft-post", "#{path} links to the draft"
+      end
+
+      assert conn |> get(~p"/feed?keyword=unfinished") |> response(404)
+    end
+
+    test "opens for the author, marked as a draft and kept out of indexes", %{conn: conn} do
+      html =
+        conn
+        |> init_test_session(%{"admin_user" => true})
+        |> get(~p"/blog/draft-post")
+        |> html_response(200)
+
+      assert html =~ "Fixture Draft"
+      assert html =~ "Only you can see this page."
+      assert html =~ ~s(href="/admin/blog/draft-post/edit")
+      assert html =~ ~s(content="noindex, nofollow")
+      # Nobody can write a letter about a page they cannot open.
+      refute html =~ ~s(id="letters-post")
+    end
+
+    test "a published post carries none of that, even for the author", %{conn: conn} do
+      html =
+        conn
+        |> init_test_session(%{"admin_user" => true})
+        |> get(~p"/blog/keyworded-post")
+        |> html_response(200)
+
+      refute html =~ "Only you can see this page."
+      refute html =~ "noindex"
+    end
+  end
 end

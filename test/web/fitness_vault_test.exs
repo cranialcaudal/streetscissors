@@ -238,4 +238,52 @@ defmodule Web.Fitness.VaultTest do
       assert body =~ "Somewhere else"
     end
   end
+
+  # The regimen is joined up by name across three folders, and a name that
+  # does not match fails without a sound.
+  describe "audit/0" do
+    test "finds the module a day names that is not there", %{tmp: tmp} do
+      # The setup's tuesday lists upper-body-power; whether it exists is up
+      # to the test.
+      File.rm(Path.join([tmp, "modules", "upper-body-power.md"]))
+
+      assert {"tuesday", "upper-body-power"} in Vault.audit().missing_modules
+    end
+
+    test "finds the module no day names, counting rotating options as use", %{tmp: tmp} do
+      File.write!(Path.join([tmp, "weekly", "friday.md"]), """
+      ---
+      title: Friday
+      tab: Friday
+      option_1: swim-set, cooldown|Pool Swim
+      option_2: tempo-run
+      ---
+      """)
+
+      for module <- ~w(swim-set cooldown tempo-run forgotten) do
+        File.write!(Path.join([tmp, "modules", module <> ".md"]), "- [ ] Something\n")
+      end
+
+      audit = Vault.audit()
+
+      assert "forgotten" in audit.unused_modules
+      refute Enum.any?(~w(swim-set cooldown tempo-run), &(&1 in audit.unused_modules))
+      refute Enum.any?(audit.missing_modules, &(elem(&1, 0) == "friday"))
+    end
+
+    test "finds the day file the page's fixed order will never show", %{tmp: tmp} do
+      File.write!(Path.join([tmp, "weekly", "someday.md"]), "---\ntitle: Someday\n---\n")
+
+      assert Vault.audit().unlisted_days == ["someday"]
+    end
+
+    test "exercise_slugs/0 is every wiki entry, whatever group it is filed under", %{tmp: tmp} do
+      File.mkdir_p!(Path.join([tmp, "exercise-wiki", "upper"]))
+      File.mkdir_p!(Path.join([tmp, "exercise-wiki", "legs"]))
+      File.write!(Path.join([tmp, "exercise-wiki", "upper", "push-ups.md"]), "Push.\n")
+      File.write!(Path.join([tmp, "exercise-wiki", "legs", "squats.md"]), "Squat.\n")
+
+      assert Vault.exercise_slugs() == MapSet.new(["push-ups", "squats"])
+    end
+  end
 end

@@ -171,6 +171,37 @@ defmodule Web.Negatives.Sheet do
   end
 
   @doc """
+  Whether a sheet's marks can be drawn, and if not, which check refused.
+
+  `marks/2` answers `[]` for every failure alike, which is right for the page
+  and useless for whoever has to fix the roll. This names the reason, in the
+  order the gates run:
+
+    * `:no_folder` — the roll is not in `catalog.csv`, or its folder is gone
+    * `:not_analysed` — no readable `frames.json` in the folder
+    * `:stale_analysis` — `frames.json` describes other strips than are on
+      disk (gate 1)
+    * `:no_sheet` — the sheet's image could not be read
+    * `:size_mismatch` — no paper size composes to the sheet's dimensions
+      (gate 2)
+  """
+  @spec status(map()) ::
+          :ok
+          | {:withheld, :no_folder | :not_analysed | :stale_analysis | :no_sheet | :size_mismatch}
+  def status(%{roll: roll, filename: filename}) do
+    with {:no_folder, {:ok, dir}} <- {:no_folder, Negatives.roll_dir(roll)},
+         {:not_analysed, {:ok, strips}} <- {:not_analysed, analysis(dir)},
+         {:stale_analysis, :ok} <- {:stale_analysis, manifest_matches?(dir, strips)},
+         {:no_sheet, {:ok, path}} <- {:no_sheet, Negatives.image_path(filename)},
+         {:no_sheet, {:ok, dims}} <- {:no_sheet, dimensions(path)},
+         {:size_mismatch, {:ok, _plan}} <- {:size_mismatch, compose_matching(strips, dir, dims)} do
+      :ok
+    else
+      {reason, _} -> {:withheld, reason}
+    end
+  end
+
+  @doc """
   Reads frames.json for a roll directory.
   """
   def read_analysis(dir), do: analysis(dir)

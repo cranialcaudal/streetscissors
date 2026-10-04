@@ -230,4 +230,43 @@ defmodule Web.NegativesSheetTest do
       assert Sheet.aspect_ratio(%{}) == nil
     end
   end
+
+  # marks/2 says [] for every failure alike. status/1 is for whoever has to
+  # fix the roll: it names the check that refused.
+  describe "status/1" do
+    setup do
+      root = Fixture.archive!()
+      {folder, slug} = Fixture.golden_roll!(root)
+      %{root: root, folder: folder, slug: slug}
+    end
+
+    test "is :ok for a roll whose marks can be drawn", %{slug: slug} do
+      assert Sheet.status(sheet(slug)) == :ok
+    end
+
+    test "a roll that is not in the catalog has no folder to read" do
+      assert Sheet.status(sheet("roll099_2026-01-01_120_bw", "099")) == {:withheld, :no_folder}
+    end
+
+    test "a roll with no frames.json has never been analysed", %{folder: folder, slug: slug} do
+      File.rm!(Path.join(folder, "frames.json"))
+      assert Sheet.status(sheet(slug)) == {:withheld, :not_analysed}
+    end
+
+    test "a strip added since the analysis makes it stale", %{folder: folder, slug: slug} do
+      File.write!(Path.join(folder, "999.tiff"), "a strip scanned afterwards")
+      assert Sheet.status(sheet(slug)) == {:withheld, :stale_analysis}
+    end
+
+    test "a sheet no paper size composes to was built some other way",
+         %{root: root, slug: slug} do
+      Fixture.put_sheet!(root, slug, 1234, 987)
+      assert Sheet.status(sheet(slug)) == {:withheld, :size_mismatch}
+    end
+
+    test "a sheet that cannot be read is said to be so", %{root: root, slug: slug} do
+      File.write!(Path.join([root, "Contact Sheets", "#{slug}.png"]), "not a png")
+      assert Sheet.status(sheet(slug)) == {:withheld, :no_sheet}
+    end
+  end
 end

@@ -396,6 +396,20 @@ and the first real paragraph is borrowed.
 **Save the file and it is live.** The site reads the folder fresh on every
 visit, so there is nothing to rebuild.
 
+**Unless it says it is a draft.** Add `draft: true` to the frontmatter and the
+file stays in the folder and off the site: no index lists it, no feed carries
+it, and its address answers as though nothing were there. Take the line out and
+it is published. Logged in, you can still open a draft at its own address, to
+see it as it will look.
+
+**The admin can edit the same file.** `/admin/blog` lists every post, and each
+one opens in an editor that shows the whole file on the left, frontmatter and
+all, and the page it makes on the right. It is the same file Obsidian edits, so
+the editor checks before it saves: if the file changed on disk after the page
+loaded it (because you saved it in Obsidian in the meantime), the save is
+refused and you choose which version to keep. The one you do not keep goes to
+the vault's `.trash` folder rather than being thrown away.
+
 ### Keywords
 
 `keywords:` in the frontmatter is what powers the filter buttons on `/blog`.
@@ -407,6 +421,20 @@ pages, which is why a post called "The Ferry at Bowling Green" lives at
 The logs use the same vocabulary from a different place; their keywords are
 typed into the admin form rather than into a file; so a keyword filters writing
 and recordings alike.
+
+`/admin/keywords` shows the whole vocabulary at once, with everything filed
+under each word. A keyword renamed there is rewritten in every file and every
+recording that carries it, and renaming one to a word already in use merges the
+two; which is how `nyc` and `new-york` become one place again.
+
+### Checking the work
+
+`/admin/health` reads everything the way the site does and lists what does not
+hold together: a link to a page that was renamed, a photograph embed naming a
+roll that is not there, a published post with no description, an uploaded image
+that no page uses. Each link is checked by asking the site itself for that
+address, so the report cannot disagree with what a visitor would get. It changes
+nothing; it says what is wrong and where to fix it.
 
 ### Recording a log
 

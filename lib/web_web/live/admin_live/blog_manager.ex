@@ -2,6 +2,7 @@ defmodule WebWeb.AdminLive.BlogManager do
   use WebWeb, :live_view
 
   alias Web.Blog
+  alias Web.Blog.Images
   import WebWeb.AdminComponents
 
   @moduledoc """
@@ -13,15 +14,17 @@ defmodule WebWeb.AdminLive.BlogManager do
   into the file (`Blog.set_keywords/2`), so the vault file stays the source
   of truth either way.
 
-  The image library lives here rather than in a general hub: it exists to
-  produce markdown image links for posts.
+  The image library (`Web.Blog.Images`) lives here rather than in a general
+  hub: it exists to produce markdown image links for posts.
 
   `?filter=missing` narrows the list to posts without keywords — the ones the
   public filters can't reach — which is where the overview's "no keywords"
-  row points.
-  """
+  row points. `?filter=drafts` is the posts whose frontmatter says
+  `draft: true`: on disk, off the site.
 
-  @images_dir Path.join(["priv", "static", "images", "uploads"])
+  A post is written in `WebWeb.AdminLive.BlogEditor`. "New post" here starts
+  one from the vault's own template, as a draft, and opens it there.
+  """
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -31,7 +34,7 @@ defmodule WebWeb.AdminLive.BlogManager do
      |> assign(:keyword_edit, nil)
      |> assign(:filter, "all")
      |> load_posts()
-     |> assign(:images, list_images())
+     |> assign(:images, Images.list())
      |> allow_upload(:markdown,
        accept: ~w(.md),
        max_entries: 10,
@@ -40,7 +43,7 @@ defmodule WebWeb.AdminLive.BlogManager do
        progress: &handle_progress/3
      )
      |> allow_upload(:image,
-       accept: ~w(.jpg .jpeg .png .gif .webp),
+       accept: Images.extensions(),
        max_entries: 10,
        max_file_size: 50_000_000,
        auto_upload: true,
@@ -49,8 +52,39 @@ defmodule WebWeb.AdminLive.BlogManager do
   end
 
   def handle_params(params, _uri, socket) do
-    filter = if params["filter"] == "missing", do: "missing", else: "all"
+    filter = if params["filter"] in ~w(missing drafts), do: params["filter"], else: "all"
     {:noreply, assign(socket, :filter, filter)}
+  end
+
+  def handle_event("new_post", %{"title" => title}, socket) do
+    case Blog.create_draft(title) do
+      {:ok, slug} ->
+        {:noreply, push_navigate(socket, to: ~p"/admin/blog/#{slug}/edit")}
+
+      {:error, :exists} ->
+        {:noreply,
+         put_flash(socket, :error, "There is already a #{Web.Keywords.slugify(title)}.md.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "A post needs a title to be filed under.")}
+    end
+  end
+
+  def handle_event("set_draft", %{"slug" => slug, "draft" => draft}, socket) do
+    draft? = draft == "true"
+
+    case Blog.set_draft(slug, draft?) do
+      :ok ->
+        message =
+          if draft?,
+            do: "#{slug}.md is a draft again, and off the site.",
+            else: "Published /blog/#{slug}."
+
+        {:noreply, socket |> load_posts() |> put_flash(:info, message)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not write to #{slug}.md.")}
+    end
   end
 
   def handle_event("validate", _params, socket), do: {:noreply, socket}
@@ -83,12 +117,8 @@ defmodule WebWeb.AdminLive.BlogManager do
   end
 
   def handle_event("delete_image", %{"name" => name}, socket) do
-    case Path.safe_relative(name) do
-      {:ok, safe} -> File.rm(Path.join(@images_dir, safe))
-      :error -> :ok
-    end
-
-    {:noreply, socket |> assign(:images, list_images()) |> put_flash(:info, "Image deleted.")}
+    Images.delete(name)
+    {:noreply, socket |> assign(:images, Images.list()) |> put_flash(:info, "Image deleted.")}
   end
 
   defp handle_progress(:markdown, entry, socket) do
@@ -110,61 +140,37 @@ defmodule WebWeb.AdminLive.BlogManager do
     if entry.done? do
       results =
         consume_uploaded_entries(socket, :image, fn %{path: path}, meta ->
-          ext = meta.client_name |> Path.extname() |> String.downcase()
-          base = meta.client_name |> Path.basename(ext) |> Web.Keywords.slugify()
-          name = "#{base}-#{System.unique_integer([:positive])}#{ext}"
-
-          File.mkdir_p!(@images_dir)
-          File.cp!(path, Path.join(@images_dir, name))
-
-          {:ok, {:image, "/images/uploads/#{name}"}}
+          {:ok, {:image, Images.store(path, meta.client_name)}}
         end)
 
       {:noreply,
        socket
-       |> assign(:images, list_images())
+       |> assign(:images, Images.list())
        |> assign(:uploaded, results ++ socket.assigns.uploaded)}
     else
       {:noreply, socket}
     end
   end
 
-  defp load_posts(socket), do: assign(socket, :posts, Blog.list_posts())
-
-  defp list_images do
-    File.mkdir_p!(@images_dir)
-
-    case File.ls(@images_dir) do
-      {:ok, files} ->
-        files
-        |> Enum.filter(&String.match?(&1, ~r/\.(jpg|jpeg|png|gif|webp)$/i))
-        |> Enum.map(fn name ->
-          %{
-            name: name,
-            path: "/images/uploads/#{name}",
-            mtime: File.stat!(Path.join(@images_dir, name)).mtime
-          }
-        end)
-        |> Enum.sort_by(& &1.mtime, :desc)
-
-      _ ->
-        []
-    end
-  end
+  defp load_posts(socket), do: assign(socket, :posts, Blog.list_all_posts())
 
   defp upload_error_message(:too_large), do: "File is too large."
   defp upload_error_message(:not_accepted), do: "That file type is not accepted."
   defp upload_error_message(:too_many_files), do: "Too many files at once."
   defp upload_error_message(error), do: to_string(error)
 
-  defp shown(posts, "missing"), do: Enum.filter(posts, &(&1.keywords == []))
+  # A draft without keywords is not missing them yet: the filters it cannot
+  # be reached through do not list it either.
+  defp shown(posts, "missing"), do: Enum.filter(posts, &(&1.keywords == [] and not &1.draft))
+  defp shown(posts, "drafts"), do: Enum.filter(posts, & &1.draft)
   defp shown(posts, _all), do: posts
 
   def render(assigns) do
     assigns =
       assigns
       |> assign(:shown, shown(assigns.posts, assigns.filter))
-      |> assign(:missing_count, Enum.count(assigns.posts, &(&1.keywords == [])))
+      |> assign(:missing_count, length(shown(assigns.posts, "missing")))
+      |> assign(:draft_count, length(shown(assigns.posts, "drafts")))
 
     ~H"""
     <.page_head slug="Write / Blog" title="Blog">
@@ -178,6 +184,26 @@ defmodule WebWeb.AdminLive.BlogManager do
         </.link>
       </:actions>
     </.page_head>
+
+    <.panel title="New post">
+      <form id="new-post-form" phx-submit="new_post" class="adm-inline-form">
+        <input
+          type="text"
+          name="title"
+          class="adm-input"
+          placeholder="A title to file it under"
+          autocomplete="off"
+          aria-label="Title of the new post"
+          required
+        />
+        <button type="submit" class="adm-btn adm-btn--primary">
+          <.icon name="hero-plus" class="size-4" /> Start a draft
+        </button>
+      </form>
+      <p class="adm-help">
+        Makes a file from the vault's blog template, dated today and marked <code>draft: true</code>, and opens it in the editor. It stays off the site until published.
+      </p>
+    </.panel>
 
     <.panel title="Add posts">
       <form id="markdown-upload-form" phx-change="validate">
@@ -204,6 +230,9 @@ defmodule WebWeb.AdminLive.BlogManager do
     <.panel title="Posts" count={length(@posts)}>
       <.tabs label="Posts">
         <:tab patch={~p"/admin/blog"} active={@filter == "all"} count={length(@posts)}>All</:tab>
+        <:tab patch={~p"/admin/blog?filter=drafts"} active={@filter == "drafts"} count={@draft_count}>
+          Drafts
+        </:tab>
         <:tab
           patch={~p"/admin/blog?filter=missing"}
           active={@filter == "missing"}
@@ -214,7 +243,11 @@ defmodule WebWeb.AdminLive.BlogManager do
       </.tabs>
 
       <.empty :if={@shown == []}>
-        {if @filter == "missing", do: "Every post has keywords.", else: "No posts yet."}
+        {case @filter do
+          "missing" -> "Every published post has keywords."
+          "drafts" -> "No drafts."
+          _ -> "No posts yet."
+        end}
       </.empty>
 
       <div :if={@shown != []} class="adm-list" id="posts">
@@ -222,6 +255,7 @@ defmodule WebWeb.AdminLive.BlogManager do
           <div class="adm-item-main">
             <h2 class="adm-item-title">{post.title}</h2>
             <div class="adm-item-meta">
+              <.pill :if={post.draft} tone="draft">draft</.pill>
               <span>{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
               <span>{post.word_count} words</span>
               <span>/blog/{post.slug}</span>
@@ -229,7 +263,7 @@ defmodule WebWeb.AdminLive.BlogManager do
 
             <div :if={@keyword_edit != post.slug} class="adm-item-meta">
               <.keyword_chips keywords={post.keywords} />
-              <.pill :if={post.keywords == []} tone="held">no keywords</.pill>
+              <.pill :if={post.keywords == [] and not post.draft} tone="held">no keywords</.pill>
             </div>
 
             <form
@@ -256,9 +290,20 @@ defmodule WebWeb.AdminLive.BlogManager do
           </div>
 
           <div class="adm-item-actions">
+            <.link navigate={~p"/admin/blog/#{post.slug}/edit"} class="adm-link">Edit</.link>
             <.link href={~p"/blog/#{post.slug}"} target="_blank" class="adm-link">
-              View <.icon name="hero-arrow-top-right-on-square" class="size-4" />
+              {if post.draft, do: "See the draft", else: "View"}
+              <.icon name="hero-arrow-top-right-on-square" class="size-4" />
             </.link>
+            <button
+              phx-click="set_draft"
+              phx-value-slug={post.slug}
+              phx-value-draft={to_string(!post.draft)}
+              class="adm-link"
+              data-confirm={!post.draft && "Take /blog/#{post.slug} off the site? The file stays."}
+            >
+              {if post.draft, do: "Publish", else: "Unpublish"}
+            </button>
             <button
               :if={@keyword_edit != post.slug}
               phx-click="edit_keywords"
@@ -303,7 +348,10 @@ defmodule WebWeb.AdminLive.BlogManager do
               id={"image-md-#{index}"}
               value={"![#{Path.rootname(image.name)}](#{image.path})"}
             />
+            <%!-- An image from the old folder is served from the release's
+                  own copy, which deleting the file here would not touch. --%>
             <button
+              :if={!image.legacy}
               phx-click="delete_image"
               phx-value-name={image.name}
               class="adm-link adm-link--danger"

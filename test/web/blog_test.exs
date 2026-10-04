@@ -227,4 +227,201 @@ defmodule Web.BlogTest do
     assert {:ok, post} = Blog.get_post("orphan")
     refute Map.has_key?(post, :audio_url)
   end
+
+  describe "drafts" do
+    setup %{tmp: tmp} do
+      File.write!(
+        Path.join(tmp, "out.md"),
+        "---\ntitle: Out\ndate: 2026-07-02\n---\n\nPublished.\n"
+      )
+
+      File.write!(
+        Path.join(tmp, "wip.md"),
+        "---\ntitle: Work In Progress\ndate: 2026-07-03\ndraft: true\n---\n\nNot yet.\n"
+      )
+
+      :ok
+    end
+
+    test "a draft is off every public listing, and on the admin's" do
+      assert Enum.map(Blog.list_posts(), & &1.slug) == ["out"]
+      assert Enum.map(Blog.list_all_posts(), & &1.slug) == ["wip", "out"]
+      assert Blog.list_keywords() == []
+    end
+
+    test "a draft is not found unless drafts are asked for" do
+      assert {:error, :not_found} = Blog.get_post("wip")
+      assert {:ok, %{draft: true, title: "Work In Progress"}} = Blog.get_post("wip", drafts: true)
+      assert {:ok, %{draft: false}} = Blog.get_post("out")
+    end
+
+    test "draft takes the usual spellings of yes, and anything else is published", %{tmp: tmp} do
+      for {value, expected} <- [{"true", true}, {"Yes", true}, {"false", false}, {"", false}] do
+        File.write!(Path.join(tmp, "v.md"), "---\ntitle: V\ndraft: #{value}\n---\n\nBody.\n")
+        assert {:ok, %{draft: ^expected}} = Blog.get_post("v", drafts: true)
+      end
+    end
+
+    test "publishing removes the line, and unpublishing puts it back", %{tmp: tmp} do
+      assert :ok = Blog.set_draft("wip", false)
+      assert {:ok, %{draft: false, title: "Work In Progress"}} = Blog.get_post("wip")
+      refute File.read!(Path.join(tmp, "wip.md")) =~ "draft"
+
+      assert :ok = Blog.set_draft("wip", true)
+      assert {:error, :not_found} = Blog.get_post("wip")
+      assert File.read!(Path.join(tmp, "wip.md")) =~ "\ndraft: true\n---\n\nNot yet."
+    end
+
+    test "a post with no frontmatter gains a block as a draft and loses it again", %{tmp: tmp} do
+      path = Path.join(tmp, "bare.md")
+      File.write!(path, "Just a paragraph.\n")
+
+      :ok = Blog.set_draft("bare", true)
+      assert File.read!(path) == "---\ndraft: true\n---\n\nJust a paragraph.\n"
+
+      :ok = Blog.set_draft("bare", false)
+      assert File.read!(path) == "Just a paragraph.\n"
+    end
+  end
+
+  describe "create_draft/2" do
+    test "starts a post from the built-in template when the vault has none", %{tmp: tmp} do
+      assert {:ok, "tides-out"} = Blog.create_draft("Tide's Out", ~D[2030-03-02])
+
+      text = File.read!(Path.join(tmp, "tides-out.md"))
+      assert text =~ ~s(title: "Tide's Out")
+      assert text =~ ~s(date: "2030-03-02")
+      assert text =~ "\ndraft: true\n"
+
+      assert {:ok, post} = Blog.get_post("tides-out", drafts: true)
+      assert post.title == "Tide's Out"
+      assert post.date == ~D[2030-03-02]
+      assert post.draft
+      # The template's sample values are not carried into a real post.
+      assert post.keywords == []
+      refute post.described
+    end
+
+    # The same frontmatter a post begun in Obsidian gets, comments and all.
+    test "uses the vault's own template when there is one" do
+      vault = Path.join(System.tmp_dir!(), "vault-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(Path.join(vault, "blog"))
+      File.mkdir_p!(Path.join(vault, "templates"))
+      Application.put_env(:web, :blog_path, Path.join(vault, "blog"))
+      on_exit(fn -> File.rm_rf!(vault) end)
+
+      File.write!(Path.join(vault, "templates/blog-template.md"), """
+      ---
+      title: "Your Blog Post Title"
+      date: "2026-05-30"
+      # a comment the author left for themselves
+      keywords: film, darkroom
+      location:
+      ---
+
+      Opening line from the vault's template.
+      """)
+
+      assert {:ok, "a-walk"} = Blog.create_draft("A Walk", ~D[2030-03-02])
+      text = File.read!(Path.join(vault, "blog/a-walk.md"))
+
+      assert text =~ "# a comment the author left for themselves"
+      assert text =~ "location:"
+      assert text =~ "Opening line from the vault's template."
+      refute text =~ "film, darkroom"
+
+      assert {:ok, %{title: "A Walk", keywords: [], draft: true}} =
+               Blog.get_post("a-walk", drafts: true)
+    end
+
+    test "refuses a name already taken, and a title that is nothing" do
+      assert {:ok, "once"} = Blog.create_draft("Once")
+      assert {:error, :exists} = Blog.create_draft("once")
+      assert {:error, :blank} = Blog.create_draft("  ?!  ")
+    end
+  end
+
+  describe "editing a post's source" do
+    setup do
+      vault = Path.join(System.tmp_dir!(), "vault-#{System.unique_integer([:positive])}")
+      blog = Path.join(vault, "blog")
+      File.mkdir_p!(blog)
+      Application.put_env(:web, :blog_path, blog)
+      on_exit(fn -> File.rm_rf!(vault) end)
+
+      File.write!(Path.join(blog, "essay.md"), "---\ntitle: Essay\n---\n\nAs opened.\n")
+      {:ok, vault: vault, path: Path.join(blog, "essay.md")}
+    end
+
+    test "saves over the revision it was opened at, and hands back the new one", %{path: path} do
+      {:ok, %{content: content, revision: revision}} = Blog.read_source("essay")
+      assert content =~ "As opened."
+
+      assert {:ok, next} = Blog.write_source("essay", "Rewritten.\n", revision)
+      assert File.read!(path) == "Rewritten.\n"
+      assert next != revision
+
+      # The new revision is the one to save over next.
+      assert {:ok, _} = Blog.write_source("essay", "Rewritten again.\n", next)
+      refute File.exists?(path <> ".saving")
+    end
+
+    # The whole point: an edit made in Obsidian while the admin tab sat open.
+    test "refuses to save over a file that changed on disk meanwhile", %{path: path} do
+      {:ok, %{revision: revision}} = Blog.read_source("essay")
+      File.write!(path, "Edited in Obsidian.\n")
+
+      assert {:error, :conflict, %{content: "Edited in Obsidian.\n", revision: theirs}} =
+               Blog.write_source("essay", "Edited in the admin.\n", revision)
+
+      assert File.read!(path) == "Edited in Obsidian.\n"
+      assert theirs != revision
+    end
+
+    test "forcing the save keeps the version it replaces in the vault's trash",
+         %{vault: vault, path: path} do
+      {:ok, %{revision: revision}} = Blog.read_source("essay")
+      File.write!(path, "Edited in Obsidian.\n")
+
+      assert {:ok, _} =
+               Blog.write_source("essay", "Edited in the admin.\n", revision, force: true)
+
+      assert File.read!(path) == "Edited in the admin.\n"
+
+      assert [kept] = File.ls!(Path.join(vault, ".trash"))
+      assert kept =~ ~r/^essay \(replaced \d{8}-\d{6}\)\.md$/
+      assert File.read!(Path.join([vault, ".trash", kept])) == "Edited in Obsidian.\n"
+    end
+
+    test "a save that matches the disk leaves nothing in the trash", %{vault: vault} do
+      {:ok, %{revision: revision}} = Blog.read_source("essay")
+      {:ok, _} = Blog.write_source("essay", "Rewritten.\n", revision, force: true)
+      refute File.exists?(Path.join(vault, ".trash"))
+    end
+
+    test "guards against directory traversal" do
+      assert {:error, :not_found} = Blog.read_source("../secrets")
+      assert {:error, :not_found} = Blog.write_source("../secrets", "x", "anything")
+    end
+
+    test "preview/2 reads text the way a saved post would be read" do
+      post =
+        Blog.preview(
+          "essay",
+          "---\ntitle: Retitled\nkeywords: Film, film\ndraft: true\n---\n\nBody.\n"
+        )
+
+      assert %{title: "Retitled", keywords: ["film"], draft: true} = post
+      assert String.trim(post.body) == "Body."
+    end
+
+    test "mark_draft/2 changes that one line and nothing else" do
+      text = "---\ntitle: Essay\n# a note\nkeywords: film\n---\n\nBody.\n"
+
+      drafted = Blog.mark_draft(text, true)
+      assert drafted == "---\ntitle: Essay\n# a note\nkeywords: film\ndraft: true\n---\n\nBody.\n"
+      assert Blog.mark_draft(drafted, false) == text
+      assert Blog.mark_draft(Blog.mark_draft(text, true), true) == drafted
+    end
+  end
 end

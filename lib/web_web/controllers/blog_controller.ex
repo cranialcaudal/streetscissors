@@ -79,18 +79,14 @@ defmodule WebWeb.BlogController do
     end
   end
 
+  # A draft is a 404 to everyone but the author, who gets it as it will look,
+  # marked as a draft and kept out of any index that finds its way there.
   defp render_post(conn, slug, params) do
-    case Blog.get_post(slug) do
+    case Blog.get_post(slug, drafts: conn.assigns[:admin_mode] == true) do
       {:ok, post} ->
-        html =
-          case Earmark.as_html(post.body, gfm: true) do
-            {:ok, html, _} -> html
-            {:error, html, _} -> html
-          end
-
         post =
           post
-          |> Map.put(:html, Web.Blog.Embeds.transform(html))
+          |> Map.put(:html, Blog.to_html(post.body))
           |> Map.put(:hit_count, Map.get(hit_counts(), Keywords.slugify(slug), 0))
 
         {return_to, return_label} = return_context(params["from"] || "blog")
@@ -110,6 +106,7 @@ defmodule WebWeb.BlogController do
         |> assign(:og_type, "article")
         |> assign(:canonical_path, ~p"/blog/#{post.slug}")
         |> assign(:json_ld, json_ld)
+        |> assign(:robots, if(post.draft, do: "noindex, nofollow"))
         |> render(:show, post: post, return_to: return_to, return_label: return_label)
 
       {:error, _} ->

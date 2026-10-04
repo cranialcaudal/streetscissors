@@ -142,6 +142,9 @@ defmodule WebWeb.Router do
       # The old single "content" hub routed uploads by file extension; blog and
       # logs each own their ingestion now.
       live "/admin/blog", AdminLive.BlogManager
+      live "/admin/blog/:slug/edit", AdminLive.BlogEditor
+      live "/admin/keywords", AdminLive.Keywords
+      live "/admin/health", AdminLive.ContentHealth
       live "/admin/logs", AdminLive.LogsManager
       live "/admin/fitness", AdminLive.FitnessManager
       # The week as calendar events, from content/notes/calendar.md. It names

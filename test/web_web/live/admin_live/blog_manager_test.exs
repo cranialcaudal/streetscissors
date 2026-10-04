@@ -111,4 +111,83 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       refute File.exists?(Path.join(tmp, "doomed.md"))
     end
   end
+
+  describe "drafts" do
+    setup :with_tmp_blog
+
+    setup %{tmp: tmp} do
+      File.write!(
+        Path.join(tmp, "out.md"),
+        "---\ntitle: Out\nkeywords: film\n---\n\nPublished.\n"
+      )
+
+      File.write!(
+        Path.join(tmp, "wip.md"),
+        "---\ntitle: Work In Progress\ndraft: true\n---\n\nNot yet.\n"
+      )
+
+      :ok
+    end
+
+    test "are listed with the posts, marked, and have a tab of their own", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      assert has_element?(view, "#post-wip .adm-pill--draft", "draft")
+      refute has_element?(view, "#post-out .adm-pill--draft")
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog?filter=drafts")
+      assert has_element?(view, "#post-wip")
+      refute has_element?(view, "#post-out")
+    end
+
+    # A draft cannot be reached through the public filters either way, so it
+    # is not nagged about keywords until it is published.
+    test "are not counted as missing keywords", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog?filter=missing")
+      refute has_element?(view, "#post-wip")
+      assert render(view) =~ "Every published post has keywords."
+    end
+
+    test "publish puts a draft on the site, and unpublish takes it off", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      view |> element("#post-wip button", "Publish") |> render_click()
+      assert {:ok, %{draft: false}} = Blog.get_post("wip")
+      assert has_element?(view, "#flash-info", "Published /blog/wip.")
+
+      view |> element("#post-wip button", "Unpublish") |> render_click()
+      assert {:error, :not_found} = Blog.get_post("wip")
+    end
+
+    test "every post links to the editor", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      assert has_element?(view, ~s(#post-out a[href="/admin/blog/out/edit"]), "Edit")
+    end
+  end
+
+  describe "starting a post" do
+    setup :with_tmp_blog
+
+    test "makes a dated draft and opens it in the editor", %{conn: conn, tmp: tmp} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      assert {:error, {:live_redirect, %{to: "/admin/blog/tides-out/edit"}}} =
+               view |> form("#new-post-form", title: "Tide's Out") |> render_submit()
+
+      text = File.read!(Path.join(tmp, "tides-out.md"))
+      assert text =~ ~s(title: "Tide's Out")
+      assert text =~ "draft: true"
+      assert {:error, :not_found} = Blog.get_post("tides-out")
+    end
+
+    test "refuses a title that is already a file", %{conn: conn, tmp: tmp} do
+      File.write!(Path.join(tmp, "taken.md"), "Already here.\n")
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      view |> form("#new-post-form", title: "Taken") |> render_submit()
+
+      assert has_element?(view, "#flash-error", "There is already a taken.md.")
+      assert File.read!(Path.join(tmp, "taken.md")) == "Already here.\n"
+    end
+  end
 end

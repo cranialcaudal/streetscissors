@@ -2,6 +2,10 @@
   <article class="blog-post-panel h-entry">
     <WebWeb.Microformats.entry_fields path={~p"/blog/#{@post.slug}"} />
     <header class="blog-post-header">
+      <p :if={@post.draft} class="blog-post-draft" role="status">
+        Draft. Only you can see this page.
+        <a href={~p"/admin/blog/#{@post.slug}/edit"}>Edit it</a>
+      </p>
       <.post_meta post={@post} />
       <h1 class="blog-post-title p-name">{@post.title}</h1>
     </header>
@@ -16,12 +20,15 @@
     </footer>
   </article>
 
-  <%!-- Letters about this post, and the sites that cite it (WebWeb.LettersLive). --%>
-  {live_render(@conn, WebWeb.LettersLive,
-    id: "letters-post",
-    session: %{
-      "piece" => Web.Pieces.post(@post.slug),
-      "remote_ip" => WebWeb.ClientIP.from_conn(@conn)
-    }
-  )}
+  <%!-- Letters about this post, and the sites that cite it (WebWeb.LettersLive).
+        Not under a draft: there is nothing public yet to write about. --%>
+  <%= if !@post.draft do %>
+    {live_render(@conn, WebWeb.LettersLive,
+      id: "letters-post",
+      session: %{
+        "piece" => Web.Pieces.post(@post.slug),
+        "remote_ip" => WebWeb.ClientIP.from_conn(@conn)
+      }
+    )}
+  <% end %>
 </div>
