@@ -29,7 +29,7 @@ This site is that argument, built:
 - **Every day is a page.** Under `/almanac`, a day with work in it holds everything made that day side by side. A year is laid out like a contact sheet, and it prints as a clean edition.
 - **You can follow a keyword.** The feed at `/feed` carries everything, and `/feed?keyword=film` follows one thread across the blog and the logs. You follow a thought rather than an account.
 - **You can write a letter.** Under any post, log or photograph, you can write to the author about that piece. It is private unless you allow it to be published and the author chooses to publish it.
-- **Other sites can cite a piece.** A site that links to a piece can say so by webmention. Once the link is checked and approved, it appears beneath the piece as "Cited by": a conversation between two homes, with no platform in the middle.
+- **Other sites can cite a piece.** A site that links to a piece can say so by webmention. Once the link is checked and approved, it appears beneath the piece as "Cited by": a conversation between two homes, with no platform in the middle. It runs the other way too: when a post here links to another site, that site is told, so it can show the citation on its side.
 
 "Owned, not rented" deserves a concrete picture, because that is where the philosophy becomes plumbing. Here is what happens when you open this site, in plain terms.
 

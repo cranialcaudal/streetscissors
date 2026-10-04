@@ -194,6 +194,15 @@ defmodule WebWeb.Router do
     get "/health", HealthController, :show
   end
 
+  # Share cards: the picture a link to a post, frame or roll unfurls with
+  # (Web.ShareCard). Asked for by unfurlers, not by people, so like /health
+  # they pass through no pipeline: no session, and no hit to count.
+  scope "/share", WebWeb do
+    get "/post/:file", ShareController, :post
+    get "/frame/:roll/:file", ShareController, :frame
+    get "/roll/:file", ShareController, :roll
+  end
+
   # LiveDashboard and the Swoosh mailbox preview.
   #
   # Two independent gates, because one is not enough: `dev_routes` is false on a

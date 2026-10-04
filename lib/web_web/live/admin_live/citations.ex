@@ -6,6 +6,9 @@ defmodule WebWeb.AdminLive.Citations do
 
   The list is in the URL (`?show=held|approved|all`), opening on the held
   ones, the only list that asks anything of you.
+
+  `?show=sent` is the other direction (`Web.Webmentions.Outgoing`): the sites
+  this one has told that a post links to them, and what each said back.
   """
 
   use WebWeb, :live_view
@@ -14,9 +17,10 @@ defmodule WebWeb.AdminLive.Citations do
 
   alias Web.Pieces
   alias Web.Webmentions
+  alias Web.Webmentions.Outgoing
   alias WebWeb.AdminNav
 
-  @views %{"held" => "held", "approved" => "approved", "all" => nil}
+  @views %{"held" => "held", "approved" => "approved", "all" => nil, "sent" => nil}
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -43,6 +47,11 @@ defmodule WebWeb.AdminLive.Citations do
     {:noreply, socket |> load() |> AdminNav.refresh_counts() |> put_flash(:info, "Rejected.")}
   end
 
+  def handle_event("retry", %{"id" => id}, socket) do
+    {:ok, _job} = id |> Outgoing.get!() |> Outgoing.retry()
+    {:noreply, socket |> load() |> put_flash(:info, "Queued to be sent again.")}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     {:ok, _} = id |> Webmentions.get!() |> Webmentions.delete()
     {:noreply, socket |> load() |> AdminNav.refresh_counts() |> put_flash(:info, "Deleted.")}
@@ -58,6 +67,7 @@ defmodule WebWeb.AdminLive.Citations do
     |> assign(:counts, Webmentions.count_by_status())
     |> assign(:mentions, mentions)
     |> assign(:pieces, pieces)
+    |> assign(:sent, Outgoing.list())
   end
 
   def render(assigns) do
@@ -85,11 +95,45 @@ defmodule WebWeb.AdminLive.Citations do
         Shown
       </:tab>
       <:tab patch={~p"/admin/citations?show=all"} active={@show == "all"}>All</:tab>
+      <:tab patch={~p"/admin/citations?show=sent"} active={@show == "sent"} count={length(@sent)}>
+        Sent
+      </:tab>
     </.tabs>
 
-    <.empty :if={@mentions == []}>{empty_line(@show)}</.empty>
+    <div :if={@show == "sent"} id="citations-sent">
+      <p class="adm-help">
+        Each link a post makes to another site is announced to that site once, within the hour.
+        A site that takes no webmentions is noted and not asked again.
+      </p>
+      <.rows id="sent" rows={@sent} row_id={&"sent-#{&1.id}"}>
+        <:col :let={row} label="From" class="adm-cell-title">
+          <.link href={row.source} target="_blank" class="adm-link">{row.source}</.link>
+        </:col>
+        <:col :let={row} label="To">
+          <a href={row.target} target="_blank" rel="noopener nofollow">{row.target}</a>
+        </:col>
+        <:col :let={row} label="Outcome">
+          <.pill tone={sent_tone(row.status)}>{sent_label(row.status)}</.pill>
+          <span :if={row.detail}>{row.detail}</span>
+        </:col>
+        <:col :let={row} label="When">{stamp(row.sent_at || row.updated_at)}</:col>
+        <:action :let={row}>
+          <button
+            :if={row.status in ["failed", "no_endpoint"]}
+            phx-click="retry"
+            phx-value-id={row.id}
+            class="adm-link"
+          >
+            Try again
+          </button>
+        </:action>
+        <:empty>No post has linked to another site yet.</:empty>
+      </.rows>
+    </div>
 
-    <div :if={@mentions != []} class="adm-list" id="citations">
+    <.empty :if={@show != "sent" and @mentions == []}>{empty_line(@show)}</.empty>
+
+    <div :if={@show != "sent" and @mentions != []} class="adm-list" id="citations">
       <article :for={mention <- @mentions} id={"citation-#{mention.id}"} class="adm-item">
         <div class="adm-item-main">
           <h2 class="adm-item-title">
@@ -155,6 +199,17 @@ defmodule WebWeb.AdminLive.Citations do
   defp status_label("pending"), do: "Checking"
   defp status_label("gone"), do: "Link gone"
   defp status_label("rejected"), do: "Rejected"
+
+  defp sent_tone("sent"), do: "live"
+  defp sent_tone("failed"), do: "failed"
+  defp sent_tone("queued"), do: "draft"
+  defp sent_tone(_), do: "quiet"
+
+  defp sent_label("sent"), do: "Told"
+  defp sent_label("queued"), do: "Sending"
+  defp sent_label("no_endpoint"), do: "Takes none"
+  defp sent_label("failed"), do: "Failed"
+  defp sent_label("withdrawn"), do: "Withdrawn"
 
   defp empty_line("held"), do: "Nothing waiting. No site has cited a piece since you last looked."
   defp empty_line("approved"), do: "No citations shown yet."

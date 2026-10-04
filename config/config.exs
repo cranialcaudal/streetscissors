@@ -93,7 +93,10 @@ config :web, Web.Scheduler,
     {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}},
     # The machine checks itself: certificate, proxy, DNS, disk, services, and
     # the backups above. A fault is mailed on its second pass running.
-    {"*/15 * * * *", {Web.Monitor, :run_scheduled, []}}
+    {"*/15 * * * *", {Web.Monitor, :run_scheduled, []}},
+    # Tell the sites a post links to that it does. Each link is announced
+    # once, so most hours this renders the posts and finds nothing new.
+    {"23 * * * *", {Web.Webmentions.Outgoing, :run_scheduled, []}}
   ]
 
 config :web, Oban,

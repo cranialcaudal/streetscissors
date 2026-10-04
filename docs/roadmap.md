@@ -22,7 +22,7 @@ Most of the foundation is already built.
 - **Negatives.** The archive has a sheet view, an index, a frame view and grease-pencil marks.
 - **Fitness.** The regimen and its exercise wiki are read from the vault, and the activities page mirrors every recorded Komoot tour every hour.
 - **Correspondence.** The guestbook holds each signature until it is approved. The guestbook and contact forms are rate-limited and carry a captcha. The newsletter sends as durable background jobs, with one-click unsubscribe.
-- **Discovery.** There are an RSS feed, a sitemap, a robots file, and a description, canonical URL and share image on every page. AI scrapers are turned away at the proxy.
+- **Discovery.** There are an RSS feed, a sitemap, a robots file, and a description, canonical URL and share image on every page; posts, frames and rolls each have a share image of their own. AI scrapers are turned away at the proxy.
 - **Plumbing.** The database is snapshotted every night and each snapshot is verified. The written content is archived the same night, kept as versions, and each archive is proven by restoring it. Snapshots, versions, the negatives and the recordings are mirrored to an external drive whenever it is plugged in. Deploys are one script with a health gate.
 - **Admin.** One back office in one design, the "composing room". It opens on what is waiting and on the state of the machine: backups, the last Komoot sync, the mail queue. Messages have their own inbox and settings their own page. The newsletter has drafts, a preview and a test send.
 
@@ -73,8 +73,8 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 - **Homepage.** Decide the homepage's title, description and visible name text, then implement them.
 - **Search engines.** Claim Search Console and Bing Webmaster Tools, submit the sitemap, and follow index coverage until the homepage and the key pages appear for the site's name.
-- **Share images.** Every post, frame and log gets its own share image, so a shared link unfurls with the work itself rather than the site default.
-- **Sending webmentions.** When a post links to another personal site, tell that site, so a citation runs both ways.
+- **Share images:** done. A shared link to a post unfurls with its title set in the site's type, and a link to a frame or a roll with the photograph or the sheet, whole. Each card is drawn the first time something asks for it.
+- **Sending webmentions:** done. When a post links to another site, that site is told within the hour, once, so a citation runs both ways. A site that takes no webmentions is noted and left alone, and a link removed from a post is withdrawn.
 
 ## 7. Fitness
 

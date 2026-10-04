@@ -336,6 +336,18 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   never recorded for an admin session. Plays from before 2026-09-22 have no token (they were all
   logged against Caddy's `::1`) and count for nothing.
 
+- **Share cards** (`Web.ShareCard`, `WebWeb.ShareController`): the `og:image` of a post, a
+  frame and a roll is a 1200x630 card of the work itself. A post is its title set in Goudy on
+  paper over the wordmark and date; a frame or a sheet is the picture whole on the darkroom's
+  ground (the WebP previews those pages used are cropped through by a 1.91:1 unfurl, and not
+  shown at all by some). **A page only names its card** (`post_url/1` etc., a stat at most)
+  and the card is drawn by ImageMagick when `/share/…` is first fetched, so no page render
+  shells out. Files live in `cards/` under the uploads root, named with a fingerprint of the
+  title and date or of the source image; the URL carries it as `?v=`, so the year-long cache
+  header is honest and a retitle sweeps the old file. The title reaches ImageMagick through
+  `caption:@file`, never as an argument. The two faces are vendored in `priv/fonts/` (OFL).
+  `/share/*` has no pipeline, like `/health`. Logs already have a 16:9 JPEG poster.
+
 - **Tending the content** (2026-10-04), both under **Write** in the admin's rail:
   - **`Web.Keywords.Index`** (`/admin/keywords`) is the one place a keyword is changed
     everywhere: `usage/0` lists each with the posts and logs that carry it (drafts and
@@ -396,7 +408,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     (`Web.WebmentionsTestResolver`, `Req.Test`). A verified link is `held`; the author approves it
     at `/admin/citations`, and then it shows in `LettersLive` as "Cited by", linked
     `nofollow ugc`. A source that doesn't link (yet) or answers 410 is `gone`, and a later ping can
-    bring it back. Only the author rejects, and a rejection sticks. Nothing sends webmentions yet.
+    bring it back. Only the author rejects, and a rejection sticks.
+  - **Webmentions sent** (`Web.Webmentions.Outgoing`, `webmentions_sent`): hourly, every
+    published post is rendered and each `<a href>` to another host that has no row yet is
+    queued (`Web.Workers.WebmentionSender`). The job finds the target's endpoint (a `Link`
+    header first, then the first `<link>`/`<a rel="webmention">`), posts `source` and `target`,
+    and records `sent`, `no_endpoint` (never asked again) or `failed`. A link that leaves a
+    post it was sent from is announced once more and becomes `withdrawn`. Both the target and
+    the endpoint go through the receiver's SSRF guard and Req options. Posts and anchors only:
+    an iframe or an image is not a citation. `/admin/citations?show=sent` lists them, with
+    "Try again". `:webmention_send` false turns the pass off.
 
 - **The admin — "the composing room"** (rebuilt 2026-09-29), the print shop's back office. **Every
   admin rule lives in `assets/css/admin.css`** under `.admin-layout` (`adm-` prefix), and pages are

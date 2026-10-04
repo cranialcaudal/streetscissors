@@ -16,6 +16,7 @@ defmodule Web.Backup.Uploads do
   `staging/` is left behind. It holds uploads that are still arriving or still
   waiting on ffmpeg: large, short-lived, and re-made if the take is recorded
   again. Copying them would leave every raw take on the drive for good.
+  `cards/` is left behind too: `Web.ShareCard` redraws those from the work.
 
   Configure with `:uploads_mirror_path`; `nil` disables it. The folder is made
   on first use if the folder it sits in is there (`Web.Backup.claim_mirror/1`),
@@ -58,7 +59,7 @@ defmodule Web.Backup.Uploads do
 
       {:ok, dest} ->
         if File.dir?(source) do
-          Tree.sync(source, dest, label: "recordings", exclude: ["/staging/"])
+          Tree.sync(source, dest, label: "recordings", exclude: ["/staging/", "/cards/"])
         else
           {:error, {:source_missing, source}}
         end

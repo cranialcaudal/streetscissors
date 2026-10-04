@@ -104,6 +104,9 @@ defmodule WebWeb.BlogController do
         |> assign(:og_title, post.title)
         |> assign(:og_description, post.excerpt)
         |> assign(:og_type, "article")
+        # Its title as a picture, so a shared link unfurls as the essay and
+        # not as the site's logo. nil falls back to that logo.
+        |> assign(:og_image, Web.ShareCard.post_url(post))
         |> assign(:canonical_path, ~p"/blog/#{post.slug}")
         |> assign(:json_ld, json_ld)
         |> assign(:robots, if(post.draft, do: "noindex, nofollow"))

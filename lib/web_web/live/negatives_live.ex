@@ -86,7 +86,7 @@ defmodule WebWeb.NegativesLive do
            :meta_description,
            "Roll ##{sheet.roll} — #{sheet.format} #{sheet.color}, scanned #{sheet.date}."
          )
-         |> assign(:og_image, sheet.preview_url)
+         |> assign(:og_image, Web.ShareCard.sheet_url(sheet) || sheet.preview_url)
          |> assign(:canonical_path, ~p"/negatives/roll/#{Format.pad(sheet.roll)}")
          |> assign_sheet()}
     end
@@ -121,7 +121,7 @@ defmodule WebWeb.NegativesLive do
          page_title: "Roll ##{sheet.roll} · frame #{number}",
          # Its own social card and canonical URL — otherwise every shared
          # photo link fell back to the site-wide default logo/description.
-         og_image: current.url,
+         og_image: Web.ShareCard.frame_url(sheet.roll, number) || current.url,
          og_description:
            "Roll ##{sheet.roll}, frame #{number} — #{sheet.format} #{sheet.color}, #{sheet.date}.",
          meta_description:

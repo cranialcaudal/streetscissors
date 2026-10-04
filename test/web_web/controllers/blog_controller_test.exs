@@ -233,4 +233,13 @@ defmodule WebWeb.BlogControllerTest do
       refute html =~ "noindex"
     end
   end
+
+  # A shared link should unfurl as the essay, not as the site's logo.
+  test "a post's social card is its own, at an absolute address", %{conn: conn} do
+    html = conn |> get(~p"/blog/keyworded-post") |> html_response(200)
+
+    assert [_, image] = Regex.run(~r/<meta property="og:image" content="([^"]+)"/, html)
+    assert image =~ ~r|^http://localhost:\d+/share/post/keyworded-post\.png\?v=[0-9a-f]{10}$|
+    assert html =~ ~s(<meta name="twitter:image" content="#{image}")
+  end
 end

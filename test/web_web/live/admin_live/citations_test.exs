@@ -56,4 +56,47 @@ defmodule WebWeb.AdminLive.CitationsTest do
     refute html =~ "Waiting one"
     refute html =~ "Rejected one"
   end
+
+  describe "the sent tab" do
+    use Oban.Testing, repo: Web.Repo
+
+    alias Web.Webmentions.Sent
+
+    defp sent(attrs) do
+      %Sent{}
+      |> Sent.changeset(
+        Map.merge(%{source: "/blog/essay", target: "https://example.org/a"}, attrs)
+      )
+      |> Web.Repo.insert!()
+    end
+
+    test "lists what this site has told others, and what they said", %{conn: conn} do
+      told = sent(%{status: "sent", detail: "answered 202"})
+      none = sent(%{target: "https://example.net/b", status: "no_endpoint"})
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/citations?show=sent")
+
+      assert has_element?(view, "#sent-#{told.id}", "https://example.org/a")
+      assert has_element?(view, "#sent-#{told.id} .adm-pill--live", "Told")
+      assert has_element?(view, "#sent-#{told.id}", "answered 202")
+      assert has_element?(view, "#sent-#{none.id} .adm-pill", "Takes none")
+      # Only a failure, or a site that took none, is worth asking again.
+      refute has_element?(view, "#sent-#{told.id} button", "Try again")
+    end
+
+    test "try again queues the mention once more", %{conn: conn} do
+      failed = sent(%{status: "failed", detail: "could not connect: timeout"})
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/citations?show=sent")
+
+      view |> element("#sent-#{failed.id} button", "Try again") |> render_click()
+
+      assert_enqueued(worker: Web.Workers.WebmentionSender, args: %{"id" => failed.id})
+      assert has_element?(view, "#sent-#{failed.id} .adm-pill", "Sending")
+    end
+
+    test "says so when no post has linked anywhere yet", %{conn: conn} do
+      {:ok, _view, html} = live(admin_conn(conn), "/admin/citations?show=sent")
+      assert html =~ "No post has linked to another site yet."
+    end
+  end
 end

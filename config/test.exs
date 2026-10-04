@@ -102,6 +102,10 @@ config :web, :monitor_probes, []
 # exercise it start it themselves with a mirror path pointed at a tmp dir.
 config :web, :backup_mirror_watch, false
 
+# No cron in a test run. A job that fired mid-suite would run outside the
+# sandbox, against whatever the test database held at that minute.
+config :web, Web.Scheduler, jobs: []
+
 # Komoot auto-sync: fake credentials + Req.Test stub for the HTTP layer
 config :web, :komoot, email: "test@example.com", password: "test-password"
 config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
