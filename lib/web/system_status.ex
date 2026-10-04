@@ -41,6 +41,7 @@ defmodule Web.SystemStatus do
       written_content(),
       content_mirror(),
       recordings_mirror(),
+      restore_drill(),
       komoot(),
       mail_queue()
     ]
@@ -121,6 +122,36 @@ defmodule Web.SystemStatus do
 
       true ->
         check(:recordings, "Recordings copy", :warn, "drive not plugged in")
+    end
+  end
+
+  # The weekly rehearsal (Web.Backup.Drill): the newest snapshot and the
+  # newest archive, restored to scratch copies and read back.
+  def restore_drill do
+    case Backup.Drill.last() do
+      nil ->
+        check(:restore, "Restore drill", :off, "none run yet")
+
+      %{at: at, database: database, content: content} ->
+        cond do
+          not database.ok ->
+            check(:restore, "Restore drill", :fail, "database: " <> database.detail, at)
+
+          not content.ok ->
+            check(:restore, "Restore drill", :fail, "content: " <> content.detail, at)
+
+          Backup.Drill.stale?() ->
+            check(:restore, "Restore drill", :warn, "none in over a week", at)
+
+          true ->
+            check(
+              :restore,
+              "Restore drill",
+              :ok,
+              "database and content restored and read back",
+              at
+            )
+        end
     end
   end
 

@@ -340,12 +340,14 @@ defmodule Web.Backup do
 
   @doc """
   Everything the schedule may have slept through, caught up at boot: the
-  database snapshot, then the written content. One supervised task runs both
-  in turn, so neither delays the endpoint and the two never overlap.
+  database snapshot, the written content, and then the weekly restore drill,
+  which reads back what the first two just made sure exists. One supervised
+  task runs them in turn, so none delays the endpoint and none overlaps.
   """
   def catch_up do
     run_on_boot()
     Web.Backup.Content.run_on_boot()
+    Web.Backup.Drill.run_on_boot()
   end
 
   defp log_boot_run do

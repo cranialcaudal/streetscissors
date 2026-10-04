@@ -241,6 +241,41 @@ defmodule Web.Backup.Content do
     end
   end
 
+  @doc """
+  Unpacks an archive into a scratch folder beside it and checks it against
+  the fingerprint in its own name: the archive still holds exactly the files,
+  with exactly the bytes, that it was written with. This is what a restore
+  rehearsal runs (`Web.Backup.Drill`), long after the files it was made from
+  have moved on.
+
+  Returns `{:ok, file_count}` or `{:error, reason}`.
+  """
+  @spec restore_check(String.t()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def restore_check(path) do
+    scratch = Path.join(Path.dirname(path), ".drill-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(scratch)
+
+    try do
+      with [_, _stamp, written] <- Regex.run(@archive, Path.basename(path)),
+           :ok <- extract(path, scratch) do
+        restored =
+          scratch
+          |> Tree.walk()
+          |> Enum.map(&{Path.relative_to(&1, scratch), &1, sha256(&1)})
+          |> Enum.sort()
+
+        if fingerprint(restored) == written,
+          do: {:ok, length(restored)},
+          else: {:error, "what unpacked is not what was archived"}
+      else
+        nil -> {:error, "not a content archive"}
+        {:error, reason} -> {:error, reason}
+      end
+    after
+      File.rm_rf(scratch)
+    end
+  end
+
   defp extract(path, into) do
     case :erl_tar.extract(String.to_charlist(path), [
            :compressed,

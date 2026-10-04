@@ -131,6 +131,11 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   two newer ones are made one level deep by `Backup.claim_mirror/1`, only inside a folder that
   is already there. `Backup.catch_up/0` runs at boot for the nights the machine slept through.
   The mirror paths are exported by the systemd unit, not `.env`.
+  **`Backup.Drill` rehearses a restore weekly**: the newest snapshot is copied to a scratch
+  file, opened on its own connection, integrity-checked and has every table counted; the
+  newest content archive is unpacked and its fingerprint recomputed against the one in its
+  name (`Content.restore_check/1`); the newest copies on the drive get the same when it is in.
+  The outcome is the `restore_drill` setting, shown on the overview and watched by the monitor.
 
 - **The machine watches itself** (`Web.Monitor`, every 15 min by Quantum). `Web.Monitor.Probe`
   makes the checks that cost something: the **certificate** the proxy serves (verified as a
@@ -570,8 +575,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
 
 ## Deployment
 
-Containerized (`Dockerfile`, `docker-compose.yml`); `deploy.sh` / `start_prod.sh` drive releases
-(`rel/`); **Caddy** is the reverse proxy (`Caddyfile`, `Caddyfile.prod`). Production secrets/config
+The live site is a `MIX_ENV=prod` release under the systemd user unit `streetscissors.service`,
+behind Caddy (`caddy-streetscissors.service`, `Caddyfile`). **`./redeploy.sh` is the deploy**:
+assets, then the release, then a restart and a health gate. Before it builds, it copies the
+release that is serving to `_build/prod/rel/web.previous` (only while the site answers, so a
+second attempt after a bad deploy does not replace the good copy with the broken one), and
+**`./rollback.sh` swaps the two and restarts**; run twice, it swaps back. It does not touch the
+checkout or undo a migration.
+
+There is also a container path (`Dockerfile`, `docker-compose.yml`, `deploy.sh`,
+`Caddyfile.prod`) and `start_prod.sh` for running the release by hand. Production secrets/config
 resolve at runtime in `config/runtime.exs` (`:admin_password`, mailer, etc. come from env there).
 SQLite DB files live in the repo root (`web_dev.db`, `web_test.db`, `street_scissors_prod.db`);
 migrations auto-run on release boot via the supervised `Ecto.Migrator`.

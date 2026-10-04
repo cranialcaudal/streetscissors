@@ -110,7 +110,9 @@ defmodule WebWeb.AdminLive.Dashboard do
       check.(:database).state in [:warn, :fail] &&
         row("!", "The database snapshot is overdue", "#system", :fail),
       check.(:content).state in [:warn, :fail] &&
-        row("!", "The content backup is overdue", "#system", :fail)
+        row("!", "The content backup is overdue", "#system", :fail),
+      check.(:restore).state == :fail &&
+        row("!", "The restore drill failed: " <> check.(:restore).detail, "#system", :fail)
     ]
 
     # What the monitor's last pass found failing: each says what is wrong.

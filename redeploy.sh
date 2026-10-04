@@ -39,6 +39,28 @@ mix assets.deploy
 # so a client mid-request against the previous deploy still gets a hit.
 mix phx.digest.clean --age 3600 --keep 1
 
+echo "==> Keep the release that is serving now"
+# The one command a bad deploy needs is ./rollback.sh, and it can only return
+# to a release that still exists. `mix release --overwrite` rebuilds the
+# directory in place, so the one that is running is copied aside first.
+#
+# Only when the site is answering. If the last deploy is the thing that broke
+# it, the copy already kept is the good one, and a second attempt at deploying
+# must not replace it with the broken release.
+#
+# --reflink=auto: on btrfs the copy shares its blocks with the original, so it
+# costs neither the time nor the 80 MB.
+if [ -d _build/prod/rel/web ]; then
+  serving=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:4000/ || true)
+  if [ "$serving" = "200" ]; then
+    rm -rf _build/prod/rel/web.previous
+    cp -a --reflink=auto _build/prod/rel/web _build/prod/rel/web.previous
+    echo "    kept as _build/prod/rel/web.previous"
+  else
+    echo "    the site is not answering (${serving:-nothing}); leaving the kept release as it is"
+  fi
+fi
+
 echo "==> Build release"
 mix release --overwrite
 
@@ -130,4 +152,5 @@ done
 
 echo "!! site did not come up on localhost:4000"
 systemctl --user status streetscissors.service --no-pager | tail -20
+echo "!! ./rollback.sh returns to the release that was serving before this deploy."
 exit 1

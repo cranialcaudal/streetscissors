@@ -639,6 +639,21 @@ silently. The most instructive is the stylesheet one: a months-old compressed
 copy of the styles once shadowed the real file, and the site served last
 season's design for weeks without any error anywhere.
 
+### Taking a change back off the live site
+
+```
+./rollback.sh
+```
+
+Before it builds anything, `./redeploy.sh` sets aside the version of the site
+that is running. `./rollback.sh` swaps that version back in and restarts, which
+takes a few seconds, because nothing has to be built. Run it a second time and
+the newer version returns: it is a swap, not a one-way door.
+
+It puts back the program, not the data. The posts and photographs are files and
+were never part of the program, so they are untouched; the database stays as it
+is too, which is what the nightly copies are for.
+
 > Content is different. A new blog post or a new contact sheet needs **no
 > deploy**; it is read from disk. Deploying is only for changes to the code
 > itself.

@@ -33,25 +33,29 @@ mix precommit      # the gate: warnings-as-errors, format, full test suite
 
 ## Deploying
 
-**Use `./redeploy.sh`.** Not `mix phx.server`, not a bare `mix compile`.
+**Use `./redeploy.sh`.** Not `mix phx.server`, not a bare `mix release`.
 
-The live site runs `mix phx.server` under `MIX_ENV=dev` with `PUBLIC_DEPLOY=true`, which
-makes `config/dev.exs` behave as production config: dev routes off, `debug_errors` off,
-code reloader off, secure cookies, real `check_origin`, and secrets required from the
-environment rather than any committed fallback.
+The live site is a compiled `MIX_ENV=prod` release, run by a systemd user unit behind
+Caddy. The script builds the minified, digested assets, keeps the release that is serving,
+builds the new one, restarts the service, and then will not call itself successful until it
+has checked what has gone wrong silently before: that the homepage answers, that `/dev/*`
+is closed, that the stylesheet being served byte-matches the one on disk, that every
+colocated hook made it into the bundle, and that a page which needs the database shows
+real data.
 
-Two traps that script exists to prevent:
+Three things worth knowing:
 
-1. **Config is compile-time.** Mix does not recompile when only an environment variable
-   changes, so `PUBLIC_DEPLOY` has to be set for a forced compile. Get it wrong and
-   Phoenix's compile-env validator refuses to boot — correct behaviour, but it crash-loops.
-2. **`mix assets.build` compiles the project too**, so running it with a different
-   `PUBLIC_DEPLOY` than the compile step is exactly how the build and the runtime end up
-   disagreeing.
+1. **Assets are built before the release**, because a release packages `priv/` into
+   itself. Built afterwards, they change the checkout and not the thing being served.
+2. **`config/runtime.exs` is read at boot**, so changing it takes a restart; changing
+   `lib/` or the other config files takes a rebuild.
+3. **Content needs no deploy.** Posts, the fitness vault and the negatives are read from
+   disk on each request.
 
-The service compiles into its own `MIX_BUILD_PATH` so local `mix` runs can't clobber it.
-`redeploy.sh` verifies afterwards that `/dev/*` returns 404 and that the served
-stylesheet byte-matches disk, and fails loudly if not.
+**If a deploy goes wrong, `./rollback.sh`.** It swaps the release that was serving before
+the deploy back in and restarts, which takes seconds and compiles nothing. Run it again
+and the newer release is back. It does not touch the checkout and it does not undo a
+database migration; the script's header says what that means.
 
 ## Architecture
 
