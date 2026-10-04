@@ -8,6 +8,9 @@ Disallow: /dev/
 # The kitchen page is unlisted while it is still being written.
 Disallow: /food
 
+# A finished trip's planning pages, kept but unlisted.
+Disallow: /england2026
+
 Sitemap: https://streetscissors.com/sitemap.xml
 
 # Block AI scrapers and crawlers

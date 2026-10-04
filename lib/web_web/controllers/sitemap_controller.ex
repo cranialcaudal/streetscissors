@@ -40,7 +40,7 @@ defmodule WebWeb.SitemapController do
       {"/negatives", nil, "weekly", "0.8"},
       {"/fitness", nil, "weekly", "0.7"},
       {"/fitness/wiki", nil, "monthly", "0.6"},
-      # /food is deliberately absent — the kitchen page is unlisted.
+      # /food and /england2026 are deliberately absent — both are unlisted.
       {"/fitness/rides", nil, "weekly", "0.6"},
       {"/about", nil, "monthly", "0.7"},
       {"/how-to", nil, "monthly", "0.6"},

@@ -37,6 +37,7 @@ defmodule WebWeb.EnglandController do
       page_title: call["page_title"],
       call: call,
       call_html: read_markdown("call.md"),
+      robots: "noindex, nofollow",
       hide_header: true
     )
   end
@@ -53,6 +54,7 @@ defmodule WebWeb.EnglandController do
       calendar_weeks: calendar_weeks(month),
       trip_days: trip_days_by_date(trip),
       page_title: trip["title"],
+      robots: "noindex, nofollow",
       hide_header: true
     )
   end

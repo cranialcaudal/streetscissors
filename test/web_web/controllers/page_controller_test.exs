@@ -57,6 +57,21 @@ defmodule WebWeb.PageControllerTest do
     end
   end
 
+  # The calendar reference names venues and times, so it is the author's alone.
+  describe "GET /admin/fitness/calendar" do
+    test "404s without the admin session, and the old public path is gone", %{conn: conn} do
+      assert conn |> get(~p"/admin/fitness/calendar") |> html_response(404)
+      assert conn |> get("/calendar-markdown") |> html_response(404)
+    end
+
+    test "renders for the admin", %{conn: conn} do
+      conn =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/admin/fitness/calendar")
+
+      assert html_response(conn, 200) =~ ~s(content="noindex, nofollow")
+    end
+  end
+
   # Against the fixture vault (config/test.exs); the real meals.md is checked
   # in the gitignored test/private/.
   describe "GET /food" do

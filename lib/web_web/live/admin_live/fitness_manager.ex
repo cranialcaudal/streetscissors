@@ -203,7 +203,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
             href={~p"/fitness"}
             target="_blank"
             class="adm-link"
-          >/fitness</.link>.
+          >/fitness</.link>. The week as calendar events is <.link
+            href={~p"/admin/fitness/calendar"}
+            class="adm-link"
+          >here</.link>.
         </:lede>
         <:actions>
           <button

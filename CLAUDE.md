@@ -59,6 +59,12 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   - `content/fitness/meals-week.json`
   - `AUTHOR_NAME`, `MACHINE_NAME` and `NEGATIVES_PATH` in `.env`
 
+  The vault's root holds only `about.md` and folders. `content/notes/` is the author's private
+  planning (no public page renders it; `notes/calendar.md` shows at the admin-only
+  `/admin/fitness/calendar`) and `content/drafts/` holds unfinished posts, which `Web.Blog`
+  never reads. `/food` and `/england2026` are public but unlisted: out of the sitemap, disallowed
+  in robots.txt, and `noindex, nofollow`.
+
   `config/test.exs` points the vault, trip, emails, blog and negatives paths at invented fixtures
   in `test/support/fixtures/`. Checks against the real content go in the gitignored
   `test/private/`. Anything read at compile time (`Web.Blog.Embeds`' `emissions.R`, `PcLive`'s TXT

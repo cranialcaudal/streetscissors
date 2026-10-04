@@ -37,6 +37,9 @@ defmodule WebWeb.Router do
 
       # Main pages
       get "/", PageController, :home
+      # A finished trip, kept as it was. Deliberately unlisted, like /food
+      # below: nothing links to either page, both are out of the sitemap and
+      # robots.txt, and both send `noindex, nofollow`.
       get "/england2026", EnglandController, :show
       get "/england2026/call", EnglandController, :call_times
       get "/about", PageController, :about
@@ -51,7 +54,6 @@ defmodule WebWeb.Router do
       get "/day/:date", AlmanacController, :day
       get "/almanac", AlmanacController, :index
       get "/almanac/:year", AlmanacController, :year
-      get "/calendar-markdown", PageController, :calendar_markdown
 
       # The kitchen, rendered from content/fitness/meals.md. Deliberately
       # unlisted: nothing links to it, it is out of the sitemap and robots.txt,
@@ -142,6 +144,10 @@ defmodule WebWeb.Router do
       live "/admin/blog", AdminLive.BlogManager
       live "/admin/logs", AdminLive.LogsManager
       live "/admin/fitness", AdminLive.FitnessManager
+      # The week as calendar events, from content/notes/calendar.md. It names
+      # venues and times, so it is the author's own reference rather than a
+      # page: the action 404s without the admin session.
+      get "/admin/fitness/calendar", PageController, :calendar
       live "/admin/scanner", AdminLive.Scanner
       live "/admin/inbox", AdminLive.Inbox
       live "/admin/guestbook", AdminLive.GuestbookManager

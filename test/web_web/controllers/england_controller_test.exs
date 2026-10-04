@@ -18,6 +18,18 @@ defmodule WebWeb.EnglandControllerTest do
       assert html =~ "Call times for home"
     end
 
+    # A finished trip: reachable by its address, but nothing should index it.
+    test "is unlisted", %{conn: conn} do
+      html = conn |> get(~p"/england2026") |> html_response(200)
+      assert html =~ ~s(content="noindex, nofollow")
+
+      call = conn |> get(~p"/england2026/call") |> html_response(200)
+      assert call =~ ~s(content="noindex, nofollow")
+
+      sitemap = conn |> get(~p"/sitemap.xml") |> response(200)
+      refute sitemap =~ "/england2026"
+    end
+
     test "renders the itinerary, and the packing list as real checkboxes", %{conn: conn} do
       html = conn |> get(~p"/england2026") |> html_response(200)
 

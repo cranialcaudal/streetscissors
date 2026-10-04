@@ -66,7 +66,7 @@ This comes before new features because it is the one thing on the site that cann
   - A 404 page that suggests nearby work instead of only a way home.
   - Print styles for the essays.
   - The year as a book: the year's essays and frames as an EPUB or PDF, beside the printable year page.
-- **Route audit.** Every live page is either linked from somewhere or deliberately unlisted. The loose ends are `/calendar-markdown`, `/food` and `/england2026`.
+- **Route audit:** done. Every live page is either linked from somewhere or deliberately unlisted. The kitchen and the finished England trip are unlisted, and the calendar reference moved behind the admin.
 
 ## 6. Discovery
 
@@ -101,7 +101,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 
 ## 10. Cleanup
 
-- **The content folder.** Stray files at its root get published, moved to drafts, or deleted, so the folder stays a source of truth rather than a junk drawer.
+- **The content folder:** done. Private notes and drafts have folders of their own, so the root holds only what the site reads.
 - **Old notes.** Retire the old architecture notes once the how-to covers the same ground.
 
 ## 11. Sequencing

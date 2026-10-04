@@ -67,7 +67,7 @@ defmodule WebWeb.SEO do
   @doc """
   Crawler directive for the current page, or `nil` to send none.
 
-  Only unlisted pages assign `:robots` (currently just `/food`). Returning `nil`
+  Only unlisted pages assign `:robots` (`/food` and `/england2026`). Returning `nil`
   rather than `"index, follow"` for everything else is deliberate: indexing is
   already the default, and a page that says nothing is treated identically to
   one that opts in.

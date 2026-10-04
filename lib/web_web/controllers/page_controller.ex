@@ -202,19 +202,27 @@ defmodule WebWeb.PageController do
     end
   end
 
-  def calendar_markdown(conn, _params) do
-    path = "content/calendar-markdown.md"
+  # Admin only. A plain `get` inside `live_session :admin` is not covered by
+  # the session's on_mount hooks, so the check is made here.
+  def calendar(conn, _params) do
+    if get_session(conn, "admin_user") do
+      markdown =
+        case File.read("content/notes/calendar.md") do
+          {:ok, content} -> content
+          {:error, _} -> "Could not find notes/calendar.md in the content directory."
+        end
 
-    markdown =
-      case File.read(path) do
-        {:ok, content} -> content
-        {:error, _} -> "Could not find calendar-markdown.md in the content directory."
-      end
-
-    html_content = Earmark.as_html!(markdown, gfm: true)
-
-    conn
-    |> assign(:page_title, "Calendar Reference")
-    |> render(:calendar_markdown, html_content: html_content)
+      conn
+      |> assign(:page_title, "Calendar Reference")
+      |> assign(:robots, "noindex, nofollow")
+      |> render(:calendar, html_content: Earmark.as_html!(markdown, gfm: true))
+    else
+      conn
+      |> put_status(:not_found)
+      |> put_view(WebWeb.ErrorHTML)
+      |> put_root_layout(false)
+      |> put_layout(false)
+      |> render("404.html")
+    end
   end
 end
