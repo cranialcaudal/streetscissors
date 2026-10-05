@@ -134,9 +134,10 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       {:ok, view, html} = live(admin_conn(conn), "/admin/rides")
 
       assert text(view, "#privacy-status") =~
-               "No activity comes near the private place on file as a stranger is shown it."
+               "No activity begins or ends near the private place on file as a stranger is shown it."
 
       assert has_element?(view, "#privacy-status .adm-status-dot--ok")
+      refute text(view, "#privacy-status") =~ "mid-tour"
       refute text(view, "#privacy-status") =~ "wholly inside"
       refute text(view, "#privacy-status") =~ "not checked yet"
       refute html =~ "45.12345"
@@ -153,12 +154,32 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
 
       status = text(view, "#privacy-status")
-      assert status =~ "No activity comes near the private place on file"
+      assert status =~ "No activity begins or ends near the private place on file"
 
       assert status =~
                "2 lie wholly inside Komoot's zone, and Komoot shows a stranger nothing of them."
 
       assert has_element?(view, "#privacy-status .adm-status-dot--ok")
+    end
+
+    # Out, home for lunch, out again: a zone trims a tour's ends and nothing
+    # else. Held back, said, marked in the archive, and no alarm.
+    test "a tour that passes home mid-way is held back without the alarm", %{conn: conn} do
+      Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
+      ride_fixture()
+      passing = ride_fixture(%{name: "Home for lunch", stranger_view: "passing"})
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
+
+      status = text(view, "#privacy-status")
+      assert status =~ "No activity begins or ends near the private place on file"
+
+      assert status =~
+               "1 passes it mid-tour, which a zone does not trim, and is shown without Komoot's map"
+
+      assert has_element?(view, "#privacy-status .adm-status-dot--ok")
+      assert has_element?(view, "#ride-#{passing.id} .adm-pill", "Passes home")
+      refute has_element?(view, "#rides .adm-pill", "Exposed")
     end
 
     test "an exposed activity is counted, flagged, and marked in the archive", %{conn: conn} do
@@ -169,7 +190,8 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       {:ok, view, html} = live(admin_conn(conn), "/admin/rides")
 
       assert text(view, "#privacy-status") =~
-               "1 activity still shows a private place to a stranger. Its embed and map are withheld."
+               "1 activity still begins or ends at a private place as a stranger is shown it: " <>
+                 "Komoot's privacy zone is not hiding it. Its embed and map are withheld."
 
       assert has_element?(view, "#privacy-status .adm-status-dot--fail")
       assert has_element?(view, "#ride-#{exposed.id} .adm-pill", "Exposed")

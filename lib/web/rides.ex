@@ -71,8 +71,9 @@ defmodule Web.Rides do
   @doc """
   True when Komoot's own rendering of the tour may be shown: the sync has
   read it the way a stranger is given it and found it clear. Not an exposed
-  tour (`Web.Rides.Privacy`), not one Komoot hides from strangers altogether,
-  and not one that has yet to be looked at.
+  tour or one that passes a private place mid-tour (`Web.Rides.Privacy`),
+  not one Komoot hides from strangers altogether, and not one that has yet
+  to be looked at.
   """
   def clear?(%Ride{stranger_view: view}), do: view == "clear"
 
@@ -120,8 +121,23 @@ defmodule Web.Rides do
     end
   end
 
-  @doc "The listed rides a stranger's view of which still shows a private place."
+  @doc """
+  The listed rides whose route, as a stranger is shown it, begins or ends at
+  a private place: the ones Komoot's zone is failing to trim.
+  """
   def exposed, do: Repo.all(from r in listed(), where: r.stranger_view == "exposed")
+
+  @doc """
+  How many listed rides are in each state of `stranger_view`, as a map:
+  `%{"clear" => 61, "passing" => 2, nil => 1}`.
+  """
+  def stranger_views do
+    Map.new(
+      Repo.all(
+        from r in listed(), group_by: r.stranger_view, select: {r.stranger_view, count(r.id)}
+      )
+    )
+  end
 
   # --- What the watch measured ------------------------------------------------
 

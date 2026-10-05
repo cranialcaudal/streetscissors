@@ -113,7 +113,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     assert has_element?(
              view,
              "#needs-you a[href='/admin/rides']",
-             "Ride privacy: 1 activity would show a private place to a stranger"
+             "Ride privacy: 1 activity begins or ends at a private place as a stranger is shown it"
            )
 
     assert has_element?(view, "#system", "Ride privacy")

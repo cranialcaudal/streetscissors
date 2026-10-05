@@ -138,7 +138,7 @@ defmodule Web.RidesTest do
     # Only a tour the sync has read as a stranger and found clear is given
     # anything of Komoot's to show. Public or tokened, picture on disk or not.
     test "a tour that is not clear has no embed, no link and no picture, whatever else it has" do
-      for view <- ["exposed", "hidden", nil],
+      for view <- ["exposed", "passing", "hidden", nil],
           attrs <- [%{visibility: "public"}, %{visibility: "private", share_token: "abc"}] do
         ride =
           ride_fixture(
@@ -176,6 +176,16 @@ defmodule Web.RidesTest do
     test "exposed/0 leaves false starts out, as every listing does" do
       ride_fixture(%{stranger_view: "exposed", distance_m: 100.0})
       assert Rides.exposed() == []
+    end
+
+    test "stranger_views/0 counts the listed rides in each state" do
+      ride_fixture()
+      ride_fixture()
+      ride_fixture(%{stranger_view: "passing"})
+      ride_fixture(%{stranger_view: nil})
+      ride_fixture(%{stranger_view: "exposed", distance_m: 100.0})
+
+      assert Rides.stranger_views() == %{"clear" => 2, "passing" => 1, nil => 1}
     end
 
     test "a picture's address names the map it was drawn from" do

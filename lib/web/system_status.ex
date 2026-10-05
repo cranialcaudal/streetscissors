@@ -184,7 +184,10 @@ defmodule Web.SystemStatus do
   # The tripwire on what Komoot shows of a tour (Web.Rides.Privacy). Komoot's
   # privacy zone is what hides home, and it lives on Komoot's side, so this is
   # the one check here whose failure means a stranger could see where the
-  # activities start. It says how many, never which or where.
+  # activities start. It fails for a tour that begins or ends at a private
+  # place, which a working zone trims. A tour that only passes one mid-way is
+  # ordinary use, held back and mentioned, and never a fault. It says how
+  # many, never which or where.
   def ride_privacy do
     case Web.Rides.Privacy.zones() do
       :invalid ->
@@ -199,19 +202,34 @@ defmodule Web.SystemStatus do
         check(:ride_privacy, "Ride privacy", :off, "not checked — no private places on file")
 
       {:ok, _zones} ->
-        case length(Web.Rides.exposed()) do
+        views = Web.Rides.stranger_views()
+
+        case Map.get(views, "exposed", 0) do
           0 ->
-            check(:ride_privacy, "Ride privacy", :ok, "no activity shows a private place")
+            check(
+              :ride_privacy,
+              "Ride privacy",
+              :ok,
+              "no activity begins or ends at a private place" <> held_back(views)
+            )
 
           n ->
             check(
               :ride_privacy,
               "Ride privacy",
               :fail,
-              "#{n} #{plural(n, "activity", "activities")} would show a private place to a " <>
-                "stranger — check the privacy zone in Komoot"
+              "#{n} #{plural(n, "activity begins or ends", "activities begin or end")} at a " <>
+                "private place as a stranger is shown #{plural(n, "it", "them")} — check the " <>
+                "privacy zone in Komoot"
             )
         end
+    end
+  end
+
+  defp held_back(views) do
+    case Map.get(views, "passing", 0) do
+      0 -> ""
+      n -> " · #{n} held back for passing one mid-tour"
     end
   end
 

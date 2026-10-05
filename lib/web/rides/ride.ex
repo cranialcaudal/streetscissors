@@ -17,8 +17,11 @@ defmodule Web.Rides.Ride do
 
     * `"clear"` — a route, nowhere near a place the site was told is private.
       Only a clear tour is shown through Komoot's embed, map and link.
-    * `"exposed"` — a route that does come near one: the tripwire
-      (`Web.Rides.Privacy`).
+    * `"exposed"` — a route that begins or ends near one, which a working
+      zone would have trimmed: the tripwire (`Web.Rides.Privacy`), and an
+      alarm.
+    * `"passing"` — a route whose ends are trimmed and which comes back near
+      one in between, which no zone trims. Held back, and not an alarm.
     * `"hidden"` — nothing at all. The tour lies inside Komoot's privacy
       zone, and Komoot refuses a stranger the whole of it.
     * `nil` — not asked yet.
@@ -64,7 +67,7 @@ defmodule Web.Rides.Ride do
     |> cast(attrs, @fields)
     |> validate_required([:komoot_id, :started_at])
     |> validate_inclusion(:visibility, ~w(public private))
-    |> validate_inclusion(:stranger_view, ~w(clear exposed hidden))
+    |> validate_inclusion(:stranger_view, ~w(clear passing exposed hidden))
     |> unique_constraint(:komoot_id)
   end
 end

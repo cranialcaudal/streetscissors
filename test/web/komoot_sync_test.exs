@@ -480,9 +480,11 @@ defmodule Web.Rides.KomootSyncTest do
 
     # A zone trims where a tour starts and ends, and nothing else. A ride
     # that came home, stopped and went out again is handed to a stranger with
-    # its ends cut and its middle whole. This is what the wire is for.
-    @tag :capture_log
-    test "a pass back through the zone mid-tour trips it, though both ends are cut" do
+    # its ends cut and its middle whole. That is held back like an exposed
+    # tour, and is not one: nothing about the zone has failed.
+    test "a pass back through the zone mid-tour is held back, without the alarm" do
+      {:ok, log} = Agent.start_link(fn -> [] end)
+
       came_home = [
         %{"lat" => 10.01, "lng" => 20.01},
         %{"lat" => 10.0002, "lng" => 20.0},
@@ -490,11 +492,22 @@ defmodule Web.Rides.KomootSyncTest do
         %{"lat" => 10.02, "lng" => 20.02}
       ]
 
-      stub_komoot(points: %{444 => came_home})
+      stub_komoot(log: log, points: %{444 => came_home})
 
       assert {:ok, %{imported: 1, failed: 0}} = KomootSync.sync()
-      assert [%{stranger_view: "exposed"} = ride] = Rides.list_rides()
+      assert [%{stranger_view: "passing"} = ride] = Rides.list_rides()
+
       assert Rides.embed_url(ride) == nil
+      assert Rides.tour_url(ride) == nil
+      refute Rides.thumb?(ride)
+      assert images(log) == []
+      assert Rides.exposed() == []
+
+      # Trimmed in the app, it is shown on the next pass that reads.
+      stub_komoot(points: %{444 => @clear})
+      assert {:ok, %{updated: 1}} = KomootSync.sync(force: true)
+      assert [%{stranger_view: "clear"} = ride] = Rides.list_rides()
+      assert Rides.embed_url(ride)
     end
 
     # An exposed tour is a settled answer, not a failure: the listing's ETag

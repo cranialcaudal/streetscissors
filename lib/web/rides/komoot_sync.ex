@@ -13,13 +13,15 @@ defmodule Web.Rides.KomootSync do
   a route — the whole of it, front door included — is never fetched.
 
   That second read settles what a stranger is given of the tour, recorded as
-  the ride's `stranger_view`. A route that stays clear of every private place
-  is `"clear"`, and only that is shown through Komoot. One that still comes
-  close to a private place is `"exposed"`: the tripwire (`Web.Rides.Privacy`).
-  A zone trims a tour's ends, not a pass back through it mid-tour, so this is
-  usually a ride that came home and went out again. And a tour that never
-  leaves the zone is `"hidden"`: Komoot refuses a stranger the whole of it,
-  which is an answer, not a failure.
+  the ride's `stranger_view` (`Web.Rides.Privacy.verdict/1`). A route that
+  stays clear of every private place is `"clear"`, and only that is shown
+  through Komoot. One that begins or ends at a private place is `"exposed"`:
+  the zone is not trimming it, which is the alarm. One whose ends are trimmed
+  and which comes back past a private place in between is `"passing"`: a
+  zone trims a tour's ends and nothing else, so a ride that came home and
+  went out again lands here, held back without any alarm. And a tour that
+  never leaves the zone is `"hidden"`: Komoot refuses a stranger the whole
+  of it, which is an answer, not a failure.
 
   A private tour also gets its Komoot share token, asked for once, because
   neither the embed nor a stranger's read will show a tour that isn't public
@@ -312,9 +314,9 @@ defmodule Web.Rides.KomootSync do
   end
 
   # A ride that still wants a stranger's read: one never looked at, and a
-  # clear one whose card has no picture yet. An exposed or hidden ride is
-  # always looked at again, so that putting the zone right on Komoot shows on
-  # the next pass that reads anything. (A quiet hour is a 304 and reads
+  # clear one whose card has no picture yet. Anything else (exposed, passing,
+  # hidden) is always looked at again, so that putting it right on Komoot
+  # shows on the next pass that reads anything. (A quiet hour is a 304 and reads
   # nothing, so this costs a request per such ride only when something else
   # changed.)
   defp unseen?(%{stranger_view: "clear"} = ride),
@@ -324,7 +326,7 @@ defmodule Web.Rides.KomootSync do
 
   # Reads the tour the way a visitor's browser will be given it, and records
   # what that view is: the share token it needs, the map Komoot draws for it,
-  # and which of clear, exposed or hidden it is.
+  # and which of clear, passing, exposed or hidden it is.
   #
   # `{:ok, ride, changed?}` when the look succeeded, `changed?` saying
   # whether it found anything new. `:error` when any step failed, which
@@ -386,7 +388,7 @@ defmodule Web.Rides.KomootSync do
 
   defp view_attrs(%{points: points, map_image: image}) do
     %{
-      stranger_view: if(Privacy.exposed?(points), do: "exposed", else: "clear"),
+      stranger_view: Atom.to_string(Privacy.verdict(points)),
       map_image_url: map_image_url(image)
     }
   end
@@ -395,8 +397,16 @@ defmodule Web.Rides.KomootSync do
   # are the thing at stake.
   defp announce(%{stranger_view: "exposed"} = ride) do
     Logger.warning(
-      "Komoot tour #{ride.komoot_id} is exposed: a stranger's view of it comes within " <>
-        "#{Privacy.tripwire_m()} m of a private place. Its embed and map are withheld."
+      "Komoot tour #{ride.komoot_id} is exposed: a stranger's view of it begins or ends " <>
+        "within #{Privacy.tripwire_m()} m of a private place, so Komoot's privacy zone is not " <>
+        "hiding it. Its embed and map are withheld."
+    )
+  end
+
+  defp announce(%{stranger_view: "passing"} = ride) do
+    Logger.info(
+      "Komoot tour #{ride.komoot_id} passes within #{Privacy.tripwire_m()} m of a private " <>
+        "place mid-tour, which a privacy zone does not trim. Its embed and map are withheld."
     )
   end
 

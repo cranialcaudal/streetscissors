@@ -191,23 +191,27 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   - **`rides.stranger_view` is what a stranger is given, and only `"clear"` is shown through
     Komoot** (`Rides.clear?/1`; the embed, the link and the picture all key off it):
     - `"clear"`: a route that stays away from every private place.
-    - `"exposed"`: the tripwire, `Web.Rides.Privacy`. `RIDE_PRIVACY_ZONES` (`lat,lng`, `;`
-      between several, **in `.env`, never in code or tests**, which use invented ground) is
-      the site's own note of what Komoot's zone is meant to hide, and a stranger's view that
-      comes within 100 m of one is exposed. **A zone trims where a tour starts and ends, not a
-      pass back through it mid-tour**, so a ride that came home and went out again trips the
-      wire in ordinary use: 2 of 64 did on the first pass. With no zones set nothing is
-      checked; a setting that can't be read exposes everything.
+    - `"exposed"`: the tripwire, `Web.Rides.Privacy.verdict/1`. `RIDE_PRIVACY_ZONES`
+      (`lat,lng`, `;` between several, **in `.env`, never in code or tests**, which use
+      invented ground) is the site's own note of what Komoot's zone is meant to hide. A
+      stranger's view that **begins or ends** within 100 m of one is exposed: a working zone
+      trims exactly that, so the zone is gone, moved or not applied. This is the alarm.
+      With no zones set nothing is checked; a setting that can't be read exposes everything.
+    - `"passing"`: the ends are trimmed and the route comes back within 100 m in between.
+      **A zone trims where a tour starts and ends, not a pass back through it mid-tour**, so
+      a ride that came home and went out again lands here in ordinary use: 2 of 64 did on the
+      first pass. Held back like an exposed tour, and **not a fault**: nothing is mailed. It
+      shows again once the tour is split or trimmed in the app.
     - `"hidden"`: Komoot refuses a stranger the whole tour (`403 AccessDeniedPrivacyZone`,
       which the client returns as `:hidden`) because it never leaves the zone. **That is an
       answer, not a failure.** Counted as a failure it kept the ETag from ever being stored,
       and the pass re-read the listing and half-failed every hour.
     - `nil`: not asked yet. Nothing of Komoot's is shown for it, public or not.
 
-    Anything but clear shows a blank plate and the site's own figures. Exposed and hidden
-    rides are looked at again on every pass that reads the listing.
-    `SystemStatus.ride_privacy/0` fails while any listed ride is exposed, so the overview
-    shows it and the monitor mails it. The admin says how many, never where.
+    Anything but clear shows a blank plate and the site's own figures, and is looked at
+    again on every pass that reads the listing. `SystemStatus.ride_privacy/0` fails while any
+    listed ride is exposed, so the overview shows it and the monitor mails it; passing rides
+    are counted in its detail and leave it green. The admin says how many, never where.
   - **Private tours are shown through Komoot share links.** The sync asks for a tour's share
     token the first time it sees it private (`Client.share_token/2`, which creates one when
     there is none) and keeps it; a link that stops working is asked for once more.

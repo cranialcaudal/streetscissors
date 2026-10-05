@@ -12,27 +12,36 @@ defmodule Web.Rides.Privacy do
   So the site keeps its own note of the places that must not show
   (`RIDE_PRIVACY_ZONES`, in `.env` and never in code) and, each time the sync
   reads a tour the way a stranger would (`Web.Komoot.Client.public_tour/2`),
-  asks one question of the answer: does any point in it come within
-  100 metres of one of those places? A tour that does is **exposed**. It
-  keeps its figures and loses everything Komoot would draw for it — no embed,
-  no map image, no link to the tour — until a later read comes back clean.
-  The overview reports it and the monitor mails it.
+  asks where the answer comes within 100 metres of one of those places.
+  `verdict/1` gives one of three:
 
-  It trips in ordinary use too, for a reason worth knowing: **a zone trims
-  where a tour starts and ends, and nothing else**. A ride that comes home,
-  stops, and goes out again is handed to a stranger with the middle of it
-  whole, door included. Those are exposed, and stay so until the tour is
-  split or trimmed in the app.
+    * **`:exposed`** — the route a stranger is shown *begins or ends* there.
+      A zone that is doing its job trims exactly that, so this means it is
+      not: the zone is gone, moved, or no longer applied. The overview
+      reports it and the monitor mails it.
+    * **`:passing`** — the ends are trimmed, and the route comes back within
+      100 metres somewhere between them. **A zone trims where a tour starts
+      and ends, and nothing else**, so a ride that comes home, stops, and
+      goes out again is handed to a stranger with the middle of it whole,
+      door included. This is ordinary use, not a fault, and nothing is
+      mailed; the tour is held back all the same, until it is split or
+      trimmed in the app.
+    * **`:clear`** — it never comes that close.
+
+  Only a clear tour is shown through Komoot. The other two keep their figures
+  and lose everything Komoot would draw for them — no embed, no map image,
+  no link to the tour — until a later read comes back clear.
 
   The distance is deliberately short. Komoot's zones are irregular shapes a
-  few hundred metres across, and the nearest point a stranger is shown has
-  measured 500–600 m from home; the wire is far inside that, so it trips on a
-  zone that is not there rather than on the edge of one that is.
+  few hundred metres across, and the nearest point a stranger is shown of a
+  tour that starts at home has measured 500–600 m from it; the wire is far
+  inside that, so it trips on a zone that is not there rather than on the
+  edge of one that is.
 
   A zone is `lat,lng` — a third number, the radius the site used to cut by
   when it drew its own maps, is still accepted and no longer used. Several
   are separated by `;`. With none set nothing is checked: Komoot is trusted
-  as it stands. A setting that cannot be read marks every tour exposed
+  as it stands. A setting that cannot be read makes every tour exposed
   rather than waving them all through unchecked.
   """
 
@@ -44,17 +53,31 @@ defmodule Web.Rides.Privacy do
   @doc "How close a stranger's view may come to a private place before it trips, in metres."
   def tripwire_m, do: @tripwire_m
 
+  @type verdict :: :clear | :passing | :exposed
+
   @doc """
-  True when `points` — a stranger's view of a tour, as `{lat, lng}` tuples —
-  comes within the tripwire of a private place, or when the places cannot be
-  read at all.
+  What `points` — a stranger's view of a tour, as `{lat, lng}` tuples in the
+  order they were ridden — shows of the private places: `:exposed` when it
+  begins or ends within the tripwire of one (or the places cannot be read at
+  all), `:passing` when only somewhere between its ends does, `:clear`
+  otherwise.
   """
-  @spec exposed?([{number, number}]) :: boolean
-  def exposed?(points) do
+  @spec verdict([{number, number}]) :: verdict
+  def verdict(points) do
     case zones() do
-      {:ok, []} -> false
-      {:ok, zones} -> Enum.any?(points, fn point -> Enum.any?(zones, &near?(&1, point)) end)
-      :invalid -> true
+      {:ok, []} -> :clear
+      {:ok, zones} -> judge(points, &Enum.any?(zones, fn zone -> near?(zone, &1) end))
+      :invalid -> :exposed
+    end
+  end
+
+  defp judge([], _near?), do: :clear
+
+  defp judge(points, near?) do
+    cond do
+      near?.(hd(points)) or near?.(List.last(points)) -> :exposed
+      Enum.any?(points, near?) -> :passing
+      true -> :clear
     end
   end
 

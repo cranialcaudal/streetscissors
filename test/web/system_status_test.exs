@@ -100,8 +100,23 @@ defmodule Web.SystemStatusTest do
       # A false start has no page to be exposed on.
       ride_fixture(%{distance_m: 100.0, stranger_view: "exposed"})
 
-      assert %{state: :ok, detail: "no activity shows a private place"} =
+      assert %{state: :ok, detail: "no activity begins or ends at a private place"} =
                SystemStatus.ride_privacy()
+    end
+
+    # A ride that came home and went out again: a zone does not trim that.
+    # It is held back and mentioned, and it is not a fault to be mailed.
+    test "a pass through mid-tour is mentioned, and is not a fault" do
+      Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
+      ride_fixture()
+      ride_fixture(%{stranger_view: "passing"})
+      ride_fixture(%{stranger_view: "passing"})
+      ride_fixture(%{stranger_view: "hidden"})
+
+      assert %{state: :ok, detail: detail} = SystemStatus.ride_privacy()
+
+      assert detail ==
+               "no activity begins or ends at a private place · 2 held back for passing one mid-tour"
     end
 
     test "fails, counting them, when one is" do
@@ -111,7 +126,7 @@ defmodule Web.SystemStatusTest do
       ride_fixture()
 
       assert %{state: :fail, detail: detail} = SystemStatus.ride_privacy()
-      assert detail =~ "2 activities would show a private place to a stranger"
+      assert detail =~ "2 activities begin or end at a private place as a stranger is shown them"
       refute detail =~ "45.12345"
     end
 

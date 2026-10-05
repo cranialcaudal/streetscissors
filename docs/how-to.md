@@ -516,20 +516,27 @@ what anybody else is shown. That is the protection. But it lives on somebody
 else's computer, so the site keeps its own note of where home is
 (`RIDE_PRIVACY_ZONES`, in `.env`, never in the code) and, each time it reads a
 tour, reads it the way a stranger would and asks one question: does any of this
-come within a hundred metres of home? What it finds is one of three things.
+come within a hundred metres of home? What it finds is one of four things.
 
 | What a stranger is given | What the site shows |
 |---|---|
 | A route that stays away from home | Komoot's embed, map and link |
-| A route that still comes near home | The figures only, and a warning to you |
+| A route that begins or ends at home | The figures only, and a warning to you |
+| A route that passes home in the middle | The figures only |
 | Nothing: the whole tour is inside the zone | The figures only |
 
-The middle row happens more than you would think, for a reason worth knowing.
+The second row is the alarm. A zone that is working trims exactly the two ends
+of a tour, so a route that still begins or ends at home means the zone has been
+deleted, moved or switched off. The overview says so and the site writes to
+you.
+
+The third row is not an alarm, and it happens more than you would think.
 **A zone trims where a tour starts and where it ends, and nothing else.** A ride
 that comes home, stops for lunch and goes out again is handed to a stranger
 with both ends cut and the middle whole, front door included. The site holds
-those back. To show one, split or trim the tour in the Komoot app, then press
-**Sync now** on the admin's Activities page, which reads every tour again.
+those back quietly. To show one, split or trim the tour in the Komoot app, then
+press **Sync now** on the admin's Activities page, which reads every tour
+again.
 
 **Heart rate and energy come from the watch, by way of the phone.** Komoot
 keeps neither. The watch writes them to Apple Health, and getting them to the

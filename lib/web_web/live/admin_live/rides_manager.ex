@@ -209,8 +209,8 @@ defmodule WebWeb.AdminLive.RidesManager do
         where home is (<code>RIDE_PRIVACY_ZONES</code>) and checks each tour as a stranger is
         shown it: one that comes within {Privacy.tripwire_m()} m loses its embed and map until it
         no longer does. A zone trims where a tour starts and ends, not a pass back through it, so
-        a ride that came home and went out again is the usual one caught: split or trim it in the
-        app to show it. "Sync now" looks at every tour again.
+        a ride that came home and went out again is held back too, with no alarm: split or trim
+        it in the app to show it. "Sync now" looks at every tour again.
       </p>
     </.panel>
 
@@ -322,6 +322,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           <.pill :if={ride.visibility == "private"} tone="quiet" class="ride-private">Private</.pill>
           <.pill :if={ride.visibility != "private"} tone="live">Public</.pill>
           <.pill :if={ride.stranger_view == "exposed"} tone="failed">Exposed</.pill>
+          <.pill :if={ride.stranger_view == "passing"} tone="held">Passes home</.pill>
           <.pill :if={ride.stranger_view == "hidden"} tone="quiet">Hidden by Komoot</.pill>
           <.pill :if={is_nil(ride.stranger_view)} tone="held">Not checked yet</.pill>
         </:col>
@@ -358,18 +359,36 @@ defmodule WebWeb.AdminLive.RidesManager do
   defp privacy_line({:ok, zones}, views) do
     case Map.get(views, "exposed", 0) do
       0 ->
-        "No activity comes near #{places(zones)} as a stranger is shown it. Komoot's privacy zone is doing its job."
+        "No activity begins or ends near #{places(zones)} as a stranger is shown it. Komoot's privacy zone is doing its job."
 
       n ->
-        "#{activities(n)} still #{if n == 1, do: "shows", else: "show"} a private place to a stranger. " <>
+        "#{activities(n)} still #{if n == 1, do: "begins or ends", else: "begin or end"} at a private place as a stranger is shown #{if n == 1, do: "it", else: "them"}: " <>
+          "Komoot's privacy zone is not hiding #{if n == 1, do: "it", else: "them"}. " <>
           "#{if n == 1, do: "Its embed and map are", else: "Their embeds and maps are"} withheld. " <>
-          "Check the privacy zone in the Komoot app, then Sync now."
+          "Check the zone in the Komoot app, then Sync now."
     end <> also(views)
   end
 
-  # The two quieter states, when there are any: tours Komoot keeps from
-  # strangers altogether, and tours the sync has not yet asked about.
+  # The quieter states, when there are any: tours that pass home mid-way,
+  # tours Komoot keeps from strangers altogether, and tours the sync has not
+  # yet asked about.
   defp also(views) do
+    passing =
+      case Map.get(views, "passing", 0) do
+        0 ->
+          []
+
+        1 ->
+          [
+            "1 passes it mid-tour, which a zone does not trim, and is shown without Komoot's map until it is split or trimmed in the app."
+          ]
+
+        n ->
+          [
+            "#{n} pass it mid-tour, which a zone does not trim, and are shown without Komoot's map until they are split or trimmed in the app."
+          ]
+      end
+
     hidden =
       case Map.get(views, "hidden", 0) do
         0 ->
@@ -391,7 +410,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           ["#{activities(n)} not checked yet: nothing of Komoot's is shown for one until it is."]
       end
 
-    Enum.map_join(hidden ++ waiting, &(" " <> &1))
+    Enum.map_join(passing ++ hidden ++ waiting, &(" " <> &1))
   end
 
   defp places([_]), do: "the private place on file"

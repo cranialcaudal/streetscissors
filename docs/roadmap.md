@@ -80,7 +80,7 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 - **Activities:** done.
   - Komoot's embed is back: its map, figures, elevation profile and photographs, for public tours and, through a share link, private ones. The site's own map-drawing is retired.
-  - Home is hidden by the privacy zone set in Komoot. The site does not take that on trust: it reads every tour the way a stranger would and holds back any that still comes near home. A zone trims only a tour's two ends, so a ride that came home and went out again is the usual one held back.
+  - Home is hidden by the privacy zone set in Komoot. The site does not take that on trust: it reads every tour the way a stranger would and holds back any that still comes near home. One that begins or ends there means the zone has stopped working, and is mailed. A zone trims only a tour's two ends, so a ride that came home and went out again is held back too, without the alarm.
   - Heart rate and energy come from Apple Health, since Komoot keeps neither. The phone's own export is dropped on the admin page, only the workouts that match an activity are kept, and the file is deleted once read.
   - Each activity leads with what the body did: average, peak and lowest heart rate, energy, time in each effort zone, and the heart rate over the outing. The archive opens on the last seven and the last twenty-eight days.
 - **Heart rate without the upload.** New rides have no heart rate until the next export. An app on the phone can send each workout as it is recorded, and the site already has the door for it, closed until a token is made. The app costs money, so it waits on a decision.

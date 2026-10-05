@@ -209,10 +209,16 @@ defmodule WebWeb.RidesLiveTest do
 
     # Only a tour the sync has read as a stranger and found clear is shown
     # through Komoot. One the tripwire found exposed (`Web.Rides.Privacy`),
-    # one Komoot hides from strangers altogether, and one not looked at yet
-    # keep their figures and lose everything Komoot would draw, whatever is
-    # on disk and whatever token they hold.
-    for {view, label} <- [{"exposed", "exposed"}, {"hidden", "hidden"}, {nil, "unchecked"}] do
+    # one that passes home mid-tour, one Komoot hides from strangers
+    # altogether, and one not looked at yet keep their figures and lose
+    # everything Komoot would draw, whatever is on disk and whatever token
+    # they hold.
+    for {view, label} <- [
+          {"exposed", "exposed"},
+          {"passing", "passing home"},
+          {"hidden", "hidden"},
+          {nil, "unchecked"}
+        ] do
       test "a tour that is #{label} shows its figures and nothing of Komoot's", %{conn: conn} do
         ride =
           ride_fixture(%{
