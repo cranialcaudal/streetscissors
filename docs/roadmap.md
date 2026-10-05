@@ -20,7 +20,7 @@ Most of the foundation is already built.
 - **Writing.** The blog is markdown on disk, with frontmatter, keywords, reading time and photo and ride embeds. The keywords filter both the blog and the captain's logs, and both sort by most recent or most witnessed.
 - **Captain's logs.** They are recorded in the browser, transcoded on the server into one progressive file, and served straight off disk.
 - **Negatives.** The archive has a sheet view, an index, a frame view and grease-pencil marks.
-- **Fitness.** The regimen and its exercise wiki are read from the vault, and the activities page mirrors every recorded Komoot tour every hour.
+- **Fitness.** The regimen and its exercise wiki are read from the vault. The activities page mirrors every recorded Komoot tour every hour, drawn by Komoot's own embed, with the heart rate and energy the watch measured set above it.
 - **Correspondence.** The guestbook holds each signature until it is approved. The guestbook and contact forms are rate-limited and carry a captcha. The newsletter sends as durable background jobs, with one-click unsubscribe.
 - **Discovery.** There are an RSS feed, a sitemap, a robots file, and a description, canonical URL and share image on every page; posts, frames and rolls each have a share image of their own. AI scrapers are turned away at the proxy.
 - **Plumbing.** The database is snapshotted every night and each snapshot is verified. The written content is archived the same night, kept as versions, and each archive is proven by restoring it. Snapshots, versions, the negatives and the recordings are mirrored to an external drive whenever it is plugged in. Deploys are one script with a health gate.
@@ -78,6 +78,12 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 ## 7. Fitness
 
+- **Activities:** done.
+  - Komoot's embed is back: its map, figures, elevation profile and photographs, for public tours and, through a share link, private ones. The site's own map-drawing is retired.
+  - Home is hidden by the privacy zone set in Komoot. The site does not take that on trust: it reads every tour the way a stranger would and holds back any that still comes near home. A zone trims only a tour's two ends, so a ride that came home and went out again is the usual one held back.
+  - Heart rate and energy come from Apple Health, since Komoot keeps neither. The phone's own export is dropped on the admin page, only the workouts that match an activity are kept, and the file is deleted once read.
+  - Each activity leads with what the body did: average, peak and lowest heart rate, energy, time in each effort zone, and the heart rate over the outing. The archive opens on the last seven and the last twenty-eight days.
+- **Heart rate without the upload.** New rides have no heart rate until the next export. An app on the phone can send each workout as it is recorded, and the site already has the door for it, closed until a token is made. The app costs money, so it waits on a decision.
 - The exercise wiki keeps growing, one entry per new movement.
 - The regimen's modules and the week plan become editable from the admin, like the wiki already is.
 

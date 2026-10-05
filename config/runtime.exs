@@ -110,11 +110,6 @@ if config_env() == :prod do
     email: System.get_env("KOMOOT_EMAIL"),
     password: System.get_env("KOMOOT_PASSWORD")
 
-  # Privacy zones: `lat,lng,radius_m`, several separated by `;`. Every ride
-  # track is cut where it enters one (Web.Rides.Privacy) before anything is
-  # drawn from it. Unset, routes are published whole. The salt fixes where
-  # the cuts fall; it defaults to the secret key base and only needs setting
-  # to keep the cuts where they are across a change of that key.
   # The film scanner (admin → Scanner). SCANNER_DEVICE pins a SANE backend by
   # id prefix (e.g. "epkowa") when more than one scanner is attached; the
   # areas are where one strip sits in the film holder, as
@@ -126,11 +121,22 @@ if config_env() == :prod do
     "120" => System.get_env("SCANNER_AREA_120")
   }
 
+  # The places no activity may be shown near: `lat,lng`, several separated by
+  # `;`. Komoot's own privacy zones do the hiding; this is the site's note of
+  # what they are meant to hide, so the sync can check each tour as a stranger
+  # sees it and withhold one that still shows such a place (Web.Rides.Privacy).
+  # Unset, nothing is checked.
   config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
 
-  config :web,
-         :ride_privacy_salt,
-         System.get_env("RIDE_PRIVACY_SALT") || System.get_env("SECRET_KEY_BASE")
+  # Where the cached route images live. Outside the release, which replaces
+  # its own priv/ on every build.
+  if ride_thumbs_path = System.get_env("RIDE_THUMBS_PATH") do
+    config :web, :ride_thumbs_path, ride_thumbs_path
+  end
+
+  # Optional: the bearer token for the Apple Health webhook, for a deploy that
+  # would rather keep it in the environment than make one in the admin.
+  config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
 
   # Off-disk copy of each database snapshot (optional — skipped when unset or
   # when the target is not mounted).

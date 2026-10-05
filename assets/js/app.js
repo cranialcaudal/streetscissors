@@ -28,7 +28,6 @@ import { GymRoutine } from "./gym_routine"
 import { MarkdownEditor } from "./markdown_editor"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
 import { initEmissionsControls } from "./emissions_controls"
-import { RouteMap } from "./route_map"
 
 document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
 window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
@@ -45,7 +44,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay, RouteMap },
+  hooks: { ...colocatedHooks, GymRoutine, MarkdownEditor, PcTerminal, AutoScroll, DispatchOverlay },
 })
 
 // Show progress bar on live navigation and form submits

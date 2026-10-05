@@ -24,14 +24,13 @@ defmodule WebWeb.RidesLive.Index do
     sport = selected_sport(params["sport"], shelves)
     visible = if sport, do: Enum.filter(rides, &(&1.sport == sport)), else: rides
 
-    featured = List.first(visible)
-
     {:noreply,
      assign(socket,
        page_title: if(sport, do: "#{Units.sport(sport)} · Activities", else: "Activities"),
        sport: sport,
-       featured: featured,
-       featured_route: featured && Rides.route(featured),
+       featured: List.first(visible),
+       week: Rides.recent(visible, 7),
+       month: Rides.recent(visible, 28),
        visible_shelves: Enum.filter(shelves, fn {key, _} -> is_nil(sport) or key == sport end),
        years: Rides.yearly_totals(visible)
      )}
@@ -45,7 +44,8 @@ defmodule WebWeb.RidesLive.Index do
 
   defp selected_sport(_key, _shelves), do: nil
 
-  # "2026 · 57 activities · 608.7 mi · 18,749 ft up"
+  # "2026 · 57 activities · 41h 12m moving · 608.7 mi · 18,749 ft up", and
+  # after it whatever the watch measured that year: "· 28,400 kcal · avg 138 bpm".
   defp totals_line(year) do
     count = if year.rides == 1, do: "1 activity", else: "#{year.rides} activities"
 
@@ -53,9 +53,12 @@ defmodule WebWeb.RidesLive.Index do
       [
         year.year,
         count,
+        Units.duration(year.moving_s) <> " moving",
         Units.distance(year.distance_m),
         Units.elevation(year.ascent_m) <> " up"
-      ],
+      ] ++
+        if(year.active_kcal, do: [Units.kcal(year.active_kcal)], else: []) ++
+        if(year.avg_hr, do: ["avg " <> Units.bpm(year.avg_hr)], else: []),
       " · "
     )
   end
@@ -65,7 +68,7 @@ defmodule WebWeb.RidesLive.Index do
     <div class="blog-bento-wrapper steel activities">
       <header class="blog-header-card">
         <h1 class="blog-header-title">Activities</h1>
-        <div class="blog-header-subtitle">Recorded on Komoot</div>
+        <div class="blog-header-subtitle">Recorded on Komoot · measured by the watch</div>
       </header>
 
       <WebWeb.FitnessSubnav.subnav active={:rides} />
@@ -81,13 +84,19 @@ defmodule WebWeb.RidesLive.Index do
         selected={@sport}
       />
 
-      <%!-- The lightbox: the newest activity in view owns the first screen. --%>
+      <%!-- How the last week and the last four have gone, before any one outing.
+            Left out altogether after four weeks with nothing in them. --%>
+      <Activity.recent :if={@month.rides > 0} week={@week} month={@month} />
+
+      <%!-- The lightbox: the newest activity in view owns the first screen —
+            what the watch measured, then the outing as Komoot draws it. --%>
       <article :if={@featured} class="activity-feature">
         <Activity.meta ride={@featured} />
         <h2 class="activity-title">
           <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured)}</.link>
         </h2>
-        <Activity.plate ride={@featured} route={@featured_route} />
+        <Activity.health ride={@featured} />
+        <Activity.plate ride={@featured} link loading="eager" />
       </article>
 
       <Activity.shelf

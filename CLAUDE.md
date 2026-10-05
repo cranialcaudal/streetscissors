@@ -82,7 +82,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     (title/description/date/keywords — see `content/templates/blog-template.md`) and
     Obsidian-style photo embeds (`![[roll012]]` for a contact sheet, `![[roll012/3|Caption]]`
     for a single frame) expanded post-Earmark by `Web.Blog.Embeds` against `Web.Negatives`.
-  - Blog embeds also support `![[ride:123]]` — a ride card via `Web.Rides`, with the route's cut outline.
+  - Blog embeds also support `![[ride:123]]` — a ride card via `Web.Rides`, with Komoot's picture of the route when the ride is clear.
   - **Drafts**: `draft: true` in the frontmatter takes a post off the site. `Blog.list_posts/0`
     and `get_post/1` do not see drafts, so nothing built on them does (index, feeds, sitemap,
     almanac, `/pc`, letters); only the admin passes `drafts: true` or calls `list_all_posts/0`.
@@ -162,58 +162,88 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   (`Web.Rides` + `Web.Rides.KomootSync`). **Komoot is the only input**: `/fitness/rides` mirrors
   every *recorded* tour, private ones included, as the **Activities** page — a lightbox in the
   manner of `/negatives`: sport pills filter the page via `?sport=`, the newest activity in view is
-  featured on its plate (`Activity.plate/1`), then one sideways-scrolling **shelf per sport**,
-  largest first (`WebWeb.Activity` components; the ‹ › buttons are the `.ShelfScroll` colocated
-  hook), and the mileage is one quiet Pacific-local line per year at the foot.
+  featured on its plate (`Activity.plate/1`) under a band for the last 7 and 28 days, then one
+  sideways-scrolling **shelf per sport**, largest first (`WebWeb.Activity` components; the ‹ ›
+  buttons are the `.ShelfScroll` colocated hook), and the totals are one quiet Pacific-local
+  line per year at the foot.
   Activities under 0.2 mi (or with no distance) are excluded at the query — `Rides.list_rides/0`
   and `get_ride/1` — while `komoot_index/0` still sees them so the sync doesn't re-import them.
   These pages are the one place `.steel` gets rounded corners back: `rides.css` outranks steel's
   `border-radius: 0 !important` with `.steel.activities …` selectors. `Web.Rides.Units` speaks
   Komoot's vocabulary (sport names, Distance/Duration/Avg speed/Uphill) and formats Pacific dates.
   `visibility` no longer hides anything.
-  **The site draws every route itself, cut by privacy zones** (since 2026-10-02; before that the
-  plate was Komoot's iframe embed). **Nothing of Komoot's rendering is shown or linked** — its
-  embed, its tour page and its static map image all show a route whole, start address included —
-  so there is no iframe, no "Open on Komoot", no share token and no cached Komoot thumbnail. Don't
-  bring any of them back.
-  - `Web.Rides.Track` (`ride_tracks`) is the track **as recorded** (`{lat, lng, alt, t}`), fetched
-    by the sync with one request per tour (`Client.tour_track/2`, `?_embedded=coordinates`). It
-    never leaves the server.
-  - `Web.Rides.Privacy` cuts it. Zones come from `RIDE_PRIVACY_ZONES` (`lat,lng,radius_m`, `;`
-    between several) — **in `.env`, never in code or tests**, which use invented ground. Every
-    point inside a zone is dropped (start, end, and mid-ride passes, which split the route). The
-    circle actually cut by is the zone **moved off its address and grown by the same distance**,
-    so the address keeps the full radius of cover but is not the circle's centre; each cut end
-    then loses a further per-ride stretch of path so many rides' ends don't trace the edge; and
-    two outside points whose chord crosses the zone are split rather than joined. All of it is
-    deterministic from a hash of `RIDE_PRIVACY_SALT` (default: the secret key base) — a random
-    cut per render could be averaged out. **A zone setting that can't be parsed hides every
-    route** rather than publishing one whole; no zones set publishes routes whole, and the admin
-    Activities page says which of the three it is (how many zones, never where).
-  - `Web.Rides.Route.build/2` is the **only** path from a track to anything a visitor sees: the
-    map JSON (`map_data/1`), the elevation profile (`profile/1`, server-rendered SVG) and the
-    card outline (`card_path/1`). Distances along a route count published runs only, closed up,
-    so the profile doesn't show how much path a zone removed. (Komoot's total distance is still
-    shown in the figures, as Strava does.)
-  - The card outline is stored on the ride (`route_path`) with the fingerprint of the zones that
-    cut it (`route_key` = `Privacy.key/0`); `Rides.card_path/1` refuses one whose key is stale,
-    and `Rides.refresh_routes/0` redraws them at the start of every sync pass, 304 or not. The
-    ride page builds its route from the track on each mount, so a zone change applies there at
-    once (zones are read at boot: change `.env`, restart).
-  - The plate is the `RouteMap` hook (`assets/js/route_map.js`): **MapLibre GL** (vendored in
-    `assets/vendor/`, loaded by dynamic `import()` so only ride pages pay its megabyte; its CSS
-    is imported in `app.css`) over **OpenFreeMap** tiles — the one third party a ride page
-    talks to. `phx-update="ignore"`, `cooperativeGestures` so the page still scrolls, start and
-    finish dots only on ends the route really has (`start?`/`finish?`), and the profile's
-    pointer walks a dot along the line. A ride with no track yet, or one that never leaves a
-    zone, shows a blank plate and its figures.
+  **Komoot draws the activity, and the watch says what the body did** (since 2026-10-05). For
+  the three days before that the site drew every route itself, from a track it cut by its own
+  zones; that is gone (`ride_tracks`, `Web.Rides.Route`/`Track`, MapLibre, the `RouteMap` hook).
+  - **The plate is Komoot's embed** (`Rides.embed_url/1`: `…/tour/<id>/embed?profile=1&gallery=1`,
+    plus `share_token=` for a private tour). The ride page adds "Open on Komoot"
+    (`Rides.tour_url/1`), and the cards show Komoot's static map, cached by `Web.Rides.Thumbs`
+    and served at `/fitness/rides/:id/thumb?v=<fingerprint>`. What makes this safe is **Komoot's
+    own privacy zone**, set in its app: Komoot cuts it out of everything it hands anyone but
+    the owner.
+  - **Everything a visitor is shown comes from a read made with no login**
+    (`Client.public_tour/2`, with the share token for a private tour). The owner's view of a
+    route, the whole of it, is never fetched: the listing's `map_image` is ignored, and a
+    thumbnail is named `<ride id>-<hash of the stranger's map URL>.jpg`, so a picture fetched
+    from any other URL (an earlier cut, or the whole-route images an older version kept as
+    `<id>.jpg`) can never be served for the ride. `Thumbs.sweep_all/1` deletes those on every
+    pass that reads.
+  - **`rides.stranger_view` is what a stranger is given, and only `"clear"` is shown through
+    Komoot** (`Rides.clear?/1`; the embed, the link and the picture all key off it):
+    - `"clear"`: a route that stays away from every private place.
+    - `"exposed"`: the tripwire, `Web.Rides.Privacy`. `RIDE_PRIVACY_ZONES` (`lat,lng`, `;`
+      between several, **in `.env`, never in code or tests**, which use invented ground) is
+      the site's own note of what Komoot's zone is meant to hide, and a stranger's view that
+      comes within 100 m of one is exposed. **A zone trims where a tour starts and ends, not a
+      pass back through it mid-tour**, so a ride that came home and went out again trips the
+      wire in ordinary use: 2 of 64 did on the first pass. With no zones set nothing is
+      checked; a setting that can't be read exposes everything.
+    - `"hidden"`: Komoot refuses a stranger the whole tour (`403 AccessDeniedPrivacyZone`,
+      which the client returns as `:hidden`) because it never leaves the zone. **That is an
+      answer, not a failure.** Counted as a failure it kept the ETag from ever being stored,
+      and the pass re-read the listing and half-failed every hour.
+    - `nil`: not asked yet. Nothing of Komoot's is shown for it, public or not.
+
+    Anything but clear shows a blank plate and the site's own figures. Exposed and hidden
+    rides are looked at again on every pass that reads the listing.
+    `SystemStatus.ride_privacy/0` fails while any listed ride is exposed, so the overview
+    shows it and the monitor mails it. The admin says how many, never where.
+  - **Private tours are shown through Komoot share links.** The sync asks for a tour's share
+    token the first time it sees it private (`Client.share_token/2`, which creates one when
+    there is none) and keeps it; a link that stops working is asked for once more.
+  - **Heart rate and energy come from Apple Health** (`Web.Rides.Workout`, `health_workouts`),
+    because Komoot keeps neither: every tour's `kcal_active` is 0, and its track carries
+    position, height and time. A workout pairs with the ride whose start is nearest its own,
+    within 10 minutes (`Rides.attach_health/1`, at read time; nothing is stored on the ride).
+    There are two ways in, both ending in `Rides.store_workouts/1`:
+    - **Apple's own export** (`Web.Rides.AppleHealth.Export`), dropped on `/admin/rides`. It
+      is read as a stream (`unzip -p` through a `Port`, a line at a time), keeping only the
+      workouts that match a ride and the heart-rate samples inside them.
+      `Web.Rides.HealthImport` runs it in a supervised task, one at a time (the import is
+      whichever process holds the module's name), and **deletes the file whatever happens**.
+      The upload is written by `WebWeb.HealthExportWriter` straight into an inbox **beside**
+      the uploads root (mode 0700): never `/tmp`, and never under `uploads/`, which the proxy
+      serves. `HealthImport.clear_inbox/0` empties it at boot.
+    - **`POST /api/health/ingest`** (`HealthWebhookController`), for the Health Auto Export
+      app's JSON. **Closed until a token is made** on the admin page (or `HEALTH_WEBHOOK_TOKEN`
+      is set); only the token's SHA-256 is kept. A workout's `route` is never read.
+
+    A workout with no energy of its own (Komoot's watch app writes none) gets the sum of the
+    watch's active-energy samples over it.
+  - **The pages lead with the body** (`WebWeb.Activity`): `health/1` sits above the plate
+    (average, peak, energy; on the ride page also the lowest, the time in five zones and the
+    trace, with the `.HeartTrace` hook), `recent/1` gives the last 7 and 28 days, and the
+    yearly line carries kcal and average bpm. Zones are shares of
+    `Rides.heart_rate_ceiling/0`, the highest rate any workout on file reached, since the site
+    is told nobody's age. A figure that covers only some activities says how many.
   Each ride's figures come from the tour *listing*; there are no planned routes, GPX upload or
   live tracking (removed 2026-09-14; `/fitness/rides/live` and `/live` redirect to the archive).
-  The hourly Quantum pass copies edits via `changed_at` (re-reading the track; a privacy flip
-  alone does not), mirrors privacy on every read, and **deletes rides whose tour left the
+  The hourly Quantum pass copies edits via `changed_at` (reading the tour as a stranger again),
+  mirrors privacy on every read, and **deletes rides whose tour left the
   listing** — except when the listing comes back empty, which is treated as a
-  glitch rather than a wiped account. A track that won't come fails the tour, the same as a
-  failed import. **The hourly pass is built to cost nothing when nothing
+  glitch rather than a wiped account. A stranger's read that fails fails the tour, the same as
+  a failed import, and `komoot_changed_at` is recorded last so the next pass tries it again.
+  **The hourly pass is built to cost nothing when nothing
   changed**: the API token lives in `Web.Komoot.Auth` (supervised) rather than being re-minted
   every hour — logging in is the call that can lock the account — and the listing is a
   conditional GET against the ETag in `site_settings` (`komoot_etag_tour_recorded`). Komoot's ETag
@@ -223,12 +253,10 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   passes `force: true`. Every pass, hourly or manual, records `komoot_last_sync_at` and
   `komoot_last_sync_result` (`KomootSync.last_run/0`), so a sync that keeps failing shows on the
   admin overview instead of only in the journal.
-  **There is no health tracking**, by decision on 2026-09-24. Komoot keeps no heart rate or
-  calories (the Apple Watch app sends them to Apple Health, and every tour's `kcal_active` is 0),
-  and the only way to get them to the site was a paid phone app, so it was declined. The
-  `/fitness/biometrics` page, the `/api/health/ingest` Health Auto Export webhook and the
-  `biometrics`/`health_workouts` tables were removed; both tables were empty. Nutrition stays:
-  it lives in the vault's markdown (`meals.md`, `meals-week.json`).
+  The decision of 2026-09-24 against health tracking was a decision against the paid phone
+  app, which was the only way in then known. It was reversed on 2026-10-05: Apple's own export
+  does the job for nothing. `/fitness/biometrics` and the `biometrics` table stay gone, and
+  nutrition stays in the vault's markdown (`meals.md`, `meals-week.json`).
   Newsletter + subscribers,
   guestbook, contact messages, analytics, a `/pc` terminal
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom
@@ -464,7 +492,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   (blog), `?tab=` (fitness).
   `/admin/dashboard` is the **Overview**: a "Needs you" queue (each row a link to where the thing
   gets done, shown only when non-zero), counts, traffic, and `Web.SystemStatus` (snapshots, the
-  content's versions, the mirror drive, Komoot's last run, failed mail jobs). Contact messages live at `/admin/inbox`, and site settings at
+  content's versions, the mirror drive, Komoot's last run, ride privacy, failed mail jobs). Contact messages live at `/admin/inbox`, and site settings at
   `/admin/settings` (the Spotify playlist, the newsletter's test address). The newsletter page
   holds drafts (`newsletter_drafts.status = "draft"`, which becomes the send's record when sent), a
   sandboxed preview built from `Web.Email.preview_page/2`, a `[Test]` send, and the subscriber

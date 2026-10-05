@@ -318,11 +318,12 @@ defmodule WebWeb.AdminComponents do
   attr :id, :string, required: true
   attr :value, :string, required: true
   attr :label, :string, default: "Copy"
+  attr :names, :string, default: "Markdown", doc: "what the value is, for a screen reader"
 
   def copy_field(assigns) do
     ~H"""
     <div id={@id} class="adm-copy" phx-hook=".CopyText">
-      <input type="text" value={@value} readonly class="adm-copy-input" aria-label="Markdown" />
+      <input type="text" value={@value} readonly class="adm-copy-input" aria-label={@names} />
       <button type="button" class="adm-link" data-copy>
         <.icon name="hero-clipboard" class="size-4" /><span data-copy-label>{@label}</span>
       </button>

@@ -80,6 +80,52 @@ defmodule Web.SystemStatusTest do
     assert %{state: :ok, detail: "2 imported"} = SystemStatus.komoot()
   end
 
+  # The tripwire on what Komoot shows of a tour. It says how many, never
+  # which or where.
+  describe "ride privacy" do
+    import Web.RidesFixtures
+
+    setup do
+      on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
+    end
+
+    test "is off, not a fault, with no private place on file" do
+      ride_fixture(%{stranger_view: "exposed"})
+      assert %{key: :ride_privacy, state: :off} = SystemStatus.ride_privacy()
+    end
+
+    test "is healthy while no listed activity is exposed" do
+      Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
+      ride_fixture()
+      # A false start has no page to be exposed on.
+      ride_fixture(%{distance_m: 100.0, stranger_view: "exposed"})
+
+      assert %{state: :ok, detail: "no activity shows a private place"} =
+               SystemStatus.ride_privacy()
+    end
+
+    test "fails, counting them, when one is" do
+      Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
+      ride_fixture(%{stranger_view: "exposed"})
+      ride_fixture(%{stranger_view: "exposed"})
+      ride_fixture()
+
+      assert %{state: :fail, detail: detail} = SystemStatus.ride_privacy()
+      assert detail =~ "2 activities would show a private place to a stranger"
+      refute detail =~ "45.12345"
+    end
+
+    test "fails when the places cannot be read" do
+      Application.put_env(:web, :ride_privacy_zones, "somewhere nice")
+      assert %{state: :fail, detail: detail} = SystemStatus.ride_privacy()
+      assert detail =~ "RIDE_PRIVACY_ZONES can't be read"
+    end
+
+    test "is one of the checks the monitor watches" do
+      assert :ride_privacy in Enum.map(SystemStatus.local_checks(), & &1.key)
+    end
+  end
+
   test "failed newsletter jobs show in the mail queue" do
     assert %{state: :ok} = SystemStatus.mail_queue()
 

@@ -1,13 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════
    ACTIVITIES — /fitness/rides and each ride page
    ═══════════════════════════════════════════════════════════════════
-   A lightbox, in the manner of /negatives: the newest activity owns the
-   first screen — its route on a live map over its elevation profile — then
-   one shelf per sport, largest first, each a sideways run of cards carrying
-   the route's outline. The year's mileage is a footnote.
+   What the body did comes first: a band for the last week and the last
+   four, then the newest activity with what the watch measured — heart
+   rate, energy — set above Komoot's own embed of the outing. After it one
+   shelf per sport, largest first, each a sideways run of cards carrying
+   Komoot's route map. The year's totals are a footnote.
 
-   Every route here is drawn by the site from a track already cut by the
-   privacy zones; nothing of Komoot's rendering appears.
+   Komoot draws every map here, and cuts its privacy zones out of what it
+   draws for a visitor. The site draws none.
 
    Tokens only, so the section's .steel re-inking carries it. Sport
    families take The Week's pigments (bike jade, run orange), so an
@@ -31,15 +32,24 @@
    that opts back in, so the selectors carry both wrapper classes and
    !important to outrank it. */
 .steel.activities .activity-map,
-.steel.activities .activity-profile,
+.steel.activities .activity-embed,
 .steel.activities .activity-figures,
+.steel.activities .heart-trace,
+.steel.activities .heart-zones,
 .steel.activities .activity-card,
 .steel.activities .activities-empty {
   border-radius: var(--activity-radius) !important;
 }
 
+.steel.activities .heart-trace-tip {
+  border-radius: var(--activity-radius-sm) !important;
+}
+
 .steel.activities .activity-pill,
 .steel.activities .activity-dot,
+.steel.activities .heart-trace-dot,
+.steel.activities .heart-zones-bar,
+.steel.activities .heart-zone-swatch,
 .steel.activities .activity-shelf-btn {
   border-radius: 999px !important;
 }
@@ -134,39 +144,21 @@
 
 .activity-title a:hover { color: var(--accent-color); }
 
-/* The plate: the route on a map, the profile under it. */
+/* The plate: Komoot's own rendering of the route. */
+.activity-map-link { display: block; }
+
 .activity-map {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 16 / 9;
+  object-fit: cover;
   background: var(--paper-sunk);
   border: 1px solid var(--rule);
+  transition: border-color 0.15s ease;
 }
 
-/* MapLibre sizes itself to this box, so it has a height of its own rather
-   than one borrowed from an aspect ratio a phone would make too short. */
-.activity-map--live {
-  height: clamp(320px, 62vh, 620px);
-  aspect-ratio: auto;
-  overflow: hidden;
-}
-
-/* MapLibre's own controls sit on the map tiles, which are always light —
-   so they keep their stock colours instead of the section's inverted ink. */
-.activity-map--live .maplibregl-ctrl,
-.activity-map--live .maplibregl-ctrl a {
-  font-family: var(--font-ui);
-  color: #333;
-}
-
-.steel.activities .activity-map--live .maplibregl-ctrl-group button {
-  width: 29px;
-  height: 29px;
-  padding: 0 !important;
-  border: 0 !important;
-  background-color: transparent;
-}
+.activity-map-link:hover .activity-map { border-color: var(--accent-color); }
 
 .activity-map--blank,
 .activity-card-blank {
@@ -182,52 +174,14 @@
   color: var(--ink-4);
 }
 
-/* Elevation along the published route. The drawing stretches to the box
-   (preserveAspectRatio none), so its strokes are non-scaling. */
-.activity-profile {
-  margin: 1rem 0 0;
-  padding: 1rem 1.25rem 0.75rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-}
-
-.activity-profile svg {
+/* Komoot's embed: its map, stats strip and elevation profile, at the
+   height Komoot's own embed code gives it so nothing scrolls inside. */
+.activity-embed {
   display: block;
   width: 100%;
-  height: 120px;
-  overflow: visible;
-  cursor: crosshair;
-  touch-action: pan-y;
-}
-
-.activity-profile-area {
-  fill: var(--sport-color, var(--accent-color));
-  opacity: 0.18;
-}
-
-.activity-profile-line {
-  fill: none;
-  stroke: var(--sport-color, var(--accent-color));
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-
-.activity-profile-cursor {
-  stroke: var(--ink);
-  stroke-width: 1;
-}
-
-.activity-profile-caption {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 1.2em;
-  margin-top: 0.6rem;
-  font-family: var(--font-data);
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+  height: 700px;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
 }
 
 /* Figures: one cell per stat, value over caption the way Komoot sets them.
@@ -270,6 +224,290 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-3);
+}
+
+/* ── The last week, the last four ───────────────────────────────── */
+
+/* Two panels of the same figures the plate uses, side by side while there
+   is room and one over the other when there is not. */
+.activity-recent {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
+  margin: 0 0 2.5rem;
+}
+
+.activity-recent-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Three figures without the watch, five with it. They wrap and each row
+   shares its width out, so an odd one never leaves a hole in the panel. */
+.activity-recent .activity-figures {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.activity-recent .activity-figure { flex: 1 1 7.5rem; padding: 0.8rem 1rem; }
+.activity-recent .activity-figure-value { font-size: clamp(1.15rem, 2.4vw, 1.5rem); }
+
+.activity-recent-note {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+/* ── Heart & energy: what the watch measured ───────────────────── */
+
+/* It leads the activity, so the space goes beneath it, before the map. */
+.activity-health { margin: 0 0 1.75rem; }
+
+.activity-health-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.activity-health-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* The heart is a mark, not text, so it may wear hot metal. */
+.activity-health-mark { color: var(--color-orange); }
+
+.activity-health-source {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.activity-health .activity-figures { margin-top: 0.75rem; }
+
+/* The trace: one 2px hot-metal line on a 10% wash, bpm rules in the panel's
+   hairline with their numbers in the left gutter, stopwatch time beneath. */
+.heart-trace {
+  margin: 1rem 0 0;
+  padding: 1rem 1.25rem 0.75rem 3.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.heart-trace-caption {
+  margin: 0 0 1rem -2rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.heart-trace-plot {
+  position: relative;
+  height: 170px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.heart-trace-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.heart-trace-line {
+  fill: none;
+  stroke: var(--color-orange);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.heart-trace-area {
+  fill: var(--color-orange);
+  opacity: 0.1;
+}
+
+.heart-trace-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.heart-trace-tick {
+  position: absolute;
+  right: 100%;
+  padding-right: 0.6rem;
+  transform: translateY(-50%);
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.45rem;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--rule-strong);
+  pointer-events: none;
+}
+
+.heart-trace-cursor[hidden] { display: none; }
+
+.heart-trace-dot {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  background: var(--color-orange);
+  box-shadow: 0 0 0 2px var(--paper-raised);
+}
+
+.heart-trace-tip {
+  position: absolute;
+  top: 0;
+  left: 0.6rem;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  white-space: nowrap;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-trace-cursor.is-flipped .heart-trace-tip {
+  left: auto;
+  right: 0.6rem;
+}
+
+.heart-trace-tip-value { color: var(--ink); }
+
+/* Time in each zone: one bar cut by share, and the same five as a list, so
+   the lengths are also said as times. The five steps run from the panel's
+   own quiet ink to hot metal — one pigment by lightness, so the order reads
+   without the legend and does not lean on telling hues apart. */
+.heart-zones {
+  margin: 1rem 0 0;
+  padding: 1rem 1.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.heart-zones .heart-trace-caption { margin: 0 0 0.9rem; }
+
+.heart-zones-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.heart-zone { flex: 0 0 auto; min-width: 3px; background: var(--zone-color); }
+
+.heart-zone--1 { --zone-color: color-mix(in srgb, var(--color-orange) 18%, var(--ink-4)); }
+.heart-zone--2 { --zone-color: color-mix(in srgb, var(--color-orange) 40%, var(--ink-4)); }
+.heart-zone--3 { --zone-color: color-mix(in srgb, var(--color-orange) 62%, var(--ink-4)); }
+.heart-zone--4 { --zone-color: color-mix(in srgb, var(--color-orange) 82%, var(--ink-4)); }
+.heart-zone--5 { --zone-color: var(--color-orange); }
+
+.heart-zones-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.heart-zones-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.45rem;
+  align-items: center;
+}
+
+.heart-zone-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  background: var(--zone-color);
+}
+
+.heart-zone-name {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.heart-zone-range,
+.heart-zone-time {
+  grid-column: 2;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.heart-zone-time { color: var(--ink); }
+
+/* Pressable, so it wears the accent at rest, on a 44px target. */
+.activity-komoot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  margin-top: 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.activity-komoot:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 /* ── Shelves: one sport per row ────────────────────────────────── */
@@ -387,19 +625,13 @@
   border-bottom: 2px solid var(--sport-color, var(--rule));
 }
 
-/* The route's outline, in the sport's pigment. */
-.activity-card-route {
+/* Komoot's map as Komoot draws it: full colour, the way its own tour cards
+   show a route. */
+.activity-card-map img {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-.activity-card-route path {
-  fill: none;
-  stroke: var(--sport-color, var(--accent-color));
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  object-fit: cover;
 }
 
 .activity-card-blank { height: 100%; }
@@ -435,6 +667,13 @@
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
+}
+
+.activity-card-health {
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
 }
 
 /* ── The year's mileage: a footnote ────────────────────────────── */
@@ -483,6 +722,16 @@
 
   /* An odd figure out (the ride page's fifth) spans the row, not a hole. */
   .activity-figure:last-child:nth-child(odd) { grid-column: span 2; }
+
+  .activity-embed { height: 600px; }
+
+  .activity-recent { grid-template-columns: minmax(0, 1fr); }
+
+  .heart-zones { padding: 0.85rem; }
+  .heart-zones-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .heart-trace { padding: 0.85rem 0.85rem 0.6rem 2.75rem; }
+  .heart-trace-plot { height: 140px; }
 
   /* Touch scrolls a strip natively, so the buttons step aside. */
   .activity-shelf-nav { display: none; }

@@ -45,6 +45,11 @@ defmodule Web.Application do
       # Repo (it needs a connection), and it must not delay the Endpoint — the
       # task returns immediately and works in its own process.
       {Task, &Web.Backup.catch_up/0},
+      # An Apple Health export that was being read when the site last stopped
+      # is still in the import's inbox, and nothing will read it now.
+      Supervisor.child_spec({Task, &Web.Rides.HealthImport.clear_inbox/0},
+        id: :clear_health_inbox
+      ),
       # Backs the site up onto the external drive as soon as it is plugged in,
       # rather than waiting for the next scheduled run. Returns :ignore when no
       # mirror is configured, so it costs nothing on a checkout that is not the

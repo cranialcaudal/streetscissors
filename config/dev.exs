@@ -169,9 +169,9 @@ config :web, :komoot,
   email: System.get_env("KOMOOT_EMAIL"),
   password: System.get_env("KOMOOT_PASSWORD")
 
-# Privacy zones for ride tracks (`lat,lng,radius_m`; see config/runtime.exs).
+# The places no activity may be shown near (`lat,lng`; see config/runtime.exs).
 config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
-config :web, :ride_privacy_salt, System.get_env("RIDE_PRIVACY_SALT") || "dev"
+config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
 
 # Second copy of each snapshot, on a different physical disk. Snapshots that
 # live beside the database only protect against a bad deploy or a mistaken

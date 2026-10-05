@@ -122,6 +122,7 @@ defmodule WebWeb.Router do
       # The live page is gone — above :id so old links redirect rather than 404
       get "/fitness/rides/live", RideRedirectController, :index
       live "/fitness/rides/:id", RidesLive.Show, :show
+      get "/fitness/rides/:id/thumb", RideThumbController, :show
 
       # Old fitness-blog post URLs — must stay last among /fitness routes
       get "/fitness/:slug", LegacyRedirectController, :fitness_slug
@@ -184,6 +185,18 @@ defmodule WebWeb.Router do
   # is always a line of plain text.
   scope "/", WebWeb do
     post "/webmention", WebmentionController, :create
+  end
+
+  # Apple Health workouts, posted by an app on the phone as they are recorded
+  # (WebWeb.HealthWebhookController). A server-to-server POST with a bearer
+  # token: no session, no CSRF. It refuses everything until a token is made.
+  pipeline :health_ingest do
+    plug :accepts, ["json"]
+  end
+
+  scope "/api", WebWeb do
+    pipe_through :health_ingest
+    post "/health/ingest", HealthWebhookController, :ingest
   end
 
   # The health check, asked by the uptime check from outside and by

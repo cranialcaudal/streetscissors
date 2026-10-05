@@ -106,6 +106,8 @@ defmodule WebWeb.AdminLive.Dashboard do
         ),
       check.(:komoot).state == :fail &&
         row("!", "The last Komoot sync failed", ~p"/admin/rides", :fail),
+      check.(:ride_privacy).state == :fail &&
+        row("!", "Ride privacy: " <> check.(:ride_privacy).detail, ~p"/admin/rides", :fail),
       check.(:mail).state == :fail && row("!", check.(:mail).detail, ~p"/admin/newsletter", :fail),
       check.(:database).state in [:warn, :fail] &&
         row("!", "The database snapshot is overdue", "#system", :fail),

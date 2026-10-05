@@ -31,7 +31,6 @@
 @import "./header.css";
 @import "./flash.css";
 @import "./home.css";
-@import "../vendor/maplibre-gl.css";
 @import "./rides.css";
 /* Section theme — must follow the component sheets it re-inks */
 @import "./steel.css";

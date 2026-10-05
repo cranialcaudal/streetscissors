@@ -63,15 +63,28 @@ defmodule Web.Rides.Units do
   def elevation(nil), do: "—"
 
   def elevation(meters) do
-    feet = round(meters * 3.28084)
+    grouped(round(meters * 3.28084)) <> " ft"
+  end
 
-    feet
+  # 18749 → "18,749"
+  defp grouped(integer) do
+    integer
     |> to_string()
     |> String.reverse()
     |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
     |> String.reverse()
-    |> Kernel.<>(" ft")
   end
+
+  @doc "`142 bpm` — heart rate, from the Apple Health workout."
+  def bpm(nil), do: "—"
+  def bpm(beats), do: "#{round(beats)} bpm"
+
+  @doc "`1,204 kcal` — active energy, from the Apple Health workout."
+  def kcal(nil), do: "—"
+  def kcal(kcal), do: grouped(round(kcal)) <> " kcal"
+
+  @doc "`1,204` — a whole number with its thousands marked."
+  def count(integer) when is_integer(integer), do: grouped(integer)
 
   @doc "`11 Sep 2026` — the Pacific day."
   def date(nil), do: "—"

@@ -41,9 +41,9 @@ config :web, :emails_path, Path.expand("../test/support/fixtures/emails", __DIR_
 # a particular shape of archive build their own in a tmp dir.
 config :web, :negatives_path, Path.expand("../test/support/fixtures/negatives", __DIR__)
 
-# Ride privacy: no zones unless a test sets one, and a fixed salt so the
-# cuts fall in the same place on every run.
-config :web, :ride_privacy_salt, "test-salt"
+# Ride thumbnails go to a throwaway dir in tests. No private places are set
+# unless a test sets one, so nothing is ever found exposed by accident.
+config :web, :ride_thumbs_path, Path.expand("../tmp/ride_thumbs", __DIR__)
 
 # Uploaded media (captain's log audio) goes to a throwaway dir in tests so a
 # suite run never writes into priv/static

@@ -1,4 +1,9 @@
 defmodule WebWeb.RidesLive.Show do
+  @moduledoc """
+  One activity. What the watch measured leads — heart rate, energy, the time
+  in each zone and the heart rate over the whole outing — and Komoot's embed
+  follows with the map, its figures and the elevation profile.
+  """
   use WebWeb, :live_view
 
   alias Web.Rides
@@ -10,7 +15,8 @@ defmodule WebWeb.RidesLive.Show do
     {:ok,
      assign(socket,
        ride: ride,
-       route: Rides.route(ride),
+       ceiling: Rides.heart_rate_ceiling(),
+       komoot_url: Rides.tour_url(ride),
        page_title: Activity.title(ride)
      )}
   end
@@ -24,7 +30,21 @@ defmodule WebWeb.RidesLive.Show do
         <Activity.meta ride={@ride} />
         <h1 class="activity-title">{Activity.title(@ride)}</h1>
 
-        <Activity.plate ride={@ride} route={@route} downhill />
+        <Activity.health ride={@ride} detail ceiling={@ceiling} />
+
+        <%!-- Komoot's embed for every tour it will show — a private one through
+              its share token — else the static map cached at sync time. --%>
+        <Activity.plate ride={@ride} downhill loading="eager" />
+
+        <a
+          :if={@komoot_url}
+          href={@komoot_url}
+          class="activity-komoot"
+          target="_blank"
+          rel="noopener"
+        >
+          Open on Komoot <span aria-hidden="true">↗</span>
+        </a>
       </article>
     </div>
     """

@@ -5,11 +5,30 @@ defmodule Web.Rides.KomootSync do
   sport, stats, privacy, route) is copied over, and a tour deleted there is
   deleted here. Nothing about a ride is entered on the site.
 
-  Each ride is built from the tour listing, plus its GPS track — one request
-  per tour, made when the tour is first seen and again when it changes. The
-  track is what the site draws its own map from, cut by the privacy zones
-  (`Web.Rides.Privacy`); nothing of Komoot's own rendering is shown, since
-  its embed, tour page and map image all show a route whole.
+  A ride's figures come from the tour listing, read with the owner's login.
+  Everything a visitor is *shown* of the route comes from a second read made
+  with no login at all (`Client.public_tour/2`): Komoot applies its privacy
+  zones to what it hands a stranger, so the static map cached for the cards
+  is already cut, and so is the embed the pages point at. The owner's view of
+  a route — the whole of it, front door included — is never fetched.
+
+  That second read settles what a stranger is given of the tour, recorded as
+  the ride's `stranger_view`. A route that stays clear of every private place
+  is `"clear"`, and only that is shown through Komoot. One that still comes
+  close to a private place is `"exposed"`: the tripwire (`Web.Rides.Privacy`).
+  A zone trims a tour's ends, not a pass back through it mid-tour, so this is
+  usually a ride that came home and went out again. And a tour that never
+  leaves the zone is `"hidden"`: Komoot refuses a stranger the whole of it,
+  which is an answer, not a failure.
+
+  A private tour also gets its Komoot share token, asked for once, because
+  neither the embed nor a stranger's read will show a tour that isn't public
+  without one.
+
+  A tour is looked at this way when it is first seen, when it changes on
+  Komoot, and whenever something it should have is missing. `force: true` —
+  the admin's "Sync now" — looks at every tour again, which makes that
+  button a full re-check of what strangers can see.
 
   Entirely optional: with no KOMOOT_EMAIL / KOMOOT_PASSWORD configured the
   sync reports `:disabled` and does nothing. Every field beyond the tour id
@@ -32,6 +51,8 @@ defmodule Web.Rides.KomootSync do
   alias Web.Komoot.Auth
   alias Web.Komoot.Client
   alias Web.Rides
+  alias Web.Rides.Privacy
+  alias Web.Rides.Thumbs
   alias Web.SiteSettings
 
   @etag_key "komoot_etag_tour_recorded"
@@ -159,10 +180,6 @@ defmodule Web.Rides.KomootSync do
   defp describe_run({:error, reason}), do: "failed: " <> inspect(reason)
 
   defp sync_tours(auth, force?) do
-    # A change of privacy zone reaches the cards here, on a pass that would
-    # otherwise read nothing.
-    Rides.refresh_routes()
-
     etag = if force?, do: nil, else: SiteSettings.get_setting(@etag_key)
     summary = %{imported: 0, updated: 0, deleted: 0, skipped: 0, failed: 0, unchanged: false}
 
@@ -171,7 +188,7 @@ defmodule Web.Rides.KomootSync do
         {:ok, %{summary | unchanged: true}}
 
       {:ok, tours, new_etag} ->
-        summary = sync_tour_list(tours, summary, auth)
+        summary = sync_tour_list(tours, summary, auth, force?)
 
         # Only trust the new ETag when the whole listing landed cleanly.
         # Storing it after a failed import would 304 the next pass and the
@@ -188,9 +205,8 @@ defmodule Web.Rides.KomootSync do
   defp store_etag(nil), do: SiteSettings.delete_setting(@etag_key)
   defp store_etag(etag), do: SiteSettings.put_setting(@etag_key, etag)
 
-  defp sync_tour_list(tours, summary, auth) do
+  defp sync_tour_list(tours, summary, auth, force?) do
     known = Rides.komoot_index()
-    tracked = Rides.tracked_ride_ids()
 
     summary =
       Enum.reduce(tours, summary, fn tour, acc ->
@@ -198,17 +214,21 @@ defmodule Web.Rides.KomootSync do
 
         outcome =
           case Map.fetch(known, komoot_id) do
-            {:ok, ride} ->
-              update_tour(ride, tour, komoot_id, auth, MapSet.member?(tracked, ride.id))
-
-            :error ->
-              import_tour(tour, komoot_id, auth)
+            {:ok, ride} -> update_tour(ride, tour, komoot_id, auth, force?)
+            :error -> import_tour(tour, komoot_id, auth)
           end
 
         Map.update!(acc, outcome, &(&1 + 1))
       end)
 
-    delete_missing(known, tours, summary)
+    summary = delete_missing(known, tours, summary)
+
+    # Whatever is left in the cache that no ride now answers for: a deleted
+    # tour's picture, an earlier cut of a route, and the whole-route images
+    # an earlier version of the site kept under the bare ride id.
+    Thumbs.sweep_all(Map.values(Rides.komoot_index()))
+
+    summary
   end
 
   # A tour gone from the listing was deleted on Komoot. An empty listing is
@@ -230,12 +250,15 @@ defmodule Web.Rides.KomootSync do
   end
 
   defp import_tour(tour, komoot_id, auth) do
-    case Rides.create_ride(tour_attrs(tour, komoot_id)) do
-      {:ok, ride} ->
-        with_track(:imported, ride, auth)
-
-      {:error, changeset} ->
+    with {:ok, ride} <- Rides.create_ride(tour_attrs(tour, komoot_id)),
+         {:ok, _seen, _changed?} <- as_a_stranger(ride, auth) do
+      :imported
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
         Logger.warning("Komoot tour #{komoot_id} import failed: #{inspect(changeset.errors)}")
+        :failed
+
+      _ ->
         :failed
     end
   rescue
@@ -248,7 +271,7 @@ defmodule Web.Rides.KomootSync do
   # ride has no komoot_changed_at yet, once as a backfill. Komoot does not
   # reliably bump changed_at when the *only* edit is a tour's privacy, so
   # visibility is compared on every read as well.
-  defp update_tour(ride, tour, komoot_id, auth, tracked?) do
+  defp update_tour(ride, tour, komoot_id, auth, force?) do
     attrs = tour_attrs(tour, komoot_id)
 
     stale? =
@@ -257,26 +280,27 @@ defmodule Web.Rides.KomootSync do
            DateTime.compare(attrs.komoot_changed_at, ride.komoot_changed_at) == :gt)
 
     cond do
-      # A route can be re-cut on Komoot, so an edit re-reads the track — and
-      # first, so that a track that won't come leaves the ride looking stale
-      # and the next pass tries again.
-      stale? or (attrs.visibility != ride.visibility and not tracked?) ->
-        with :updated <- with_track(:updated, ride, auth),
-             {:ok, _updated} <- Rides.update_ride(ride, attrs) do
+      # A change on Komoot is also when its zones may have moved — editing
+      # one touches every tour — so the route's picture and its privacy check
+      # are both out of date. `komoot_changed_at` is recorded last, after the
+      # stranger's view has been read, so a read that fails leaves the ride
+      # looking stale and the next pass tries again.
+      stale? or attrs.visibility != ride.visibility ->
+        with {:ok, updated} <- Rides.update_ride(ride, Map.delete(attrs, :komoot_changed_at)),
+             {:ok, seen, _changed?} <- as_a_stranger(updated, auth),
+             {:ok, _ride} <-
+               Rides.update_ride(seen, %{komoot_changed_at: attrs.komoot_changed_at}) do
           :updated
         else
           _ -> :failed
         end
 
-      # A privacy flip alone leaves the track as it was.
-      attrs.visibility != ride.visibility ->
-        case Rides.update_ride(ride, attrs) do
-          {:ok, _updated} -> :updated
-          {:error, _changeset} -> :failed
+      force? or unseen?(ride) ->
+        case as_a_stranger(ride, auth) do
+          {:ok, _seen, true} -> :updated
+          {:ok, _seen, false} -> :skipped
+          :error -> :failed
         end
-
-      not tracked? ->
-        with_track(:updated, ride, auth)
 
       true ->
         :skipped
@@ -287,19 +311,118 @@ defmodule Web.Rides.KomootSync do
       :failed
   end
 
-  # Not getting a track fails the tour, which leaves the ETag unstored so the
-  # next pass asks again — the same rule a failed import follows. Until then
-  # the ride shows its figures and no map.
-  defp with_track(outcome, ride, auth) do
-    with {:ok, points} <- Client.tour_track(auth, ride.komoot_id),
-         {:ok, _ride} <- Rides.store_track(ride, points) do
-      outcome
+  # A ride that still wants a stranger's read: one never looked at, and a
+  # clear one whose card has no picture yet. An exposed or hidden ride is
+  # always looked at again, so that putting the zone right on Komoot shows on
+  # the next pass that reads anything. (A quiet hour is a 304 and reads
+  # nothing, so this costs a request per such ride only when something else
+  # changed.)
+  defp unseen?(%{stranger_view: "clear"} = ride),
+    do: is_binary(ride.map_image_url) and not Thumbs.exists?(ride)
+
+  defp unseen?(_ride), do: true
+
+  # Reads the tour the way a visitor's browser will be given it, and records
+  # what that view is: the share token it needs, the map Komoot draws for it,
+  # and which of clear, exposed or hidden it is.
+  #
+  # `{:ok, ride, changed?}` when the look succeeded, `changed?` saying
+  # whether it found anything new. `:error` when any step failed, which
+  # fails the tour and so leaves the ETag unstored: the next pass asks again,
+  # the same rule a failed import follows.
+  defp as_a_stranger(ride, auth) do
+    with {:ok, tokened} <- with_share_token(ride, auth),
+         {:ok, tokened, answer} <- read_as_a_stranger(tokened, auth),
+         {:ok, seen} <- Rides.update_ride(tokened, view_attrs(answer)) do
+      if seen.stranger_view == "clear" do
+        unless Thumbs.exists?(seen), do: fetch_thumbnail(seen)
+      else
+        Thumbs.delete(seen)
+      end
+
+      if seen.stranger_view != ride.stranger_view, do: announce(seen)
+
+      changed? =
+        seen.map_image_url != ride.map_image_url or seen.stranger_view != ride.stranger_view or
+          seen.share_token != ride.share_token
+
+      {:ok, seen, changed?}
     else
       error ->
-        Logger.warning("Komoot track failed for tour #{ride.komoot_id}: #{inspect(error)}")
-        :failed
+        Logger.warning(
+          "Komoot tour #{ride.komoot_id} could not be read as a stranger: #{inspect(error)}"
+        )
+
+        :error
     end
   end
+
+  # `{:ok, ride, answer}`, the answer being `:hidden` or the route and map a
+  # stranger is given. A private tour refused with its token on file gets one
+  # more try on a token asked for afresh: a share link switched off and on
+  # again in the app is a new link, and the old one would otherwise fail the
+  # tour for good.
+  defp read_as_a_stranger(ride, auth) do
+    case Client.public_tour(ride.komoot_id, token_for(ride)) do
+      {:error, :access_denied} when ride.visibility == "private" ->
+        with {:ok, token} when token != ride.share_token <-
+               Client.share_token(auth, ride.komoot_id),
+             {:ok, ride} <- Rides.update_ride(ride, %{share_token: token}) do
+          answer(ride, Client.public_tour(ride.komoot_id, token))
+        else
+          _ -> {:error, :access_denied}
+        end
+
+      result ->
+        answer(ride, result)
+    end
+  end
+
+  defp answer(ride, :hidden), do: {:ok, ride, :hidden}
+  defp answer(ride, {:ok, view}), do: {:ok, ride, view}
+  defp answer(_ride, {:error, reason}), do: {:error, reason}
+
+  defp view_attrs(:hidden), do: %{stranger_view: "hidden", map_image_url: nil}
+
+  defp view_attrs(%{points: points, map_image: image}) do
+    %{
+      stranger_view: if(Privacy.exposed?(points), do: "exposed", else: "clear"),
+      map_image_url: map_image_url(image)
+    }
+  end
+
+  # Said once, when a tour's view changes, and without its coordinates, which
+  # are the thing at stake.
+  defp announce(%{stranger_view: "exposed"} = ride) do
+    Logger.warning(
+      "Komoot tour #{ride.komoot_id} is exposed: a stranger's view of it comes within " <>
+        "#{Privacy.tripwire_m()} m of a private place. Its embed and map are withheld."
+    )
+  end
+
+  defp announce(%{stranger_view: "hidden"} = ride) do
+    Logger.info(
+      "Komoot tour #{ride.komoot_id} lies inside a privacy zone: Komoot shows a stranger " <>
+        "nothing of it, so the site shows its figures alone."
+    )
+  end
+
+  defp announce(_ride), do: :ok
+
+  # A private tour can only be embedded, or read by a stranger at all,
+  # through its share link, so one is asked for the first time the sync sees
+  # the tour private without it, and kept from then on (it survives a flip
+  # to public and back).
+  defp with_share_token(%{visibility: "private", share_token: nil} = ride, auth) do
+    with {:ok, token} <- Client.share_token(auth, ride.komoot_id) do
+      Rides.update_ride(ride, %{share_token: token})
+    end
+  end
+
+  defp with_share_token(ride, _auth), do: {:ok, ride}
+
+  defp token_for(%{visibility: "private", share_token: token}), do: token
+  defp token_for(_ride), do: nil
 
   defp tour_attrs(tour, komoot_id) do
     distance = float_or_nil(tour["distance"])
@@ -322,9 +445,56 @@ defmodule Web.Rides.KomootSync do
     }
   end
 
-  # Anything short of public (private, friends-only) is private here. The
-  # ride is listed all the same.
+  # Anything short of public (private, friends-only) is private here: the
+  # ride is still listed, but Komoot's embed would refuse to show it.
   defp tour_visibility(tour), do: if(tour["status"] == "public", do: "public", else: "private")
+
+  # Komoot's map image is a URL template. Sized here for a card.
+  defp map_image_url(src) when is_binary(src) do
+    src =
+      src
+      |> String.replace("{width}", "800")
+      |> String.replace("{height}", "450")
+      |> drop_templated_params()
+
+    if String.starts_with?(src, "https://"), do: src
+  end
+
+  defp map_image_url(_src), do: nil
+
+  # Real map_image srcs template more parameters than width/height (e.g.
+  # &crop={crop}); any parameter left with literal braces makes the URL an
+  # invalid request target, so unresolved ones are dropped.
+  defp drop_templated_params(url) do
+    case String.split(url, "?", parts: 2) do
+      [base, query] ->
+        kept =
+          query
+          |> String.split("&")
+          |> Enum.reject(&String.contains?(&1, ["{", "}"]))
+          |> Enum.join("&")
+
+        if kept == "", do: base, else: base <> "?" <> kept
+
+      [base] ->
+        base
+    end
+  end
+
+  # A picture that will not come does not fail the tour: the card shows the
+  # sport's name instead, and `unseen?/1` has the next pass try again.
+  defp fetch_thumbnail(%{map_image_url: url} = ride) when is_binary(url) and url != "" do
+    case Client.download_image(url) do
+      {:ok, binary, _content_type} ->
+        Thumbs.store(ride, binary)
+
+      {:error, reason} ->
+        Logger.warning("Komoot thumbnail fetch failed for ride #{ride.id}: #{inspect(reason)}")
+        :error
+    end
+  end
+
+  defp fetch_thumbnail(_ride), do: :ok
 
   defp parse_datetime(value) do
     case DateTime.from_iso8601(to_string(value)) do

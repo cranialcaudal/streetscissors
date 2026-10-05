@@ -102,6 +102,24 @@ defmodule WebWeb.AdminLive.DashboardTest do
     assert has_element?(view, "#system", "26% free (252 GB)")
   end
 
+  # The one fault here that means a stranger could see where the rides start.
+  test "an activity that shows a private place is at the top of what needs you", %{conn: conn} do
+    Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
+    on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
+    Web.RidesFixtures.ride_fixture(%{stranger_view: "exposed"})
+
+    {:ok, view, html} = live(admin_conn(conn), "/admin/dashboard")
+
+    assert has_element?(
+             view,
+             "#needs-you a[href='/admin/rides']",
+             "Ride privacy: 1 activity would show a private place to a stranger"
+           )
+
+    assert has_element?(view, "#system", "Ride privacy")
+    refute html =~ "45.12345"
+  end
+
   test "having no address for alerts is itself something to fix", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
 

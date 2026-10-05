@@ -43,6 +43,7 @@ defmodule Web.SystemStatus do
       recordings_mirror(),
       restore_drill(),
       komoot(),
+      ride_privacy(),
       mail_queue()
     ]
   end
@@ -180,6 +181,40 @@ defmodule Web.SystemStatus do
     end
   end
 
+  # The tripwire on what Komoot shows of a tour (Web.Rides.Privacy). Komoot's
+  # privacy zone is what hides home, and it lives on Komoot's side, so this is
+  # the one check here whose failure means a stranger could see where the
+  # activities start. It says how many, never which or where.
+  def ride_privacy do
+    case Web.Rides.Privacy.zones() do
+      :invalid ->
+        check(
+          :ride_privacy,
+          "Ride privacy",
+          :fail,
+          "RIDE_PRIVACY_ZONES can't be read, so every embed and map is withheld"
+        )
+
+      {:ok, []} ->
+        check(:ride_privacy, "Ride privacy", :off, "not checked — no private places on file")
+
+      {:ok, _zones} ->
+        case length(Web.Rides.exposed()) do
+          0 ->
+            check(:ride_privacy, "Ride privacy", :ok, "no activity shows a private place")
+
+          n ->
+            check(
+              :ride_privacy,
+              "Ride privacy",
+              :fail,
+              "#{n} #{plural(n, "activity", "activities")} would show a private place to a " <>
+                "stranger — check the privacy zone in Komoot"
+            )
+        end
+    end
+  end
+
   def mail_queue do
     case failed_mail_count() do
       0 -> check(:mail, "Mail queue", :ok, "no failed sends")
@@ -213,6 +248,9 @@ defmodule Web.SystemStatus do
 
   defp plural(1, word), do: word
   defp plural(_, word), do: word <> "s"
+
+  defp plural(1, one, _many), do: one
+  defp plural(_, _one, many), do: many
 
   # File.stat/1 reports mtime as an erlang datetime in UTC by default.
   defp mtime_to_datetime({{_, _, _}, {_, _, _}} = erl),

@@ -239,20 +239,13 @@
   text-decoration: none;
 }
 
-.blog-embed-ride-route {
-  flex: 0 0 42%;
+.blog-embed-ride img {
   max-width: 42%;
-  aspect-ratio: 16 / 9;
+  height: auto;
+  object-fit: cover;
   border: 1px solid var(--hairline);
-  background: var(--paper-sunk);
-}
-
-.blog-embed-ride-route path {
-  fill: none;
-  stroke: var(--accent-ink, var(--ink));
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  margin: 0;
+  display: block;
 }
 
 .blog-embed-ride-body {
@@ -279,7 +272,7 @@
   .blog-embed-ride a {
     flex-direction: column;
   }
-  .blog-embed-ride-route {
+  .blog-embed-ride img {
     max-width: 100%;
   }
 }

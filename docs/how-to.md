@@ -98,7 +98,8 @@ points at the house. The machine makes those checks itself every fifteen
 minutes, and writes to its owner when one of them fails.
 The pages are grouped by the kind of work: **Write** (the blog, the captain's
 logs, the fitness wiki), **Mail** (the inbox, the guestbook, the newsletter) and
-**Sync** (the Komoot activities), plus a page of settings. The admin writes the
+**Sync** (the Komoot activities, and the heart rate that goes with them), plus a
+page of settings. The admin writes the
 same files you would write by hand, so nothing it does is locked inside it.
 
 ---
@@ -498,9 +499,62 @@ asks for that is not there, and any module that no day asks for.
 `content/templates/` holds a starting file for each kind, for Obsidian to copy
 from. Nothing on the site reads that folder.
 
+### Rides, runs and the heart rate
+
 Bike rides arrive on their own. Once an hour the site asks Komoot for anything
 new and copies it across, and a tour deleted there leaves the site on the next
 pass. If Komoot is not set up, nothing happens and nothing breaks.
+
+**Komoot draws each activity.** The page shows Komoot's own embed: its map, its
+figures, its elevation profile and any photographs taken along the way. A
+private tour is shown through a share link, which the site asks Komoot to make
+the first time it sees the tour.
+
+**Home is hidden by Komoot, and the site checks.** In the Komoot app there is a
+*privacy zone* around the house, and Komoot removes everything inside it from
+what anybody else is shown. That is the protection. But it lives on somebody
+else's computer, so the site keeps its own note of where home is
+(`RIDE_PRIVACY_ZONES`, in `.env`, never in the code) and, each time it reads a
+tour, reads it the way a stranger would and asks one question: does any of this
+come within a hundred metres of home? What it finds is one of three things.
+
+| What a stranger is given | What the site shows |
+|---|---|
+| A route that stays away from home | Komoot's embed, map and link |
+| A route that still comes near home | The figures only, and a warning to you |
+| Nothing: the whole tour is inside the zone | The figures only |
+
+The middle row happens more than you would think, for a reason worth knowing.
+**A zone trims where a tour starts and where it ends, and nothing else.** A ride
+that comes home, stops for lunch and goes out again is handed to a stranger
+with both ends cut and the middle whole, front door included. The site holds
+those back. To show one, split or trim the tour in the Komoot app, then press
+**Sync now** on the admin's Activities page, which reads every tour again.
+
+**Heart rate and energy come from the watch, by way of the phone.** Komoot
+keeps neither. The watch writes them to Apple Health, and getting them to the
+site is a job done by hand every so often:
+
+1. On the phone, open **Health**, tap your picture, and choose **Export All
+   Health Data**. It makes one file, `export.zip`.
+2. Send that file to this computer (AirDrop, a cable, anything).
+3. On the admin's **Activities** page, drop it on *Heart & energy*.
+
+The site reads the file in the background and says what it found. It keeps
+only the workouts that match an activity, with the heart rate during them. The
+rest of the file is never read (not sleep, not weight, not where you were) and
+the file itself is deleted as soon as it has been read. Do it again whenever
+you want the newer rides filled in; a workout already on file is simply
+updated.
+
+There is also an automatic way: an app on the phone can post each workout as it
+is recorded. It is switched off until you make a token for it on the same page,
+and the app that does it charges money, which is why the file is the default.
+
+What the page then shows, above the map: average, peak and lowest heart rate,
+active energy, the time spent in each of five effort zones, and the heart rate
+drawn across the whole outing. The zones are shares of the highest heart rate
+the watch has ever recorded for you, since the site is never told your age.
 
 ### The newsletter
 
@@ -558,6 +612,7 @@ This is the single most useful thing to know about the codebase.
 | This manual | A file, `docs/how-to.md` | Saving a file |
 | Captain's logs | Database + media files | The admin's recording booth |
 | Bike rides | Database | The hourly Komoot sync |
+| Heart rate and energy | Database | An Apple Health export, dropped on the admin |
 | Guestbook, subscribers, visit counts | Database | Visitors |
 
 Everything in the top group is read from disk at the moment of the request.

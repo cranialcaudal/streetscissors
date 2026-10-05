@@ -116,23 +116,24 @@ defmodule Web.Komoot.Client do
   end
 
   @doc """
-  The GPS track of a tour as `[{lat, lng, alt_m, t_ms}]`, in recorded order.
-  Altitude and time are nil where Komoot sent none; a point without a
-  position is dropped.
-  """
-  @spec tour_track(auth, String.t()) ::
-          {:ok, [{float, float, number | nil, number | nil}]} | {:error, term}
-  def tour_track(auth, tour_id) do
-    case Req.get(req(), url: "/v007/tours/#{tour_id}?_embedded=coordinates", auth: basic(auth)) do
-      {:ok, %{status: 200, body: %{"_embedded" => %{"coordinates" => %{"items" => items}}}}}
-      when is_list(items) ->
-        {:ok,
-         for %{"lat" => lat, "lng" => lng} = item <- items, is_number(lat) and is_number(lng) do
-           {lat / 1, lng / 1, number_or_nil(item["alt"]), number_or_nil(item["t"])}
-         end}
+  The share token of a tour, creating one when the tour has none — what
+  Komoot's own Share dialog does, and what lets its embed show a tour that
+  isn't public.
 
-      {:ok, %{status: 200}} ->
-        {:error, :no_coordinates}
+  The `format=v2` read answers `204` when no token exists yet (the plain one
+  answers `404`), and the create needs a HAL `Accept` header or it is refused
+  with `406`. Both answer `{"token": …}`.
+  """
+  @spec share_token(auth, String.t()) :: {:ok, String.t()} | {:error, term}
+  def share_token(auth, tour_id) do
+    url = "/v007/tours/#{tour_id}/share_token?format=v2"
+
+    case Req.get(req(), url: url, auth: basic(auth)) do
+      {:ok, %{status: 200, body: %{"token" => token}}} when is_binary(token) and token != "" ->
+        {:ok, token}
+
+      {:ok, %{status: 204}} ->
+        create_share_token(auth, url)
 
       {:ok, %{status: status}} ->
         {:error, {:http, status}}
@@ -142,8 +143,107 @@ defmodule Web.Komoot.Client do
     end
   end
 
-  defp number_or_nil(value) when is_number(value), do: value
-  defp number_or_nil(_value), do: nil
+  defp create_share_token(auth, url) do
+    case Req.post(req(),
+           url: url,
+           auth: basic(auth),
+           json: %{},
+           headers: [accept: "application/hal+json"]
+         ) do
+      {:ok, %{status: status, body: %{"token" => token}}}
+      when status in [200, 201] and is_binary(token) and token != "" ->
+        {:ok, token}
+
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  A tour **as a stranger is given it**: asked for with no credentials at all,
+  and with the tour's share token when it is private.
+
+  This is the read everything a visitor sees is taken from. Komoot applies
+  its privacy zones to what it hands anyone but the owner — the points near
+  home are simply not in the answer, and the static map is drawn without
+  them — so nothing the owner's login would reveal can reach the page by
+  this path. The same answer is what `Web.Rides.Privacy` checks.
+
+  A zone trims where a tour starts and ends. It does not trim a pass through
+  it in the middle of a tour — those points are in the answer — and a tour
+  that never leaves the zone is not answered at all.
+
+  Returns `{:ok, %{points: [{lat, lng}], map_image: src | nil}}`, where
+  `map_image` is Komoot's URL template for the tour's static map; `:hidden`
+  when Komoot refuses a stranger the whole tour because of a privacy zone;
+  `{:error, :access_denied}` for any other refusal (no token, or a dead one).
+  """
+  @spec public_tour(String.t(), String.t() | nil) ::
+          {:ok, %{points: [{float, float}], map_image: String.t() | nil}}
+          | :hidden
+          | {:error, term}
+  def public_tour(tour_id, share_token \\ nil) do
+    params =
+      [_embedded: "coordinates"] ++ if(share_token, do: [share_token: share_token], else: [])
+
+    case Req.get(req(), url: "/v007/tours/#{tour_id}", params: params) do
+      {:ok, %{status: 200, body: %{} = body}} ->
+        points =
+          for %{"lat" => lat, "lng" => lng} <-
+                get_in(body, ["_embedded", "coordinates", "items"]) || [],
+              is_number(lat) and is_number(lng),
+              do: {lat / 1, lng / 1}
+
+        image = get_in(body, ["map_image", "src"]) || get_in(body, ["map_image_preview", "src"])
+        {:ok, %{points: points, map_image: if(is_binary(image), do: image)}}
+
+      # Komoot's own word for it: the tour lies inside a privacy zone, and a
+      # stranger is refused the whole of it, share token or not.
+      {:ok, %{status: 403, body: %{"error" => "AccessDeniedPrivacyZone"}}} ->
+        :hidden
+
+      # A tour that isn't public, asked for with no token or a dead one.
+      {:ok, %{status: 403}} ->
+        {:error, :access_denied}
+
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Downloads an image (static map thumbnail) from an absolute URL. Returns
+  `{:ok, binary, content_type}` for a 200 image response.
+  """
+  @spec download_image(String.t()) :: {:ok, binary, String.t()} | {:error, term}
+  def download_image(url) do
+    case Req.get(req(), url: url, decode_body: false) do
+      {:ok, %{status: 200, body: body, headers: headers}} ->
+        content_type =
+          case headers["content-type"] do
+            [type | _] -> type
+            _ -> "application/octet-stream"
+          end
+
+        if String.starts_with?(content_type, "image/") do
+          {:ok, body, content_type}
+        else
+          {:error, {:not_an_image, content_type}}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   defp basic(%{user_id: user_id, token: token}), do: {:basic, "#{user_id}:#{token}"}
 

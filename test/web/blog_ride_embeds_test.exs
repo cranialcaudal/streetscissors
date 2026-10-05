@@ -4,6 +4,12 @@ defmodule Web.Blog.RideEmbedsTest do
   import Web.RidesFixtures
 
   alias Web.Blog.Embeds
+  alias Web.Rides.Thumbs
+
+  setup do
+    File.rm_rf!(Thumbs.dir())
+    :ok
+  end
 
   test "expands a ride embed into a card" do
     ride = ride_fixture(%{name: "Evening Loop"})
@@ -21,12 +27,25 @@ defmodule Web.Blog.RideEmbedsTest do
     assert html =~ "&lt;script&gt;"
   end
 
-  test "includes the route's outline once the ride has a track" do
-    ride = ride_fixture()
-    {:ok, ride} = Web.Rides.store_track(ride, [{45.0, 7.0, 300.0, 0}, {45.001, 7.001, 305.0, 9}])
+  test "includes Komoot's picture of the route when one is cached" do
+    ride = ride_fixture(%{map_image_url: "https://cdn.example/maps/1.jpg"})
+    :ok = Thumbs.store(ride, "fake-jpeg")
     html = Embeds.transform("![[ride:#{ride.id}]]")
-    assert html =~ ~s(<svg class="blog-embed-ride-route")
-    assert html =~ ~s(<path d="#{ride.route_path}")
+
+    assert html =~
+             ~s(src="/fitness/rides/#{ride.id}/thumb?v=#{Thumbs.fingerprint(ride.map_image_url)}")
+  end
+
+  # The tripwire outranks the cache: an exposed ride's picture is never shown.
+  test "an exposed ride's card has no picture, even with one on disk" do
+    ride =
+      ride_fixture(%{map_image_url: "https://cdn.example/maps/1.jpg", stranger_view: "exposed"})
+
+    :ok = Thumbs.store(ride, "fake-jpeg")
+    html = Embeds.transform("![[ride:#{ride.id}]]")
+
+    assert html =~ ~s(href="/fitness/rides/#{ride.id}")
+    refute html =~ "<img"
   end
 
   test "renders captions" do
