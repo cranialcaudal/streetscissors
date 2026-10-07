@@ -1,0 +1,966 @@
+/* The prayer pages (/Christ and everything under it).
+ *
+ * The brown scapular: two squares of brown wool, edged and lettered in red
+ * thread. `.faith` re-inks the site's own tokens the way `.steel` and
+ * `.darkroom` do, so everything below reads tokens and nothing else. The
+ * ground is the wool, the type is undyed cream, and red is the thread:
+ * `--stitch` for the sewn lines (dashed, as a running stitch is), and
+ * `--accent-ink`, the same red lifted until small text passes on brown, for
+ * whatever a printed breviary sets in red (citations, rubrics, "V." and "R.")
+ * and for anything that can be pressed. Under `.faith` `--ink` is *light*.
+ *
+ * The five liturgical colours are the Church's and not the site's; they are
+ * lifted here to show on the wool.
+ */
+
+.faith {
+  --paper: #2c1d14;
+  --paper-raised: #3a271b;
+  --paper-sunk: #2f2016;
+  --paper-deep: #22160e;
+
+  --ink: #f3e9d6;
+  --ink-2: #d9cab0;
+  --ink-3: #b3a086;
+  --ink-4: #8a7860;
+
+  --rule: rgba(243, 233, 214, 0.18);
+  --rule-strong: rgba(243, 233, 214, 0.42);
+  --hairline: var(--rule);
+
+  --stitch: #d8322a;
+  --accent-ink: #f4705e;
+  --accent-color: var(--accent-ink);
+  --theme-color: var(--accent-ink);
+
+  --liturgy-green: #6fa868;
+  --liturgy-violet: #a783c9;
+  --liturgy-white: #e9dcae;
+  --liturgy-red: #e0473a;
+  --liturgy-rose: #e39bb0;
+  --liturgy: var(--rule-strong);
+  --faith-measure: 38rem;
+
+  color: var(--ink);
+}
+
+/* Paint the whole viewport, as `.steel` does, with the weave of the cloth. */
+.faith::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    repeating-linear-gradient(45deg, rgba(243, 233, 214, 0.028) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 4px),
+    var(--paper);
+}
+
+/* The square of wool, sewn round its edge. */
+.faith-panel {
+  padding: 2.75rem 3rem 3.5rem;
+  min-height: 80vh;
+  border-color: var(--paper-deep);
+  outline: 2px dashed var(--stitch);
+  outline-offset: -11px;
+}
+
+.faith-panel:hover {
+  border-color: var(--paper-deep);
+}
+
+.faith-panel > * {
+  max-width: var(--faith-measure);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── The doors between the pages ─────────────────────────────────────────── */
+
+.faith-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px dashed var(--stitch);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.faith-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.faith-nav-link:hover,
+.faith-nav-link:focus-visible {
+  text-decoration: underline dashed var(--stitch);
+  text-underline-offset: 0.3em;
+}
+
+.faith-nav-link[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── The day ─────────────────────────────────────────────────────────────── */
+
+.faith-day {
+  margin-bottom: 2rem;
+  padding-left: 1rem;
+  border-left: 4px solid var(--liturgy);
+}
+
+.faith-day--green { --liturgy: var(--liturgy-green); }
+.faith-day--violet { --liturgy: var(--liturgy-violet); }
+.faith-day--white { --liturgy: var(--liturgy-white); }
+.faith-day--red { --liturgy: var(--liturgy-red); }
+.faith-day--rose { --liturgy: var(--liturgy-rose); }
+
+.faith-eyebrow,
+.faith-label {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.faith-eyebrow a {
+  color: var(--accent-ink);
+}
+
+.faith-day-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(1.7rem, 4.5vw, 2.5rem);
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.faith-day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.9rem;
+  margin: 0.8rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+.faith-swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--liturgy);
+  border: 1px solid var(--rule-strong);
+}
+
+.faith-day-under {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.faith-note {
+  margin: 0.8rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.faith-note a,
+.faith-colophon a,
+.faith-day-under a {
+  color: var(--accent-ink);
+}
+
+/* ── What the day asks, and whom it keeps ────────────────────────────────── */
+
+.faith-discipline,
+.faith-kept {
+  margin-top: 0;
+  margin-bottom: 1.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.faith-discipline p,
+.faith-kept li {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.faith-discipline .faith-label,
+.faith-kept .faith-label {
+  display: block;
+  margin: 0;
+}
+
+.faith-discipline .is-fast .faith-label {
+  color: var(--accent-ink);
+}
+
+.faith-kept a {
+  color: var(--accent-ink);
+}
+
+.faith-kept + .faith-note {
+  margin: -0.9rem auto 1.4rem;
+}
+
+/* ── The saints of the day ───────────────────────────────────────────────── */
+
+.faith-section-title {
+  margin: 0 0 0.8rem;
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.faith-saints {
+  margin: 2.2rem auto;
+}
+
+.faith-saint {
+  display: grid;
+  gap: 1rem 1.4rem;
+  padding: 1.2rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.faith-saint:first-of-type {
+  border-top: 1px solid var(--rule-strong);
+}
+
+.faith-saint--pictured {
+  grid-template-columns: minmax(7rem, 11rem) 1fr;
+  align-items: start;
+}
+
+.faith-saint-picture {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-sunk);
+}
+
+.faith-saint-name {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.faith-saint-name a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.faith-saint-name a:hover,
+.faith-saint-name a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.faith-saint-who {
+  margin: 0.9rem 0 0.2rem;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.faith-saint-life p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.faith-saint .faith-credit,
+.faith-credit {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.faith-credit a {
+  color: var(--accent-ink);
+}
+
+.faith-eyebrow-flag {
+  display: inline-block;
+  white-space: nowrap;
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.faith-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--accent-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.faith-button:hover,
+.faith-button:focus-visible {
+  background: var(--paper-sunk);
+  color: var(--accent-ink);
+}
+
+.faith-button--main,
+.faith-button--main:hover,
+.faith-button--main:focus-visible {
+  background: var(--accent-ink);
+  color: var(--paper-raised);
+}
+
+.faith-button[disabled] {
+  border-color: var(--rule);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+/* ── The hours of the day, each opening in place ─────────────────────────── */
+
+.faith-hours {
+  margin-bottom: 3rem;
+}
+
+.faith-hours-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px dashed var(--stitch);
+}
+
+.faith-hours-head .faith-section-title {
+  margin: 0;
+}
+
+.faith-hour {
+  border-bottom: 1px solid var(--rule);
+}
+
+.faith-hour > summary {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 1.5rem;
+  gap: 0.1rem 1rem;
+  padding: 0.85rem 0.6rem;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faith-hour > summary::-webkit-details-marker {
+  display: none;
+}
+
+.faith-hour > summary::after {
+  content: "+";
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  font-family: var(--font-data);
+  font-size: 1.3rem;
+  color: var(--accent-ink);
+}
+
+.faith-hour[open] > summary::after {
+  content: "\2212";
+}
+
+.faith-hour-when {
+  grid-row: span 2;
+  padding-top: 0.3rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.faith-hour-name {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: var(--accent-ink);
+}
+
+.faith-hour-what {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.faith-hour > summary:hover,
+.faith-hour > summary:focus-visible {
+  background: var(--paper-sunk);
+}
+
+.faith-hour > summary:hover .faith-hour-name {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.faith-hour[open] > summary {
+  background: var(--paper-sunk);
+}
+
+/* The hour it is, by the reader's own clock (app.js). */
+.faith-hour.is-now > summary {
+  box-shadow: inset 4px 0 0 var(--stitch);
+}
+
+.faith-hour.is-now .faith-hour-when {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.faith-hour.is-now .faith-hour-when::after {
+  content: " \00b7 now";
+}
+
+.faith-hour-body {
+  padding: 1.6rem 0.6rem 2.2rem;
+}
+
+.faith-own-page {
+  margin: 1.2rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+}
+
+.faith-panel > .faith-own-page {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.faith-own-page a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+}
+
+/* ── An hour, a Mass, a chapter ──────────────────────────────────────────── */
+
+.faith-office {
+  font-family: var(--font-serif);
+  color: var(--ink);
+}
+
+.faith-office > * + * {
+  margin-top: 1.6rem;
+}
+
+.faith-passage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.8rem;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.faith-passage-label {
+  color: var(--accent-ink);
+}
+
+.faith-passage-cite {
+  color: var(--ink-2);
+}
+
+.faith-verses,
+.faith-prayer p,
+.faith-versicles {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.faith-prayer p + p {
+  margin-top: 0.9rem;
+}
+
+.faith-verses--lines .faith-verse {
+  display: block;
+  padding-left: 1.6rem;
+  text-indent: -1.6rem;
+}
+
+.faith-verse-n {
+  margin-right: 0.3em;
+  font-family: var(--font-data);
+  font-size: 0.62em;
+  color: var(--accent-ink);
+  user-select: none;
+}
+
+/* A verse arrived at from a citation's link. */
+.faith-verse:target {
+  background: var(--paper-sunk);
+  box-shadow: 0 0 0 0.2em var(--paper-sunk);
+}
+
+.faith-passage-more {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+}
+
+.faith-passage-more a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+}
+
+.faith-versicle {
+  display: block;
+}
+
+.faith-versicle-who {
+  margin-right: 0.4em;
+  font-family: var(--font-ui);
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.faith-rubric {
+  margin-bottom: 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--accent-ink);
+}
+
+.faith-doxology {
+  margin-top: 0.7rem !important;
+  margin-bottom: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.faith-mass-name,
+.faith-mystery {
+  margin-bottom: 0;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--ink);
+}
+
+.faith-mystery-n {
+  margin-right: 0.3em;
+  font-family: var(--font-data);
+  font-size: 0.7em;
+  color: var(--accent-ink);
+}
+
+/* ── Turning the page ────────────────────────────────────────────────────── */
+
+.faith-turn,
+.faith-sets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.3rem 1.2rem;
+  margin-top: 2.5rem;
+  padding-top: 0.6rem;
+  border-top: 2px dashed var(--stitch);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+
+.faith-sets {
+  justify-content: flex-start;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.faith-turn a,
+.faith-sets a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+}
+
+.faith-sets a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.faith-colophon {
+  margin-top: 2rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* ── The Bible's shelves ─────────────────────────────────────────────────── */
+
+.faith-books,
+.faith-chapters {
+  display: grid;
+  gap: 0 1.2rem;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  margin-top: 0;
+  margin-bottom: 2.5rem;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+}
+
+.faith-chapters {
+  grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr));
+  gap: 0.3rem;
+  font-family: var(--font-data);
+  font-size: 0.95rem;
+}
+
+.faith-books a,
+.faith-chapters a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.faith-chapters a {
+  justify-content: center;
+  border: 1px solid var(--rule);
+}
+
+.faith-books a:hover,
+.faith-books a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.faith-chapters a:hover,
+.faith-chapters a:focus-visible {
+  background: var(--paper-sunk);
+}
+
+/* ── The Rosary, bead by bead ────────────────────────────────────────────── */
+
+.faith-beads {
+  margin-bottom: 2rem;
+  padding: 1.2rem 1.2rem 1.4rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-sunk);
+}
+
+.faith-beads-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1rem;
+}
+
+.faith-bead {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+}
+
+.faith-bead--large,
+.faith-bead--crucifix,
+.faith-bead--medal {
+  width: 14px;
+  height: 14px;
+}
+
+.faith-bead--crucifix,
+.faith-bead--medal {
+  border-radius: 0;
+}
+
+.faith-bead--mystery {
+  width: 3px;
+  height: 16px;
+  border-radius: 0;
+  border: 0;
+  background: var(--rule-strong);
+}
+
+.faith-bead--chain {
+  width: 5px;
+  height: 1px;
+  border: 0;
+  border-radius: 0;
+  background: var(--rule-strong);
+}
+
+.faith-bead.is-done {
+  background: var(--ink-3);
+  border-color: var(--ink-3);
+}
+
+.faith-bead.is-current {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  box-shadow: 0 0 0 3px var(--paper-deep);
+}
+
+.faith-beads-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 12rem;
+}
+
+.faith-beads-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.faith-beads-text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.faith-beads-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.4rem;
+}
+
+.faith-beads-controls .faith-button--main {
+  flex: 1;
+}
+
+/* ── A month ─────────────────────────────────────────────────────────────── */
+
+.faith-month {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.faith-month-day > a {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr;
+  gap: 0.8rem;
+  padding: 0.6rem 0.5rem 0.6rem 0.7rem;
+  min-height: 44px;
+  border-bottom: 1px solid var(--rule);
+  border-left: 4px solid var(--liturgy);
+  text-decoration: none;
+}
+
+.faith-month-day > a:hover,
+.faith-month-day > a:focus-visible {
+  background: var(--paper-sunk);
+}
+
+.faith-month-day.is-today > a {
+  background: var(--paper-deep);
+}
+
+.faith-month-date {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.faith-month-n {
+  display: block;
+  font-family: var(--font-data);
+  font-size: 1.3rem;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.faith-month-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.12rem;
+  line-height: 1.35;
+  color: var(--accent-ink);
+}
+
+.faith-month-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.faith-month-meta .faith-swatch {
+  display: inline-block;
+  margin-right: 0.3rem;
+  vertical-align: -0.05rem;
+}
+
+/* ── Go to a passage ─────────────────────────────────────────────────────── */
+
+.faith-go {
+  margin-bottom: 2.2rem;
+}
+
+.faith-go-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.faith-go input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: var(--paper-sunk);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .faith-panel {
+    padding: 1.6rem 1.25rem 2.5rem;
+    outline-offset: -7px;
+  }
+
+  .faith-hour > summary {
+    grid-template-columns: 1fr 1.5rem;
+  }
+
+  .faith-hour > summary > span {
+    grid-column: 1;
+  }
+
+  .faith-hour > summary::after {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+
+  .faith-hour-when {
+    grid-row: auto;
+    padding-top: 0;
+  }
+
+  .faith-saint--pictured {
+    grid-template-columns: 6rem 1fr;
+  }
+
+  .faith-month-day > a {
+    grid-template-columns: 3.2rem 1fr;
+  }
+
+  .faith-verses,
+  .faith-prayer p,
+  .faith-versicles {
+    font-size: 1.1rem;
+  }
+}
+
+@media print {
+  .faith {
+    --paper: #fff;
+    --paper-raised: #fff;
+    --paper-sunk: #fff;
+    --paper-deep: #fff;
+    --ink: #000;
+    --ink-2: #222;
+    --ink-3: #444;
+    --ink-4: #666;
+    --rule: rgba(0, 0, 0, 0.25);
+    --rule-strong: rgba(0, 0, 0, 0.5);
+    --accent-ink: #9e2f26;
+  }
+
+  .faith::before {
+    display: none;
+  }
+
+  .faith-panel {
+    outline: 0;
+  }
+
+  .faith-nav,
+  .faith-button,
+  .faith-beads,
+  .faith-go,
+  .faith-turn,
+  .faith-sets,
+  .faith-passage-more,
+  .pc-easter-egg {
+    display: none;
+  }
+}

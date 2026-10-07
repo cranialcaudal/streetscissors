@@ -1,0 +1,52 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:calendar} />
+
+    <header class="faith-day">
+      <p class="faith-eyebrow">Calendar of the Discalced Carmelites</p>
+      <h1 class="faith-day-title">{month_name(@first.month)} {@first.year}</h1>
+    </header>
+
+    <ol class="faith-month">
+      <li
+        :for={%{day: day, fast: fast} <- @days}
+        class={["faith-month-day", day.date == @today && "is-today"]}
+      >
+        <a href={day_path(day.date, @today)} class={"faith-day--#{day.colour}"}>
+          <span class="faith-month-date">
+            <span class="faith-month-n">{day.date.day}</span>
+            {String.slice(Web.Liturgy.Calendar.weekday_name(day.date), 0, 3)}
+          </span>
+          <span class="faith-month-what">
+            <span class="faith-month-title">{day.celebration.title}</span>
+            <span class="faith-month-meta">
+              <span class="faith-swatch" aria-hidden="true"></span>
+              {rank_name(day.celebration.rank)}
+              <span :if={fast.carmelite.fast}>· fast of the Rule</span>
+              <span :if={fast.church}>· {String.downcase(fast.church.title)}</span>
+              <span :if={day.optional != []}>
+                · also {Enum.map_join(day.optional, "; ", & &1.title)}
+              </span>
+            </span>
+          </span>
+        </a>
+      </li>
+    </ol>
+
+    <nav class="faith-turn" aria-label="Other months">
+      <a href={~p"/Christ/calendar?month=#{month_param(@previous)}"} rel="prev">
+        ‹ {month_name(@previous.month)} {@previous.year}
+      </a>
+      <a :if={@first != Date.beginning_of_month(@today)} href={~p"/Christ/calendar"}>
+        This month
+      </a>
+      <a href={~p"/Christ/calendar?month=#{month_param(@next)}"} rel="next">
+        {month_name(@next.month)} {@next.year} ›
+      </a>
+    </nav>
+
+    <p class="faith-colophon">
+      The General Roman Calendar with the proper calendars of the United States and of the Discalced Carmelites (as revised in 2023). Movable days follow the practice of the dioceses of the United States.
+    </p>
+  </article>
+</div>

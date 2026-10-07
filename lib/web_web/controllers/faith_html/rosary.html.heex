@@ -1,0 +1,65 @@
+<%!--
+The Rosary twice over: written out in full, and bead by bead. The stepper is
+built by app.js from the list of steps below, so with no JavaScript the page
+is simply the full text.
+--%>
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:rosary} />
+
+    <header class="faith-day">
+      <p class="faith-eyebrow">The Rosary</p>
+      <h1 class="faith-day-title">{@set.title}</h1>
+      <p class="faith-day-under">
+        <%= if @set.key == @today.key do %>
+          The mysteries customarily prayed today.
+        <% else %>
+          Today's are <a href={~p"/Christ/rosary"}>{@today.title}</a>.
+        <% end %>
+      </p>
+    </header>
+
+    <nav class="faith-sets" aria-label="Mysteries">
+      <a
+        :for={set <- @sets}
+        href={~p"/Christ/rosary?set=#{set.key}"}
+        aria-current={set.key == @set.key && "page"}
+      >
+        {String.replace(set.title, ~r/^The | Mysteries$/, "")}
+      </a>
+    </nav>
+
+    <section class="faith-beads" data-rosary hidden aria-label="The Rosary, bead by bead">
+      <div class="faith-beads-track" data-rosary-track aria-hidden="true"></div>
+      <p class="faith-label" data-rosary-count aria-live="polite"></p>
+      <ol class="faith-beads-steps">
+        <li :for={step <- @steps} data-bead={step.bead} data-title={step.title} hidden>
+          <h2 class="faith-beads-title">{step.title}</h2>
+          <%= if step.bead == :mystery do %>
+            <.passage passage={step.mystery.passage} citation={step.mystery.citation} />
+            <p :if={step.mystery.note} class="faith-note">{step.mystery.note}</p>
+          <% else %>
+            <p class="faith-beads-text">{step.text}</p>
+          <% end %>
+        </li>
+      </ol>
+      <div class="faith-beads-controls">
+        <button type="button" class="faith-button" data-rosary-back>‹ Back</button>
+        <button type="button" class="faith-button faith-button--main" data-rosary-next>
+          Next ›
+        </button>
+      </div>
+      <p class="faith-note">The arrow keys and the space bar also move from bead to bead.</p>
+    </section>
+
+    <p class="faith-own-page">
+      <button type="button" class="faith-button" data-rosary-mode hidden>
+        Pray bead by bead
+      </button>
+    </p>
+
+    <div data-rosary-text>
+      <.rosary_text set={@set} />
+    </div>
+  </article>
+</div>

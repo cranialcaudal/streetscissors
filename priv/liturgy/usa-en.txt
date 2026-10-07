@@ -1,0 +1,46 @@
+---
+title: Proper Calendar for the Dioceses of the United States of America
+locale: en
+country: us
+extends: universal-en.txt
+# Same format as universal-en.txt (calendarium-romanum). An entry here replaces
+# the general calendar's entry with the same identifier, wherever that one is
+# dated, which is how a saint is moved to another day.
+---
+
+= 1
+4 m seton : Saint Elizabeth Ann Seton, religious
+5 m neumann : Saint John Neumann, bishop
+6 bessette : Saint André Bessette, religious
+23 R vincent_deacon : Saint Vincent, deacon and martyr
+23 marianne_cope : Saint Marianne Cope, virgin
+
+= 3
+3 katharine_drexel : Saint Katharine Drexel, virgin
+
+= 5
+10 damien : Saint Damien de Veuster, priest
+15 isidore_farmer : Saint Isidore
+
+= 7
+1 junipero_serra : Saint Junípero Serra, priest
+5 elizabeth_of_portugal : Saint Elizabeth of Portugal
+14 m kateri : Saint Kateri Tekakwitha, virgin
+18 camillus_de_lellis : Saint Camillus de Lellis, priest
+
+= 9
+9 m claver : Saint Peter Claver, priest
+
+= 10
+5 seelos : Blessed Francis Xavier Seelos, priest
+6 durocher : Blessed Marie Rose Durocher, virgin
+19 m R brebeuf_jogues : Saints John de Brébeuf and Isaac Jogues, priests, and companions, martyrs
+20 paul_of_cross : Saint Paul of the Cross, priest
+
+= 11
+13 m cabrini : Saint Frances Xavier Cabrini, virgin
+18 duchesne : Saint Rose Philippine Duchesne, virgin
+23 R miguel_pro : Blessed Miguel Agustín Pro, priest and martyr
+
+= 12
+12 f bvm_guadalupe : Our Lady of Guadalupe

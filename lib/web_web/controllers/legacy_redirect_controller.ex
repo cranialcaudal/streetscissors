@@ -2,8 +2,9 @@ defmodule WebWeb.LegacyRedirectController do
   @moduledoc """
   Permanent redirects for retired URL spaces: the manuscripts section
   (merged into /blog), the old fitness blog / regimen paths (merged into the
-  /fitness landing), and `/audio` (the captain's logs became their own
-  section at /logs when spoken work was split out of the blog).
+  /fitness landing), `/audio` (the captain's logs became their own
+  section at /logs when spoken work was split out of the blog), and `/faith`
+  (the prayer pages, renamed /Christ).
   """
 
   use WebWeb, :controller
@@ -30,6 +31,18 @@ defmodule WebWeb.LegacyRedirectController do
   def fitness_regimen(conn, _params), do: moved(conn, ~p"/fitness")
 
   def fitness_slug(conn, _params), do: moved(conn, ~p"/fitness")
+
+  # The prayer pages moved from /faith to /Christ before they were published;
+  # /christ is the same address as a hand types it.
+  def christ(conn, %{"rest" => rest}) do
+    path =
+      Enum.join(
+        ["/Christ" | Enum.map(rest, &URI.encode(&1, fn c -> URI.char_unreserved?(c) end))],
+        "/"
+      )
+
+    moved(conn, if(conn.query_string == "", do: path, else: path <> "?" <> conn.query_string))
+  end
 
   defp moved(conn, to) do
     conn

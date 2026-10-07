@@ -1,0 +1,21 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:bible} />
+
+    <header class="faith-day">
+      <p class="faith-eyebrow"><a href={~p"/Christ/bible"}>The Bible</a></p>
+      <h1 class="faith-day-title">{@book.name}</h1>
+    </header>
+
+    <ul class="faith-chapters">
+      <li :for={number <- 1..@book.chapters}>
+        <a
+          href={~p"/Christ/bible/#{@book.slug}/#{number}"}
+          aria-label={chapter_title(@book, number)}
+        >
+          {number}
+        </a>
+      </li>
+    </ul>
+  </article>
+</div>

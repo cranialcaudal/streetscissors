@@ -1,0 +1,17 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:angelus} />
+
+    <header class={"faith-day faith-day--#{@day.colour}"}>
+      <p class="faith-eyebrow">Midday · {long_date(@day.date)}</p>
+      <h1 class="faith-day-title">{@midday.title}</h1>
+    </header>
+
+    <.midday midday={@midday} season={@day.season} />
+
+    <p class="faith-colophon">
+      The Angelus is traditionally said at six in the morning, at noon and at six in the evening.
+      <a href={~p"/Christ/readings"}>The readings of the Mass</a>
+    </p>
+  </article>
+</div>

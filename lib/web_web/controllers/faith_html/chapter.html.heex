@@ -1,0 +1,34 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:bible} />
+
+    <header class="faith-day">
+      <p class="faith-eyebrow">
+        <a href={~p"/Christ/bible"}>The Bible</a>
+        · <a href={~p"/Christ/bible/#{@book.slug}"}>{@book.name}</a>
+      </p>
+      <h1 class="faith-day-title">{@title}</h1>
+    </header>
+
+    <p class={["faith-verses", "faith-chapter", @book.slug == "psalms" && "faith-verses--lines"]}>
+      <span :for={{verse, text} <- @verses} id={"v#{verse}"} class="faith-verse">
+        <sup class="faith-verse-n">{verse}</sup>{text}
+      </span>
+    </p>
+
+    <nav class="faith-turn" aria-label="Chapters">
+      <a
+        :if={@previous}
+        href={~p"/Christ/bible/#{elem(@previous, 0).slug}/#{elem(@previous, 1)}"}
+        rel="prev"
+      >
+        ‹ {chapter_title(elem(@previous, 0), elem(@previous, 1))}
+      </a>
+      <a :if={@next} href={~p"/Christ/bible/#{elem(@next, 0).slug}/#{elem(@next, 1)}"} rel="next">
+        {chapter_title(elem(@next, 0), elem(@next, 1))} ›
+      </a>
+    </nav>
+
+    <p class="faith-colophon">{@translation.name} ({@translation.abbr}).</p>
+  </article>
+</div>

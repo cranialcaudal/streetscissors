@@ -1,0 +1,21 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav />
+
+    <header class={"faith-day faith-day--#{@entry.colour}"}>
+      <p class="faith-eyebrow">{month_day(%{month: @month, day: @day})}</p>
+      <h1 class="faith-day-title">{@entry.title}</h1>
+      <p class="faith-day-under">
+        <%= if @kept do %>
+          Kept this year on <a href={day_path(@kept, @today)}>{long_date(@kept)}</a>.
+        <% else %>
+          Not kept this year: the day gives way to one of higher rank.
+        <% end %>
+      </p>
+    </header>
+
+    <section class="faith-saints">
+      <.saint_card entry={@entry} saint={@saint} full />
+    </section>
+  </article>
+</div>

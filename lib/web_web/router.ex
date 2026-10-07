@@ -43,6 +43,24 @@ defmodule WebWeb.Router do
       get "/england2026", EnglandController, :show
       get "/england2026/call", EnglandController, :call_times
       get "/about", PageController, :about
+      # The prayer pages (WebWeb.FaithController): the liturgical day, the
+      # Hours, the readings at Mass, the Rosary and the Bible they are read
+      # from. Unlisted like /food below.
+      get "/Christ", FaithController, :index
+      get "/Christ/hours/:hour", FaithController, :hour
+      get "/Christ/angelus", FaithController, :angelus
+      get "/Christ/readings", FaithController, :readings
+      get "/Christ/rosary", FaithController, :rosary
+      get "/Christ/saints/:symbol", FaithController, :saint
+      get "/Christ/calendar", FaithController, :calendar
+      get "/Christ/bible", FaithController, :bible
+      get "/Christ/bible/go", FaithController, :go
+      get "/Christ/bible/:book", FaithController, :book
+      get "/Christ/bible/:book/:chapter", FaithController, :chapter
+      # The pages were built at /faith, and an address typed by hand is
+      # lower case.
+      get "/faith/*rest", LegacyRedirectController, :christ
+      get "/christ/*rest", LegacyRedirectController, :christ
       # The manual: how the site and the film pipeline work, rendered from
       # docs/how-to.md so the same file reads on GitHub.
       get "/how-to", PageController, :how_to

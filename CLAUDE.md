@@ -266,6 +266,59 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom
   captcha (`lib/web_web/captcha.ex`, not reCAPTCHA).
 
+- **The prayer pages** (`/Christ/*`, `WebWeb.FaithController`, 2026-10-06): the liturgical day, the
+  Hours, the readings at Mass, the Rosary, and the Bible they are read from. **Nothing is fetched
+  from another site**, at request time or by the browser, and the pages are the same for every
+  reader: no account, no setting, nothing stored. Unlisted like `/food`.
+  - **`Web.Bible`** reads one translation from `priv/bible/<name>/` (`index.json` + a JSON file per
+    book). The one committed is the CPDV, which is public domain. **A licensed text (the RSV-CE)
+    must not be committed**: lay it out the same way outside the checkout and set `BIBLE_PATH`.
+    Citations arrive in the lectionary's numbering; `Web.Bible.Versification` carries them to a
+    Vulgate-numbered text (Psalms, Joel, Malachi, Zechariah exactly; Esther refused; Tobit, Judith
+    and Sirach passed through and marked `approximate`, which the page says).
+  - **`Web.Liturgy.Calendar.day/2`** works the day out from the date: seasons with the United
+    States' movable days, over `Web.Liturgy.Sanctoral`'s layered plain-text calendars in
+    `priv/liturgy/` (calendarium-romanum's General Roman Calendar, then `usa-en.txt`, then
+    `ocd-en.txt`, the Discalced Carmelite proper as revised in 2023). An entry replaces the entry
+    with the same identifier in an earlier layer, which is how a rank is raised and a saint moved.
+  - **`Web.Liturgy.Lectionary`** is citations only (`priv/liturgy/lectionary.json`, the dioceses of
+    the United States, 2023 to May 2027). A later date borrows the newest date in the file that
+    was the same liturgical day, and the page says which. It matches on the US calendar, so a day
+    only Carmel keeps shows the general readings and says so. The days with several Masses were
+    empty upstream and were filled in by hand.
+  - **`Web.Liturgy.Hours`** lays Lauds, Vespers and Compline out from the four-week psalter and
+    prays them from the hosted Bible. The approved English office is under copyright: no
+    antiphons, intercessions or collects, and the fixed prayers (`Web.Liturgy.Prayers`) are the
+    traditional public-domain wordings. `Web.Liturgy.Fast` is the Rule of Saint Albert's season
+    (September 14 to Easter, Sundays and solemnities excepted) beside the Church's own days.
+  - **`/Christ` is the whole day on one page** (`?date=` for any other day), **and only the day**:
+    the saints of the day by name (a life is on the saint's own page), the fast in a line, and
+    each prayer written out behind its own `<details>`, so it opens in place with no JavaScript.
+    The essay on the Carmelite fast came off the page on 2026-10-07; don't put explanation back.
+    Each prayer is a component in `FaithHTML` (`office/1`, `masses/1`, `midday/1`,
+    `rosary_text/1`) because it is also a page of its own. `app.js` only enhances: it opens the
+    prayer it is time for by the reader's clock, steps the Rosary bead by bead from the `<li
+    data-bead>` list the page already carries, and lets ← → follow `rel="prev"`/`rel="next"`.
+    Nothing is stored. `/Christ/calendar` is a month of days; `/Christ/bible/go?q=` opens a typed
+    citation.
+  - **`Web.Liturgy.Saints`** (`priv/liturgy/saints.json`) holds a life for 270 of the calendar's
+    278 entries: the opening summary of the English Wikipedia article (CC BY-SA 4.0, shown with
+    its source). Pictures are the articles' lead images where Commons records a free licence,
+    shown with author and licence, in `priv/static/images/saints/`, which is gitignored, so a
+    missing file just means no picture. Every match was checked by hand; do not regenerate the
+    file from search results without doing the same.
+  - All Souls and the Order's commemoration of its dead carry the rank `:commemoration`. The
+    general calendar's titles were reworded to the Roman Missal's English names.
+  - **Page theme: the brown scapular** (`faith.css`, the only stylesheet these pages have).
+    `.faith` re-inks the site's tokens as `.steel` and `.darkroom` do: brown wool ground, cream
+    type, and red thread. `--stitch` is the sewn line (always `dashed`: the panel's edge and the
+    three seams) and `--accent-ink` is the same red lifted to pass as small text on brown.
+    **Under `.faith` `--ink` is light.** Print goes back to black on white.
+  - The address is `/Christ`, capital and all (renamed from `/faith` on 2026-10-07); `/faith/*`
+    and `/christ/*` 301 there (`LegacyRedirectController.christ/2`). The code keeps the old
+    name: `FaithController`, `faith.css`, `.faith-*`.
+  - `priv/faith/guide.md` (the essay on the fast) is kept on disk but nothing renders it.
+
 - **Captain's logs** (`Web.Audio`) are the blog's sibling, not a feature of it: DB-backed
   recordings — **video or audio** — at `/logs` and `/logs/<slug>` (`WebWeb.LogsLive.Index`/`.Show`).
   `/audio` 301s to `/logs`. **A blog post no longer picks up a sidecar `.mp3` by filename** — that

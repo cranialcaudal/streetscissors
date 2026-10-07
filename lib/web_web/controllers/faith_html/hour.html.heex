@@ -1,0 +1,23 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={@office.hour} />
+
+    <header class={"faith-day faith-day--#{@office.day.colour}"}>
+      <p class="faith-eyebrow">{@office.latin} · {long_date(@date)}, {@date.year}</p>
+      <h1 class="faith-day-title">{@office.name}</h1>
+      <p class="faith-day-under">
+        <a href={day_path(@date, @today)}>{@office.day.celebration.title}</a>
+      </p>
+    </header>
+
+    <.office office={@office} />
+
+    <.turn
+      previous={~p"/Christ/hours/#{@office.hour}?date=#{Date.to_iso8601(Date.add(@date, -1))}"}
+      previous_label={long_date(Date.add(@date, -1))}
+      next={~p"/Christ/hours/#{@office.hour}?date=#{Date.to_iso8601(Date.add(@date, 1))}"}
+      next_label={long_date(Date.add(@date, 1))}
+      today={@date != @today && ~p"/Christ/hours/#{@office.hour}"}
+    />
+  </article>
+</div>

@@ -1,0 +1,25 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:readings} />
+
+    <header class={"faith-day faith-day--#{@readings.day.colour}"}>
+      <p class="faith-eyebrow">Readings at Mass · {long_date(@date)}, {@date.year}</p>
+      <h1 class="faith-day-title">{@readings.usa_day.celebration.title}</h1>
+    </header>
+
+    <.masses
+      masses={@readings.masses}
+      from={@readings.from}
+      day={@readings.day}
+      usa_day={@readings.usa_day}
+    />
+
+    <.turn
+      previous={~p"/Christ/readings?date=#{Date.to_iso8601(Date.add(@date, -1))}"}
+      previous_label={long_date(Date.add(@date, -1))}
+      next={~p"/Christ/readings?date=#{Date.to_iso8601(Date.add(@date, 1))}"}
+      next_label={long_date(Date.add(@date, 1))}
+      today={@date != @today && ~p"/Christ/readings"}
+    />
+  </article>
+</div>

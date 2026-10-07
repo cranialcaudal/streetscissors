@@ -32,6 +32,12 @@ if blog_path = System.get_env("BLOG_PATH") do
   config :web, :blog_path, blog_path
 end
 
+# A Bible laid out like priv/bible/cpdv/ but kept outside the checkout, for a
+# translation that may be hosted under licence and not committed (Web.Bible).
+if bible_path = System.get_env("BIBLE_PATH") do
+  config :web, :bible_path, bible_path
+end
+
 # The negatives archive (scanned contact sheets and frames). Unset,
 # Web.Negatives looks for a `negatives` directory beside the checkout.
 if negatives_path = System.get_env("NEGATIVES_PATH") do

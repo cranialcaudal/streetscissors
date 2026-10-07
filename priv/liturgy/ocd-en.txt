@@ -1,0 +1,96 @@
+---
+title: Proper Calendar of the Discalced Carmelites
+locale: en
+extends: usa-en.txt
+# The Order's calendar as revised in 2019 and 2023 (in force from 3 December
+# 2023), from the Discalced Carmelite Liturgical Calendar (USA), revised
+# 2024-12-18. Same format as universal-en.txt. An entry here replaces the
+# entry with the same identifier in the calendars it extends, wherever that
+# one is dated: that is how the Order raises a rank (Saint Teresa) and how it
+# moves a saint out of the way of its own (Saint Henry to July 10).
+---
+
+= 1
+8 peter_thomas : Saint Peter Thomas, bishop
+9 andrew_corsini : Saint Andrew Corsini, bishop
+27 henry_de_osso : Saint Henry de Ossó y Cervelló, priest
+
+= 2
+4 marie_eugene : Blessed Marie-Eugène of the Child Jesus Grialou, priest
+24 josepha_naval : Blessed Josepha Naval Girbés, virgin
+
+= 4
+17 baptist_spagnoli : Blessed Baptist Spagnoli, priest
+18 mary_of_the_incarnation : Blessed Mary of the Incarnation Avrillot, religious
+23 teresa_maria_manetti : Blessed Teresa Maria of the Cross Manetti, virgin
+28 maria_felicia : Blessed María Felicia of Jesus in the Blessed Sacrament Guggiari Echeverría, virgin
+
+= 5
+4 R prat_hostench : Blesseds Ángel María Prat Hostench and Lucas of Saint Joseph Tristany Pujol, priests, and companions, martyrs
+16 simon_stock : Saint Simon Stock, priest
+22 joachina : Saint Joachina de Vedruna, religious
+24 bede_venerable : Saint Bede the Venerable, priest and doctor
+24 gregory_vii : Saint Gregory VII, pope
+25 mp de_pazzi : Saint Mary Magdalene of the Incarnate Word de' Pazzi, virgin
+29 elia_of_st_clement : Blessed Elia of Saint Clement Fracasso, virgin
+
+= 6
+7 anne_of_st_bartholomew : Blessed Anne of Saint Bartholomew, virgin
+12 R mazurek : Blessed Alphonsus Mary of the Holy Spirit Mazurek, priest, and companions, martyrs
+14 elisha : Saint Elisha, prophet
+14 maria_candida : Blessed Maria Candida of the Eucharist Barba, virgin
+26 mary_josephine : Blessed Mary Josephine of Jesus Crucified Catanea, virgin
+
+= 7
+10 henry : Saint Henry
+12 martin_spouses : Saints Louis Martin and Marie-Azélie Guérin, spouses
+13 mp teresa_of_the_andes : Saint Teresa of Jesus Fernández Solar (of the Andes), virgin
+16 sp bvm_mount_carmel : The Blessed Virgin Mary of Mount Carmel, Patroness and Head of the Order
+17 mp R compiegne : Saint Teresa of Saint Augustine Lidoine and companions, virgins and martyrs
+18 R apollinaris : Saint Apollinaris, bishop and martyr
+19 birgitta : Saint Bridget, religious
+20 fp elijah : Our Father Saint Elijah, prophet
+23 mp bvm_divine_grace : The Blessed Virgin Mary, Mother of Divine Grace
+24 R pilar_martyrs : Blesseds María Pilar of Saint Francis Borgia, María Sagrario of Saint Aloysius Gonzaga and companions, virgins and martyrs
+27 R titus_brandsma : Saint Titus Brandsma, priest and martyr
+28 john_soreth : Blessed John Soreth, priest
+
+= 8
+3 R sixtus_ii : Saint Sixtus II, pope, and companions, martyrs
+3 cajetan : Saint Cajetan, priest
+7 mp albert_of_trapani : Saint Albert of Trapani, priest
+9 mp R stein : Saint Teresa Benedicta of the Cross Stein, virgin and martyr
+18 R rochefort_martyrs : Blesseds Leonard Duverneuil, Michael Aloysius Brulard and Hubert of Saint Claude Cagnot, priests, and companions, martyrs
+23 louis : Saint Louis
+23 joseph_calasanz : Saint Joseph of Calasanz, priest
+25 mp mary_of_jesus_crucified : Saint Mary of Jesus Crucified Baouardy, virgin
+26 transverberation : The Transverberation of the Heart of Saint Teresa of Jesus, our Mother
+
+= 9
+1 mp teresa_margaret : Saint Teresa Margaret of the Sacred Heart of Jesus Redi, virgin
+11 mary_of_jesus_lopez : Blessed Mary of Jesus López Rivas, virgin
+17 fp albert_of_jerusalem : Saint Albert of Jerusalem, bishop and Lawgiver of the Order
+18 bellarmine : Saint Robert Bellarmine, bishop and doctor
+
+= 10
+1 fp therese_lisieux : Saint Thérèse of the Child Jesus, virgin and doctor of the Church
+15 sp teresa_avila : Saint Teresa of Jesus, our Mother, virgin and doctor of the Church
+30 tauscher : Blessed Maria Teresa of Saint Joseph Tauscher, virgin
+
+= 11
+5 frances_amboise : Blessed Frances d'Amboise, religious
+6 nuno : Saint Nuno of Saint Mary Álvares Pereira, religious
+7 francis_palau : Blessed Francis of Jesus Mary Joseph Palau y Quer, priest
+8 mp elizabeth_of_the_trinity : Saint Elizabeth of the Most Holy Trinity Catez, virgin
+13 albert : Saint Albert the Great, bishop and doctor
+14 fp all_carmelite_saints : All Saints of the Order
+15 mp V carmelite_souls : Commemoration of All the Faithful Departed of the Order
+19 mp kalinowski : Saint Raphael of Saint Joseph Kalinowski, priest
+25 anne_of_jesus : Blessed Anne of Jesus Lobera Torres, virgin
+29 R denis_redemptus : Blesseds Denis of the Nativity, priest, and Redemptus of the Cross, religious, martyrs
+
+= 12
+10 damasus_i : Saint Damasus I, pope
+11 mp maravillas : Saint Maria Maravillas of Jesus Pidal y Chico de Guzmán, virgin
+14 sp john_of_cross : Saint John of the Cross, our Father, priest and doctor of the Church
+16 mary_of_the_angels : Blessed Mary of the Angels Fontanella, virgin

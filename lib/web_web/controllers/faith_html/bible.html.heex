@@ -1,0 +1,44 @@
+<div class="container faith">
+  <article class="glass-panel faith-panel">
+    <.faith_nav current={:bible} />
+
+    <header class="faith-day">
+      <p class="faith-eyebrow">{@translation.abbr}</p>
+      <h1 class="faith-day-title">The Holy Bible</h1>
+      <p class="faith-day-under">{@translation.name}. {@translation.note}</p>
+      <p :if={@translation.psalm_numbering == :vulgate} class="faith-note">
+        The psalms carry the Vulgate's numbers, one behind the Hebrew for most of the Psalter.
+      </p>
+    </header>
+
+    <form action={~p"/Christ/bible/go"} method="get" class="faith-go" role="search">
+      <label for="faith-go-q" class="faith-label">Go to a passage</label>
+      <div class="faith-go-row">
+        <input
+          id="faith-go-q"
+          name="q"
+          type="text"
+          value={@missed}
+          placeholder="Luke 10:38, Psalm 22, 1 Cor 13"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          required
+        />
+        <button type="submit" class="faith-button faith-button--main">Open</button>
+      </div>
+      <p :if={@missed} class="faith-note" role="alert">
+        "{@missed}" could not be read as a book, chapter and verse of this Bible.
+      </p>
+    </form>
+
+    <section :for={{testament, heading} <- [ot: "The Old Testament", nt: "The New Testament"]}>
+      <h2 class="faith-label">{heading}</h2>
+      <ul class="faith-books">
+        <li :for={book <- Enum.filter(@books, &(&1.testament == testament))}>
+          <a href={~p"/Christ/bible/#{book.slug}"}>{book.name}</a>
+        </li>
+      </ul>
+    </section>
+  </article>
+</div>
