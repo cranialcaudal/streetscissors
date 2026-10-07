@@ -1,6 +1,7 @@
 ---
 title: Thursday — Lower Body
 tab: Thursday
+theme: legs
 ---
 
 ## Lower Body

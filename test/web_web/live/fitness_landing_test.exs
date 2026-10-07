@@ -49,6 +49,17 @@ defmodule WebWeb.FitnessLandingTest do
       end
     end
 
+    # `theme:` in a day's file is the one word under its name in the strip.
+    test "each day in the strip carries its one-word theme", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/sunday")
+
+      assert has_element?(view, ~s(nav.day-strip a[title="Tuesday"] .day-strip-theme), "arms")
+      assert has_element?(view, ~s(nav.day-strip a[title="Thursday"] .day-strip-theme), "legs")
+      # A day whose file gives none shows only its name.
+      assert has_element?(view, ~s(nav.day-strip a[title="Monday"] .day-strip-name), "Mon")
+      refute has_element?(view, ~s(nav.day-strip a[title="Monday"] .day-strip-theme))
+    end
+
     test "the workout comes before the week and the section's tabs", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness/day/sunday")
 

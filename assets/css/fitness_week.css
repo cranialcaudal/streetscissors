@@ -206,37 +206,63 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 .day-strip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  margin-bottom: 1.5rem;
+  gap: 4px;
+  margin-bottom: 2rem;
 }
 
 .day-strip-link {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  gap: 0.3rem;
+  min-height: 5rem;
+  padding: 0.6rem 0.1rem;
+  background: var(--paper-raised);
   outline: 1px solid var(--rule);
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
   text-decoration: none;
   color: var(--ink-2);
 }
 
-.day-strip-link:hover,
-.day-strip-link:focus-visible { color: var(--theme-color); outline-color: var(--theme-color); }
-
-/* Today carries the hot-metal mark whichever day is open; the open day is
-   the solid one. */
-.day-strip-link.is-today { box-shadow: inset 0 -4px 0 var(--theme-color) !important; }
-
-.day-strip-link[aria-current="page"] {
-  background: var(--ink);
-  color: var(--paper);
-  outline-color: var(--ink);
+.day-strip-name {
+  font-family: var(--font-heading);
+  font-size: clamp(1.15rem, 4.6vw, 1.9rem);
   font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
+
+/* The day's one word: legs, arms, cardio. */
+.day-strip-theme {
+  font-family: var(--font-ui);
+  font-size: clamp(0.62rem, 2.6vw, 0.9rem);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-3);
+}
+
+.day-strip-link:hover,
+.day-strip-link:focus-visible { color: var(--ink); outline-color: var(--ink); }
+
+/* Today is the one in hot metal, whichever day is open. */
+.day-strip-link.is-today {
+  background: var(--theme-color);
+  outline-color: var(--theme-color);
+  color: var(--paper-deep);
+}
+
+.day-strip-link.is-today .day-strip-theme { color: var(--paper-deep); }
+
+/* Another day, opened: a white frame, so it cannot be taken for today. */
+.day-strip-link[aria-current="page"]:not(.is-today) {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+  color: var(--ink);
+}
+
+.day-strip-link[aria-current="page"]:not(.is-today) .day-strip-theme { color: var(--ink); }
 
 .day-page.day-details { background: none; border: 0; overflow: visible; }
 

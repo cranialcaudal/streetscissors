@@ -39,7 +39,7 @@ defmodule WebWeb.FitnessLive.Index do
     |> assign(:is_admin, is_admin)
     |> assign(:week, week)
     |> assign(:today_slug, today)
-    |> assign(:weekdays, strip(week))
+    |> assign(:weekdays, strip(week, listed))
     |> assign(
       :day,
       listed
@@ -81,10 +81,14 @@ defmodule WebWeb.FitnessLive.Index do
 
   # The days in the order week.md lists them, so the strip and The Week under
   # it read the same way.
-  defp strip(week) do
-    listed = if week, do: for(day <- week.days, day.slug in @weekdays, do: day.slug), else: []
-    order = if Enum.sort(listed) == Enum.sort(@weekdays), do: listed, else: @weekdays
-    Enum.map(order, &{&1, String.capitalize(&1)})
+  defp strip(week, listed) do
+    in_week = if week, do: for(day <- week.days, day.slug in @weekdays, do: day.slug), else: []
+    order = if Enum.sort(in_week) == Enum.sort(@weekdays), do: in_week, else: @weekdays
+
+    for slug <- order do
+      theme = Enum.find_value(listed, &(&1.slug == slug && &1[:theme]))
+      %{slug: slug, name: String.capitalize(slug), theme: theme}
+    end
   end
 
   defp day_path(slug, today) when slug == today, do: ~p"/fitness"
@@ -189,18 +193,19 @@ defmodule WebWeb.FitnessLive.Index do
   def render(assigns) do
     ~H"""
     <div class="blog-bento-wrapper steel fitness-landing">
-      <%!-- What is about to be done comes first: the days, then the one being
-            looked at. The week, the other modules and the section's own tabs
+      <%!-- What is about to be done comes first: the days, each over the one
+            word its file gives as `theme:`, then the one being looked at. The week, the other modules and the section's own tabs
             are underneath it. --%>
       <nav class="day-strip" aria-label="Days of the week">
         <.link
-          :for={{slug, name} <- @weekdays}
-          navigate={day_path(slug, @today_slug)}
-          class={["day-strip-link", slug == @today_slug && "is-today"]}
-          aria-current={slug == @day.slug && "page"}
-          title={name}
+          :for={day <- @weekdays}
+          navigate={day_path(day.slug, @today_slug)}
+          class={["day-strip-link", day.slug == @today_slug && "is-today"]}
+          aria-current={day.slug == @day.slug && "page"}
+          title={day.name}
         >
-          {String.slice(name, 0, 3)}
+          <span class="day-strip-name">{String.slice(day.name, 0, 3)}</span>
+          <span :if={day.theme} class="day-strip-theme">{day.theme}</span>
         </.link>
       </nav>
 

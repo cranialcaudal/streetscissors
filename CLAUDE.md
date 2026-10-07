@@ -159,7 +159,9 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   is always today by `Web.Clock`, a tzdata-free US-Pacific helper, and `/fitness/day/<weekday>`
   is that day whatever today is, so the day being looked at is in the address and a reload
   keeps it. The days link with `navigate`, never `patch` (a patch would carry one day's ticked
-  boxes onto the next day's list). The day's checklist leads the page; under it sit
+  boxes onto the next day's list). The strip of days at the top prints each day's one word
+  (`theme:` in `weekly/<day>.md`: "legs", "arms", "cardio") and fills today in hot metal. The
+  day's checklist leads the page; under it sit
   **The Week**: `Web.Fitness.Week` reads
   `content/fitness/week.md` and `WebWeb.FitnessWeek` renders it, untimed chips for visitors and clock
   times for the admin only, so the public page never says when he's out of the house), Komoot-synced rides

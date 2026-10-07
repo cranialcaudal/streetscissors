@@ -27,7 +27,10 @@ defmodule Web.Fitness.Vault do
         slug: slug,
         title: meta["title"] || slug,
         description: meta["description"] || "",
-        tab: meta["tab"] || String.capitalize(slug)
+        tab: meta["tab"] || String.capitalize(slug),
+        # One word for what the day is ("legs", "arms", "cardio"): the day
+        # strip on /fitness prints it under the day's name.
+        theme: meta["theme"]
       }
     end)
   end
