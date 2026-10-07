@@ -1,6 +1,7 @@
 defmodule WebWeb.FitnessWeek do
   @moduledoc """
-  "The Week" on /fitness — the big picture above the day-by-day regimen.
+  "The Week" on /fitness — the big picture under the day being looked at.
+  Each row's name opens that day's page.
 
   Two renderings, chosen server-side by `timed`:
 
@@ -53,7 +54,9 @@ defmodule WebWeb.FitnessWeek do
           data-week-day={day.slug}
           class={["week-row", day.slug == @today_slug && "is-today"]}
         >
-          <span class="week-day">{String.slice(day.name, 0, 3)}</span>
+          <a class="week-day" href={"/fitness/day/#{day.slug}"} title={day.name}>
+            {String.slice(day.name, 0, 3)}
+          </a>
 
           <div :if={@timed} class="week-track">
             <span

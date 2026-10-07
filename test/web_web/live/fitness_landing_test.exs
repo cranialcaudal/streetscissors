@@ -8,31 +8,83 @@ defmodule WebWeb.FitnessLandingTest do
   # config/test.exs). Checks on the author's real regimen live in the
   # gitignored test/private/.
 
-  test "landing renders the regimen accordion with today expanded", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/fitness")
-    assert html =~ "weekly-routine"
-    assert html =~ "Weekly Regimen"
-    assert html =~ "Additional Modules"
-    assert html =~ ~s(data-day="#{Web.Clock.today_slug()}" open)
-  end
+  @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
 
-  describe "the week" do
-    test "each day renders its checklist, modules included", %{conn: conn} do
+  describe "a day to a page" do
+    test "/fitness is today, and only today", %{conn: conn} do
+      today = Web.Clock.today_slug()
       {:ok, _view, html} = live(conn, ~p"/fitness")
 
+      assert html =~ "weekly-routine"
+      assert html =~ ~s(class="day-details day-page" data-day="#{today}")
+      assert html =~ "Additional Modules"
+
+      for other <- @weekdays -- [today] do
+        refute html =~ ~s(data-day="#{other}")
+      end
+    end
+
+    # The day being looked at is in the address, so a reload keeps it.
+    test "another day has its own address, and says it is not today", %{conn: conn} do
+      other = hd(@weekdays -- [Web.Clock.today_slug()])
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/#{other}")
+
+      assert html =~ ~s(class="day-details day-page" data-day="#{other}")
+      assert html =~ "Not today"
+      assert html =~ "Today is #{String.capitalize(Web.Clock.today_slug())}"
+    end
+
+    test "the days link to each other, today by the address that follows the clock",
+         %{conn: conn} do
+      today = Web.Clock.today_slug()
+      {:ok, view, _html} = live(conn, ~p"/fitness")
+
+      assert has_element?(
+               view,
+               ~s(nav.day-strip a.is-today[href="/fitness"][aria-current="page"])
+             )
+
+      for other <- @weekdays -- [today] do
+        assert has_element?(view, ~s(nav.day-strip a[href="/fitness/day/#{other}"]))
+      end
+    end
+
+    test "the workout comes before the week and the section's tabs", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/sunday")
+
+      {day, _} = :binary.match(html, ~s(data-day="sunday"))
+      {week, _} = :binary.match(html, ~s(id="the-week"))
+      {tabs, _} = :binary.match(html, ~s(href="/fitness/wiki"))
+
+      assert day < week
+      assert week < tabs
+    end
+
+    test "a day that is not a weekday goes to today", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/fitness"}}} = live(conn, ~p"/fitness/day/someday")
+    end
+
+    test "a day renders its checklist, modules included", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/sunday")
       assert html =~ "Sunday — Long Run"
       assert html =~ "Easy run"
+
       # Tuesday's exercises come from its `modules:` line, wiki links resolved.
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/tuesday")
       assert html =~ "Band rows"
       assert html =~ "/fitness/wiki/push-ups"
+      assert option_count(html, "tuesday") == 0
+      # Its line of week.md leads the page, with no clock times for a visitor.
+      [head] = Regex.run(~r{<header class="day-page-head">.*?</header>}s, html)
+      assert head =~ "Morning Spin"
+      refute head =~ ~r/\d{1,2}:\d{2}/
     end
 
     test "a rotating day renders each option as a dropdown, one marked this week",
          %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/friday")
 
       assert option_count(html, "friday") == 2
-      assert option_count(html, "tuesday") == 0
       assert html =~ "Pool Swim"
       assert html =~ "Tempo Run"
       assert Regex.scan(~r/class="option-badge"/, html) |> length() == 1
@@ -58,7 +110,7 @@ defmodule WebWeb.FitnessLandingTest do
       assert html =~ ~s(class="fuelling-rail")
       assert html =~ ~s(data-day="nutrition-module" open)
 
-      {weekly, _} = :binary.match(html, "Weekly Regimen")
+      {weekly, _} = :binary.match(html, ~s(class="day-details day-page"))
       {additional, _} = :binary.match(html, "Additional Modules")
       {rail, _} = :binary.match(html, ~s(class="fuelling-rail"))
       {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
@@ -98,7 +150,7 @@ defmodule WebWeb.FitnessLandingTest do
       {:ok, _} = Web.Fitness.create_exercise(%{name: "Push-ups", slug: "push-ups"})
 
       {:ok, view, _html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/tuesday")
 
       view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
 
@@ -128,19 +180,12 @@ defmodule WebWeb.FitnessLandingTest do
   end
 
   describe "The Week" do
-    test "renders every day above the regimen and the fuelling rail", %{conn: conn} do
+    test "renders every day, each a link to its page, with today marked", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")
 
       assert Regex.scan(~r/data-week-day="/, html) |> length() == 7
-
-      {week, _} = :binary.match(html, ~s(id="the-week"))
-      {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
-      {regimen, _} = :binary.match(html, "Weekly Regimen")
-
-      assert week < fuelling
-      assert week < regimen
-
       assert html =~ ~s(data-week-day="#{Web.Clock.today_slug()}" class="week-row is-today")
+      assert week_section(html) =~ ~s(href="/fitness/day/thursday")
     end
 
     # /fitness is public: visitors get the shape of each day, never when.
@@ -156,7 +201,10 @@ defmodule WebWeb.FitnessLandingTest do
 
     test "the admin sees the timed view", %{conn: conn} do
       {:ok, _view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/tuesday")
+
+      [head] = Regex.run(~r{<header class="day-page-head">.*?</header>}s, html)
+      assert head =~ "6:45–7:30"
 
       section = week_section(html)
 

@@ -129,6 +129,8 @@ defmodule WebWeb.Router do
       live "/archive/roll/:roll", NegativesLive, :sheet
       live "/guestbook", GuestbookLive
       live "/fitness", FitnessLive.Index, :index
+      # One weekday of the regimen, whatever today is. /fitness is today.
+      live "/fitness/day/:day", FitnessLive.Index, :day
       live "/fitness/wiki", FitnessLive.Wiki, :index
       live "/fitness/wiki/:slug", FitnessLive.Show, :show
       get "/fitness/regimen", LegacyRedirectController, :fitness_regimen

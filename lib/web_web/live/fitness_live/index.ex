@@ -4,24 +4,30 @@ defmodule WebWeb.FitnessLive.Index do
   alias Web.Fitness
   alias Web.Fitness.Vault
 
+  @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
+  @fuelling "nutrition-module"
+
+  # One day to a page. `/fitness` is always today, by the Pacific clock, so
+  # it moves on by itself; `/fitness/day/thursday` is Thursday whatever the
+  # day, so the day being looked at is in the address and a reload keeps it.
+  # The days link to each other with `navigate`, not `patch`: the checklist
+  # is raw HTML whose ticks GymRoutine restores on mount, and a patch would
+  # carry one day's ticked boxes over onto the next day's list.
   @impl true
-  def mount(_params, session, socket) do
-    is_admin = session["admin_user"] == true
-    days = Vault.list_days()
+  def mount(params, session, socket) do
+    today = Web.Clock.today_slug()
 
-    # Load HTML for all days, plus any rotating options. Days that do the same
-    # thing every week come back with `options: []`, so the template handles
-    # both shapes the same way.
-    days_with_html =
-      Enum.map(days, fn day ->
-        case Vault.get_day_with_options(day.slug) do
-          {:ok, %{html: html, options: options}} ->
-            day |> Map.put(:html, html) |> Map.put(:options, options)
+    case params["day"] || today do
+      slug when slug in @weekdays ->
+        {:ok, mount_day(socket, slug, today, session["admin_user"] == true)}
 
-          _ ->
-            day |> Map.put(:html, "") |> Map.put(:options, [])
-        end
-      end)
+      _ ->
+        {:ok, push_navigate(socket, to: ~p"/fitness")}
+    end
+  end
+
+  defp mount_day(socket, slug, today, is_admin) do
+    listed = Vault.list_days()
 
     week =
       case Web.Fitness.Week.load() do
@@ -29,16 +35,60 @@ defmodule WebWeb.FitnessLive.Index do
         :error -> nil
       end
 
-    {:ok,
-     socket
-     |> assign(:is_admin, is_admin)
-     |> assign(:week, week)
-     |> assign(:days, days_with_html)
-     |> assign(:today_slug, Web.Clock.today_slug())
-     |> assign(:logging_slug, nil)
-     |> assign(:logging_name, nil)
-     |> assign(:page_title, "Fitness & Sport")}
+    socket
+    |> assign(:is_admin, is_admin)
+    |> assign(:week, week)
+    |> assign(:today_slug, today)
+    |> assign(:weekdays, strip(week))
+    |> assign(
+      :day,
+      listed
+      |> Enum.find(%{slug: slug, title: String.capitalize(slug)}, &(&1.slug == slug))
+      |> with_html()
+    )
+    |> assign(:blocks, blocks(week, slug))
+    |> assign(:fuelling, with_html(Enum.find(listed, &(&1.slug == @fuelling))))
+    |> assign(
+      :extra_modules,
+      listed |> Enum.reject(&(&1.slug in [@fuelling | @weekdays])) |> Enum.map(&with_html/1)
+    )
+    |> assign(:logging_slug, nil)
+    |> assign(:logging_name, nil)
+    |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
+
+  # A day's checklist, plus any rotating options. Days that do the same thing
+  # every week come back with `options: []`, so the template handles both
+  # shapes the same way.
+  defp with_html(nil), do: nil
+
+  defp with_html(day) do
+    case Vault.get_day_with_options(day.slug) do
+      {:ok, %{html: html, options: options}} -> Map.merge(day, %{html: html, options: options})
+      _ -> Map.merge(day, %{html: "", options: []})
+    end
+  end
+
+  # The day's line in week.md: what it holds, in order.
+  defp blocks(nil, _slug), do: []
+
+  defp blocks(week, slug) do
+    case Enum.find(week.days, &(&1.slug == slug)) do
+      nil -> []
+      day -> day.blocks
+    end
+  end
+
+  # The days in the order week.md lists them, so the strip and The Week under
+  # it read the same way.
+  defp strip(week) do
+    listed = if week, do: for(day <- week.days, day.slug in @weekdays, do: day.slug), else: []
+    order = if Enum.sort(listed) == Enum.sort(@weekdays), do: listed, else: @weekdays
+    Enum.map(order, &{&1, String.capitalize(&1)})
+  end
+
+  defp day_path(slug, today) when slug == today, do: ~p"/fitness"
+  defp day_path(slug, _today), do: ~p"/fitness/day/#{slug}"
 
   @impl true
   def handle_params(_params, _uri, socket) do
@@ -139,86 +189,90 @@ defmodule WebWeb.FitnessLive.Index do
   def render(assigns) do
     ~H"""
     <div class="blog-bento-wrapper steel fitness-landing">
-      <!-- Header -->
-      <header class="blog-header-card">
-        <h1 class="blog-header-title">Fitness & Sport</h1>
-        <div class="blog-header-subtitle">Training, regimen & activities</div>
-      </header>
-      
-    <!-- Section Navigation -->
-      <WebWeb.FitnessSubnav.subnav active={:regimen} />
-
-      <%!-- The big picture, above the day-by-day regimen and the fuelling rail.
-            Visitors get untimed chips; the clock times render for the admin only. --%>
-      <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
+      <%!-- What is about to be done comes first: the days, then the one being
+            looked at. The week, the other modules and the section's own tabs
+            are underneath it. --%>
+      <nav class="day-strip" aria-label="Days of the week">
+        <.link
+          :for={{slug, name} <- @weekdays}
+          navigate={day_path(slug, @today_slug)}
+          class={["day-strip-link", slug == @today_slug && "is-today"]}
+          aria-current={slug == @day.slug && "page"}
+          title={name}
+        >
+          {String.slice(name, 0, 3)}
+        </.link>
+      </nav>
 
       <div
         class={"blog-bento-card" <> if(@is_admin, do: " is-admin", else: "")}
         id="weekly-routine"
         phx-hook="GymRoutine"
       >
-        <% primary_slugs = ~w[monday tuesday wednesday thursday friday saturday sunday] %>
-        <% fuelling_slug = "nutrition-module" %>
-        <% fuelling = Enum.find(@days, &(&1.slug == fuelling_slug)) %>
-        <% primary_days = Enum.filter(@days, &(&1.slug in primary_slugs)) %>
-        <% extra_modules =
-          Enum.reject(@days, &(&1.slug in primary_slugs or &1.slug == fuelling_slug)) %>
-
         <div class="fitness-layout">
           <div class="fitness-main">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
-              <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 2px;">
-                Weekly Regimen
-              </h2>
-              <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
-            </div>
+            <%!-- `.day-details` and `data-day` are what GymRoutine keys a
+                  saved tick on (`vault_gym_<data-day>_<index>`), as they were
+                  when every day shared one page. --%>
+            <article class="day-details day-page" data-day={@day.slug}>
+              <header class="day-page-head">
+                <p class="day-page-when">
+                  <%= if @day.slug == @today_slug do %>
+                    Today
+                  <% else %>
+                    Not today
+                    <.link navigate={~p"/fitness"} class="day-page-back">
+                      Today is {String.capitalize(@today_slug)}
+                    </.link>
+                  <% end %>
+                </p>
+                <h1 class="day-page-title">{@day.title}</h1>
+                <ul :if={@blocks != []} class="week-chips day-page-blocks">
+                  <li
+                    :for={block <- @blocks}
+                    class={"week-chip week-chip--#{block.kind}"}
+                    title={block.label}
+                  >
+                    {block.label}<span :if={@is_admin} class="week-chip-time">{Web.Fitness.Week.span(block)}</span>
+                  </li>
+                </ul>
+              </header>
 
-            <div class="regimen-list">
-              <%= for day <- primary_days do %>
-                <details class="day-details" data-day={day.slug} open={day.slug == @today_slug}>
-                  <summary class="day-summary">
-                    <span class="day-title">{day.title}</span>
-                    <.icon name="hero-chevron-down" class="summary-icon" />
-                  </summary>
-                  <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
-                    {raw(day.html)}
+              <div class="day-content vault-day markdown-body">
+                {raw(@day.html)}
 
-                    <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
-                      cycle) render each option as its own dropdown, with the one
-                      in rotation open. Which one is live comes from
-                      Web.Fitness.Rotation off the ISO week — it used to be prose
-                      that checklist_only/1 stripped, so the page showed a single
-                      option and gave no sign the others existed. --%>
-                    <div :if={day.options != []} class="option-list">
-                      <details
-                        :for={option <- day.options}
-                        class="option-details"
-                        data-option={"#{day.slug}_#{option.key}"}
-                        open={option.active?}
-                      >
-                        <summary class="option-summary">
-                          <span class="option-label">{option.label}</span>
-                          <span :if={option.active?} class="option-badge">this week</span>
-                          <.icon name="hero-chevron-down" class="summary-icon" />
-                        </summary>
-                        <div class="option-content vault-day markdown-body">
-                          {raw(option.html)}
-                        </div>
-                      </details>
+                <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
+                  cycle) render each option as its own dropdown, with the one
+                  in rotation open. Which one is live comes from
+                  Web.Fitness.Rotation off the ISO week. --%>
+                <div :if={@day.options != []} class="option-list">
+                  <details
+                    :for={option <- @day.options}
+                    class="option-details"
+                    data-option={"#{@day.slug}_#{option.key}"}
+                    open={option.active?}
+                  >
+                    <summary class="option-summary">
+                      <span class="option-label">{option.label}</span>
+                      <span :if={option.active?} class="option-badge">this week</span>
+                      <.icon name="hero-chevron-down" class="summary-icon" />
+                    </summary>
+                    <div class="option-content vault-day markdown-body">
+                      {raw(option.html)}
                     </div>
-                  </div>
-                </details>
-              <% end %>
-            </div>
-
-            <%= if length(extra_modules) > 0 do %>
-              <div style="margin-top: 3rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
-                <h2 style="font-size: 1.8rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 1px;">
-                  Additional Modules
-                </h2>
+                  </details>
+                </div>
               </div>
+            </article>
+
+            <p class="day-page-reset">
+              <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
+            </p>
+
+            <%= if @extra_modules != [] do %>
+              <h2 class="day-page-section">Additional Modules</h2>
               <div class="regimen-list">
-                <%= for day <- extra_modules do %>
+                <%= for day <- @extra_modules do %>
                   <details class="day-details" data-day={day.slug}>
                     <summary class="day-summary">
                       <span class="day-title">{day.title}</span>
@@ -234,26 +288,32 @@ defmodule WebWeb.FitnessLive.Index do
           </div>
 
           <%!-- Fuelling is a daily reference, not the day's work, so it rides
-                beside the regimen in a sticky rail (the /negatives roll rail's
+                beside the day in a sticky rail (the /negatives roll rail's
                 shape) and folds below it on narrow screens — it comes after the
                 workout in the markup for exactly that reason. It stays inside
                 #weekly-routine and keeps its .day-details class and data-day,
                 because GymRoutine keys saved ticks on
                 `vault_gym_<data-day>_<index>` scoped to this element — move it
                 out or rename the scope and every saved tick silently detaches. --%>
-          <aside :if={fuelling} class="fuelling-rail" aria-label="Daily fuelling">
-            <details class="day-details" data-day={fuelling.slug} open>
+          <aside :if={@fuelling} class="fuelling-rail" aria-label="Daily fuelling">
+            <details class="day-details" data-day={@fuelling.slug} open>
               <summary class="day-summary">
-                <span class="day-title">{fuelling.title}</span>
+                <span class="day-title">{@fuelling.title}</span>
                 <.icon name="hero-chevron-down" class="summary-icon" />
               </summary>
               <div class="day-content vault-day markdown-body">
-                {raw(fuelling.html)}
+                {raw(@fuelling.html)}
               </div>
             </details>
           </aside>
         </div>
       </div>
+
+      <%!-- The big picture, under the day. Visitors get untimed chips; the
+            clock times render for the admin only. --%>
+      <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
+
+      <WebWeb.FitnessSubnav.subnav active={:regimen} />
 
       <%= if @logging_slug do %>
         <div class="log-modal-backdrop" phx-click="close_log">

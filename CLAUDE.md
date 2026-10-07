@@ -155,8 +155,12 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   address is mailed with the value to type in.
 
 - **Feature areas** beyond the blog: fitness (`Web.Fitness` + `Web.Fitness.Vault` markdown regimen/wiki;
-  the `/fitness` landing is the regimen accordion — today auto-expanded via `Web.Clock`, a
-  tzdata-free US-Pacific helper — under **The Week**: `Web.Fitness.Week` reads
+  **`/fitness` is one day to a page** (2026-10-07; it was an accordion of all seven): `/fitness`
+  is always today by `Web.Clock`, a tzdata-free US-Pacific helper, and `/fitness/day/<weekday>`
+  is that day whatever today is, so the day being looked at is in the address and a reload
+  keeps it. The days link with `navigate`, never `patch` (a patch would carry one day's ticked
+  boxes onto the next day's list). The day's checklist leads the page; under it sit
+  **The Week**: `Web.Fitness.Week` reads
   `content/fitness/week.md` and `WebWeb.FitnessWeek` renders it, untimed chips for visitors and clock
   times for the admin only, so the public page never says when he's out of the house), Komoot-synced rides
   (`Web.Rides` + `Web.Rides.KomootSync`). **Komoot is the only input**: `/fitness/rides` mirrors

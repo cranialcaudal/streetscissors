@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   THE WEEK — the big picture above the regimen on /fitness
+   THE WEEK — the big picture under the day on /fitness
    ═══════════════════════════════════════════════════════════════════
    Tokens only, so it re-inks with .steel like the rest of the section.
    Work is the ground the training sits on; the three race sports take
@@ -48,6 +48,9 @@
   letter-spacing: 1px;
   color: var(--ink-3);
 }
+
+a.week-day { text-decoration: none; }
+a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 
 .week-row.is-today .week-day { color: var(--ink); font-weight: 700; }
 
@@ -190,3 +193,94 @@
   .week-track { height: 1.25rem; }
   .week--timed .week-chips { display: flex; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ONE DAY — what /fitness opens on
+   ═══════════════════════════════════════════════════════════════════
+   The page is read on a phone, between sets: the seven days across the
+   top, then the day itself as one plain list with boxes big enough to
+   hit. Tokens only.
+   ─────────────────────────────────────────────────────────────────── */
+
+.day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 1.5rem;
+}
+
+.day-strip-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  outline: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  color: var(--ink-2);
+}
+
+.day-strip-link:hover,
+.day-strip-link:focus-visible { color: var(--theme-color); outline-color: var(--theme-color); }
+
+/* Today carries the hot-metal mark whichever day is open; the open day is
+   the solid one. */
+.day-strip-link.is-today { box-shadow: inset 0 -4px 0 var(--theme-color) !important; }
+
+.day-strip-link[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+  outline-color: var(--ink);
+  font-weight: 700;
+}
+
+.day-page.day-details { background: none; border: 0; overflow: visible; }
+
+.day-page-head { margin-bottom: 1.5rem; }
+
+.day-page-when {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ink-3);
+}
+
+.day-page-back { margin-left: 0.75rem; color: var(--theme-color); }
+
+.day-page-title {
+  margin: 0 0 1rem;
+  font-family: var(--font-heading);
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+
+.day-page-blocks { grid-column: auto; }
+
+.day-page .vault-day li { font-size: 1.1rem; padding: 0.6rem 0; gap: 1rem; }
+.day-page .vault-day li input[type="checkbox"] { width: 24px; height: 24px; margin-top: 0.1rem; }
+.day-page .day-content > .vault-day ul,
+.day-page .day-content > ul { padding: 0; }
+
+.day-page-reset { margin: 2rem 0 0; }
+
+.day-page-section {
+  margin: 3rem 0 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+
+.fitness-landing .week { margin-top: 2rem; }
