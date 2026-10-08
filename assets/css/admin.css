@@ -596,6 +596,22 @@ textarea.adm-input {
   margin: 0 0 1.75rem;
 }
 
+/* The training log's exercises, each a link to its own history. */
+.adm-log-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0 0 1.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+
+.admin-layout .adm-log-filter .adm-link[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
 .adm-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -267,6 +267,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   app, which was the only way in then known. It was reversed on 2026-10-05: Apple's own export
   does the job for nothing. `/fitness/biometrics` and the `biometrics` table stay gone, and
   nutrition stays in the vault's markdown (`meals.md`, `meals-week.json`).
+  **The training log** (`exercise_logs`, 2026-10-07) is what was lifted: weight in pounds, sets
+  and reps as numbers, plus free-text distance/time/result in `metrics`. **An entry is filed
+  under the exercise wiki's slug** (`Fitness.log_exercise/2`, which refuses a slug the wiki has
+  no file for), not a row of the old `exercises` table: that table covered 17 of the regimen's
+  107 linked exercises, so the Log button answered "not wired up" for the rest and the table
+  never held a row. It is written from the admin-only Log button on each checklist line of
+  `/fitness` (the form opens over the last entries and the heaviest on file) and from
+  `/admin/fitness?tab=log`, which also lists it, gives each exercise its history
+  (`&exercise=<slug>`) and links the CSV. Admin only, both ways: no public page reads it.
+  `exercises`, `workout_sessions` and `workout_sets` are legacy tables nothing writes.
   Newsletter + subscribers,
   guestbook, contact messages, analytics, a `/pc` terminal
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom

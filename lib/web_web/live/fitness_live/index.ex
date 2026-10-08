@@ -54,6 +54,8 @@ defmodule WebWeb.FitnessLive.Index do
     )
     |> assign(:logging_slug, nil)
     |> assign(:logging_name, nil)
+    |> assign(:logging_recent, [])
+    |> assign(:logging_best, nil)
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
 
@@ -101,40 +103,33 @@ defmodule WebWeb.FitnessLive.Index do
 
   # Fired by the inline "Log" button that Web.Fitness.Vault stitches onto any
   # checkbox line referencing a `[[slug]]` exercise (see
-  # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). Only exercises with a
-  # matching row in the `exercises` DB table are actually loggable — most of
-  # the regimen's older wiki-links predate that table and won't resolve,
-  # which is expected, not an error, so it just flashes instead of opening
-  # the form.
+  # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). An entry is filed under
+  # the wiki's slug, so every exercise the regimen links to can be logged.
+  # The form opens over what was done last time, which is the figure wanted
+  # when loading the bar.
   @impl true
   def handle_event("open_log", _params, %{assigns: %{is_admin: false}} = socket) do
     {:noreply, socket}
   end
 
   def handle_event("open_log", %{"slug" => slug}, socket) do
-    case Fitness.get_exercise_by_slug(slug) do
-      %Fitness.Exercise{} = exercise ->
+    case Vault.get_exercise_by_slug(slug) do
+      {:ok, exercise} ->
         {:noreply,
          socket
          |> assign(:logging_slug, slug)
-         |> assign(:logging_name, exercise.name)}
+         |> assign(:logging_name, exercise.name)
+         |> assign(:logging_recent, Fitness.list_exercise_logs(slug: slug, limit: 4))
+         |> assign(:logging_best, Fitness.best_weight(slug))}
 
-      nil ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "This exercise isn't wired up for logging yet."
-         )}
+      :error ->
+        {:noreply, put_flash(socket, :error, "The wiki has no entry for that exercise.")}
     end
   end
 
   @impl true
   def handle_event("close_log", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:logging_slug, nil)
-     |> assign(:logging_name, nil)}
+    {:noreply, close_log(socket)}
   end
 
   @impl true
@@ -143,51 +138,37 @@ defmodule WebWeb.FitnessLive.Index do
   end
 
   def handle_event("save_log", %{"log" => params}, socket) do
-    slug = socket.assigns.logging_slug
+    case Fitness.log_exercise(socket.assigns.logging_slug || "", params) do
+      {:ok, _log} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Logged #{socket.assigns.logging_name}.")
+         |> close_log()}
 
-    with %Fitness.Exercise{} = exercise <- Fitness.get_exercise_by_slug(slug),
-         metrics when map_size(metrics) > 0 <- log_metrics(params) do
-      attrs = %{
-        exercise_id: exercise.id,
-        date: Date.utc_today(),
-        metrics: metrics,
-        note: blank_to_nil(params["note"])
-      }
+      {:error, :unknown_exercise} ->
+        {:noreply, socket |> put_flash(:error, "The wiki has no entry for that exercise.")}
 
-      case Fitness.create_exercise_log(attrs) do
-        {:ok, _log} ->
-          {:noreply,
-           socket
-           |> put_flash(:info, "Logged #{exercise.name}.")
-           |> assign(:logging_slug, nil)
-           |> assign(:logging_name, nil)}
+      {:error, %Ecto.Changeset{errors: [{:base, _} | _]}} ->
+        {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
 
-        {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
-      end
-    else
-      _ -> {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
+      {:error, %Ecto.Changeset{errors: [{field, _} | _]}} ->
+        {:noreply, put_flash(socket, :error, "That #{field} doesn't look right.")}
     end
   end
 
-  # Builds the `metrics` map the CSV export already understands
-  # (fitness_controller.ex reads string values like "200 lbs"/"2 miles" out
-  # of these same keys) — only the fields the user actually filled in.
-  defp log_metrics(params) do
-    %{}
-    |> put_metric("weight", params["weight"])
-    |> put_metric("distance", params["distance"])
-    |> put_metric("time", params["time"])
-    |> put_metric("result", params["result"])
+  defp close_log(socket) do
+    socket
+    |> assign(:logging_slug, nil)
+    |> assign(:logging_name, nil)
+    |> assign(:logging_recent, [])
+    |> assign(:logging_best, nil)
   end
 
-  defp put_metric(map, _key, nil), do: map
-  defp put_metric(map, _key, ""), do: map
-  defp put_metric(map, key, value), do: Map.put(map, key, String.trim(value))
+  defp last_value(recent, field) do
+    Enum.find_value(recent, &Map.get(&1, field))
+  end
 
-  defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(v), do: v
+  defp short_date(%Date{} = date), do: Calendar.strftime(date, "%b %-d")
 
   @impl true
   def render(assigns) do
@@ -322,20 +303,75 @@ defmodule WebWeb.FitnessLive.Index do
 
       <%= if @logging_slug do %>
         <div class="log-modal-backdrop" phx-click="close_log">
-          <div class="log-modal" phx-click-away="close_log">
-            <h3>Log: {@logging_name}</h3>
+          <%!-- The empty click binding is what keeps a click inside the form
+                from reaching the backdrop's close_log. --%>
+          <div
+            class="log-modal"
+            phx-click={%JS{}}
+            phx-window-keydown="close_log"
+            phx-key="escape"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="log-modal-title"
+          >
+            <h3 id="log-modal-title">Log: {@logging_name}</h3>
+            <ul :if={@logging_recent != []} class="log-history" aria-label="Earlier entries">
+              <li :for={log <- @logging_recent}>
+                <span class="log-history-date">{short_date(log.date)}</span>
+                <span>{Fitness.describe_log(log)}</span>
+              </li>
+              <li :if={@logging_best} class="log-history-best">
+                <span class="log-history-date">Best</span>
+                <span>{Fitness.format_weight(@logging_best)} lb</span>
+              </li>
+            </ul>
             <form phx-submit="save_log">
+              <div class="log-modal-row">
+                <label>
+                  Weight (lb)
+                  <input
+                    type="number"
+                    name="log[weight]"
+                    inputmode="decimal"
+                    step="any"
+                    min="0"
+                    placeholder={
+                      (w = last_value(@logging_recent, :weight)) && Fitness.format_weight(w)
+                    }
+                    autofocus
+                  />
+                </label>
+                <label>
+                  Sets
+                  <input
+                    type="number"
+                    name="log[sets]"
+                    inputmode="numeric"
+                    min="1"
+                    placeholder={last_value(@logging_recent, :sets)}
+                  />
+                </label>
+                <label>
+                  Reps
+                  <input
+                    type="number"
+                    name="log[reps]"
+                    inputmode="numeric"
+                    min="1"
+                    placeholder={last_value(@logging_recent, :reps)}
+                  />
+                </label>
+              </div>
+              <div class="log-modal-row">
+                <label>
+                  Distance <input type="text" name="log[distance]" placeholder="2 miles" />
+                </label>
+                <label>
+                  Time <input type="text" name="log[time]" placeholder="8:26 pace" />
+                </label>
+              </div>
               <label>
-                Weight <input type="text" name="log[weight]" placeholder="e.g. 200 lbs" autofocus />
-              </label>
-              <label>
-                Distance <input type="text" name="log[distance]" placeholder="e.g. 2 miles" />
-              </label>
-              <label>
-                Time <input type="text" name="log[time]" placeholder="e.g. 8:26 pace" />
-              </label>
-              <label>
-                Result <input type="text" name="log[result]" placeholder="e.g. 30 inches, 20 reps" />
+                Result <input type="text" name="log[result]" placeholder="30 inches, to failure" />
               </label>
               <label>
                 Note <input type="text" name="log[note]" placeholder="optional" />
@@ -404,6 +440,12 @@ defmodule WebWeb.FitnessLive.Index do
       .log-modal h3 { color: var(--theme-color); font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px; font-size: 1.1rem; margin: 0 0 1rem 0; }
       .log-modal label { display: block; color: var(--ink-3); font-size: 0.85rem; margin-bottom: 0.75rem; }
       .log-modal input { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; background: rgba(23, 20, 15, 0.05); border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); font-size: 0.9rem; }
+      .log-modal-row { display: flex; gap: 0.6rem; }
+      .log-modal-row label { flex: 1 1 0; min-width: 0; }
+      .log-history { list-style: none; margin: 0 0 1rem 0; padding: 0 0 0.75rem 0; border-bottom: 1px solid var(--rule); font-family: var(--font-data); font-size: 0.85rem; color: var(--ink-2); }
+      .log-history li { display: flex; gap: 0.75rem; padding: 0.15rem 0; }
+      .log-history-date { flex: 0 0 3.5rem; color: var(--ink-3); }
+      .log-history-best { color: var(--theme-color); }
       .log-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
       .log-save-btn { background: var(--theme-color); border: none; color: var(--paper); padding: 0.4rem 1rem; border-radius: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-weight: bold; }
     </style>

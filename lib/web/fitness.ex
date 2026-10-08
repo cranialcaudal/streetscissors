@@ -62,17 +62,120 @@ defmodule Web.Fitness do
   end
 
   alias Web.Fitness.ExerciseLog
+  alias Web.Fitness.Vault
 
-  def create_exercise_log(attrs \\ %{}) do
-    %ExerciseLog{}
-    |> ExerciseLog.changeset(attrs)
-    |> Repo.insert()
+  # --- The training log ---
+  #
+  # Entries are filed under the exercise wiki's slugs (`Web.Fitness.Vault`),
+  # so anything the regimen links to can be logged. Reading and writing are
+  # the admin's alone; callers gate on the session.
+
+  @doc """
+  Records what was done of the wiki's exercise `slug`. `attrs` are the log
+  form's string keys: `"weight"` (pounds), `"sets"`, `"reps"`, the free-text
+  `"distance"`, `"time"` and `"result"`, `"note"`, and `"date"` (today by the
+  Pacific clock when absent). `{:error, :unknown_exercise}` when the wiki has
+  no such file.
+  """
+  def log_exercise(slug, attrs) when is_binary(slug) and is_map(attrs) do
+    if MapSet.member?(Vault.exercise_slugs(), slug) do
+      metrics =
+        for key <- ExerciseLog.metric_keys(),
+            value = String.trim(to_string(attrs[key] || "")),
+            value != "",
+            into: %{},
+            do: {key, value}
+
+      %ExerciseLog{}
+      |> ExerciseLog.changeset(%{
+        "slug" => slug,
+        "date" => presence(attrs["date"]) || Web.Clock.local_today(),
+        "weight" => attrs["weight"],
+        "sets" => attrs["sets"],
+        "reps" => attrs["reps"],
+        "note" => attrs["note"],
+        "metrics" => metrics
+      })
+      |> Repo.insert()
+    else
+      {:error, :unknown_exercise}
+    end
   end
 
-  def list_exercise_logs do
-    Repo.all(ExerciseLog)
-    |> Repo.preload(:exercise)
+  @doc """
+  The log, newest first. `slug:` keeps one exercise, `limit:` the newest so
+  many.
+  """
+  def list_exercise_logs(opts \\ []) do
+    ExerciseLog
+    |> order_by([l], desc: l.date, desc: l.id)
+    |> then(fn query ->
+      case opts[:slug] do
+        nil -> query
+        slug -> where(query, [l], l.slug == ^slug)
+      end
+    end)
+    |> then(fn query ->
+      case opts[:limit] do
+        nil -> query
+        limit -> limit(query, ^limit)
+      end
+    end)
+    |> Repo.all()
   end
+
+  @doc "The heaviest weight on file for an exercise, or nil."
+  def best_weight(slug) do
+    Repo.one(from l in ExerciseLog, where: l.slug == ^slug, select: max(l.weight))
+  end
+
+  @doc "Every slug with an entry, and how many, most logged first."
+  def logged_exercises do
+    Repo.all(
+      from l in ExerciseLog,
+        where: not is_nil(l.slug),
+        group_by: l.slug,
+        order_by: [desc: count(l.id), asc: l.slug],
+        select: {l.slug, count(l.id)}
+    )
+  end
+
+  def delete_exercise_log(id) do
+    case Repo.get(ExerciseLog, id) do
+      nil -> {:error, :not_found}
+      log -> Repo.delete(log)
+    end
+  end
+
+  @doc """
+  An entry in a line: `135 lb · 3 × 8 · 2 miles`. The note is not part of it.
+  """
+  def describe_log(%ExerciseLog{} = log) do
+    volume =
+      case {log.sets, log.reps} do
+        {nil, nil} -> nil
+        {sets, nil} -> "#{sets} sets"
+        {nil, reps} -> "#{reps} reps"
+        {sets, reps} -> "#{sets} × #{reps}"
+      end
+
+    rest = for key <- ExerciseLog.metric_keys(), value = (log.metrics || %{})[key], do: value
+
+    [log.weight && "#{format_weight(log.weight)} lb", volume | rest]
+    |> Enum.filter(& &1)
+    |> Enum.join(" · ")
+  end
+
+  @doc "Pounds without a needless decimal: `135`, `22.5`."
+  def format_weight(weight) when is_number(weight) do
+    if weight == trunc(weight),
+      do: Integer.to_string(trunc(weight)),
+      else: weight |> Float.round(2) |> Float.to_string()
+  end
+
+  defp presence(nil), do: nil
+  defp presence(%Date{} = date), do: date
+  defp presence(text), do: if(String.trim(text) == "", do: nil, else: text)
 
   alias Web.Fitness.WorkoutSession
   alias Web.Fitness.WorkoutSet

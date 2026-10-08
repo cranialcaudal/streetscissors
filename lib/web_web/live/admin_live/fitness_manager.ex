@@ -4,18 +4,24 @@ defmodule WebWeb.AdminLive.FitnessManager do
   a markdown file under `content/fitness/` (`Web.Fitness.Vault`), so the vault
   in Obsidian and this page write the same files.
 
-  Which list is showing is in the URL (`?tab=wiki|regimen`). Editing opens in
+  Which list is showing is in the URL (`?tab=wiki|regimen|log`). Editing opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
+
+  The third tab is the training log (`Web.Fitness.log_exercise/2`): what the
+  Log buttons on `/fitness` wrote, an entry form for a day that was missed,
+  and one exercise's history at `?tab=log&exercise=<slug>`. It is in the
+  database, not the vault, and no public page shows it.
   """
 
   use WebWeb, :live_view
 
   import WebWeb.AdminComponents
 
+  alias Web.Fitness
   alias Web.Fitness.Vault
 
-  @tabs ~w(wiki regimen)
+  @tabs ~w(wiki regimen log)
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -30,7 +36,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
          editor_mode: nil,
          editing_item: nil,
          form_data: %{},
-         preview: false
+         preview: false,
+         log_exercise: nil,
+         logs: [],
+         logged: Fitness.logged_exercises()
        )}
     else
       {:ok, push_navigate(socket, to: "/")}
@@ -39,7 +48,40 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   def handle_params(params, _uri, socket) do
     tab = if params["tab"] in @tabs, do: params["tab"], else: "wiki"
-    {:noreply, assign(socket, tab: tab, editor_mode: nil, editing_item: nil)}
+    socket = assign(socket, tab: tab, editor_mode: nil, editing_item: nil)
+
+    if tab == "log" do
+      exercise = if params["exercise"] in Vault.exercise_slugs(), do: params["exercise"]
+      {:noreply, socket |> assign(:log_exercise, exercise) |> load_logs()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # --- The training log ---
+
+  def handle_event("add_log", %{"log" => params}, socket) do
+    case Fitness.log_exercise(params["slug"] || "", params) do
+      {:ok, log} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Logged #{exercise_name(socket.assigns.exercises, log.slug)}.")
+         |> load_logs()}
+
+      {:error, :unknown_exercise} ->
+        {:noreply, put_flash(socket, :error, "Choose an exercise from the wiki.")}
+
+      {:error, %Ecto.Changeset{errors: [{:base, _} | _]}} ->
+        {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
+
+      {:error, %Ecto.Changeset{errors: [{field, _} | _]}} ->
+        {:noreply, put_flash(socket, :error, "That #{field} doesn't look right.")}
+    end
+  end
+
+  def handle_event("delete_log", %{"id" => id}, socket) do
+    Fitness.delete_exercise_log(id)
+    {:noreply, socket |> put_flash(:info, "Entry deleted.") |> load_logs()}
   end
 
   # --- The lists ---
@@ -171,6 +213,23 @@ defmodule WebWeb.AdminLive.FitnessManager do
     end
   end
 
+  defp load_logs(socket) do
+    opts = if slug = socket.assigns.log_exercise, do: [slug: slug], else: [limit: 200]
+
+    assign(socket,
+      logs: Fitness.list_exercise_logs(opts),
+      logged: Fitness.logged_exercises()
+    )
+  end
+
+  defp exercise_name(exercises, slug) do
+    Enum.find_value(exercises, slug, fn {_group, list} ->
+      Enum.find_value(list, &(&1.slug == slug && &1.name))
+    end)
+  end
+
+  defp log_count(logged), do: logged |> Enum.map(&elem(&1, 1)) |> Enum.sum()
+
   defp open_editor(socket, mode, item, form) do
     assign(socket, editor_mode: mode, editing_item: item, form_data: form, preview: false)
   end
@@ -209,6 +268,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
           >here</.link>.
         </:lede>
         <:actions>
+          <.link :if={@tab == "log"} href={~p"/fitness/export/csv"} class="adm-btn adm-btn--quiet">
+            Download CSV
+          </.link>
           <button
             :if={@tab == "wiki"}
             phx-click="new_item"
@@ -239,9 +301,19 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <:tab patch={~p"/admin/fitness?tab=regimen"} active={@tab == "regimen"} count={length(@days)}>
           Regimen
         </:tab>
+        <:tab patch={~p"/admin/fitness?tab=log"} active={@tab == "log"} count={log_count(@logged)}>
+          Training log
+        </:tab>
       </.tabs>
 
-      {if @tab == "wiki", do: render_exercises(assigns), else: render_days(assigns)}
+      <%= case @tab do %>
+        <% "wiki" -> %>
+          {render_exercises(assigns)}
+        <% "regimen" -> %>
+          {render_days(assigns)}
+        <% "log" -> %>
+          {render_log(assigns)}
+      <% end %>
     <% end %>
     """
   end
@@ -302,6 +374,136 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <button phx-click="edit_day" phx-value-slug={day.slug} class="adm-link">Edit</button>
       </:action>
       <:empty>No days in the regimen yet.</:empty>
+    </.rows>
+    """
+  end
+
+  defp render_log(assigns) do
+    assigns =
+      assign(assigns,
+        today: Web.Clock.local_today(),
+        best: assigns.log_exercise && Fitness.best_weight(assigns.log_exercise)
+      )
+
+    ~H"""
+    <.panel title="Add an entry" id="log-entry">
+      <%!-- Keyed on the newest entry, so a saved form comes back empty. --%>
+      <form
+        phx-submit="add_log"
+        id={"log-form-#{@logs |> List.first() |> then(&(&1 && &1.id))}"}
+        class="adm-log-form"
+      >
+        <div class="adm-form-row">
+          <.field label="Exercise">
+            <select name="log[slug]" class="adm-input" required>
+              <option value="">Choose…</option>
+              <optgroup :for={{group, exercises} <- @exercises} label={group}>
+                <option :for={ex <- exercises} value={ex.slug} selected={ex.slug == @log_exercise}>
+                  {ex.name}
+                </option>
+              </optgroup>
+            </select>
+          </.field>
+          <.field label="Date">
+            <input type="date" name="log[date]" value={@today} max={@today} class="adm-input" />
+          </.field>
+        </div>
+        <div class="adm-form-row">
+          <.field label="Weight (lb)">
+            <input
+              type="number"
+              name="log[weight]"
+              step="any"
+              min="0"
+              inputmode="decimal"
+              class="adm-input"
+            />
+          </.field>
+          <.field label="Sets">
+            <input type="number" name="log[sets]" min="1" inputmode="numeric" class="adm-input" />
+          </.field>
+          <.field label="Reps">
+            <input type="number" name="log[reps]" min="1" inputmode="numeric" class="adm-input" />
+          </.field>
+        </div>
+        <div class="adm-form-row">
+          <.field label="Distance">
+            <input name="log[distance]" class="adm-input" placeholder="2 miles" />
+          </.field>
+          <.field label="Time">
+            <input name="log[time]" class="adm-input" placeholder="8:26 pace" />
+          </.field>
+          <.field label="Result">
+            <input name="log[result]" class="adm-input" placeholder="30 inches, to failure" />
+          </.field>
+        </div>
+        <.field label="Note">
+          <input name="log[note]" class="adm-input" />
+        </.field>
+        <div class="adm-form-actions">
+          <button type="submit" class="adm-btn adm-btn--primary">Add entry</button>
+        </div>
+      </form>
+    </.panel>
+
+    <nav :if={@logged != []} class="adm-log-filter" aria-label="Exercises with entries">
+      <.link
+        patch={~p"/admin/fitness?tab=log"}
+        class="adm-link"
+        aria-current={@log_exercise == nil && "page"}
+      >
+        All
+      </.link>
+      <.link
+        :for={{slug, count} <- @logged}
+        patch={~p"/admin/fitness?tab=log&exercise=#{slug}"}
+        class="adm-link"
+        aria-current={@log_exercise == slug && "page"}
+      >
+        {exercise_name(@exercises, slug)}<span class="adm-count">{count}</span>
+      </.link>
+    </nav>
+
+    <div :if={@log_exercise && @logs != []} class="adm-stats">
+      <.stat value={length(@logs)} label="Entries" />
+      <.stat
+        :if={@best}
+        value={Fitness.format_weight(@best) <> " lb"}
+        label="Heaviest"
+        tone="live"
+      />
+      <.stat
+        value={Fitness.describe_log(hd(@logs))}
+        label="Last time"
+        note={stamp(hd(@logs).date)}
+      />
+    </div>
+
+    <.rows id="training-log" rows={@logs} row_id={&"log-#{&1.id}"}>
+      <:col :let={log} label="Date" class="adm-w-mid">{stamp(log.date)}</:col>
+      <:col :let={log} label="Exercise" class="adm-cell-title adm-w-name">
+        <.link patch={~p"/admin/fitness?tab=log&exercise=#{log.slug}"} class="adm-link">
+          {exercise_name(@exercises, log.slug)}
+        </.link>
+      </:col>
+      <:col :let={log} label="Done">{Fitness.describe_log(log)}</:col>
+      <:col :let={log} label="Note">{log.note}</:col>
+      <:action :let={log}>
+        <button
+          phx-click="delete_log"
+          phx-value-id={log.id}
+          data-confirm="Delete this entry?"
+          class="adm-link adm-link--danger"
+        >
+          Delete
+        </button>
+      </:action>
+      <:empty>
+        {if @log_exercise,
+          do: "Nothing logged for this exercise yet.",
+          else:
+            "Nothing logged yet. The Log buttons on /fitness write here, and so does the form above."}
+      </:empty>
     </.rows>
     """
   end

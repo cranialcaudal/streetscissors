@@ -157,9 +157,9 @@ defmodule WebWeb.FitnessLandingTest do
   # the whole page, dark on the steel ground — so these check for the styled
   # notice, not just the words.
   describe "logging an exercise, as the admin" do
+    # Push-ups is a file in the fixture wiki and nothing else: an exercise
+    # needs no database row to be logged.
     setup %{conn: conn} do
-      {:ok, _} = Web.Fitness.create_exercise(%{name: "Push-ups", slug: "push-ups"})
-
       {:ok, view, _html} =
         conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/tuesday")
 
@@ -177,6 +177,21 @@ defmodule WebWeb.FitnessLandingTest do
       refute has_element?(view, "form[phx-submit=save_log]")
     end
 
+    test "weight, sets and reps are kept as numbers, and shown the next time", %{view: view} do
+      view
+      |> form("form[phx-submit=save_log]", log: %{weight: "135", sets: "3", reps: "8"})
+      |> render_submit()
+
+      assert [%{slug: "push-ups", weight: 135.0, sets: 3, reps: 8}] =
+               Web.Fitness.list_exercise_logs()
+
+      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+
+      assert has_element?(view, ".log-history li", "135 lb · 3 × 8")
+      assert has_element?(view, ".log-history-best", "135 lb")
+      assert has_element?(view, "input[name='log[weight]'][placeholder='135']")
+    end
+
     test "an empty entry is refused in an alert, with the form still open", %{view: view} do
       view |> form("form[phx-submit=save_log]") |> render_submit()
 
@@ -187,6 +202,22 @@ defmodule WebWeb.FitnessLandingTest do
              )
 
       assert has_element?(view, "form[phx-submit=save_log]")
+    end
+  end
+
+  # The page is public; the log is not. A visitor's socket can still be sent
+  # the events by hand.
+  describe "logging, as a visitor" do
+    test "the events write nothing and show nothing", %{conn: conn} do
+      {:ok, _} = Web.Fitness.log_exercise("push-ups", %{"weight" => "135"})
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+
+      html = render_click(view, "open_log", %{"slug" => "push-ups"})
+      refute has_element?(view, ".log-modal")
+      refute html =~ "135 lb"
+
+      render_submit(view, "save_log", %{"log" => %{"weight" => "500"}})
+      assert [%{weight: 135.0}] = Web.Fitness.list_exercise_logs()
     end
   end
 

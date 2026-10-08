@@ -4,7 +4,15 @@ defmodule WebWeb.FitnessController do
 
   def export_csv(conn, _params) do
     if get_session(conn, "admin_user") == true do
-      logs = Fitness.list_exercise_logs()
+      # Oldest first, as a series reads. Names and groups come from the wiki
+      # the entries are filed under.
+      logs = Fitness.list_exercise_logs() |> Enum.reverse()
+
+      wiki =
+        for {_group, exercises} <- Fitness.Vault.list_all_exercises(),
+            exercise <- exercises,
+            into: %{},
+            do: {exercise.slug, exercise}
 
       # Define excluded exercises (Saturday and One-Shot specific)
       excluded_slugs = [
@@ -36,6 +44,8 @@ defmodule WebWeb.FitnessController do
         "exercise_name",
         "muscle_group",
         "weight_lbs",
+        "sets",
+        "reps",
         "distance_miles",
         "time_str",
         "height_result",
@@ -45,7 +55,7 @@ defmodule WebWeb.FitnessController do
       # Map logs to rows (filtering out excluded exercises)
       rows =
         logs
-        |> Enum.filter(fn log -> log.exercise.slug not in excluded_slugs end)
+        |> Enum.filter(fn log -> log.slug && log.slug not in excluded_slugs end)
         |> Enum.map(fn log ->
           metrics = log.metrics || %{}
 
@@ -66,7 +76,8 @@ defmodule WebWeb.FitnessController do
             end
           end
 
-          weight_val = extract_numeric.(metrics["weight"])
+          weight_val = log.weight || extract_numeric.(metrics["weight"])
+          exercise = wiki[log.slug] || %{name: log.slug, muscle_group: "NA"}
           dist_val = extract_numeric.(metrics["distance"])
           height_val = extract_numeric.(metrics["result"])
 
@@ -76,9 +87,11 @@ defmodule WebWeb.FitnessController do
             year,
             quarter,
             month,
-            log.exercise.name,
-            log.exercise.muscle_group,
+            exercise.name,
+            exercise.muscle_group,
             weight_val,
+            log.sets || "NA",
+            log.reps || "NA",
             dist_val,
             metrics["time"] || "NA",
             height_val,
@@ -94,7 +107,7 @@ defmodule WebWeb.FitnessController do
         end)
         |> Enum.join("\n")
 
-      filename = "fitness_progress_#{Date.to_string(Date.utc_today())}.csv"
+      filename = "fitness_progress_#{Date.to_string(Web.Clock.local_today())}.csv"
 
       conn
       |> put_resp_content_type("text/csv")
