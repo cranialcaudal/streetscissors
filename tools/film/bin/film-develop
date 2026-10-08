@@ -23,18 +23,43 @@ Subcommands:
       Develop one high-resolution single-frame scan, blending the frame's own
       reading with its strip's settings (default 70% strip / 30% frame).
 
-The two film types differ in how they are normalised:
+How a negative is developed (revised 2026-10-07, when single frames became
+part of the pipeline and per-frame colour stopped being good enough):
+
+  The roll sets the colour; the frame sets only its exposure.
+
+  A roll is one emulsion through one developer, so its colour is one thing:
+  the film base (what the rebate between frames reads), the density range its
+  well exposed frames reach, and where the three channels' midtones sit, all
+  pooled over the whole roll. That is the "film" block in frames.json, and
+  every frame on the roll is converted with it. Judging colour frame by
+  frame was the old way, and it is what tinted thin negatives blue: with
+  little on the film there is no colour to measure, only noise to stretch.
+
+  What does differ between frames is exposure, and that is corrected with
+  neutral moves only (one black point, one white point, one gamma for all
+  three channels), each held within limits, so a thin frame comes out dark
+  and honest, never purple. A frame may also lean a little towards its own
+  colour reading, in proportion to how much picture it holds.
 
   color  C-41 carries an orange base mask, so a straight invert washes every
-         frame blue. Each channel is normalised onto its own film range,
-         inverted, then the three midtones are pulled together. The mask is a
-         density offset with differing per-channel gammas, so that midtone
-         match is the step that actually removes the cast.
-  bw     No mask, but the negatives use only part of the range, which is why
-         plain proofs come out flat and milky. One range shared by all three
-         channels (never per-channel — that would tint a monochrome image) and
-         the channels averaged into true neutral grey, which also cancels the
-         scanner's slight channel imbalance.
+         frame blue. Each channel is normalised between the film base and
+         the roll's densest highlight, inverted, and the three midtones are
+         pulled together.
+  bw     No mask. One range shared by all three channels (never per-channel:
+         that would tint a monochrome image) and the channels averaged into
+         true neutral grey, which also cancels the scanner's slight channel
+         imbalance.
+
+Where the frames are:
+
+  35mm frames sit 38.00 mm apart whatever the camera, so on a 35mm strip the
+  only thing to find is where that grid starts, and the count is simply how
+  many fit on the film. (Cutting every strip into six, as before, cut through
+  pictures on any strip that held five, or three and a leader.) 120 and 620
+  spacing belongs to the camera, so there the count is still given per roll
+  and each cut is fitted to the rebate. Either way a frame's rectangle is the
+  picture itself: the rebate either side and the film's edges are left out.
 """
 
 import argparse
@@ -73,6 +98,51 @@ REBATE_LIFT = 1.02
 SPLIT_WARN_LIFT = 1.5
 # Frame stats ignore this much of each edge, so the rebate never enters them.
 STATS_INSET = 0.05
+STATS_SIDE = 0.08
+
+STRIP_DPI = 300.0        # strips are archived at this, whatever they were scanned at
+
+# 35mm: eight perforations a frame, 4.75 mm each. The picture is 36 mm of it.
+PITCH_35MM = 38.0
+GAP_35MM = 2.0
+# A cell of the grid has to be this much on the film to be a frame; less is
+# the stub left where a strip was cut.
+MIN_CELL = 0.85
+# Kept clear of the rebate at each end of a frame, and of the film's edges
+# across it (as a fraction of the strip's width).
+EDGE_CLEAR_MM = 0.3
+SIDE_INSET = 0.02
+
+
+# Limits on what a frame may do to itself. The white point may bring a thin
+# frame up, but not by more than this. The black point may come most of the
+# way up to the frame's own darkest tone, which is what prints a dense
+# (overexposed) negative down instead of leaving it a white sheet. The
+# midtone is moved part of the way to the middle, within bounds.
+WHITE_FLOOR = 0.42
+BLACK_CEILING = 0.85
+BLACK_STRENGTH = 0.9
+MID_TARGET = 0.42
+MID_STRENGTH = 0.6
+GAMMA_LIMITS = (0.72, 1.5)
+# How far a frame may lean to its own colour reading, at full quality.
+COLOUR_LEAN = 0.5
+
+# The film base is the brightest film on a strip: the rebate, a few percent
+# of it. A little under the very top keeps the blur at the film's edge out.
+BASE_PCT = 98.0
+# Where up the density scale the three layers' rates are compared, and where
+# the roll's dense end is taken to be white.
+RATE_POINTS = (40, 55, 70, 82, 92)
+DENSE_PCT = 99.0
+# Bounds on the roll's contrast.
+POWER_LIMITS = (0.6, 3.2)
+
+# Dust on the film blocks the lamp, so it scans dark and prints as white
+# specks. A speck is far brighter than its surroundings and small.
+DUST_MEDIAN = 7
+DUST_LIFT = 14           # percent brighter than the local median
+DUST_MAX_RADIUS = 3.5    # px; anything an opening this size keeps is picture
 
 
 # --- reading ------------------------------------------------------------
@@ -145,42 +215,244 @@ def interquartile(hist, kept):
     return pct(75) - pct(25)
 
 
-def measure(path, mode, crop=None):
-    """Reads an image and returns its settings, the raw stats behind them, and
-    the interquartile spread used to judge exposure."""
+def histograms(path, crop=None):
+    """Per-channel and grey histograms of an image's film pixels:
+    ([r, g, b] histograms, grey histogram, pixels kept)."""
     rgb = read_rgb(path, crop)
     grey = read_grey(path, crop)
-    ghist, gkept = [0] * 256, 0
-    for i, _, _, _ in film_pixels(rgb):
+    hist, ghist, kept = [[0] * 256 for _ in range(3)], [0] * 256, 0
+    for i, r, g, b in film_pixels(rgb):
+        hist[0][r] += 1; hist[1][g] += 1; hist[2][b] += 1
         ghist[grey[i // 3]] += 1
-        gkept += 1
-    contrast = interquartile(ghist, gkept) if gkept else 0
+        kept += 1
+    return hist, ghist, kept
+
+
+def add_hist(total, more):
+    for v in range(256):
+        total[v] += more[v]
+
+
+def pct(hist, kept, q):
+    target, c = kept * q / 100.0, 0
+    for v in range(256):
+        c += hist[v]
+        if c >= target:
+            return v
+    return 255
+
+
+def density(value, base):
+    """Optical density above the film base: 0 where the film is clear."""
+    return max(0.0, -math.log10(max(value, 0.5) / float(max(base, 1))))
+
+
+def print_value(d, power, white):
+    """Where a density lands in the print, 0..1."""
+    return min(max((1.0 - 10.0 ** (-power * d)) / white, 0.0), 1.0)
+
+
+def layer_rates(hist, kept, base):
+    """How fast the red and blue layers build density against the green, read
+    at several points up the scale and the middle reading taken: [r, 1, b]."""
+    def dens(c, q):
+        return density(pct(hist[c], kept, 100 - q), base[c])
+
+    rates = []
+    for c in range(3):
+        ratios = sorted(dens(c, q) / dens(1, q) for q in RATE_POINTS if dens(1, q) > 0.05)
+        rates.append(ratios[len(ratios) // 2] if ratios else 1.0)
+    return [min(max(r, 0.5), 2.5) for r in rates]
+
+
+def film_model(mode, frames, strips):
+    """The roll's colour, from everything on it.
+
+    frames: [(channel hists, grey hist, kept, quality)] for each frame's
+    picture area. strips: the same for each whole strip, rebate included.
+
+    A negative is developed as a print is made: light through the film,
+    divided by what comes through bare film, raised to a power and turned
+    over.
+
+        print = 1 - (value / base) ^ power        then / white
+
+    * base is the film with nothing on it, the brightest thing a strip holds.
+      The middle strip's reading is taken, so one fogged strip cannot move it.
+    * The three layers of colour film build density at different rates, which
+      is the whole of the orange mask's cast once the base is divided out. The
+      rates are read off the roll: at several points up the scale, how dense
+      red and blue are against green, pooled over every frame with a picture
+      in it. Each channel's power is the roll's contrast over its rate, so a
+      grey on the film is a grey in the print at every density, not only at
+      the three points a levels-and-gamma fit can pin.
+    * The contrast is the one that puts the roll's middle density at a middle
+      grey once its dense end is white, within bounds.
+    """
+    good = [f for f in frames if f[2] and f[3] >= WELL_EXPOSED] or \
+           [f for f in frames if f[2]]
+    strips = [t for t in strips if t[2]]
+    if not good or not strips:
+        return None
+
+    def middle(values):
+        values = sorted(values)
+        return values[len(values) // 2]
 
     if mode == "color":
-        hist, kept = [[0] * 256 for _ in range(3)], 0
-        for _, r, g, b in film_pixels(rgb):
-            hist[0][r] += 1; hist[1][g] += 1; hist[2][b] += 1
-            kept += 1
-        if not kept:
-            return None, None, 0
-        stats = [percentiles(hist[c], kept) for c in range(3)]
-        # where each channel's midtone lands once stretched and inverted
-        mids = [min(max(1.0 - (min(max(mid, lo), hi) - lo) / float(hi - lo), 0.02), 0.98)
-                for lo, hi, mid in stats]
-        target = sum(mids) / 3.0
-        channels = [{"lo": lo, "hi": hi, "gamma": math.log(m) / math.log(target)}
-                    for (lo, hi, _), m in zip(stats, mids)]
+        base = [middle([pct(h[c], k, BASE_PCT) for h, _, k, _ in strips]) for c in range(3)]
+        pooled, kept = [[0] * 256 for _ in range(3)], 0
+        for h, _, k, _ in good:
+            for c in range(3):
+                add_hist(pooled[c], h[c])
+            kept += k
+
+        def dens(c, q):   # the q-th percentile of density is the (100-q)-th of value
+            return density(pct(pooled[c], kept, 100 - q), base[c])
+
+        rates = layer_rates(pooled, kept, base)
+        mid, top = dens(1, 50), dens(1, DENSE_PCT)
     else:
-        if not gkept:
-            return None, None, 0
-        stats = [percentiles(ghist, gkept)]
-        lo, hi, _ = stats[0]
-        channels = [{"lo": lo, "hi": hi, "gamma": 1.0}]
-    return {"mode": mode, "channels": channels}, stats, contrast
+        base = [middle([pct(g, k, BASE_PCT) for _, g, k, _ in strips])]
+        pooled, kept = [0] * 256, 0
+        for _, g, k, _ in good:
+            add_hist(pooled, g)
+            kept += k
+        rates = [1.0]
+        mid = density(pct(pooled, kept, 50), base[0])
+        top = density(pct(pooled, kept, 100 - DENSE_PCT), base[0])
+
+    top = max(top, 0.15)
+    mid = min(max(mid, 0.02), top * 0.95)
+
+    # The contrast that puts the middle density at MID_TARGET of the way to
+    # white. The ratio rises with the power, from mid/top towards 1.
+    def ratio(power):
+        return (1.0 - 10.0 ** (-power * mid)) / (1.0 - 10.0 ** (-power * top))
+
+    lo, hi = POWER_LIMITS
+    if ratio(lo) >= MID_TARGET:
+        power = lo
+    elif ratio(hi) <= MID_TARGET:
+        power = hi
+    else:
+        for _ in range(40):
+            power = (lo + hi) / 2.0
+            lo, hi = (power, hi) if ratio(power) < MID_TARGET else (lo, power)
+    white = 1.0 - 10.0 ** (-power * top)
+
+    return {"mode": mode,
+            "white": round(white, 4),
+            "contrast": round(power, 4),
+            "channels": [{"base": b, "power": round(power / r, 4)}
+                         for b, r in zip(base, rates)]}
+
+
+def exposure_for(settings, hist, ghist, kept):
+    """The neutral correction a frame gets on top of the roll's colour: one
+    black point, one white point, one gamma, the same for every channel."""
+    if not kept:
+        return {"black": 0.0, "white": settings.get("white", 1.0), "gamma": 1.0}
+    # Measured before the roll's white is applied, on the print's own scale
+    # (which only reaches 1 at infinite density), so a frame denser than the
+    # rest of its roll still has somewhere to go: its white is put where its
+    # own highlights are, not clipped at the roll's.
+    chans, roll_white = settings["channels"], settings.get("white", 1.0)
+    flat = {"black": 0.0, "white": roll_white, "gamma": 1.0}
+    if settings["mode"] == "color":
+        def lum(q):
+            # a negative's dark end is the print's bright end
+            return sum(print_value(density(pct(hist[c], kept, 100 - q), chans[c]["base"]),
+                                   chans[c]["power"], 1.0) for c in range(3)) / 3.0
+    else:
+        def lum(q):
+            return print_value(density(pct(ghist, kept, 100 - q), chans[0]["base"]),
+                               chans[0]["power"], 1.0)
+
+    black = min(max(lum(CLIP), 0.0), BLACK_CEILING) * BLACK_STRENGTH
+    top = min(max(lum(100 - CLIP), WHITE_FLOOR * roll_white), 1.0)
+    if top - black < 0.04:
+        return flat
+    mid = min(max((lum(50) - black) / (top - black), 0.02), 0.98)
+    full = math.log(mid) / math.log(MID_TARGET)
+    gamma = math.exp(MID_STRENGTH * math.log(full))
+    gamma = min(max(gamma, GAMMA_LIMITS[0]), GAMMA_LIMITS[1])
+    return {"black": round(black, 4), "white": round(top, 4), "gamma": round(gamma, 4)}
+
+
+def frame_settings(film, hist, ghist, kept, score=0.0):
+    """A frame's recipe: the roll's colour, leaned towards the frame's own
+    reading of it in proportion to how much picture the frame holds, and the
+    frame's own exposure.
+
+    The lean is what lets a frame lit differently from the rest of its roll
+    come out neutral; the proportion is what keeps a thin frame, which has
+    no colour to read, on the roll's. Nothing leans at all below a third of
+    a healthy negative.
+    """
+    channels = [dict(ch) for ch in film["channels"]]
+    lean = COLOUR_LEAN * min(max((score - 0.3) / 0.3, 0.0), 1.0)
+    if film["mode"] == "color" and kept and lean > 0 and film.get("contrast"):
+        own = layer_rates(hist, kept, [ch["base"] for ch in channels])
+        for ch, rate in zip(channels, own):
+            ch["power"] = round(_log_mix(ch["power"], film["contrast"] / rate, 1 - lean), 4)
+    settings = {"mode": film["mode"], "white": film.get("white", 1.0), "channels": channels}
+    settings["exposure"] = exposure_for(settings, hist, ghist, kept)
+    return settings
+
+
+def measure(path, mode, crop=None):
+    """An image read on its own, with no roll to go by: its settings, None,
+    and the interquartile spread used to judge exposure. Only for scans that
+    belong to no analysed roll; the image stands in for the whole of one."""
+    hist, ghist, kept = histograms(path, crop)
+    if not kept:
+        return None, None, 0
+    contrast = interquartile(ghist, kept)
+    film = film_model(mode, [(hist, ghist, kept, 1.0)], [(hist, ghist, kept, 1.0)])
+    return (frame_settings(film, hist, ghist, kept) if film else None), None, contrast
+
+
+def exposure_args(settings):
+    """The frame's black and white on the print's scale, and its gamma. With
+    no exposure of its own a frame takes the roll's white."""
+    e = settings.get("exposure")
+    if not e:
+        return ["-level", f"0%,{settings.get('white', 1.0) * 100:.3f}%"]
+    args = []
+    if e["black"] > 1e-4 or e["white"] < 1 - 1e-4:
+        args += ["-level", f"{e['black'] * 100:.3f}%,{e['white'] * 100:.3f}%"]
+    if abs(e["gamma"] - 1.0) > 1e-4:
+        args += ["-gamma", f"{e['gamma']:.4f}"]
+    return args
 
 
 def apply_args(settings):
     """ImageMagick arguments that develop a negative with these settings."""
+    chans = settings["channels"]
+    if "base" not in chans[0]:
+        return legacy_args(settings)
+
+    def channel(ch):
+        # Clamped between: brighter than the base is the base, and a build of
+        # ImageMagick that keeps values above white would carry them into
+        # the power.
+        return ["-evaluate", "Divide", f"{max(ch['base'], 1) / 255.0:.5f}", "-clamp",
+                "-evaluate", "Pow", f"{ch['power']:.4f}"]
+
+    if settings["mode"] == "color":
+        args = []
+        for name, ch in zip("RGB", chans):
+            args += ["-channel", name] + channel(ch)
+        args += ["+channel"]
+    else:
+        args = ["-grayscale", "Average"] + channel(chans[0]) + ["-colorspace", "sRGB"]
+    return args + ["-negate"] + exposure_args(settings)
+
+
+def legacy_args(settings):
+    """The recipe as it was before October 2026 (per-channel levels and
+    gamma), for a frames.json not analysed since."""
     def level(ch):
         return ["-level", f"{ch['lo'] * 100.0 / 255:.4f}%,{ch['hi'] * 100.0 / 255:.4f}%"]
 
@@ -200,21 +472,33 @@ def apply_args(settings):
     return args
 
 
+def _log_mix(a, b, weight):
+    return math.exp(math.log(max(a, 1e-6)) * weight + math.log(max(b, 1e-6)) * (1 - weight))
+
+
 def blend(strip, frame, weight):
     """Weighted mix of two settings. weight=1 is all strip, 0 all frame.
 
-    Endpoints mix linearly; gammas mix in log space, because a gamma is a
-    multiplicative exponent and averaging 0.5 with 2.0 has to give 1.0.
+    The colour of two frames of one roll is the same thing, so what this
+    really mixes is their exposure: black and white points linearly, gammas
+    in log space, because a gamma is a multiplicative exponent and averaging
+    0.5 with 2.0 has to give 1.0.
     """
-    out = []
-    for a, b in zip(strip["channels"], frame["channels"]):
-        out.append({
-            "lo": a["lo"] * weight + b["lo"] * (1 - weight),
-            "hi": a["hi"] * weight + b["hi"] * (1 - weight),
-            "gamma": math.exp(math.log(max(a["gamma"], 1e-6)) * weight +
-                              math.log(max(b["gamma"], 1e-6)) * (1 - weight)),
-        })
-    return {"mode": strip["mode"], "channels": out}
+    mixed = {"mode": strip["mode"],
+             "white": strip.get("white", 1.0) * weight + frame.get("white", 1.0) * (1 - weight),
+             "channels": [{"base": a["base"] * weight + b["base"] * (1 - weight),
+                           "power": _log_mix(a["power"], b["power"], weight)}
+                          for a, b in zip(strip["channels"], frame["channels"])]}
+    a, b = strip.get("exposure"), frame.get("exposure")
+    if a and b:
+        mixed["exposure"] = {
+            "black": a["black"] * weight + b["black"] * (1 - weight),
+            "white": a["white"] * weight + b["white"] * (1 - weight),
+            "gamma": _log_mix(a["gamma"], b["gamma"], weight),
+        }
+    elif a or b:
+        mixed["exposure"] = dict(a or b)
+    return mixed
 
 
 def mean_settings(items):
@@ -224,16 +508,19 @@ def mean_settings(items):
         return None
     total = sum(w for _, w in items)
     if total <= 0:
-        total, items = len(items), [(s, 1.0) for s, _ in items]
-    n = len(items[0][0]["channels"])
-    out = []
-    for c in range(n):
-        lo = sum(s["channels"][c]["lo"] * w for s, w in items) / total
-        hi = sum(s["channels"][c]["hi"] * w for s, w in items) / total
-        lg = sum(math.log(max(s["channels"][c]["gamma"], 1e-6)) * w
-                 for s, w in items) / total
-        out.append({"lo": lo, "hi": hi, "gamma": math.exp(lg)})
-    return {"mode": items[0][0]["mode"], "channels": out}
+        total, items = float(len(items)), [(s, 1.0) for s, _ in items]
+    first = items[0][0]
+    mean = {"mode": first["mode"], "white": first.get("white", 1.0),
+            "channels": [dict(ch) for ch in first["channels"]]}
+    exposed = [(s["exposure"], w) for s, w in items if s.get("exposure")]
+    if exposed:
+        total = sum(w for _, w in exposed) or float(len(exposed))
+        mean["exposure"] = {
+            "black": sum(e["black"] * w for e, w in exposed) / total,
+            "white": sum(e["white"] * w for e, w in exposed) / total,
+            "gamma": math.exp(sum(math.log(max(e["gamma"], 1e-6)) * w for e, w in exposed) / total),
+        }
+    return mean
 
 
 def quality(contrast):
@@ -330,7 +617,28 @@ def film_extent(profile, counts):
     idx = [i for i, c in enumerate(counts) if c >= threshold]
     if not idx:
         return 0, len(profile)
-    return idx[0], idx[-1] + 1
+
+    # First to last, except for a scrap at either end that stands well apart
+    # from the rest: beyond a strip shorter than its holder there is bare
+    # glass and then the holder's far end, which is dim enough to pass for
+    # film. A stretch of clear film between pictures is not that: there is
+    # more film after it than a scrap.
+    per_mm = (STRIP_DPI / 25.4) * (ANALYSIS_SCALE / 100.0)
+    scrap, apart = 8.0 * per_mm, 8.0 * per_mm
+    islands, start, last = [], idx[0], idx[0]
+    for i in idx[1:]:
+        if i - last > 2:
+            islands.append((start, last + 1))
+            start = i
+        last = i
+    islands.append((start, last + 1))
+    while len(islands) > 1 and islands[-1][1] - islands[-1][0] < scrap and \
+            islands[-1][0] - islands[-2][1] >= apart:
+        islands.pop()
+    while len(islands) > 1 and islands[0][1] - islands[0][0] < scrap and \
+            islands[1][0] - islands[0][1] >= apart:
+        islands.pop(0)
+    return islands[0][0], islands[-1][1]
 
 
 def interior_rebate(profile, bounds):
@@ -483,14 +791,165 @@ def frame_regions(path, n_frames):
     return regions, refined, vertical, (w, h), (profile, counts), cuts
 
 
+def rebate_rows(path, vertical, base):
+    """How much of each line across the strip is as bright as bare film,
+    0..255, along the strip's long axis at full resolution.
+
+    A frame's picture always has something darker than the base somewhere
+    across it; the rebate between frames, and the glass beyond the film's
+    end, do not. That makes this a much sharper trace of the gaps than the
+    mean brightness, which a bright sky can lift as high as a gap.
+    """
+    w, h = dimensions(path)
+    threshold = max(base * 0.90, 1.0) * 100.0 / 255.0
+    geometry = f"1x{h}!" if vertical else f"{w}x1!"
+    out = _magick([path, "-alpha", "off", "-grayscale", "Average",
+                   "-threshold", f"{threshold:.2f}%", "-scale", geometry,
+                   "-depth", "8", "gray:-"])
+    return list(out)
+
+
+def _smooth(values, half):
+    out, total, n = [], 0, len(values)
+    prefix = [0]
+    for v in values:
+        total += v
+        prefix.append(total)
+    for i in range(n):
+        a, b = max(0, i - half), min(n, i + half + 1)
+        out.append((prefix[b] - prefix[a]) / float(b - a))
+    return out
+
+
+def grid_35mm(rows, start, end):
+    """Where 35mm's fixed 38 mm grid sits on a strip: (first gap, pitch,
+    found). The pitch is the film's own; only a fraction of a percent of
+    play is allowed for the scanner. `found` is False when no phase stands
+    out (a blank strip, or one all of night), and the grid is then laid
+    from where the film starts, which is where strips are cut."""
+    pitch0 = PITCH_35MM / 25.4 * STRIP_DPI
+    gap = GAP_35MM / 25.4 * STRIP_DPI
+    smooth = _smooth(rows, int(gap / 2))
+    n = len(smooth)
+
+    scores, best = [], (-1.0, float(start), pitch0)
+    for step in range(-4, 5):
+        pitch = pitch0 * (1.0 + step * 0.002)
+        phase = 0.0
+        while phase < pitch:
+            first = phase + math.ceil((start - gap - phase) / pitch) * pitch
+            picks, x = [], first
+            while x <= end + gap:
+                if 0 <= int(x) < n:
+                    picks.append(smooth[int(x)])
+                x += pitch
+            if len(picks) >= 2:
+                score = sum(picks) / len(picks)
+                scores.append(score)
+                if score > best[0]:
+                    best = (score, first, pitch)
+            phase += 2.0
+
+    if not scores:
+        return float(start), pitch0, False
+    ordinary = sorted(scores)[len(scores) // 2]
+    if best[0] - ordinary < 30.0:
+        return float(start), pitch0, False
+    return best[1], best[2], True
+
+
+def frames_35mm(rows, start, end, w, h, vertical):
+    """Picture rectangles on a 35mm strip, and whether the grid was found."""
+    first, pitch, found = grid_35mm(rows, start, end)
+    gap = GAP_35MM / 25.4 * STRIP_DPI
+    clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
+    reach = int(1.0 / 25.4 * STRIP_DPI)
+    smooth = _smooth(rows, int(gap / 2))
+
+    def settle(x):
+        """A gap's centre, nudged onto the brightest of the rebate near it."""
+        if not found:
+            return x
+        lo, hi = max(0, int(x) - reach), min(len(smooth) - 1, int(x) + reach)
+        if hi <= lo:
+            return x
+        peak = max(range(lo, hi + 1), key=lambda i: smooth[i])
+        return float(peak) if smooth[peak] >= 128 else x
+
+    across = h if not vertical else w
+    side = int(round(across * SIDE_INSET))
+    regions = []
+    a = first - pitch * math.ceil((first - start) / pitch + 1)
+    while a < end:
+        b = a + pitch
+        if min(b, end) - max(a, start) >= MIN_CELL * pitch:
+            lo = max(settle(a) + gap / 2 + clear, start)
+            hi = min(settle(b) - gap / 2 - clear, end)
+            lo, hi = int(round(lo)), int(round(hi))
+            if hi - lo >= 8:
+                if vertical:
+                    regions.append((side, lo, w - 2 * side, hi - lo))
+                else:
+                    regions.append((lo, side, hi - lo, h - 2 * side))
+        a = b
+    return regions, found
+
+
+def trim_to_pictures(bounds, rows, w, h, vertical):
+    """Frame rectangles from fitted boundaries (full-resolution positions),
+    with the rebate either side of each cut, and at the strip's two ends,
+    left out."""
+    # Only a line that is bare film right across is rebate. A thin frame has
+    # stretches that nearly are, and a looser test eats into the picture.
+    clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
+    far_gap = int(3.5 / 25.4 * STRIP_DPI)
+    far_end = int(8.0 / 25.4 * STRIP_DPI)
+    bare = 238
+    n = len(rows)
+
+    def run(x, step, limit, level):
+        i, moved = int(x), 0
+        while 0 <= i + step < n and moved < limit and rows[i + step] >= level:
+            i += step
+            moved += 1
+        return i
+
+    edges = []   # (end of the frame before, start of the frame after) per boundary
+    for k, e in enumerate(bounds):
+        e = min(max(int(e), 0), n - 1)
+        if k == 0:
+            edges.append((None, run(e, 1, far_end, bare) + clear if rows[e] >= bare else e))
+        elif k == len(bounds) - 1:
+            e = min(e, n - 1)
+            edges.append((run(e - 1, -1, far_end, bare) - clear if rows[e - 1] >= bare else e, None))
+        elif rows[e] >= bare:
+            edges.append((run(e, -1, far_gap, bare) - clear, run(e, 1, far_gap, bare) + clear))
+        else:
+            edges.append((e, e))
+
+    across = h if not vertical else w
+    side = int(round(across * SIDE_INSET))
+    regions = []
+    for k in range(len(bounds) - 1):
+        lo, hi = int(round(edges[k][1])), int(round(edges[k + 1][0]))
+        if hi - lo < 8:
+            continue
+        if vertical:
+            regions.append((side, lo, w - 2 * side, hi - lo))
+        else:
+            regions.append((lo, side, hi - lo, h - 2 * side))
+    return regions
+
+
 def stats_crop(region, vertical):
-    """Region shrunk away from its edges, so the rebate never enters stats."""
+    """Region shrunk away from its edges, so neither the rebate at its ends
+    nor the holder's shadow along its sides enters the stats."""
     x, y, w, h = region
     if vertical:
-        inset = int(h * STATS_INSET)
-        return (x, y + inset, w, max(1, h - 2 * inset))
-    inset = int(w * STATS_INSET)
-    return (x + inset, y, max(1, w - 2 * inset), h)
+        along, across = int(h * STATS_INSET), int(w * STATS_SIDE)
+        return (x + across, y + along, max(1, w - 2 * across), max(1, h - 2 * along))
+    along, across = int(w * STATS_INSET), int(h * STATS_SIDE)
+    return (x + along, y + across, max(1, w - 2 * along), max(1, h - 2 * across))
 
 
 # --- subcommands --------------------------------------------------------
@@ -515,18 +974,28 @@ def cmd_strips(args):
     """
     os.makedirs(args.dest, exist_ok=True)
     doc = load_frames_json(args.roll) if args.roll else None
-    if doc and doc.get("mis_split"):
-        doc = None            # a wrong split would place frames in the wrong spot
+    film = doc.get("film") if doc else None
+    wrong = set(doc.get("mis_split") or []) if doc else set()
 
     for src in args.scans:
-        settings, _, _ = measure(src, args.mode)
-        base = apply_args(settings) if settings else ["-negate"]
         dst = os.path.join(args.dest,
                            os.path.splitext(os.path.basename(src))[0] + ".png")
-
         entry = strip_entry(doc, src)
-        frames = [f for f in entry["frames"] if f.get("settings")] if entry else []
-        if not frames or not entry.get("settings"):
+        split_ok = entry and os.path.basename(src) not in wrong
+
+        # The strip as a whole: the roll's colour when the roll has been
+        # analysed, so a strip that could not be cut into frames still
+        # matches its neighbours; read on its own only when there is no roll.
+        if split_ok and entry.get("settings"):
+            whole = entry["settings"]
+        elif film:
+            whole = frame_settings(film, *histograms(src))
+        else:
+            whole, _, _ = measure(src, args.mode)
+        base = apply_args(whole) if whole else ["-negate"]
+
+        frames = [f for f in entry["frames"] if f.get("settings")] if split_ok else []
+        if not frames or not whole:
             _magick([src] + base + [dst])
             continue
 
@@ -535,7 +1004,7 @@ def cmd_strips(args):
         cmd = [src] + base
         for f in frames:
             x, y, w, h = f["region"]
-            mixed = blend(entry["settings"], f["settings"], args.frame_weight)
+            mixed = blend(whole, f["settings"], args.frame_weight)
             cmd += ["("] + [src] + _crop_args((x, y, w, h)) + apply_args(mixed) + \
                    [")", "-geometry", f"+{x}+{y}", "-composite"]
         _magick(cmd + [dst])
@@ -566,6 +1035,11 @@ def cmd_analyze(args):
     if args.export:
         os.makedirs(args.export, exist_ok=True)
 
+    # 35mm is cut on its own grid unless a count is insisted on (a half-frame
+    # camera, say). What an earlier analysis remembered does not count as
+    # insisting: every 35mm roll remembers the six it was once assumed to be.
+    on_grid = fmt == "35mm" and not args.frames_per_strip
+
     doc = {
         "roll": os.path.basename(roll_dir)[4:7],
         "folder": os.path.basename(roll_dir),
@@ -574,36 +1048,83 @@ def cmd_analyze(args):
         "strips": [],
     }
 
-    print(f"{doc['folder']}  mode={mode}  {per_strip} frames/strip")
-    profiles, mis_split = [], []
+    # First the geometry and the readings, strip by strip; the colour comes
+    # after, from all of them together.
+    found, profiles, mis_split, unaligned = [], [], [], []
     for index, scan in enumerate(scans):
-        regions, refined, vertical, (w, h), prof, cuts = \
-            frame_regions(scan, per_strip)
+        w, h = dimensions(scan)
+        vertical = h >= w
+        axis_len, across_len = (h, w) if vertical else (w, h)
+        prof = density_profile(scan, axis_len, across_len, vertical)
+        profile, counts = prof
         profiles.append(prof)
-        if any(c >= SPLIT_WARN_LIFT for c in cuts):
-            mis_split.append(os.path.basename(scan))
+        whole = histograms(scan)
+        base = pct(whole[1], whole[2], 100 - CLIP) if whole[2] else 255
+        refined, regions = [], []
+        if profile:
+            rows = rebate_rows(scan, vertical, base)
+            scale = axis_len / float(len(profile))
+            start, end = film_extent(profile, counts)
+            if on_grid:
+                regions, aligned = frames_35mm(rows, int(start * scale), int(end * scale),
+                                               w, h, vertical)
+                refined = [aligned] * max(0, len(regions) - 1)
+                if not aligned and regions:
+                    unaligned.append(os.path.basename(scan))
+            else:
+                bounds, refined = find_boundaries(profile, counts, per_strip)
+                if any(c >= SPLIT_WARN_LIFT for c in interior_rebate(profile, bounds)):
+                    mis_split.append(os.path.basename(scan))
+                regions = trim_to_pictures([b * scale for b in bounds], rows, w, h, vertical)
+
         frames = []
-        for pos, region in enumerate(regions):
-            number = index * per_strip + pos + 1
-            settings, stats, contrast = measure(scan, mode,
-                                                stats_crop(region, vertical))
-            if settings is None:
-                frames.append({"frame": number, "region": list(region),
+        for region in regions:
+            hist, ghist, kept = histograms(scan, stats_crop(region, vertical))
+            contrast = interquartile(ghist, kept) if kept else 0
+            frames.append({"region": region, "read": (hist, ghist, kept),
+                           "contrast": contrast, "score": quality(contrast) if kept else 0.0})
+        found.append({"scan": scan, "index": index, "size": (w, h), "vertical": vertical,
+                      "refined": refined, "whole": whole, "frames": frames})
+
+    film = film_model(
+        mode,
+        [f["read"] + (f["score"],) for s in found for f in s["frames"]],
+        [s["whole"] + (1.0,) for s in found])
+    if film:
+        doc["film"] = film
+    if on_grid:
+        doc["frames_per_strip"] = max([len(s["frames"]) for s in found] + [1])
+        per_strip = doc["frames_per_strip"]
+
+    print(f"{doc['folder']}  mode={mode}  " +
+          ("frames on the 38 mm grid" if on_grid else f"{per_strip} frames/strip"))
+    number = 0
+    for s in found:
+        scan, w, h = s["scan"], s["size"][0], s["size"][1]
+        frames = []
+        for f in s["frames"]:
+            number += 1
+            hist, ghist, kept = f["read"]
+            if not kept or not film:
+                frames.append({"frame": number, "region": list(f["region"]),
                                "quality": 0.0, "well_exposed": False,
                                "settings": None})
                 continue
-            score = quality(contrast)
+            settings = frame_settings(film, hist, ghist, kept, f["score"])
             frames.append({
                 "frame": number,
-                "region": list(region),
-                "quality": score,
-                "well_exposed": score >= WELL_EXPOSED,
-                "contrast": contrast,
+                "region": list(f["region"]),
+                "quality": f["score"],
+                "well_exposed": f["score"] >= WELL_EXPOSED,
+                "contrast": f["contrast"],
                 "settings": settings,
-                "stats": [list(s) for s in stats],
+                "stats": [[pct(hist[c], kept, CLIP), pct(hist[c], kept, 100 - CLIP),
+                           pct(hist[c], kept, 50)] for c in range(3)] if mode == "color"
+                         else [[pct(ghist, kept, CLIP), pct(ghist, kept, 100 - CLIP),
+                                pct(ghist, kept, 50)]],
             })
             if args.export:
-                _magick([scan] + _crop_args(region) + apply_args(settings) +
+                _magick([scan] + _crop_args(f["region"]) + apply_args(settings) +
                         ["-resize", "600x600>",
                          os.path.join(args.export, f"frame-{number:02d}.png")])
 
@@ -611,24 +1132,32 @@ def cmd_analyze(args):
         # recipe, while still contributing a little.
         strip_settings = mean_settings(
             [(f.get("settings"), f["quality"] + 0.05) for f in frames])
+        if not strip_settings and film:
+            strip_settings = frame_settings(film, *s["whole"])
         well = sum(1 for f in frames if f["well_exposed"])
         doc["strips"].append({
             "file": os.path.basename(scan),
-            "index": index,
+            "index": s["index"],
             "width": w, "height": h,
-            "axis": "y" if vertical else "x",
-            "refined": refined,
+            "axis": "y" if s["vertical"] else "x",
+            "refined": s["refined"],
             "well_exposed": well,
             "settings": strip_settings,
             "frames": frames,
         })
 
-        flags = "" if all(refined) else \
-            f"  [{refined.count(False)} boundary(s) not found — even split used]"
-        print(f"  {os.path.basename(scan)}: {well}/{len(frames)} well exposed{flags}")
+        note = ""
+        if os.path.basename(scan) in unaligned:
+            note = "  [no frame lines found: grid laid from the film's end]"
+        elif not on_grid and not all(s["refined"]):
+            note = f"  [{s['refined'].count(False)} boundary(s) not found — even split used]"
+        print(f"  {os.path.basename(scan)}: {well}/{len(frames)} well exposed{note}")
         for f in frames:
             mark = "*" if f["well_exposed"] else " "
             print(f"      {mark} frame {f['frame']:>2}  quality {f['quality']:.2f}")
+
+    if unaligned:
+        doc["unaligned"] = unaligned
 
     if mis_split:
         hint = suggest_frame_count(profiles, max_n=per_strip)
@@ -643,8 +1172,12 @@ def cmd_analyze(args):
         print("         The frames and settings below are split wrong until you do.")
         doc["mis_split"] = mis_split
 
-    with open(frames_json_path(roll_dir), "w") as fh:
+    # Written beside and moved into place: a frame may be developing off the
+    # old file while this one is being written, and half a file is no file.
+    path = frames_json_path(roll_dir)
+    with open(path + ".partial", "w") as fh:
         json.dump(doc, fh, indent=2)
+    os.replace(path + ".partial", path)
     total = sum(len(s["frames"]) for s in doc["strips"])
     good = sum(s["well_exposed"] for s in doc["strips"])
     print(f"Wrote frames.json — {total} frame(s), {good} well exposed.")
@@ -683,6 +1216,27 @@ def cmd_preview(args):
     return 0
 
 
+def remove_dust(path):
+    """Takes small white specks off a developed frame, in place.
+
+    Dust and fibres on the film block the lamp, so they scan dark and print
+    white. A speck is a small patch far brighter than what surrounds it:
+    wherever the frame stands well above its own local median, and the patch
+    is too small for an opening to keep, the median is put there instead.
+    Anything larger is picture (a lamp, a window) and is left alone, and
+    nothing is ever darkened that was not a bright speck.
+    """
+    _magick([path,
+             "(", "+clone", "-statistic", "Median", f"{DUST_MEDIAN}x{DUST_MEDIAN}", ")",
+             "(", "-clone", "0", "-clone", "1", "-compose", "MinusSrc", "-composite",
+             "-colorspace", "Gray", "-threshold", f"{DUST_LIFT}%", ")",
+             "(", "-clone", "2", "-morphology", "Open", f"Disk:{DUST_MAX_RADIUS}", ")",
+             "(", "-clone", "2", "-clone", "3", "-compose", "MinusSrc", "-composite",
+             "-morphology", "Dilate", "Disk:1.5", ")",
+             "-delete", "2,3",
+             "-compose", "Over", "-composite", path])
+
+
 def cmd_develop(args):
     roll_dir = os.path.abspath(args.roll)
     doc = load_frames_json(roll_dir)
@@ -691,18 +1245,34 @@ def cmd_develop(args):
               file=sys.stderr)
         return 1
 
-    strip, _ = find_frame(doc, args.frame)
+    strip, frame = find_frame(doc, args.frame)
     if not strip or not strip.get("settings"):
         print(f"error: roll has no analysed frame {args.frame}", file=sys.stderr)
         return 1
 
-    own, _, _ = measure(args.raw, doc["mode"])
-    settings = blend(strip["settings"], own, args.weight) if own else strip["settings"]
+    if doc.get("film") and frame.get("settings"):
+        # The colour is the frame's, which is the roll's. The exposure is read
+        # off this scan, which sees far more of the frame than the strip did,
+        # away from its edges, and leans on the strip's by the weight given.
+        w, h = dimensions(args.raw)
+        inset = (int(w * 0.06), int(h * 0.06), int(w * 0.88), int(h * 0.88))
+        hist, ghist, kept = histograms(args.raw, inset)
+        # The colour is the frame's as analysed. Only the exposure is read
+        # again, off this scan, which sees far more of the frame than the
+        # strip did.
+        own = dict(frame["settings"])
+        own["exposure"] = exposure_for(own, hist, ghist, kept)
+        settings = blend(dict(strip["settings"], channels=own["channels"]), own, args.weight)
+    else:
+        own, _, _ = measure(args.raw, doc["mode"])
+        settings = blend(strip["settings"], own, args.weight) if own else strip["settings"]
 
     out_dir = args.out or os.path.join(roll_dir, "frames")
     os.makedirs(out_dir, exist_ok=True)
     dst = os.path.join(out_dir, f"{args.frame:02d}.png")
     _magick([args.raw] + apply_args(settings) + [dst])
+    if args.dust:
+        remove_dust(dst)
     print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")
     return 0
 
@@ -739,9 +1309,12 @@ def main():
     d.add_argument("raw")
     d.add_argument("--roll", required=True)
     d.add_argument("--frame", type=int, required=True)
-    d.add_argument("--weight", type=float, default=0.7,
-                   help="how much the strip's settings lead (default 0.7)")
+    d.add_argument("--weight", type=float, default=0.3,
+                   help="how much the strip's exposure leads over the frame's "
+                        "own (default 0.3)")
     d.add_argument("--out")
+    d.add_argument("--no-dust", dest="dust", action="store_false",
+                   help="leave white specks where they are")
     d.set_defaults(func=cmd_develop)
 
     args = p.parse_args()
