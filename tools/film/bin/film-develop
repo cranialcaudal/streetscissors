@@ -14,7 +14,7 @@ Subcommands:
       Turn strip scans into positives. Used by digital-contact-sheet-maker,
       which then composites them with GIMP's own invert switched off.
 
-  analyze ROLLDIR [--frames-per-strip N] [--export DIR]
+  analyze ROLLDIR [--frames-per-strip N] [--frame-mm L] [--export DIR]
       Split each strip into frames, read each frame's exposure, and derive
       per-strip development settings as a quality-weighted mean of its frames.
       Writes frames.json in the roll folder.
@@ -53,13 +53,22 @@ part of the pipeline and per-frame colour stopped being good enough):
 
 Where the frames are:
 
-  35mm frames sit 38.00 mm apart whatever the camera, so on a 35mm strip the
-  only thing to find is where that grid starts, and the count is simply how
-  many fit on the film. (Cutting every strip into six, as before, cut through
-  pictures on any strip that held five, or three and a leader.) 120 and 620
-  spacing belongs to the camera, so there the count is still given per roll
-  and each cut is fitted to the rebate. Either way a frame's rectangle is the
-  picture itself: the rebate either side and the film's edges are left out.
+  A 35mm frame is 36 mm of picture and 2 mm of gap, 38.00 mm apart whatever
+  the camera, so on a 35mm strip the only thing to find is where that grid
+  starts, and the count is simply how many fit on the film. (Cutting every
+  strip into six, as before, cut through pictures on any strip that held
+  five, or three and a leader.) --frame-mm says so for a camera whose frame
+  is another size (18 for half-frame). 120 and 620 spacing belongs to the
+  camera, so there the count is still given per roll and each cut is fitted
+  to the rebate. Either way a frame's rectangle is the picture itself: the
+  rebate either side and the film's edges are left out.
+
+  A strip scanned in a holder has bare glass beyond its ends, and glass is
+  brighter than any film. It is found and left out before anything is
+  measured: the film's extent stops where the glass starts, the film base is
+  read off the film, and the glass is never taken for a gap between frames.
+  (It was, once: a strip of three frames and a leader had its grid hung on
+  the glass after the leader, and every frame was cut nine millimetres late.)
 """
 
 import argparse
@@ -102,9 +111,27 @@ STATS_SIDE = 0.08
 
 STRIP_DPI = 300.0        # strips are archived at this, whatever they were scanned at
 
-# 35mm: eight perforations a frame, 4.75 mm each. The picture is 36 mm of it.
+# 35mm: eight perforations a frame, 4.75 mm each. The picture is 36 mm of it
+# and the gap is the rest.
+PERFORATION_MM = 4.75
+FRAME_35MM = 36.0
 PITCH_35MM = 38.0
-GAP_35MM = 2.0
+GAP_35MM = PITCH_35MM - FRAME_35MM
+
+# A holder's bare glass: the brightest thing in a scan, neutral, and a fair
+# share of it. Anything within GLASS_NEAR of that level right across the
+# middle of the strip is glass, not film. Film base is far below it; a scan
+# whose film is as bright as its "glass" has none (an old strip scan cropped
+# to the film, with a clipped rebate), and is read as before.
+GLASS_MIN = 250
+GLASS_SHARE = 0.02
+GLASS_NEAR = 0.93
+GLASS_OVER_BASE = 0.85
+# The middle of a strip's width, clear of the holder's edges, which are grey
+# rather than white or black and so pass for film.
+MIDDLE_INSET = 0.20
+# A run of not-glass shorter than this is the holder's shadow, not film.
+SCRAP_MM = 8.0
 # A cell of the grid has to be this much on the film to be a frame; less is
 # the stub left where a strip was cut.
 MIN_CELL = 0.85
@@ -175,11 +202,11 @@ def dimensions(path):
     return int(w), int(h)
 
 
-def film_pixels(rgb):
+def film_pixels(rgb, white=WHITE):
     """Yields (byte offset, r, g, b) for pixels that are film, not bed or gap."""
     for i in range(0, len(rgb) - 2, 3):
         r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
-        if (r >= WHITE and g >= WHITE and b >= WHITE) or \
+        if (r >= white and g >= white and b >= white) or \
            (r <= BLACK and g <= BLACK and b <= BLACK):
             continue
         yield i, r, g, b
@@ -215,13 +242,13 @@ def interquartile(hist, kept):
     return pct(75) - pct(25)
 
 
-def histograms(path, crop=None):
+def histograms(path, crop=None, white=WHITE):
     """Per-channel and grey histograms of an image's film pixels:
     ([r, g, b] histograms, grey histogram, pixels kept)."""
     rgb = read_rgb(path, crop)
     grey = read_grey(path, crop)
     hist, ghist, kept = [[0] * 256 for _ in range(3)], [0] * 256, 0
-    for i, r, g, b in film_pixels(rgb):
+    for i, r, g, b in film_pixels(rgb, white):
         hist[0][r] += 1; hist[1][g] += 1; hist[2][b] += 1
         ghist[grey[i // 3]] += 1
         kept += 1
@@ -791,6 +818,83 @@ def frame_regions(path, n_frames):
     return regions, refined, vertical, (w, h), (profile, counts), cuts
 
 
+def glass_level(path):
+    """How bright the bare glass in a scan is, or None when it shows none."""
+    rgb = read_rgb(path)
+    hist, total = [0] * 256, len(rgb) // 3
+    for i in range(0, len(rgb) - 2, 3):
+        r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
+        if min(r, g, b) >= 225 and max(r, g, b) - min(r, g, b) <= 8:
+            hist[(r + g + b) // 3] += 1
+    peak = max(range(225, 256), key=lambda v: hist[v])
+    near = sum(hist[max(225, peak - 2):min(256, peak + 3)])
+    if peak < GLASS_MIN or near < GLASS_SHARE * total:
+        return None
+    return peak
+
+
+def middle_lines(path, vertical, ops):
+    """One value per line along the strip's long axis, 0..255, read from the
+    middle of its width only: the share of that line `ops` leave white."""
+    w, h = dimensions(path)
+    if vertical:
+        x = int(w * MIDDLE_INSET)
+        crop, geometry = f"{w - 2 * x}x{h}+{x}+0", f"1x{h}!"
+    else:
+        y = int(h * MIDDLE_INSET)
+        crop, geometry = f"{w}x{h - 2 * y}+0+{y}", f"{w}x1!"
+    out = _magick([path, "-alpha", "off", "-crop", crop, "+repage",
+                   "-grayscale", "Average"] + ops +
+                  ["-scale", geometry, "-depth", "8", "gray:-"])
+    return list(out)
+
+
+def film_on_glass(path, vertical, start, end, glass):
+    """A strip scanned in a holder, with the glass left out: (start, end,
+    rows), or None when what looked like glass is as bright as the film.
+
+    `start` and `end` are where the film was thought to lie. The holder's
+    edges count as film there (they are grey), so glass beyond the film's end
+    passes too; here a line is glass when the middle of it is as bright as
+    glass right across. `rows` is rebate_rows read the same way, against a
+    film base measured on the film, and nothing outside the film is bare.
+    """
+    level = GLASS_NEAR * glass
+    bright = middle_lines(path, vertical, ["-threshold", f"{level * 100.0 / 255.0:.3f}%"])
+    end = min(end, len(bright))
+    runs, i = [], start
+    while i < end:
+        if bright[i] < 230:
+            j = i
+            while j < end and bright[j] < 230:
+                j += 1
+            runs.append((i, j))
+            i = j
+        else:
+            i += 1
+    scrap = SCRAP_MM / 25.4 * STRIP_DPI
+    kept = [r for r in runs if r[1] - r[0] >= scrap] or runs
+    if not kept:
+        return None
+    a, b = kept[0][0], kept[-1][1]
+
+    w, h = dimensions(path)
+    if vertical:
+        x = int(w * MIDDLE_INSET)
+        crop = (x, a, w - 2 * x, max(1, b - a))
+    else:
+        y = int(h * MIDDLE_INSET)
+        crop = (a, y, max(1, b - a), h - 2 * y)
+    hist, ghist, kept_px = histograms(path, crop, white=int(level))
+    base = pct(ghist, kept_px, 100 - CLIP) if kept_px else 255
+    if base >= GLASS_OVER_BASE * level:
+        return None
+    threshold = max(base * 0.90, 1.0) * 100.0 / 255.0
+    rows = middle_lines(path, vertical, ["-threshold", f"{threshold:.2f}%"])
+    rows = [v if a <= i < b else 0 for i, v in enumerate(rows)]
+    return a, b, rows
+
+
 def rebate_rows(path, vertical, base):
     """How much of each line across the strip is as bright as bare film,
     0..255, along the strip's long axis at full resolution.
@@ -821,16 +925,41 @@ def _smooth(values, half):
     return out
 
 
-def grid_35mm(rows, start, end):
+def grid_35mm(rows, start, end, on_glass=False, pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
     """Where 35mm's fixed 38 mm grid sits on a strip: (first gap, pitch,
     found). The pitch is the film's own; only a fraction of a percent of
     play is allowed for the scanner. `found` is False when no phase stands
     out (a blank strip, or one all of night), and the grid is then laid
-    from where the film starts, which is where strips are cut."""
-    pitch0 = PITCH_35MM / 25.4 * STRIP_DPI
-    gap = GAP_35MM / 25.4 * STRIP_DPI
+    from where the film starts, which is where strips are cut.
+
+    `on_glass` is a strip with glass beyond its ends: a gap is then looked
+    for on the film only. Just past the film's end is glass, the brightest
+    thing in the scan, and one grid line landing there outvoted every real
+    gap on a strip of night frames. The film's own ends still count, read
+    from the millimetre of film inside each: a strip cut between two frames
+    ends on bare rebate, which is a gap; a fogged leader, or a cut through a
+    picture, is not."""
+    pitch0 = pitch_mm / 25.4 * STRIP_DPI
+    gap = gap_mm / 25.4 * STRIP_DPI
     smooth = _smooth(rows, int(gap / 2))
     n = len(smooth)
+    inside = max(1, int(1.0 / 25.4 * STRIP_DPI))
+
+    def gap_at(x):
+        """How bare the film is where a gap would be, or None off the film."""
+        if not 0 <= int(x) < n:
+            return None
+        if not on_glass:
+            return smooth[int(x)]
+        if x < start - gap or x > end + gap:
+            return None
+        if x <= start + gap / 2:
+            edge = rows[start:start + inside]
+        elif x >= end - gap / 2:
+            edge = rows[max(start, end - inside):end]
+        else:
+            return smooth[int(x)]
+        return sum(edge) / float(len(edge)) if edge else None
 
     scores, best = [], (-1.0, float(start), pitch0)
     for step in range(-4, 5):
@@ -840,8 +969,9 @@ def grid_35mm(rows, start, end):
             first = phase + math.ceil((start - gap - phase) / pitch) * pitch
             picks, x = [], first
             while x <= end + gap:
-                if 0 <= int(x) < n:
-                    picks.append(smooth[int(x)])
+                here = gap_at(x)
+                if here is not None:
+                    picks.append(here)
                 x += pitch
             if len(picks) >= 2:
                 score = sum(picks) / len(picks)
@@ -858,10 +988,11 @@ def grid_35mm(rows, start, end):
     return best[1], best[2], True
 
 
-def frames_35mm(rows, start, end, w, h, vertical):
+def frames_35mm(rows, start, end, w, h, vertical, on_glass=False,
+                pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
     """Picture rectangles on a 35mm strip, and whether the grid was found."""
-    first, pitch, found = grid_35mm(rows, start, end)
-    gap = GAP_35MM / 25.4 * STRIP_DPI
+    first, pitch, found = grid_35mm(rows, start, end, on_glass, pitch_mm, gap_mm)
+    gap = gap_mm / 25.4 * STRIP_DPI
     clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
     reach = int(1.0 / 25.4 * STRIP_DPI)
     smooth = _smooth(rows, int(gap / 2))
@@ -874,6 +1005,16 @@ def frames_35mm(rows, start, end, w, h, vertical):
         if hi <= lo:
             return x
         peak = max(range(lo, hi + 1), key=lambda i: smooth[i])
+        if on_glass:
+            # Beside a night frame the bare film runs on past the gap, so
+            # the brightest line is a plateau, and which end of it is a hair
+            # brighter is chance. Move only as far as the plateau: not at
+            # all when the gap is already on it.
+            level = smooth[peak] - 4
+            if smooth[peak] < 128 or smooth[min(max(int(x), lo), hi)] >= level:
+                return x
+            return float(min((i for i in range(lo, hi + 1) if smooth[i] >= level),
+                             key=lambda i: abs(i - x)))
         return float(peak) if smooth[peak] >= 128 else x
 
     across = h if not vertical else w
@@ -1039,6 +1180,11 @@ def cmd_analyze(args):
     # camera, say). What an earlier analysis remembered does not count as
     # insisting: every 35mm roll remembers the six it was once assumed to be.
     on_grid = fmt == "35mm" and not args.frames_per_strip
+    # The frame as the camera makes it: 36 mm unless told otherwise. Its pitch
+    # is whole perforations, and the gap is what the picture leaves of it.
+    frame_mm = getattr(args, "frame_mm", None) or FRAME_35MM
+    pitch_mm = math.ceil(frame_mm / PERFORATION_MM) * PERFORATION_MM
+    gap_mm = pitch_mm - frame_mm
 
     doc = {
         "roll": os.path.basename(roll_dir)[4:7],
@@ -1066,8 +1212,14 @@ def cmd_analyze(args):
             scale = axis_len / float(len(profile))
             start, end = film_extent(profile, counts)
             if on_grid:
-                regions, aligned = frames_35mm(rows, int(start * scale), int(end * scale),
-                                               w, h, vertical)
+                a, b, held = int(start * scale), int(end * scale), None
+                glass = glass_level(scan)
+                if glass:
+                    held = film_on_glass(scan, vertical, a, b, glass)
+                if held:
+                    a, b, rows = held
+                regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
+                                               bool(held), pitch_mm, gap_mm)
                 refined = [aligned] * max(0, len(regions) - 1)
                 if not aligned and regions:
                     unaligned.append(os.path.basename(scan))
@@ -1097,7 +1249,8 @@ def cmd_analyze(args):
         per_strip = doc["frames_per_strip"]
 
     print(f"{doc['folder']}  mode={mode}  " +
-          ("frames on the 38 mm grid" if on_grid else f"{per_strip} frames/strip"))
+          (f"{frame_mm:g} mm frames on the {pitch_mm:g} mm grid" if on_grid
+           else f"{per_strip} frames/strip"))
     number = 0
     for s in found:
         scan, w, h = s["scan"], s["size"][0], s["size"][1]
@@ -1294,6 +1447,9 @@ def main():
     a = sub.add_parser("analyze", help="split strips into frames and read them")
     a.add_argument("roll")
     a.add_argument("--frames-per-strip", type=int)
+    a.add_argument("--frame-mm", type=float,
+                   help="35mm: the picture's length along the film, if not 36 "
+                        "(18 for a half-frame camera)")
     a.add_argument("--mode", choices=["color", "bw"])
     a.add_argument("--export", help="also write developed frame crops here")
     a.set_defaults(func=cmd_analyze)
