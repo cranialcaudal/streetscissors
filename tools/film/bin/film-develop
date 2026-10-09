@@ -206,6 +206,16 @@ TEMPLATE_EDGE_MOST = 8.0
 # The pitch may be this far off 38 mm, in steps of 0.2%: the scanner's travel
 # runs up to 1% short, and cameras do not space frames exactly.
 TEMPLATE_PITCH_STEPS = (-6, 4)
+# The frame is 36 mm in every 35mm camera; how far apart the camera sets them
+# is not. Most wind 38 mm, but some leave six millimetres between frames
+# (roll 048 ran at 41.8), so where 38 does not fit the film, a pitch up to
+# this is tried, the frame staying the size it is.
+FRAME_PITCH_MOST_MM = 44.5
+# How far a single frame may be moved off its grid onto its own picture.
+SNAP_MM = 5.0
+# How far past touching the last frame the next may start: frame plus this
+# is the widest spacing a camera is allowed.
+WALK_MM = 10.0
 # A strip this near a whole number of frames long was cut between frames at
 # both ends.
 WHOLE_STRIP_MM = 2.0
@@ -1233,6 +1243,224 @@ def count_by_template(trace, start, end, darker):
     return count, [float(start)] + [first + k * pitch for k in range(1, count)] + [float(end)]
 
 
+def _gap_measure(trace, start, end, darker):
+    """(band, level, tol, start, end) for judging gaps on a strip: `band` is
+    the mean of the trace between two lines, `level` the strip's own gap
+    level and `tol` how far from it still counts; the ends come in a
+    millimetre, clear of the glass's glare on the cut."""
+    inset = int(1.0 / 25.4 * STRIP_DPI)
+    start, end = start + inset, min(end, len(trace)) - inset
+    sums = [0.0]
+    for v in trace:
+        sums.append(sums[-1] + v)
+
+    def band(a, b):
+        a, b = max(start, int(round(a))), min(end, int(round(b)))
+        return (sums[b] - sums[a]) / float(b - a) if b > a else None
+
+    width = max(2, int(GAP_35MM / 25.4 * STRIP_DPI))
+    levels = sorted(band(i, i + width) for i in range(start, max(start + 1, end - width),
+                                                      max(1, width // 2)))
+    level = levels[int(len(levels) * (0.05 if darker else 0.95))]
+    return band, level, max(TEMPLATE_TOL * abs(level), 0.15), start, end
+
+
+def grid_cuts_a_picture(trace, start, end, first, pitch, darker, gap_mm=GAP_35MM):
+    """Whether a grid puts picture where it says a gap is: some gap between
+    two of its frames is not at the strip's gap level."""
+    band, level, tol, start, end = _gap_measure(trace, start, end, darker)
+    sign = 1.0 if darker else -1.0
+    gap = gap_mm / 25.4 * STRIP_DPI
+    keep = MIN_CELL * pitch
+    x = first
+    while x <= end:
+        # only a gap with a frame kept on each side of it: past the last
+        # frame there may be a leader, which is dense and no picture
+        if x - start >= keep and end - x >= keep:
+            if (band(x - gap / 2, x + gap / 2) - level) * sign - tol > tol:
+                return True
+        x += pitch
+    return False
+
+
+def grid_by_frames(trace, start, end, darker, frame_mm=FRAME_35MM):
+    """Where the frames are when the camera did not space them 38 mm apart:
+    ([where each frame starts], pitch) or None.
+
+    What is fixed is the frame, `frame_mm` of picture. So the template is a
+    row of windows that long, at any pitch from just over the frame to
+    FRAME_PITCH_MOST_MM, and it is held to the film the way grid_by_template
+    holds 38 mm: everything between two windows must be gap (nothing of a
+    picture may lie outside a frame, in the whole space between and in the
+    millimetre against each window), and a picture meeting the window's edge
+    on either side is the score. A wider pitch has a wider space to keep
+    clear, so it has more to prove, and 38 mm wins a tie."""
+    band, level, tol, a, b = _gap_measure(trace, start, end, darker)
+    sign = 1.0 if darker else -1.0
+    per_mm = STRIP_DPI / 25.4
+    frame, inside, near = frame_mm * per_mm, 2.0 * per_mm, 1.0 * per_mm
+    if b - a < 2 * frame:
+        return None
+
+    def kept(w):
+        return min(w + frame, end) - max(w, start) >= MIN_CELL * frame
+
+    scores, best = [], None
+    pitch = (frame_mm + 1.4) * per_mm
+    while pitch <= FRAME_PITCH_MOST_MM * per_mm:
+        space = pitch - frame
+        phase = 0.0
+        while phase < pitch:
+            first = phase + math.floor((a - phase) / pitch) * pitch   # a window at or before the film
+            total, charged, count, least, w = 0.0, 0.0, 0, None, first
+            while w + pitch <= b:
+                lo, hi = w + frame, w + pitch                          # the space after this window
+                # between two frames that are both kept, as above
+                if kept(w) and kept(w + pitch):
+                    here = band(lo, hi)
+                    worst = max((v - level) * sign for v in
+                                (here, band(lo, lo + near), band(hi - near, hi)))
+                    beside = (band(lo - inside, lo) + band(hi, hi + inside)) / 2.0
+                    edge = min((beside - here) * sign / tol, TEMPLATE_EDGE_MOST)
+                    total += edge
+                    least = edge if least is None else min(least, edge)
+                    charged = max(charged, worst - tol)
+                    count += 1
+                w += pitch
+            if count:
+                score = total / count - 0.05 * abs(pitch / per_mm - PITCH_35MM)
+                scores.append(score)
+                # A spacing other than 38 mm is the unusual claim: every one
+                # of its gaps has to show a picture's edge, not just most.
+                odd = abs(pitch / per_mm - PITCH_35MM) > 0.012 * PITCH_35MM
+                proven = not odd or (count >= 2 and least >= 1.0 and total / count >= 2.0)
+                if charged <= tol and proven and (best is None or score > best[0]):
+                    best = (score, first, pitch)
+            phase += 2.0
+        pitch *= 1.0025
+
+    if not best:
+        return None
+    ordinary = sorted(scores)[len(scores) // 2]
+    if best[0] < 0.5 or best[0] - ordinary < 0.5:
+        return None
+    _score, first, pitch = best
+    windows, w = [], first
+    while w < b:
+        if kept(w):
+            windows.append(w)
+        w += pitch
+    return windows, pitch
+
+
+def _frame_score(trace, start, end, darker, frame_mm):
+    """A function scoring a frame-sized window by its start: how plainly a
+    picture's edge meets each end of it (gap outside, picture inside), 0 to
+    twice TEMPLATE_EDGE_MOST. The film's own cut counts as gap."""
+    band, level, tol, a, b = _gap_measure(trace, start, end, darker)
+    sign = 1.0 if darker else -1.0
+    per_mm = STRIP_DPI / 25.4
+    frame, inside, near = frame_mm * per_mm, 2.0 * per_mm, 1.0 * per_mm
+
+    def edge(outside, within):
+        if within is None:
+            return 0.0
+        if outside is None:               # the film's own cut: gap enough
+            outside = level
+        if (outside - level) * sign > tol:
+            return 0.0                    # not gap outside: no frame's edge
+        return min(max((within - outside) * sign / tol, 0.0), TEMPLATE_EDGE_MOST)
+
+    def ends(s):
+        before = band(s - near, s) if s - near >= a else None
+        after = band(s + frame, s + frame + near) if s + frame + near <= b else None
+        return edge(before, band(s, s + inside)), edge(after, band(s + frame - inside, s + frame))
+
+    def score(s):
+        return sum(ends(s))
+
+    score.ends = ends
+    return score
+
+
+def walk_frames(trace, start, end, darker, frame_mm=FRAME_35MM, pitch_mm=PITCH_35MM):
+    """The frames of a strip found one at a time, for a camera that does not
+    space them evenly: [where each starts], or None with nothing to go by.
+
+    The plainest frame on the strip is found first (a picture's edge at both
+    ends of a 36 mm window, or failing that at one). From it the strip is
+    walked each way: the next frame is looked for from touching the last to
+    WALK_MM beyond it, and taken where its own edges are; a frame that shows
+    none (night, a blank, a fogged one) is set one spacing on, the spacing
+    last seen or 38 mm, so the count stays right for the frames after it."""
+    score = _frame_score(trace, start, end, darker, frame_mm)
+    per_mm = STRIP_DPI / 25.4
+    frame, near, usual = frame_mm * per_mm, 1.0 * per_mm, pitch_mm * per_mm
+    most = int(WALK_MM * per_mm)
+
+    def kept(w):
+        return min(w + frame, end) - max(w, start) >= MIN_CELL * frame
+
+    first = int(start - (1 - MIN_CELL) * frame)
+    anchor = max(range(first, int(end - MIN_CELL * frame)), key=lambda s: (score(s), -s))
+    if score(anchor) < 2.0:
+        return None
+
+    def step(cur, spacing, way):
+        lo = cur + way * (frame - near) if way > 0 else cur - frame - most
+        hi = lo + most + near
+        best = max(range(int(lo), int(hi) + 1), key=lambda s: (score(s), -abs(s - (cur + way * spacing))))
+        return best if score(best) >= 2.0 else cur + way * spacing
+
+    found = [anchor]
+    for way in (1, -1):
+        cur, spacing = anchor, usual
+        while True:
+            nxt = step(cur, spacing, way)
+            if not kept(nxt):
+                break
+            if score(nxt) >= 2.0:
+                spacing = min(max(abs(nxt - cur), frame), frame + most)
+            found.append(nxt)
+            cur = nxt
+    return sorted(found)
+
+
+def snap_frames(trace, start, end, starts, darker, frame_mm=FRAME_35MM):
+    """Each frame moved onto its own picture: where the frames start, after.
+
+    A grid says where frames ought to be; a camera that winds unevenly puts
+    them a few millimetres off it, each by its own amount (on one strip of
+    roll 048 the spacings ran 467, 467 and 430). So every frame is tried up
+    to SNAP_MM either way and left where a picture's edge meets the window's
+    end: gap outside, picture inside, at the start, the end, or both. A frame
+    with no such edge near (night, a blank) stays on the grid. It moves only
+    for real evidence, and two frames are never left overlapping by more
+    than the gap they should have."""
+    score = _frame_score(trace, start, end, darker, frame_mm)
+    per_mm = STRIP_DPI / 25.4
+    frame, near = frame_mm * per_mm, 1.0 * per_mm
+    reach = int(SNAP_MM * per_mm)
+
+    moved = []
+    for at in starts:
+        here = score(at)
+        best, best_score = at, here
+        for shift in range(-reach, reach + 1):
+            got = score(at + shift)
+            if got > best_score + 1e-6 or (abs(got - best_score) <= 1e-6 and
+                                           abs(at + shift - at) < abs(best - at)):
+                best, best_score = at + shift, got
+        # Off a grid that was found, a frame moves only for an edge at both
+        # its ends: a thin frame has edges inside it that pass for one.
+        sure = min(score.ends(best)) >= 1.0
+        moved.append(best if sure and best_score >= here + 2.0 else at)
+    for k in range(1, len(moved)):
+        if moved[k] < moved[k - 1] + frame - near:
+            moved[k] = moved[k - 1] + frame       # touching, not overlapping
+    return moved
+
+
 def whole_strip(start, end, pitch_mm=PITCH_35MM):
     """The pitch of a strip cut between frames at both ends, or None: its
     length is then a whole number of frames, give or take the cuts."""
@@ -1411,13 +1639,56 @@ def frames_35mm(rows, start, end, w, h, vertical, on_glass=False,
     template where they do not: thin, fogged or expired film. Frames placed
     by the template are left on its grid, every one the same size."""
     first, pitch, found = grid_35mm(rows, start, end, on_glass, pitch_mm, gap_mm)
-    templated = False
-    if trace is not None and (darker or not found):
-        t_first, t_pitch, t_found = grid_by_template(trace, start, end, darker, pitch_mm, gap_mm)
+    templated, windows = False, None
+    # A grid that puts picture in one of its gaps is not this film's: the
+    # camera spaced its frames some other way.
+    cuts = (trace is not None and found and not darker and
+            grid_cuts_a_picture(trace, start, end, first, pitch, darker, gap_mm))
+    if trace is not None and (darker or not found or cuts):
+        t_first, t_pitch, t_found = (None, None, False) if cuts else \
+            grid_by_template(trace, start, end, darker, pitch_mm, gap_mm)
         if t_found:
             first, pitch, found, templated = t_first, t_pitch, True, True
-        elif darker:
-            first, pitch, found = float(start), pitch_mm / 25.4 * STRIP_DPI, False
+        else:
+            placed = walk_frames(trace, start, end, darker, pitch_mm - gap_mm, pitch_mm)
+            if placed and cuts:
+                # A camera that winds evenly is better served by its grid: the
+                # walk is believed only where it differs by more than a nudge.
+                g = gap_mm / 25.4 * STRIP_DPI
+                grid, at = [], first - pitch * math.ceil((first - start) / pitch + 1)
+                while at < end:
+                    if min(at + pitch, end) - max(at, start) >= MIN_CELL * pitch:
+                        grid.append(at + g / 2)
+                    at += pitch
+                nudge = 2.5 / 25.4 * STRIP_DPI
+                if len(grid) == len(placed) and max(abs(x - y) for x, y in zip(grid, placed)) <= nudge:
+                    placed = None
+            if placed:
+                windows, found, templated = placed, True, True
+            elif darker:
+                first, pitch, found = float(start), pitch_mm / 25.4 * STRIP_DPI, False
+            # (a negative whose grid cut a picture and fits no other spacing
+            # keeps that grid: frames that touch or overlap have no clean gap)
+    if windows is None and trace is not None:
+        # every strip on glass is cut as whole frames, each put on its picture
+        g = gap_mm / 25.4 * STRIP_DPI
+        windows, at = [], first - pitch * math.ceil((first - start) / pitch + 1)
+        while at < end:
+            if min(at + pitch, end) - max(at, start) >= MIN_CELL * pitch:
+                windows.append(at + g / 2)
+            at += pitch
+    if windows is not None:
+        windows = snap_frames(trace, start, end, windows, darker, pitch_mm - gap_mm)
+        clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
+        frame = (pitch_mm - gap_mm) / 25.4 * STRIP_DPI
+        side = int(round((h if not vertical else w) * SIDE_INSET))
+        regions = []
+        for at in windows:
+            lo, hi = int(round(max(at + clear, start))), int(round(min(at + frame - clear, end)))
+            if hi - lo >= 8:
+                regions.append((side, lo, w - 2 * side, hi - lo) if vertical
+                               else (lo, side, hi - lo, h - 2 * side))
+        return regions, found
     if not found and on_glass:
         # Nothing on the film says where the frames are. A strip a whole
         # number of frames long was cut between frames at both ends, so they
@@ -1642,7 +1913,7 @@ def cmd_analyze(args):
         profiles.append(prof)
         whole = histograms(scan, black=black)
         base = pct(whole[1], whole[2], 100 - CLIP) if whole[2] else 255
-        refined, regions = [], []
+        refined, regions, held = [], [], None
         if profile:
             rows = rebate_rows(scan, vertical, base)
             scale = axis_len / float(len(profile))
@@ -1683,6 +1954,19 @@ def cmd_analyze(args):
                     if any(c >= SPLIT_WARN_LIFT for c in interior_rebate(profile, bounds)):
                         mis_split.append(os.path.basename(scan))
                     regions = trim_to_pictures([b * scale for b in bounds], rows, w, h, vertical)
+
+        if held:
+            # The strip as a whole is read off its film alone. Taken with the
+            # holder's grey edges and the glass's glare in it, the "film
+            # base" of a colour negative came out nearly neutral instead of
+            # orange, and every shadow on the roll printed blue.
+            if vertical:
+                x = int(w * MIDDLE_INSET)
+                on_film = (x, held[0], w - 2 * x, max(1, held[1] - held[0]))
+            else:
+                y = int(h * MIDDLE_INSET)
+                on_film = (held[0], y, max(1, held[1] - held[0]), h - 2 * y)
+            whole = histograms(scan, on_film, black=black)
 
         frames = []
         for region in regions:
