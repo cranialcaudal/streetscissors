@@ -42,10 +42,18 @@ const MOST = 40
 
 // [prefix, the thing every path under it counts as]
 const FAMILIES = [
+  // the archive: rolls stepped through with the arrows
   ["/negatives", "/negatives"],
   ["/archive", "/negatives"],
+  // the regimen: today and the other six days
   ["/fitness/day", "/fitness"],
+  // the daybook's weeks and years; and the days read one after another,
+  // which go back to the week they were opened from
   ["/daybook", "/daybook"],
+  ["/day", "/day"],
+  // the Bible: books and chapters read on with next and previous, which go
+  // back to the reading or the hour that cited them
+  ["/Christ/bible", "/Christ/bible"],
 ]
 
 // [a page, where Back goes from it, what the control then says]
@@ -84,28 +92,45 @@ const write = (trail) => {
 
 const title = () => (document.querySelector("h1.theme-title, main h1, article h1")?.textContent || document.title || "").trim().replace(/\s+/g, " ")
 
-// Where on a page the reader was, to be put back when they return to it. It
-// is tried for a few seconds, because a LiveView page fills in after it loads.
+// Where on a page the reader was, to be put back when they return to it.
+// A LiveView page is filled in after it loads, and may be filled in again
+// (a day's checklist is redrawn once its saved ticks arrive, which threw the
+// page back to its top), so the place is put back several times over a few
+// seconds, and left alone the moment the reader moves the page themselves.
 let spot = null
 
 const settle = () => {
   if (!spot || Date.now() > spot.until || spot.url !== location.pathname + location.search) return
   const { y, link } = spot
-  requestAnimationFrame(() => {
-    const pressed = link && [...document.querySelectorAll("a[href]")].find((a) => a.getAttribute("href") === link)
-    if (typeof y === "number") window.scrollTo(0, y)
-    // the page may have changed since: the line pressed is the surer mark
-    if (pressed) {
-      const box = pressed.getBoundingClientRect()
-      if (box.top < 0 || box.bottom > window.innerHeight) pressed.scrollIntoView({ block: "center" })
-      pressed.focus({ preventScroll: true })
-    }
-  })
+  const pressed = link && [...document.querySelectorAll("a[href]")].find((a) => a.getAttribute("href") === link)
+  // the page may have changed since: the line pressed is the surer mark
+  if (pressed) {
+    // a section the reader had opened to reach it is closed again on a
+    // fresh page; open it, or the line is nowhere
+    for (let fold = pressed.closest("details:not([open])"); fold; fold = fold.parentElement?.closest("details:not([open])")) fold.open = true
+    const box = pressed.getBoundingClientRect()
+    const seen = box.top >= 0 && box.bottom <= window.innerHeight && box.left >= 0 && box.right <= window.innerWidth
+    // (it may sit in a shelf that scrolls sideways, as an activity does)
+    if (!seen) pressed.scrollIntoView({ block: "center", inline: "center" })
+    if (document.activeElement !== pressed) pressed.focus({ preventScroll: true })
+  } else if (typeof y === "number" && Math.abs(window.scrollY - y) > 4) {
+    window.scrollTo(0, y)
+  }
+}
+
+const hold = () => {
+  settle()
+  for (const wait of [150, 400, 900, 1600, 2600, 3800]) setTimeout(settle, wait)
+}
+
+for (const moved of ["wheel", "touchstart", "keydown", "mousedown"]) {
+  window.addEventListener(moved, () => { spot = null }, { passive: true })
 }
 
 // Called whenever a page is shown, however it was reached.
 const arrive = () => {
-  if (location.pathname.startsWith("/admin")) return
+  // not the admin, and not a page that was not there: nobody goes back to a 404
+  if (location.pathname.startsWith("/admin") || document.querySelector("main.lost")) return
   const here = { thing: thing(location.pathname), url: location.pathname + location.search, title: title() }
   const trail = read()
   const top = trail[trail.length - 1]
@@ -116,7 +141,7 @@ const arrive = () => {
   } else if (trail.length > 1 && trail[trail.length - 2].thing === here.thing) {
     trail.pop()
     const was = trail[trail.length - 1]
-    if (was.url === here.url) spot = { url: here.url, y: was.y, link: was.link, until: Date.now() + 4000 }
+    if (was.url === here.url) spot = { url: here.url, y: was.y, link: was.link, until: Date.now() + 4500 }
     trail[trail.length - 1] = was.url === here.url ? { ...was, title: here.title } : here
   } else {
     trail.push(here)
@@ -124,7 +149,7 @@ const arrive = () => {
 
   write(trail)
   label(trail)
-  settle()
+  hold()
 }
 
 // Called as the reader leaves a page: where they were on it, and by which link.
