@@ -39,6 +39,18 @@ defmodule Web.FitnessClipTest do
       assert Clip.muscles("Obliques, quadratus lumborum") == ["obliques"]
     end
 
+    test "the rotators of the hip are not the rotator cuff" do
+      assert Clip.muscles("Rotator Cuff") == ["delts"]
+      assert Clip.muscles("Hip Rotators & Adductors") == ["glutes", "adductors"]
+      assert Clip.muscles("Glutes & External Rotators") == ["glutes"]
+    end
+
+    test "the hip flexors show at the front of the thigh, and the hips are the glutes" do
+      assert Clip.muscles("Hip Flexors & Core") == ["abs", "quads"]
+      assert Clip.muscles("Obliques & Hips") == ["obliques", "glutes"]
+      assert Clip.muscles("Glute Medius & Hip Abductors") == ["glutes"]
+    end
+
     test "nothing said lights nothing" do
       assert Clip.muscles(nil) == []
       assert Clip.muscles("Cardiovascular") == []
@@ -135,6 +147,20 @@ defmodule Web.FitnessClipTest do
     assert Path.basename(top) == "push-ups-0.png"
     assert File.read!(bottom) == "pose 1 of push-ups"
     assert Clip.find("push-ups", "Chest") == nil
+  end
+
+  test "the scratch folder of a run that was killed is cleared by the next, once it is old" do
+    File.mkdir_p!(Clip.dir())
+    killed = Path.join(Clip.dir(), ".filming-1")
+    under_way = Path.join(Clip.dir(), ".filming-2")
+    File.mkdir_p!(killed)
+    File.mkdir_p!(under_way)
+    File.touch!(killed, System.os_time(:second) - 7200)
+
+    Clip.film()
+
+    refute File.exists?(killed)
+    assert File.exists?(under_way)
   end
 
   test "films can be made into another folder, which is how the live site's are" do

@@ -44,9 +44,23 @@ const profile = mkdtempSync(join(tmpdir(), "figure-film-"))
 const browser = spawn(chrome, ["--headless=new", "--no-sandbox", "--use-angle=gl-egl", "--hide-scrollbars",
   "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] })
 
-const close = () => {
-  browser.kill(); server.close()
-  try { rmSync(profile, { recursive: true, force: true }) } catch {}
+// The browser is given time to go before its profile is removed from under
+// it, or the profile (up to 200 MB of shader cache) is left in the temp folder.
+const close = async () => {
+  server.close()
+  if (browser.exitCode === null && browser.signalCode === null) {
+    const gone = new Promise((ok) => browser.once("exit", ok))
+    browser.kill()
+    await Promise.race([gone, new Promise((ok) => setTimeout(ok, 3000))])
+  }
+  // its helper processes write for a moment after it has gone
+  await new Promise((ok) => setTimeout(ok, 300))
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }) } catch {}
+}
+
+// Stopped from outside (the task was interrupted): take the browser along.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.once(signal, async () => { await close(); process.exit(1) })
 }
 
 const piped = (args, feed) => new Promise((ok, no) => {
@@ -122,5 +136,5 @@ try {
   console.error(error.message)
   process.exitCode = 1
 } finally {
-  close()
+  await close()
 }

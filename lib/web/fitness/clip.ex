@@ -53,16 +53,19 @@ defmodule Web.Fitness.Clip do
     {~r/chest|pec(s|toral)/i, "chest", "Chest"},
     {~r/\blat(s|issimus)\b/i, "lats", "Lats"},
     {~r/trap|rhomboid|scapular|upper back|mid-back|thoracic/i, "traps", "Upper back"},
-    {~r/delt|shoulder|rotator|infraspinatus|subscapularis|teres/i, "delts", "Shoulders"},
+    # the rotators of the hip are not these: "Hip Rotators" lit the shoulders
+    {~r/delt|shoulder|rotator cuff|infraspinatus|subscapularis|teres/i, "delts", "Shoulders"},
     {~r/bicep|brachialis\b/i, "biceps", "Biceps"},
     {~r/tricep/i, "triceps", "Triceps"},
     {~r/forearm|grip|brachioradialis|wrist|finger/i, "forearms", "Forearms"},
-    {~r/rectus abdominis|transverse|abdominal|\babs\b|\bcore\b|hip flexor/i, "abs", "Abs"},
+    {~r/rectus abdominis|transverse|abdominal|\babs\b|\bcore\b|\btrunk\b/i, "abs", "Abs"},
     {~r/oblique|quadratus/i, "obliques", "Obliques"},
     {~r/low(er)? back|erector|spinal|lumbar/i, "lowback", "Lower back"},
-    {~r/glute|hip extensor|posterior chain|hip hinge/i, "glutes", "Glutes"},
-    # "quadratus" is a muscle of the back, not the thigh
-    {~r/\bquad(s|riceps)?\b/i, "quads", "Quads"},
+    {~r/glute|hip (extensor|abductor|rotator)|\bhips\b|posterior chain|hip hinge/i, "glutes",
+     "Glutes"},
+    # "quadratus" is a muscle of the back, not the thigh. The hip flexors have
+    # no volume of their own; the one that shows is the front of the thigh.
+    {~r/\bquad(s|riceps)?\b|hip flexor/i, "quads", "Quads"},
     {~r/hamstring|posterior chain|hip hinge/i, "hamstrings", "Hamstrings"},
     {~r/cal(f|ves)\b|gastroc|soleus|achilles|ankle/i, "calves", "Calves"},
     {~r/adductor|groin/i, "adductors", "Adductors"},
@@ -161,6 +164,7 @@ defmodule Web.Fitness.Clip do
     to = Keyword.get(opts, :to, dir())
     say = Keyword.get(opts, :say, fn _line -> :ok end)
     File.mkdir_p!(to)
+    sweep_scratch(to)
 
     {jobs, current, refused} =
       opts
@@ -303,6 +307,22 @@ defmodule Web.Fitness.Clip do
       error in ErlangError -> {:error, "could not run #{command}: #{inspect(error.original)}"}
     after
       File.rm_rf(scratch)
+    end
+  end
+
+  # A run that was killed leaves its scratch folder behind, in a directory
+  # the proxy serves. Anything of the kind an hour old belongs to no run.
+  defp sweep_scratch(to) do
+    for name <- File.ls!(to), String.starts_with?(name, ".filming-") do
+      path = Path.join(to, name)
+
+      case File.stat(path, time: :posix) do
+        {:ok, %{mtime: mtime}} ->
+          if System.os_time(:second) - mtime > 3600, do: File.rm_rf(path)
+
+        _ ->
+          :ok
+      end
     end
   end
 
