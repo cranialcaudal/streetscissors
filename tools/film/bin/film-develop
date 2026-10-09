@@ -178,6 +178,21 @@ SLIDE_DARK = 10
 SLIDE_WHITE_FLOOR = 0.6
 SLIDE_BLACK_CEILING = 0.06
 
+# The frame template (grid_by_template). A gap is the film with nothing on
+# it: within this share of the strip's own extreme level (its blackest, on a
+# slide; its clearest, on a negative), or it is not a gap. A grid that puts
+# picture in a gap is charged this many times what a picture edge beside a
+# gap earns, so one frame cut through outweighs every edge found.
+TEMPLATE_TOL = 0.06
+TEMPLATE_CHARGE = 10.0
+TEMPLATE_EDGE_MOST = 8.0
+# The pitch may be this far off 38 mm, in steps of 0.2%: the scanner's travel
+# runs up to 1% short, and cameras do not space frames exactly.
+TEMPLATE_PITCH_STEPS = (-6, 4)
+# A strip this near a whole number of frames long was cut between frames at
+# both ends.
+WHOLE_STRIP_MM = 2.0
+
 # The film base is the brightest film on a strip: the rebate, a few percent
 # of it. A little under the very top keeps the blur at the film's edge out.
 BASE_PCT = 98.0
@@ -964,6 +979,120 @@ def middle_lines(path, vertical, ops):
     return list(out)
 
 
+def middle_trace(path, vertical):
+    """Mean brightness of each line along the strip's long axis, 0..255 with
+    its fractions kept, read from the middle of the strip's width only.
+
+    The fractions are the point. Between two night frames a slide's gap is a
+    third of a level darker than the pictures either side, and on a fogged
+    negative the gap is hardly clearer than the frames; rounded to whole
+    levels, or to bare-or-not, there is nothing left to see."""
+    w, h = dimensions(path)
+    if vertical:
+        x = int(w * MIDDLE_INSET)
+        crop, geometry, n = f"{w - 2 * x}x{h}+{x}+0", f"1x{h}!", h
+    else:
+        y = int(h * MIDDLE_INSET)
+        crop, geometry, n = f"{w}x{h - 2 * y}+0+{y}", f"{w}x1!", w
+    out = _magick([path, "-alpha", "off", "-crop", crop, "+repage", "-grayscale", "Average",
+                   "-scale", geometry, "-depth", "16", "-endian", "LSB", "gray:-"])
+    return [(out[2 * i] + 256 * out[2 * i + 1]) / 257.0 for i in range(min(n, len(out) // 2))]
+
+
+def grid_by_template(trace, start, end, darker, pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
+    """Where the 35mm grid sits, by laying the frame's own shape on the film:
+    (first gap, pitch, found).
+
+    The template is the frame as the camera makes it, a picture and then a
+    gap, repeated. `darker` says what a gap is: a slide's is the blackest
+    film on the strip, a negative's the clearest. Two things are asked of
+    every gap the grid proposes between two frames:
+
+      * nothing of a picture is in it. Its brightness has to be the strip's
+        own gap level, within TEMPLATE_TOL; anything else is a frame being
+        cut through, and is charged heavily;
+      * a picture begins or ends beside it. The millimetres either side of
+        a gap are picture, so they differ from the gap by whatever the
+        picture holds there: a great deal by a lit window, a fraction of a
+        level in a night sky. That difference is the grid's score.
+
+    So a dark stretch inside a picture cannot pass for a gap unless every
+    other gap of that grid also falls on dark film, and a strip of night
+    frames is still pinned by its one lit edge. `found` is False when no grid
+    is free of the charge or none stands out."""
+    sign = 1.0 if darker else -1.0
+    pitch0 = pitch_mm / 25.4 * STRIP_DPI
+    gap = gap_mm / 25.4 * STRIP_DPI
+    half = gap / 2.0
+    edge_of_film = start
+    # The last millimetre at each end is the glass's glare on the cut, not
+    # film: read as a picture edge, it outshone every real one.
+    inset = int(1.0 / 25.4 * STRIP_DPI)
+    start, end = start + inset, min(end, len(trace)) - inset
+    if end - start < 2 * pitch0 * MIN_CELL:
+        return float(edge_of_film), pitch0, False
+
+    sums = [0.0]
+    for v in trace:
+        sums.append(sums[-1] + v)
+
+    def band(a, b):
+        a, b = max(start, int(round(a))), min(end, int(round(b)))
+        return (sums[b] - sums[a]) / float(b - a) if b > a else None
+
+    width = max(2, int(gap))
+    levels = sorted(band(i, i + width) for i in range(start, end - width, max(1, width // 2)))
+    level = levels[int(len(levels) * (0.05 if darker else 0.95))]
+    tol = max(TEMPLATE_TOL * abs(level), 0.15)
+
+    scores, best = [], None
+    lo_step, hi_step = TEMPLATE_PITCH_STEPS
+    for step in range(lo_step, hi_step + 1):
+        pitch = pitch0 * (1.0 + step * 0.002)
+        phase = 0.0
+        while phase < pitch:
+            first = phase + math.ceil((edge_of_film - phase) / pitch) * pitch
+            total, charged, count, x = 0.0, 0.0, 0, first
+            while x <= end:
+                if x - half - gap >= start and x + half + gap <= end:
+                    here = band(x - half, x + half)
+                    beside = (band(x - half - gap, x - half) + band(x + half, x + half + gap)) / 2.0
+                    over = max(0.0, (here - level) * sign - tol)
+                    # one lit edge counts for much, never for everything
+                    edge = min((beside - here) * sign / tol, TEMPLATE_EDGE_MOST)
+                    total += edge - TEMPLATE_CHARGE * over / tol
+                    charged = max(charged, over)
+                    count += 1
+                x += pitch
+            if count:
+                # a hair off for each step of pitch, so 38 mm wins a tie
+                score = total / count - 0.02 * abs(step)
+                scores.append(score)
+                # a gap more than twice the tolerance off is a picture: such
+                # a grid is counted among the ordinary, never chosen
+                if charged <= tol and (best is None or score > best[0]):
+                    best = (score, first, pitch, charged)
+            phase += 2.0
+
+    if not best:
+        return float(edge_of_film), pitch0, False
+    ordinary = sorted(scores)[len(scores) // 2]
+    if best[0] < 0.5 or best[0] - ordinary < 0.5:
+        return float(edge_of_film), pitch0, False
+    return best[1], best[2], True
+
+
+def whole_strip(start, end, pitch_mm=PITCH_35MM):
+    """The pitch of a strip cut between frames at both ends, or None: its
+    length is then a whole number of frames, give or take the cuts."""
+    pitch0 = pitch_mm / 25.4 * STRIP_DPI
+    count = int(round((end - start) / pitch0))
+    if count < 1:
+        return None
+    slack = WHOLE_STRIP_MM / 25.4 * STRIP_DPI + 0.012 * pitch0 * count
+    return (end - start) / float(count) if abs((end - start) - count * pitch0) <= slack else None
+
+
 def film_on_glass(path, vertical, start, end, glass, slide=False):
     """A strip scanned in a holder, with the glass left out: (start, end,
     rows), or None when what looked like glass is as bright as the film.
@@ -1113,9 +1242,30 @@ def grid_35mm(rows, start, end, on_glass=False, pitch_mm=PITCH_35MM, gap_mm=GAP_
 
 
 def frames_35mm(rows, start, end, w, h, vertical, on_glass=False,
-                pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
-    """Picture rectangles on a 35mm strip, and whether the grid was found."""
+                pitch_mm=PITCH_35MM, gap_mm=GAP_35MM, trace=None, darker=False):
+    """Picture rectangles on a 35mm strip, and whether the grid was found.
+
+    `trace` is the strip's brightness line by line (middle_trace), for a
+    strip on glass. A slide (`darker`: its gaps are black) is placed by the
+    frame template alone, since a black line is as likely to be night as a
+    gap. A negative is placed as before where its gaps read bare, and by the
+    template where they do not: thin, fogged or expired film. Frames placed
+    by the template are left on its grid, every one the same size."""
     first, pitch, found = grid_35mm(rows, start, end, on_glass, pitch_mm, gap_mm)
+    templated = False
+    if trace is not None and (darker or not found):
+        t_first, t_pitch, t_found = grid_by_template(trace, start, end, darker, pitch_mm, gap_mm)
+        if t_found:
+            first, pitch, found, templated = t_first, t_pitch, True, True
+        elif darker:
+            first, pitch, found = float(start), pitch_mm / 25.4 * STRIP_DPI, False
+    if not found and on_glass:
+        # Nothing on the film says where the frames are. A strip a whole
+        # number of frames long was cut between frames at both ends, so they
+        # lie end to end between the cuts; otherwise from the first cut.
+        even = whole_strip(start, end, pitch_mm)
+        if even:
+            first, pitch = float(start), even
     gap = gap_mm / 25.4 * STRIP_DPI
     clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
     reach = int(1.0 / 25.4 * STRIP_DPI)
@@ -1123,7 +1273,7 @@ def frames_35mm(rows, start, end, w, h, vertical, on_glass=False,
 
     def settle(x):
         """A gap's centre, nudged onto the brightest of the rebate near it."""
-        if not found:
+        if not found or templated:
             return x
         lo, hi = max(0, int(x) - reach), min(len(smooth) - 1, int(x) + reach)
         if hi <= lo:
@@ -1347,10 +1497,12 @@ def cmd_analyze(args):
                     a, b = 0, axis_len
                 if glass:
                     held = film_on_glass(scan, vertical, a, b, glass, slide)
+                trace = None
                 if held:
                     a, b, rows = held
+                    trace = middle_trace(scan, vertical)
                 regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
-                                               bool(held), pitch_mm, gap_mm)
+                                               bool(held), pitch_mm, gap_mm, trace, slide)
                 refined = [aligned] * max(0, len(regions) - 1)
                 if not aligned and regions:
                     unaligned.append(os.path.basename(scan))
