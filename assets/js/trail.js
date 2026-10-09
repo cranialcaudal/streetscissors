@@ -21,6 +21,13 @@
 //   * arriving on the thing just before the newest one is going back, by
 //     this button or the browser's, and takes the newest off the trail.
 //
+//   * some pages have somewhere they came out of, whatever the trail says
+//     (UP): a single photograph goes back to the contact sheet it was cut
+//     from, and the sheet then goes back along the trail;
+//   * a thing is remembered with *where on it* the reader was: how far down
+//     the page, and which link they pressed. Going back to a day's checklist
+//     or the wiki's index lands on the line that was pressed, not at the top.
+//
 // Back then goes to the thing before this one, and says so; with no trail
 // (a first page, a link from elsewhere) the link is left as the server
 // wrote it. The admin keeps its own navigation and is not followed.
@@ -40,6 +47,19 @@ const FAMILIES = [
   ["/fitness/day", "/fitness"],
   ["/daybook", "/daybook"],
 ]
+
+// [a page, where Back goes from it, what the control then says]
+const UP = [
+  [/^\/negatives\/roll\/([^/]+)\/frame\/[^/]+\/?$/, (m) => `/negatives/roll/${m[1]}`, "Contact sheet"],
+]
+
+const up = (path) => {
+  for (const [pattern, to, says] of UP) {
+    const match = path.match(pattern)
+    if (match) return { url: to(match), title: says }
+  }
+  return null
+}
 
 const thing = (path) => {
   const clean = path.replace(/\/+$/, "") || "/"
@@ -64,6 +84,25 @@ const write = (trail) => {
 
 const title = () => (document.querySelector("h1.theme-title, main h1, article h1")?.textContent || document.title || "").trim().replace(/\s+/g, " ")
 
+// Where on a page the reader was, to be put back when they return to it. It
+// is tried for a few seconds, because a LiveView page fills in after it loads.
+let spot = null
+
+const settle = () => {
+  if (!spot || Date.now() > spot.until || spot.url !== location.pathname + location.search) return
+  const { y, link } = spot
+  requestAnimationFrame(() => {
+    const pressed = link && [...document.querySelectorAll("a[href]")].find((a) => a.getAttribute("href") === link)
+    if (typeof y === "number") window.scrollTo(0, y)
+    // the page may have changed since: the line pressed is the surer mark
+    if (pressed) {
+      const box = pressed.getBoundingClientRect()
+      if (box.top < 0 || box.bottom > window.innerHeight) pressed.scrollIntoView({ block: "center" })
+      pressed.focus({ preventScroll: true })
+    }
+  })
+}
+
 // Called whenever a page is shown, however it was reached.
 const arrive = () => {
   if (location.pathname.startsWith("/admin")) return
@@ -71,12 +110,32 @@ const arrive = () => {
   const trail = read()
   const top = trail[trail.length - 1]
 
-  if (top && top.thing === here.thing) trail[trail.length - 1] = here
-  else if (trail.length > 1 && trail[trail.length - 2].thing === here.thing) { trail.pop(); trail[trail.length - 1] = here }
-  else trail.push(here)
+  if (top && top.thing === here.thing) {
+    // the same thing still: keep its place unless it is another address of it
+    trail[trail.length - 1] = top.url === here.url ? { ...top, title: here.title } : here
+  } else if (trail.length > 1 && trail[trail.length - 2].thing === here.thing) {
+    trail.pop()
+    const was = trail[trail.length - 1]
+    if (was.url === here.url) spot = { url: here.url, y: was.y, link: was.link, until: Date.now() + 4000 }
+    trail[trail.length - 1] = was.url === here.url ? { ...was, title: here.title } : here
+  } else {
+    trail.push(here)
+  }
 
   write(trail)
   label(trail)
+  settle()
+}
+
+// Called as the reader leaves a page: where they were on it, and by which link.
+const leave = (link) => {
+  if (location.pathname.startsWith("/admin")) return
+  const trail = read()
+  const top = trail[trail.length - 1]
+  if (!top || top.url !== location.pathname + location.search) return
+  top.y = Math.round(window.scrollY)
+  if (link) top.link = link
+  write(trail)
 }
 
 const short = (text) => (text.length > 22 ? text.slice(0, 21).trimEnd() + "…" : text)
@@ -84,7 +143,7 @@ const short = (text) => (text.length > 22 ? text.slice(0, 21).trimEnd() + "…" 
 // The control says where it goes.
 const label = (trail) => {
   const link = document.querySelector("a[data-back]")
-  const before = trail[trail.length - 2]
+  const before = up(location.pathname) || trail[trail.length - 2]
   if (!link || !before || !before.title) return
   const text = link.querySelector(".header-action-label")
   if (text) text.textContent = short(before.title)
@@ -95,11 +154,19 @@ document.addEventListener("click", (event) => {
   const link = event.target.closest?.("a[data-back]")
   if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   const trail = read()
-  const before = trail[trail.length - 2]
+  const before = up(location.pathname) || trail[trail.length - 2]
   if (!before || location.pathname.startsWith("/admin")) return
   event.preventDefault()
   window.location.assign(before.url)
 })
+
+// Any link pressed is where the reader was on this page. Capture, so it is
+// noted before LiveView or the browser takes the click away.
+document.addEventListener("click", (event) => {
+  const link = event.target.closest?.("a[href]")
+  if (link && !link.hasAttribute("data-back")) leave(link.getAttribute("href"))
+}, true)
+window.addEventListener("pagehide", () => leave(null))
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrive)
 else arrive()
