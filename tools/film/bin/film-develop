@@ -51,6 +51,17 @@ part of the pipeline and per-frame colour stopped being good enough):
          true neutral grey, which also cancels the scanner's slight channel
          imbalance.
 
+  slide  Reversal film (E-6: Ektachrome, Velvia, Provia) is already the
+         picture, and its colour is the film's own, so nothing is turned
+         over and nothing is balanced: the roll's brightest highlight is
+         made white, the same for all three channels, and a frame may only
+         set its own black and white a little. A roll is a slide roll when
+         its roll.json says so: "process": "slide", or a film stock that is
+         one ("E100"). That outranks --mode, because the scanner page only
+         knows colour from black and white. Between frames a slide is black
+         where a negative is clear, so the frames are found by their dark
+         gaps. 35mm only; dust, which prints dark on a slide, is left alone.
+
 Where the frames are:
 
   A 35mm frame is 36 mm of picture and 2 mm of gap, 38.00 mm apart whatever
@@ -76,6 +87,7 @@ import glob
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 
@@ -155,6 +167,17 @@ GAMMA_LIMITS = (0.72, 1.5)
 # How far a frame may lean to its own colour reading, at full quality.
 COLOUR_LEAN = 0.5
 
+# Film stocks that are reversal film, as a roll.json's "film" names them.
+SLIDE_STOCKS = re.compile(
+    r"\b(e100\w*|ektachrome|elite ?chrome|velvia|provia|astia|sensia|fujichrome|"
+    r"precisa|ct ?100|agfachrome|slide|reversal|e-?6)\b", re.I)
+# A slide's gap is its densest black: within this of the darkest film counts.
+SLIDE_DARK = 10
+# A frame of a slide roll may bring its own white down to this of the roll's
+# (a dark slide is lifted a little, not remade), and its black up to this.
+SLIDE_WHITE_FLOOR = 0.6
+SLIDE_BLACK_CEILING = 0.06
+
 # The film base is the brightest film on a strip: the rebate, a few percent
 # of it. A little under the very top keeps the blur at the film's edge out.
 BASE_PCT = 98.0
@@ -202,12 +225,13 @@ def dimensions(path):
     return int(w), int(h)
 
 
-def film_pixels(rgb, white=WHITE):
-    """Yields (byte offset, r, g, b) for pixels that are film, not bed or gap."""
+def film_pixels(rgb, white=WHITE, black=BLACK):
+    """Yields (byte offset, r, g, b) for pixels that are film, not bed or gap.
+    A slide's shadows are as black as a holder: pass black=-1 to keep them."""
     for i in range(0, len(rgb) - 2, 3):
         r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
         if (r >= white and g >= white and b >= white) or \
-           (r <= BLACK and g <= BLACK and b <= BLACK):
+           (r <= black and g <= black and b <= black):
             continue
         yield i, r, g, b
 
@@ -242,13 +266,13 @@ def interquartile(hist, kept):
     return pct(75) - pct(25)
 
 
-def histograms(path, crop=None, white=WHITE):
+def histograms(path, crop=None, white=WHITE, black=BLACK):
     """Per-channel and grey histograms of an image's film pixels:
     ([r, g, b] histograms, grey histogram, pixels kept)."""
     rgb = read_rgb(path, crop)
     grey = read_grey(path, crop)
     hist, ghist, kept = [[0] * 256 for _ in range(3)], [0] * 256, 0
-    for i, r, g, b in film_pixels(rgb, white):
+    for i, r, g, b in film_pixels(rgb, white, black):
         hist[0][r] += 1; hist[1][g] += 1; hist[2][b] += 1
         ghist[grey[i // 3]] += 1
         kept += 1
@@ -326,6 +350,18 @@ def film_model(mode, frames, strips):
         values = sorted(values)
         return values[len(values) // 2]
 
+    if mode == "slide":
+        # A positive: the brightest highlight any good frame holds is white,
+        # in whichever channel it is brightest, and the same for all three.
+        pooled, kept = [[0] * 256 for _ in range(3)], 0
+        for h, _, k, _ in good:
+            for c in range(3):
+                add_hist(pooled[c], h[c])
+            kept += k
+        top = max(max(pct(pooled[c], kept, 100 - CLIP) for c in range(3)), 64)
+        return {"mode": "slide", "white": 1.0, "contrast": 1.0,
+                "channels": [{"base": top, "power": 1.0} for _ in range(3)]}
+
     if mode == "color":
         base = [middle([pct(h[c], k, BASE_PCT) for h, _, k, _ in strips]) for c in range(3)]
         pooled, kept = [[0] * 256 for _ in range(3)], 0
@@ -386,6 +422,13 @@ def exposure_for(settings, hist, ghist, kept):
     # own highlights are, not clipped at the roll's.
     chans, roll_white = settings["channels"], settings.get("white", 1.0)
     flat = {"black": 0.0, "white": roll_white, "gamma": 1.0}
+    if settings["mode"] == "slide":
+        def tone(q):
+            return sum(min(pct(hist[c], kept, q) / float(max(chans[c]["base"], 1)), 1.0)
+                       for c in range(3)) / 3.0
+        black = min(tone(CLIP), SLIDE_BLACK_CEILING)
+        top = max(tone(100 - CLIP), SLIDE_WHITE_FLOOR)
+        return {"black": round(black, 4), "white": round(top, 4), "gamma": 1.0}
     if settings["mode"] == "color":
         def lum(q):
             # a negative's dark end is the print's bright end
@@ -459,6 +502,10 @@ def apply_args(settings):
     chans = settings["channels"]
     if "base" not in chans[0]:
         return legacy_args(settings)
+    if settings["mode"] == "slide":
+        # Already the picture: scaled to the roll's white, never turned over.
+        return ["-evaluate", "Divide", f"{max(chans[0]['base'], 1) / 255.0:.5f}",
+                "-clamp"] + exposure_args(settings)
 
     def channel(ch):
         # Clamped between: brighter than the base is the base, and a build of
@@ -573,8 +620,30 @@ def strip_scans(roll_dir):
     return sorted(set(files))
 
 
-def roll_mode(roll_dir):
+def roll_is_slide(roll_dir):
+    """Whether the roll's roll.json says it is reversal film."""
+    try:
+        with open(os.path.join(roll_dir, "roll.json")) as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(doc, dict):
+        return False
+    if str(doc.get("process") or "").strip().lower() in ("slide", "reversal", "e-6", "e6"):
+        return True
+    return bool(SLIDE_STOCKS.search(str(doc.get("film") or "")))
+
+
+def roll_mode(roll_dir, asked=None):
+    """color, bw or slide. What roll.json says of the film outranks what was
+    asked for and the folder's name, neither of which can say "slide"."""
+    if roll_dir and roll_is_slide(roll_dir):
+        return "slide"
+    if asked:
+        return asked
     name = os.path.basename(os.path.normpath(roll_dir)).lower()
+    if name.endswith("_slide"):
+        return "slide"
     return "color" if name.endswith("_color") or name.endswith("_colour") else "bw"
 
 
@@ -849,7 +918,7 @@ def middle_lines(path, vertical, ops):
     return list(out)
 
 
-def film_on_glass(path, vertical, start, end, glass):
+def film_on_glass(path, vertical, start, end, glass, slide=False):
     """A strip scanned in a holder, with the glass left out: (start, end,
     rows), or None when what looked like glass is as bright as the film.
 
@@ -885,6 +954,15 @@ def film_on_glass(path, vertical, start, end, glass):
     else:
         y = int(h * MIDDLE_INSET)
         crop = (a, y, max(1, b - a), h - 2 * y)
+    if slide:
+        # Between frames a slide is its densest black, not clear film: a line
+        # is a gap when it is that dark right across.
+        hist, ghist, kept_px = histograms(path, crop, white=int(level), black=-1)
+        dark = (pct(ghist, kept_px, 1.0) if kept_px else 0) + SLIDE_DARK
+        rows = middle_lines(path, vertical,
+                            ["-negate", "-threshold", f"{(255 - dark) * 100.0 / 255.0:.2f}%"])
+        rows = [v if a <= i < b else 0 for i, v in enumerate(rows)]
+        return a, b, rows
     hist, ghist, kept_px = histograms(path, crop, white=int(level))
     base = pct(ghist, kept_px, 100 - CLIP) if kept_px else 255
     if base >= GLASS_OVER_BASE * level:
@@ -1115,6 +1193,7 @@ def cmd_strips(args):
     """
     os.makedirs(args.dest, exist_ok=True)
     doc = load_frames_json(args.roll) if args.roll else None
+    mode = roll_mode(args.roll, args.mode) if args.roll else args.mode
     film = doc.get("film") if doc else None
     wrong = set(doc.get("mis_split") or []) if doc else set()
 
@@ -1132,8 +1211,8 @@ def cmd_strips(args):
         elif film:
             whole = frame_settings(film, *histograms(src))
         else:
-            whole, _, _ = measure(src, args.mode)
-        base = apply_args(whole) if whole else ["-negate"]
+            whole, _, _ = measure(src, mode)
+        base = apply_args(whole) if whole else ([] if mode == "slide" else ["-negate"])
 
         frames = [f for f in entry["frames"] if f.get("settings")] if split_ok else []
         if not frames or not whole:
@@ -1159,7 +1238,9 @@ def cmd_analyze(args):
         print(f"error: no strip scans in {roll_dir}", file=sys.stderr)
         return 1
 
-    mode = args.mode or roll_mode(roll_dir)
+    mode = roll_mode(roll_dir, args.mode)
+    slide = mode == "slide"
+    black = -1 if slide else BLACK
     fmt = roll_format(roll_dir)
     # A count corrected once has to stay corrected: 620 holds 8 or 12
     # exposures depending on the camera, so the format default is only a
@@ -1204,7 +1285,7 @@ def cmd_analyze(args):
         prof = density_profile(scan, axis_len, across_len, vertical)
         profile, counts = prof
         profiles.append(prof)
-        whole = histograms(scan)
+        whole = histograms(scan, black=black)
         base = pct(whole[1], whole[2], 100 - CLIP) if whole[2] else 255
         refined, regions = [], []
         if profile:
@@ -1214,8 +1295,12 @@ def cmd_analyze(args):
             if on_grid:
                 a, b, held = int(start * scale), int(end * scale), None
                 glass = glass_level(scan)
+                if slide:
+                    # where a slide lies is read off the glass alone: its
+                    # black frames and gaps are no film to the extent above
+                    a, b = 0, axis_len
                 if glass:
-                    held = film_on_glass(scan, vertical, a, b, glass)
+                    held = film_on_glass(scan, vertical, a, b, glass, slide)
                 if held:
                     a, b, rows = held
                 regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
@@ -1231,7 +1316,7 @@ def cmd_analyze(args):
 
         frames = []
         for region in regions:
-            hist, ghist, kept = histograms(scan, stats_crop(region, vertical))
+            hist, ghist, kept = histograms(scan, stats_crop(region, vertical), black=black)
             contrast = interquartile(ghist, kept) if kept else 0
             frames.append({"region": region, "read": (hist, ghist, kept),
                            "contrast": contrast, "score": quality(contrast) if kept else 0.0})
@@ -1248,6 +1333,9 @@ def cmd_analyze(args):
         doc["frames_per_strip"] = max([len(s["frames"]) for s in found] + [1])
         per_strip = doc["frames_per_strip"]
 
+    if slide and not on_grid:
+        print("WARNING: a slide's frames are only found on 35mm; these are cut as a "
+              "negative's would be and are probably wrong.")
     print(f"{doc['folder']}  mode={mode}  " +
           (f"{frame_mm:g} mm frames on the {pitch_mm:g} mm grid" if on_grid
            else f"{per_strip} frames/strip"))
@@ -1424,7 +1512,7 @@ def cmd_develop(args):
     os.makedirs(out_dir, exist_ok=True)
     dst = os.path.join(out_dir, f"{args.frame:02d}.png")
     _magick([args.raw] + apply_args(settings) + [dst])
-    if args.dust:
+    if args.dust and settings.get("mode") != "slide":
         remove_dust(dst)
     print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")
     return 0
@@ -1437,7 +1525,7 @@ def main():
     s = sub.add_parser("strips", help="turn strip scans into positives")
     s.add_argument("dest")
     s.add_argument("scans", nargs="+")
-    s.add_argument("--mode", choices=["color", "bw"], required=True)
+    s.add_argument("--mode", choices=["color", "bw", "slide"], required=True)
     s.add_argument("--roll", help="roll folder; uses its frames.json if present")
     s.add_argument("--frame-weight", type=float, default=0.35,
                    help="how much each frame leans on its strip's recipe "
@@ -1450,7 +1538,7 @@ def main():
     a.add_argument("--frame-mm", type=float,
                    help="35mm: the picture's length along the film, if not 36 "
                         "(18 for a half-frame camera)")
-    a.add_argument("--mode", choices=["color", "bw"])
+    a.add_argument("--mode", choices=["color", "bw", "slide"])
     a.add_argument("--export", help="also write developed frame crops here")
     a.set_defaults(func=cmd_analyze)
 
