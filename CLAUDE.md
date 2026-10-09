@@ -272,6 +272,91 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   LiveView (its `C:\DOCS\BLOG` mirrors blog posts), RSS feed + sitemap controllers, and a custom
   captcha (`lib/web_web/captcha.ex`, not reCAPTCHA).
 
+- **The exercise wiki** (`/fitness/wiki`, `content/fitness/exercise-wiki/<group>/<slug>.md`,
+  cleaned up 2026-10-08). Every page has the same five frontmatter keys and the same sections
+  (`**Goal:**`, `### Execution`, `### Why it works`, `### Programming notes`), and three
+  conventions that are easy to break:
+  - **The heading says whether the claim is measured**: `### Why it works` on a page with
+    `references:`, `### Why it works (theory)` on one without. Citations come only from
+    `references.md`, whose entries are checked against PubMed before they are added.
+  - **A page never names a day of the week.** It names the session ("the lower day", "the
+    afternoon lift"), because the week gets rearranged and 24 pages went stale when it was.
+  - **`functional_category` is a shared vocabulary of thirteen**, not free text; a new spelling
+    is nearly always an old category.
+
+  `Web.Fitness.WikiCheck.problems/0` finds all three again (and missing keys or sections, a
+  citation not in the bibliography, a figure that does not draw); `/admin/health` lists them
+  with the broken links, and `test/private/` holds the real vault to zero. Pages nothing links
+  to are in `content/archive/exercise-wiki/`, outside the vault so nothing reads them; moving a
+  file back restores it. `Vault.update_exercise/3` carries unknown frontmatter through, as
+  `update_day/2` does: the admin form has no `references:` field and used to strip it on save.
+  - **The figure** (`Web.Fitness.Figure`, `Web.Fitness.Clip`, `WebWeb.FitnessFigure`): a page
+    whose exercise has `figures/<slug>.json` in the vault leads with a figure doing it; all 113
+    pages have one (2026-10-09). The file is a few
+    **poses that say where the body is** (pelvis, the back's lean and curl, and where each hand
+    and foot is or points), never joint angles: elbows and knees are solved so each limb
+    reaches, so a planted foot stays planted and no bone changes length. `build/1` **refuses** a
+    figure that cannot reach, goes through the floor, pops a joint across its limb between
+    poses, or names a key it does not know, saying which pose; a refused file shows nothing
+    and is listed on `/admin/health`. Between poses the pelvis travels a straight line, except
+    that **a body rocking over its knees rides up on them** (`ride_up/5`): the hips of a
+    kneeling rollout travel an arc, and the straight line pressed the knees into the floor.
+    - **The page plays a film of it** (`Web.Fitness.Clip`; his direction: "less abstract… a
+      game engine of sorts… preload GIFs/video", then "too lumpy yet sleek"). The same loop is
+      drawn once, on the bench, as a body in 3D with the muscles in the page's `anatomy:` lit,
+      and kept as a silent H.264 loop of about 100 KB with its first frame as a poster; a phone
+      decodes it and builds nothing. `mix fitness.film` hands each figure's joints
+      (`Figure.track/2`, 24 fps) to the camera in `priv/figure/`: `render.mjs` (node, no
+      packages) drives headless Chrome over its debugging port through `render.html`, where
+      `figure3d.js` lifts the flat joints into 3D, builds the body from about forty rounded
+      cones and ellipsoids (each muscle its own volume, set flush) and marches rays through
+      their distance field, in three flat tones with an ink line; the frames are piped to
+      ffmpeg. About 50 seconds a figure on this machine's Intel GPU (`--use-angle=gl-egl`;
+      without it Chrome marches on the CPU). **The film's ground is steel's `--paper-sunk`
+      written as a number in `render.html`**, so the picture has no edge on the page: change
+      one, change the other, and film again.
+    - **Films are content, not code.** They live in `figures/` under the uploads root (which
+      the proxy serves), each named by a hash of its own bytes, with `clips.json` saying which
+      film is whose, what it was filmed from, and where each pose begins. The live site's
+      uploads are outside the checkout, so its films are made with
+      `UPLOADS_PATH=<the service's> mix fitness.film`; nothing is deployed for a page to play
+      one. **A film is shown only for the figure it was filmed from** (`Clip.find/2` compares
+      a hash of the figure file and the muscles lit): edit a figure or a page's `anatomy:` and
+      that page goes back to the flat drawing until it is filmed again, and `/admin/health`
+      lists it (`Clip.unfilmed/0`). A new look does not retire a film; `--all` films everything
+      again (about 100 minutes).
+    - **`Clip.muscles/1` is where the wiki's free text meets the camera's seventeen muscles.**
+      The page names what is lit under the film ("Working: Quads, Glutes"), since the colour
+      says where and not what. A page whose anatomy names no muscle (the cardio pages) lights
+      nothing.
+    - **The flat drawing is the fallback, and always current**: `build/1` bakes the loop at 12
+      frames a second as SVG, every part a rounded stroke as thick as the part (`@thick`),
+      drawn back to front in layers, clipped at the drawn ground, moved by SMIL in the markup.
+      What is held can go **behind** the body (`"weight": "behind"`). Limbs within a few
+      percent of straight are drawn straight, or a planted leg wobbles at the knee; a knee's
+      "front" is the way the figure faces until it lies down, or the knees of a deep hinge bend
+      backward.
+    - Equipment that stands still is `mat`, `box`, `block` (a bench, a wall, a bag, the
+      water's surface), `disc` (a bar end-on, a roller), `dome` (a BOSU), and `line` (a band or
+      cable from its anchor to a hand, or a rigid pole). `floor: false` is for hanging,
+      swimming and a front view used as a view from above.
+    - **Some keys are for the film alone**, because a flat picture cannot show them: a pose's
+      `side` (the hands to the near or far side of the body), `spread` (how far apart the hands
+      are), `flare` (elbows out to the sides: a face pull drawn flat has to put them over the
+      head), a line's `depth` (a band anchored beside the body, as a Pallof press needs) and a
+      disc's `ball` (a hanging bag, not the end of a roller).
+    - The `.Figure` hook only works the clock, the film's or the drawing's: pause, and a button
+      per pose. **The video has no `autoplay`**; the hook starts it, so reduced motion gets the
+      first pose held, and a browser that refuses to play gets a Play button that says so. The
+      element is `phx-update="ignore"`. A hold (one pose) is its poster as an `<img>`. Styled by
+      `fitness_wiki.css` with the wiki's two pages, tokens only.
+    - **Authoring**: start a new figure from a posture that is already right (copy the pose of
+      a finished figure in the same position and change only what moves), then
+      `mix fitness.film --stills DIR <slug>` and **look at every pose**. A file that validates
+      is not thereby a picture of the exercise: of the figures written by a small model that
+      reported "looks right", a third were wrong (a side plank lying flat, elbows over the
+      head, a band coming from behind).
+
 - **The prayer pages** (`/Christ/*`, `WebWeb.FaithController`, 2026-10-06): the liturgical day, the
   Hours, the readings at Mass, the Rosary, and the Bible they are read from. **Nothing is fetched
   from another site**, at request time or by the browser, and the pages are the same for every
@@ -586,6 +671,9 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   targets are ≥44px; solid ink marks the current choice (the header, `/blog`, post pages). The back control
   shows just the destination ("return to fitness" → "Fitness") and carries the full "Back to …" as
   its aria-label; both controls fold to equal icon squares at ≤900px.
+  **A tab left open across a deploy reloads itself** (`WebWeb.FreshAssets`, an `on_mount` of the
+  public `live_session`, with `phx:stale-assets` in `app.js`): it used to reconnect, take the
+  new markup and keep the old digested stylesheet, so new parts of a page showed unstyled.
   **Flash notices** are said once, by the layouts: `Layouts.app` (every `:default` LiveView via
   the router's `live_session` layout, and controller pages via `put_layout`) and
   `admin.html.heex` both render `Layouts.flash_group/1`, pinned under the sticky header and styled

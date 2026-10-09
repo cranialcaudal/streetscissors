@@ -61,6 +61,18 @@ window.addEventListener("phx:copy_to_clipboard", (e) => {
   }
 })
 
+// A tab left open across a deploy is sent the new markup but keeps the old
+// stylesheet (WebWeb.FreshAssets). Load the page again, once, and not out
+// from under something being typed.
+window.addEventListener("phx:stale-assets", () => {
+  const typing = document.activeElement?.closest("input:not([type=checkbox]), textarea, [contenteditable]")
+  let last = 0
+  try { last = Number(sessionStorage.getItem("stale-assets-reload")) } catch (_) {}
+  if (typing || Date.now() - last < 60000) return
+  try { sessionStorage.setItem("stale-assets-reload", String(Date.now())) } catch (_) {}
+  window.location.reload()
+})
+
 // "Print this year" on /almanac/:year. That page is a controller render with
 // no hooks, so one delegated listener serves any `data-print` button.
 document.addEventListener("click", (e) => {

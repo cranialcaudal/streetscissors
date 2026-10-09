@@ -24,7 +24,9 @@ defmodule WebWeb.Router do
   scope "/", WebWeb do
     pipe_through :browser
 
-    live_session :default, layout: {WebWeb.Layouts, :app} do
+    live_session :default,
+      layout: {WebWeb.Layouts, :app},
+      on_mount: [{WebWeb.FreshAssets, :default}] do
       # Admin auth
       live "/admin/login", AdminLoginLive, :new
       get "/admin/logout", AdminSessionController, :delete

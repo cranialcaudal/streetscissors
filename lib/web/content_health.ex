@@ -11,6 +11,8 @@ defmodule Web.ContentHealth do
 
     * **Broken links** — every internal link and image in the posts, the
       about page, the manual and roadmap, and the fitness vault.
+      Listed with them: exercise pages that have drifted from the wiki's
+      conventions, and figure files that draw nothing.
     * **Embeds that point at nothing** — `![[roll012]]`, `![[ride:123]]` and
       the rest, where `Web.Blog.Embeds` found no such thing.
     * **Posts missing a description or keywords** — published ones only; a
@@ -75,7 +77,9 @@ defmodule Web.ContentHealth do
         broken_links(internal, verdicts) ++
           relative_links(pages) ++
           vault_links() ++
-          vault_modules(),
+          vault_modules() ++
+          vault_wiki() ++
+          vault_films(),
       embeds:
         for(
           %{embeds: embeds, source: source} <- pages,
@@ -321,6 +325,33 @@ defmodule Web.ContentHealth do
         },
         target: "modules/#{module}.md",
         problem: "the day lists this module and there is no such file, so it renders as nothing"
+      }
+    end
+  end
+
+  # A wiki page that has drifted from the shape the others share, or a figure
+  # file that draws nothing (`Web.Fitness.WikiCheck`).
+  defp vault_wiki do
+    for %{where: where, problem: problem} <- Web.Fitness.WikiCheck.problems() do
+      %{
+        source: %{label: "fitness/#{where}", where: "fitness/#{where}", edit: "/admin/fitness"},
+        target: Path.basename(where),
+        problem: problem
+      }
+    end
+  end
+
+  # A figure edited since it was filmed: its page has gone back to the flat
+  # drawing until `mix fitness.film` is run (`Web.Fitness.Clip`).
+  defp vault_films do
+    for slug <- Web.Fitness.Clip.unfilmed() do
+      where = "fitness/figures/#{slug}.json"
+
+      %{
+        source: %{label: where, where: where, edit: "/admin/fitness"},
+        target: slug,
+        problem:
+          "the figure has no film of itself as it now stands, so its page shows the flat drawing; run mix fitness.film"
       }
     end
   end

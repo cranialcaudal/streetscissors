@@ -286,4 +286,32 @@ defmodule Web.Fitness.VaultTest do
       assert Vault.exercise_slugs() == MapSet.new(["push-ups", "squats"])
     end
   end
+
+  # The admin's form has no field for `references:`. Saving a page there used
+  # to rebuild the frontmatter from the form alone and drop the citations.
+  test "saving an exercise keeps the frontmatter its form has no field for", %{tmp: tmp} do
+    dir = Path.join([tmp, "exercise-wiki", "upper"])
+    File.mkdir_p!(dir)
+
+    File.write!(Path.join(dir, "rows.md"), """
+    ---
+    title: "Rows"
+    muscle_group: "upper"
+    references: smith-2001, jones-2002
+    ---
+
+    Old body.
+    """)
+
+    Vault.update_exercise("rows", "upper", %{
+      "title" => "Dumbbell Rows",
+      "muscle_group" => "upper",
+      "content" => "New body."
+    })
+
+    saved = File.read!(Path.join(dir, "rows.md"))
+    assert saved =~ "title: Dumbbell Rows"
+    assert saved =~ "references: smith-2001, jones-2002"
+    assert saved =~ "New body."
+  end
 end

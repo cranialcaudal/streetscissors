@@ -1,0 +1,464 @@
+/* ═══════════════════════════════════════════════════════════════════
+   THE EXERCISE WIKI — one exercise's page, and the figure that does it
+   ═══════════════════════════════════════════════════════════════════
+   Tokens only, so the page re-inks with .steel like the rest of the
+   section. .steel zeroes border-radius and box-shadow on everything,
+   so every edge here is square and every frame is a rule.
+
+   The figure is the drawing on the blueprint: a body in the section's
+   white, the limbs on the far side of it dimmer, the floor a rule, and
+   what is held in hot metal, since the load is the thing that changes.
+   ─────────────────────────────────────────────────────────────────── */
+
+.fig {
+  margin: 0 0 2rem;
+  outline: 1px solid var(--rule);
+  background: var(--paper-sunk);
+}
+
+.fig-stage {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(60vh, 30rem);
+}
+
+/* Every part of the body is a rounded stroke as thick as the part. */
+.fig-fill,
+.fig-edge,
+.fig-solid {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fig-tone-near .fig-fill,
+.fig-tone-body .fig-fill { stroke: var(--ink); }
+
+.fig-tone-far .fig-fill { stroke: var(--ink-4); }
+
+/* The dark line round a near limb, so it reads against what it crosses. */
+.fig-edge { stroke: var(--paper-sunk); }
+
+.fig-solid { fill: var(--ink); stroke: var(--ink); }
+
+.fig-dot {
+  fill: var(--ink);
+  stroke: var(--paper-sunk);
+  stroke-width: 1.4;
+  paint-order: stroke;
+}
+
+.fig-tone-far .fig-dot { fill: var(--ink-4); stroke: none; }
+
+.fig-floor {
+  stroke: var(--rule-strong);
+  stroke-width: 0.6;
+}
+
+/* Equipment: dim, so the body stays the subject. */
+.fig-prop { fill: var(--ink-4); }
+
+.fig-prop--box,
+.fig-prop--block,
+.fig-prop--disc {
+  fill: var(--paper-raised);
+  stroke: var(--ink-3);
+  stroke-width: 1.2;
+}
+
+.fig-prop--dome { fill: var(--ink-4); }
+
+/* A band or a cable pulls, so it is in the load's colour; a pole is gear. */
+.fig-rope { fill: none; stroke-linecap: round; }
+.fig-rope--band { stroke: var(--theme-color); stroke-dasharray: 2.4 1.6; }
+.fig-rope--pole { stroke: var(--ink-3); }
+
+.fig-handle {
+  fill: none;
+  stroke: var(--theme-color);
+  stroke-linecap: round;
+}
+
+.fig-weight {
+  fill: var(--theme-color);
+  stroke: var(--paper-sunk);
+  stroke-width: 1.4;
+  paint-order: stroke;
+}
+
+.fig-held--bar .fig-weight { fill: var(--paper-sunk); stroke: var(--theme-color); stroke-width: 2; }
+
+/* The film: the figure in three dimensions, filmed on this panel's own
+   ground (render.html carries --paper-sunk as a number; keep the two the
+   same) so the picture has no edge. */
+.fig-film {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(70vh, 34rem);
+  object-fit: contain;
+}
+
+/* In the flat drawing a working muscle is the whole part it moves. */
+.fig-tone-near .fig-fill.fig-muscle-active,
+.fig-tone-body .fig-fill.fig-muscle-active { stroke: var(--theme-color); }
+.fig-solid.fig-muscle-active { fill: var(--theme-color); stroke: var(--theme-color); }
+
+/* The mark on the head that says which way it faces. */
+.fig-visor {
+  fill: none;
+  stroke: var(--paper-sunk);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.fig-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-top: 1px solid var(--rule);
+}
+
+.fig-button {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 0;
+  outline: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.fig-button:hover,
+.fig-button:focus-visible {
+  background: transparent;
+  color: var(--theme-color);
+  outline-color: var(--theme-color);
+}
+
+.fig-button--toggle { flex: 0 0 6.5rem; color: var(--theme-color); font-weight: 600; }
+
+.fig-button.is-held,
+.fig-button.is-held:hover {
+  background: var(--ink);
+  color: var(--paper);
+  outline-color: var(--ink);
+}
+
+/* What is lit in the film, by name: the colour says where, not what. */
+.fig-muscles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.9rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fig-muscles-label { color: var(--ink-3); }
+.fig-muscle { color: var(--theme-color); font-weight: 600; }
+
+/* ── The page ─────────────────────────────────────────────────────── */
+
+.wiki-page {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.wiki-title { margin: 0 0 0.5rem; }
+
+.wiki-lede {
+  margin: 0 0 1.5rem;
+  color: var(--ink-2);
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.wiki-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 2rem;
+}
+
+.wiki-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 0.85rem;
+  outline: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+}
+
+.wiki-tag:hover,
+.wiki-tag:focus-visible { color: var(--theme-color); outline-color: var(--theme-color); }
+
+.wiki-tag--anatomy { color: var(--theme-color); }
+.wiki-tag--category { color: var(--color-jade); }
+.wiki-tag--group { color: var(--color-dodger); }
+
+.wiki-body {
+  padding: 2rem;
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.wiki-body p { margin: 0 0 1.25rem; color: var(--ink-2); }
+.wiki-body li { margin-bottom: 0.5rem; color: var(--ink-2); }
+.wiki-body ul { margin: 0 0 1.25rem; padding-left: 1.5rem; }
+.wiki-body strong { color: var(--ink); }
+.wiki-body em { color: var(--ink-3); }
+
+.wiki-body h3 {
+  margin: 2.25rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.wiki-body a {
+  color: var(--theme-color);
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.wiki-body a:hover { text-decoration-style: solid; }
+
+.wiki-body blockquote {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1.25rem;
+  border-left: 3px solid var(--rule-strong);
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.wiki-sources {
+  margin-top: 1.75rem;
+  padding: 1.75rem 2rem;
+}
+
+.wiki-sources-title {
+  margin: 0 0 1.25rem;
+  color: var(--theme-color);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.wiki-sources ol {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.wiki-sources li { color: var(--ink-2); font-size: 0.9rem; line-height: 1.5; }
+.wiki-source-title { color: var(--ink); }
+.wiki-source-journal { color: var(--ink-3); }
+
+.wiki-source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.wiki-source-links a,
+.wiki-foot a {
+  color: var(--theme-color);
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.wiki-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  margin-top: 2.5rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 0.8rem;
+}
+
+.wiki-foot-label {
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-4);
+}
+
+/* ── The index ────────────────────────────────────────────────────── */
+
+.wiki-index { padding: 2rem; }
+
+.wiki-index-title {
+  margin: 0 0 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+
+.wiki-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.wiki-group-title {
+  margin: 0 0 1.25rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--theme-color);
+  color: var(--ink);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.wiki-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-group-list .gym-link { display: block; font-size: 0.95rem; }
+
+.wiki-index-empty { color: var(--ink-3); text-align: center; }
+
+/* ── "Related exercises", opened from a tag ───────────────────────── */
+
+.wiki-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.wiki-overlay-shade {
+  position: absolute;
+  inset: 0;
+  background: var(--paper-deep);
+  opacity: 0.85;
+}
+
+.wiki-overlay-panel {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.wiki-overlay-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.wiki-overlay-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.wiki-overlay-by { color: var(--ink-3); font-size: 0.8rem; }
+.wiki-overlay-by b { margin-left: 0.4rem; color: var(--theme-color); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.wiki-overlay-close {
+  flex: 0 0 44px;
+  min-height: 44px;
+  border: 0;
+  outline: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.wiki-overlay-close:hover { background: transparent; color: var(--theme-color); outline-color: var(--theme-color); }
+
+.wiki-overlay-group { margin: 0 0 1.5rem; }
+
+.wiki-overlay-group h4 {
+  margin: 0 0 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--theme-color);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.wiki-overlay-group ul { margin: 0; padding: 0; list-style: none; }
+
+.wiki-overlay-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0 0.25rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.wiki-overlay-link:hover { color: var(--theme-color); }
+.wiki-overlay-link.is-current { color: var(--theme-color); }
+
+.wiki-overlay-link small {
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 640px) {
+  .wiki-index { padding: 1.25rem; }
+  .wiki-body { padding: 1.25rem; }
+  .wiki-sources { padding: 1.25rem; }
+  .fig-button { padding: 0 0.6rem; font-size: 0.8rem; }
+}
+
+@media print {
+  .fig-controls,
+  .wiki-tags,
+  .wiki-overlay { display: none; }
+}

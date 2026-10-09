@@ -276,6 +276,26 @@ defmodule Web.Fitness.Vault do
   end
 
   @doc """
+  Every wiki page as it is written: `%{slug, group, meta, body}`, the folder
+  it is filed in, its frontmatter and its text. For checks that read the files
+  themselves (`Web.Fitness.WikiCheck`) rather than what the site makes of them.
+  """
+  def exercise_sources do
+    for group <- list_muscle_groups(),
+        file <- Enum.sort(ls(Path.join([base_path(), "exercise-wiki", group]))),
+        String.ends_with?(file, ".md") do
+      path = Path.join([base_path(), "exercise-wiki", group, file])
+
+      %{
+        slug: Path.basename(file, ".md"),
+        group: group,
+        meta: parse_frontmatter(path),
+        body: strip_frontmatter(File.read!(path))
+      }
+    end
+  end
+
+  @doc """
   What in the regimen's files does not join up.
 
   The regimen is assembled from three folders by name: a day in `weekly/` or
@@ -447,6 +467,14 @@ defmodule Web.Fitness.Vault do
     dir = Path.join([base_path(), "exercise-wiki", new_group])
     File.mkdir_p!(dir)
 
+    # Keys the edit form has no field for are carried through from the file,
+    # as `update_day/2` does. The form has none for `references:`, so saving a
+    # page from /admin/fitness used to strip its citations without a word.
+    existing =
+      parse_frontmatter(
+        Path.join([base_path(), "exercise-wiki", old_muscle_group || new_group, slug <> ".md"])
+      )
+
     # If the muscle group changed and it's not a new exercise, remove the old file
     if old_muscle_group && old_muscle_group != new_group do
       old_path = Path.join([base_path(), "exercise-wiki", old_muscle_group, slug <> ".md"])
@@ -454,15 +482,16 @@ defmodule Web.Fitness.Vault do
     end
 
     # Build the YAML frontmatter
-    frontmatter = %{
-      "title" => params["title"],
-      "muscle_group" => new_group,
-      "anatomy" => params["anatomy"],
-      "functional_category" => params["functional_category"],
-      "thumbnail_url" => params["thumbnail_url"],
-      "video_url" => params["video_url"],
-      "short_description" => params["short_description"]
-    }
+    frontmatter =
+      Map.merge(existing, %{
+        "title" => params["title"],
+        "muscle_group" => new_group,
+        "anatomy" => params["anatomy"],
+        "functional_category" => params["functional_category"],
+        "thumbnail_url" => params["thumbnail_url"],
+        "video_url" => params["video_url"],
+        "short_description" => params["short_description"]
+      })
 
     path = Path.join(dir, slug <> ".md")
     write_markdown_with_frontmatter(path, frontmatter, params["content"])

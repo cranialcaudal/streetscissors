@@ -1,0 +1,9 @@
+{
+  "view": "side",
+  "planted": ["hand_a", "hand_b", "foot_a", "foot_b"],
+  "props": [{"kind": "mat", "from": 24, "to": 124}],
+  "poses": [
+    {"name": "top", "hold": 0.3, "move": 1.2, "pelvis": [75.8, 79], "lean": 71, "head": -12, "feet": [38, 92], "hands": [100.5, 99], "elbows": "feetward"},
+    {"name": "bottom", "hold": 0.3, "move": 1.0, "pelvis": [78, 92], "lean": 90, "head": -18, "feet": [38, 92], "hands": [100.5, 99], "elbows": "feetward"}
+  ]
+}

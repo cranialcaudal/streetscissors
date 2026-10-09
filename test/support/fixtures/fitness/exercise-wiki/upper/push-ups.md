@@ -6,4 +6,13 @@ functional_category: Push
 short_description: A bodyweight press from the floor.
 ---
 
-A fixture exercise page.
+**Goal:** A fixture exercise page.
+
+### Execution
+Lower the chest to the floor and press back up.
+
+### Why it works (theory)
+A fixture has no evidence to cite.
+
+### Programming notes
+3 x 10.

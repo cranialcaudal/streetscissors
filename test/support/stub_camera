@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Stands in for the figure camera (node priv/figure/render.mjs), which starts
+# a browser and ffmpeg.
+#
+#   stub_camera <jobs.json> <out dir>
+#
+# For every slug in the jobs it writes <slug>.mp4 and <slug>.jpg, whose
+# bytes are the slug and STUB_CAMERA_TAKE (so a second take differs from the
+# first), and says what it made the way the camera does.
+# STUB_CAMERA_FAIL=1 fails instead.
+set -euo pipefail
+
+if [ "${STUB_CAMERA_FAIL:-0}" = "1" ]; then
+  echo "the browser did not start" >&2
+  exit 1
+fi
+
+jobs="$1"; out="$2"
+
+# --stills: a picture of each pose instead of a film; the stub draws two.
+if [ "${3:-}" = "--stills" ]; then
+  grep -o '"slug":"[^"]*"' "$jobs" | cut -d'"' -f4 | while read -r slug; do
+    for n in 0 1; do printf 'pose %s of %s' "$n" "$slug" > "$out/$slug-$n.png"; done
+    printf '{"slug":"%s","stills":2,"ms":1}\n' "$slug"
+  done
+  exit 0
+fi
+
+grep -o '"slug":"[^"]*"' "$jobs" | cut -d'"' -f4 | while read -r slug; do
+  printf 'film of %s, take %s' "$slug" "${STUB_CAMERA_TAKE:-1}" > "$out/$slug.mp4"
+  printf 'poster of %s' "$slug" > "$out/$slug.jpg"
+  printf '{"slug":"%s","width":720,"height":720,"frames":66,"ms":1}\n' "$slug"
+done

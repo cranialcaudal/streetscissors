@@ -59,6 +59,10 @@ config :web, :ffprobe_bin, Path.expand("../test/support/stub_ffprobe", __DIR__)
 # prints. The stub copies rather than converts — nothing here decodes an image.
 config :web, :magick_bin, Path.expand("../test/support/stub_magick", __DIR__)
 
+# The figure camera is a browser marching rays and ffmpeg behind it; the stub
+# writes a film's worth of bytes at once.
+config :web, :figure_camera, {Path.expand("../test/support/stub_camera", __DIR__), []}
+
 # The scanner and the film pipeline's own tools are stubs too: no test drives
 # a flatbed, runs the Python analysis or starts GIMP. With no scanner listed,
 # the studio falls back to Web.Scanner.Simulation, which only dev and test

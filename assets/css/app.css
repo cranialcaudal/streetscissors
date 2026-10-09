@@ -35,6 +35,7 @@
 /* Section theme — must follow the component sheets it re-inks */
 @import "./steel.css";
 @import "./fitness_week.css";
+@import "./fitness_wiki.css";
 @import "./how-to.css";
 @import "./almanac.css";
 @import "./not_found.css";

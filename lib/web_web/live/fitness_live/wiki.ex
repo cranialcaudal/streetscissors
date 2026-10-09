@@ -34,42 +34,23 @@ defmodule WebWeb.FitnessLive.Wiki do
     <!-- Section Navigation -->
       <WebWeb.FitnessSubnav.subnav active={:wiki} />
 
-      <div class="blog-bento-card bento-span-full" style="padding: 2rem;">
-        <h2 style="font-size: 2.2rem; font-family: var(--font-heading); color: var(--ink); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; border-bottom: 1px solid rgba(23, 20, 15, 0.05); padding-bottom: 1rem;">
-          Exercise Wiki
-        </h2>
+      <div class="blog-bento-card bento-span-full wiki-index">
+        <h2 class="wiki-index-title">Exercise Wiki</h2>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem;">
-          <%= for {group, list} <- @grouped_exercises do %>
-            <div
-              class="wiki-group-card"
-              style="background: rgba(23, 20, 15, 0.02); border: 1px solid rgba(23, 20, 15, 0.05); border-radius: 12px; padding: 1.5rem;"
-            >
-              <h3 style="color: var(--ink); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; border-left: 3px solid var(--theme-color); padding-left: 0.75rem; margin-bottom: 1.25rem;">
-                {group}
-              </h3>
-              <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem;">
-                <%= for exercise <- Enum.sort_by(list, & &1.name) do %>
-                  <li>
-                    <.link
-                      navigate={~p"/fitness/wiki/#{exercise.slug}"}
-                      class="gym-link"
-                      style="display: block; padding: 0.75rem; background: rgba(23, 20, 15, 0.03); border-radius: 8px; border: 1px solid rgba(23, 20, 15, 0.05); transition: 0.2s; font-size: 0.95rem;"
-                      onmouseover="this.style.borderColor='var(--theme-color)'; this.style.background='rgba(194, 69, 29, 0.05)'"
-                      onmouseout="this.style.borderColor='rgba(23, 20, 15, 0.05)'; this.style.background='rgba(23, 20, 15, 0.03)'"
-                    >
-                      {exercise.name}
-                    </.link>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-          <% end %>
+        <div class="wiki-groups">
+          <div :for={{group, list} <- @grouped_exercises} class="wiki-group-card">
+            <h3 class="wiki-group-title">{group}</h3>
+            <ul class="wiki-group-list">
+              <li :for={exercise <- Enum.sort_by(list, & &1.name)}>
+                <.link navigate={~p"/fitness/wiki/#{exercise.slug}"} class="gym-link">
+                  {exercise.name}
+                </.link>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <%= if @grouped_exercises == [] do %>
-          <p style="color: var(--ink-3); text-align: center;">No exercises indexed yet.</p>
-        <% end %>
+        <p :if={@grouped_exercises == []} class="wiki-index-empty">No exercises indexed yet.</p>
       </div>
     </div>
     """
