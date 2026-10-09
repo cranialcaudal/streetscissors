@@ -773,6 +773,7 @@ defmodule WebWeb.CoreComponents do
           href={@return_to}
           class="header-action header-action--back"
           aria-label={"Back to #{@destination}"}
+          data-back
         >
           <.icon name="hero-arrow-left" class="header-action-icon size-4" />
           <span class="header-action-label">{@destination}</span>
