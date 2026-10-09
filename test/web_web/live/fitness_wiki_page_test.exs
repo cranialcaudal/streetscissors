@@ -64,19 +64,21 @@ defmodule WebWeb.FitnessWikiPageTest do
       {:ok, view, html} = live(conn, ~p"/fitness/wiki/push-ups")
       [figure] = Regex.run(~r{<figure id="figure-push-ups".*?</figure>}s, html)
 
+      # It plays by itself, without waiting for the page's socket.
       assert has_element?(
                view,
-               "figure#figure-push-ups.fig--film[phx-update=ignore] video.fig-film[muted][loop][playsinline]"
+               "figure#figure-push-ups.fig--film[phx-update=ignore] video.fig-film[autoplay][muted][loop][playsinline]"
              )
 
-      assert figure =~
-               ~r|<source src="/uploads/figures/push-ups-[0-9a-f]{12}\.mp4" type="video/mp4"|
-
       assert figure =~ ~r|poster="/uploads/figures/push-ups-[0-9a-f]{12}\.jpg"|
+      assert figure =~ ~r|data-film="/uploads/figures/push-ups-[0-9a-f]{12}\.mp4"|
       assert figure =~ ~s(width="720") and figure =~ ~s(height="720")
 
-      # The hook starts it, so a reader who asked for stillness is given it.
-      refute figure =~ "autoplay"
+      # A reader who asked for reduced motion is offered no file to play, so
+      # the poster stands; the hook hands the file over when they press Play.
+      assert figure =~
+               ~r|<source src="/uploads/figures/push-ups-[0-9a-f]{12}\.mp4" type="video/mp4" media="\(prefers-reduced-motion: no-preference\)"|
+
       refute figure =~ "<svg"
       refute figure =~ "<animate"
     end

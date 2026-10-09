@@ -31,10 +31,14 @@ defmodule WebWeb.FitnessFigure do
 
   ## The buttons
 
-  Either way the `.Figure` hook only works the clock: pause, and a button per
-  pose that stops the loop where that pose begins. It starts a film itself
-  (there is no `autoplay`), so a reader who has asked for reduced motion gets
-  the first pose, held, and so does one whose browser refuses to play.
+  Either way the picture moves with no script, and the `.Figure` hook only
+  works the clock: pause, and a button per pose that stops the loop where
+  that pose begins. A film plays by `autoplay`, so it does not wait for the
+  page's socket, and its one `<source>` is offered only to a reader who has
+  not asked for reduced motion (`media`): anyone who has is left with the
+  poster, which is the first pose, until they press Play or a pose, when the
+  hook hands the video its file. The Play button reads off the video's own
+  `play` and `pause` events, so it is right when a browser refuses to start.
 
   The figure owns its element (`phx-update="ignore"`), so a patch to the page
   around it never restarts the loop. `still/1` draws one frame of the drawing
@@ -70,13 +74,15 @@ defmodule WebWeb.FitnessFigure do
         height={@clip.height}
         poster={@clip.poster}
         aria-label={@says}
+        data-film={@clip.video}
+        autoplay
         muted
         loop
         playsinline
         preload="auto"
         disablepictureinpicture
       >
-        <source src={@clip.video} type="video/mp4" />
+        <source src={@clip.video} type="video/mp4" media="(prefers-reduced-motion: no-preference)" />
       </video>
       <img
         :if={@clip && length(@stops) == 1}
@@ -109,9 +115,9 @@ defmodule WebWeb.FitnessFigure do
     </figure>
 
     <script :type={Phoenix.LiveView.ColocatedHook} name=".Figure">
-      // The picture moves by itself (a video, or an SVG animating its own
-      // paths); this only stops and starts its clock. A pose's button sets
-      // the clock to the moment that pose begins and holds it there.
+      // The picture moves by itself (a video playing, or an SVG animating its
+      // own paths); this only stops and starts its clock. A pose's button
+      // sets the clock to the moment that pose begins and holds it there.
       export default {
         mounted() {
           const toggle = this.el.querySelector("[data-fig-toggle]")
@@ -120,48 +126,70 @@ defmodule WebWeb.FitnessFigure do
           const video = this.el.querySelector("video")
           const svg = this.el.querySelector("svg")
           const stops = [...this.el.querySelectorAll("[data-fig-stop]")]
+          let at = null
 
-          const hold = (paused, at) => {
+          const show = (paused) => {
             toggle.textContent = paused ? "Play" : "Pause"
             toggle.setAttribute("aria-pressed", String(paused))
             stops.forEach((stop) => stop.classList.toggle("is-held", paused && stop === at))
             this.paused = paused
           }
 
-          const clock = video
-            ? {
-                pause: () => video.pause(),
-                // a browser may refuse to play (low power, data saver): say so
-                play: () => video.play().catch(() => hold(true, stops[0])),
-                // a hair past the pose's first frame, never the one before it
-                seek: (time) => { video.currentTime = time + 0.02 },
-              }
-            : {
-                pause: () => svg.pauseAnimations(),
-                play: () => svg.unpauseAnimations(),
-                seek: (time) => svg.setCurrentTime(time),
-              }
+          if (video) {
+            // A reader who asked for stillness was offered no source: the
+            // file is handed over the first time they ask for the film.
+            const ready = (then) => {
+              if (video.readyState >= 1) return then()
+              video.addEventListener("loadedmetadata", then, { once: true })
+              if (!video.currentSrc) { video.src = video.dataset.film; video.load() }
+            }
 
-          const set = (paused, at) => {
-            hold(paused, at)
-            if (paused) clock.pause()
-            else clock.play()
-          }
+            // The button says what the video is doing, whoever stopped it.
+            video.addEventListener("play", () => { at = null; show(false) })
+            video.addEventListener("pause", () => show(true))
 
-          toggle.addEventListener("click", () => set(!this.paused))
-
-          stops.forEach((stop) => {
-            stop.addEventListener("click", () => {
-              clock.seek(Number(stop.dataset.figStop))
-              set(true, stop)
+            toggle.addEventListener("click", () => {
+              if (video.paused) ready(() => video.play().catch(() => show(true)))
+              else video.pause()
             })
-          })
 
-          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            clock.seek(0)
-            set(true, stops[0])
+            stops.forEach((stop) => {
+              stop.addEventListener("click", () => {
+                at = stop
+                ready(() => {
+                  video.pause()
+                  // a hair past the pose's first frame, never the one before it
+                  video.currentTime = Number(stop.dataset.figStop) + 0.02
+                  show(true)
+                })
+              })
+            })
+
+            show(video.paused)
           } else {
-            set(false)
+            const set = (paused) => {
+              if (paused) svg.pauseAnimations()
+              else svg.unpauseAnimations()
+              show(paused)
+            }
+
+            toggle.addEventListener("click", () => { at = null; set(!this.paused) })
+
+            stops.forEach((stop) => {
+              stop.addEventListener("click", () => {
+                at = stop
+                svg.setCurrentTime(Number(stop.dataset.figStop))
+                set(true)
+              })
+            })
+
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              at = stops[0]
+              svg.setCurrentTime(0)
+              set(true)
+            } else {
+              set(false)
+            }
           }
         }
       }

@@ -345,9 +345,14 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       are), `flare` (elbows out to the sides: a face pull drawn flat has to put them over the
       head), a line's `depth` (a band anchored beside the body, as a Pallof press needs) and a
       disc's `ball` (a hanging bag, not the end of a roller).
-    - The `.Figure` hook only works the clock, the film's or the drawing's: pause, and a button
-      per pose. **The video has no `autoplay`**; the hook starts it, so reduced motion gets the
-      first pose held, and a browser that refuses to play gets a Play button that says so. The
+    - **The picture moves with no script**, and the `.Figure` hook only works the clock, the
+      film's or the drawing's: pause, and a button per pose. The video plays by `autoplay`, so
+      it does not wait for the page's socket (a hook mounts only once that connects, and on
+      `localhost:4000` it never does: the origin check refuses it). **Reduced motion is honoured
+      in the markup**: the one `<source>` carries `media="(prefers-reduced-motion:
+      no-preference)"`, so a reader who asked for stillness is offered no file and keeps the
+      poster, until they press Play or a pose and the hook hands the video its file
+      (`data-film`). The Play button reads off the video's own `play`/`pause` events. The
       element is `phx-update="ignore"`. A hold (one pose) is its poster as an `<img>`. Styled by
       `fitness_wiki.css` with the wiki's two pages, tokens only.
     - **Authoring**: start a new figure from a posture that is already right (copy the pose of
