@@ -211,6 +211,19 @@ defmodule WebWeb.SEOTest do
       assert length(body["icons"]) >= 3
     end
 
+    # A deploy fingerprints static files, and `~p` hands out the fingerprinted
+    # name. Root-level files are served by exact name only, so the manifest
+    # linked through `~p` was /manifest-<hash>.json: a 404 on every page, and
+    # only on the live site, where there are fingerprints.
+    test "every page links the manifest at the address it is served from", %{conn: conn} do
+      html = conn |> get(~p"/") |> html_response(200)
+      assert html =~ ~s(<link rel="manifest" href="/manifest.json">)
+
+      layout = File.read!("lib/web_web/components/layouts/root.html.heex")
+      assert layout =~ ~s(<link rel="manifest" href="/manifest.json" />)
+      refute layout =~ ~s(~p"/manifest.json")
+    end
+
     test "serves service worker sw.js", %{conn: conn} do
       conn = get(conn, "/sw.js")
       assert response(conn, 200)

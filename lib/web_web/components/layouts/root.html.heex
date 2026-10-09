@@ -11,7 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="streetscissors" />
     
 <!-- PWA Manifest & App Icons -->
-    <link rel="manifest" href={~p"/manifest.json"} />
+    <%!-- By its plain name, not through ~p: a deploy fingerprints static
+          files, and the server gives out root-level ones by exact name only
+          (WebWeb.static_paths/0), so /manifest-<hash>.json answered 404 on
+          every page. --%>
+    <link rel="manifest" href="/manifest.json" />
     <%!-- The tab's icon at the sizes a tab shows it. These were both the
           1024-pixel share image, 460 KB, fetched by every first visit to
           draw sixteen pixels. --%>
