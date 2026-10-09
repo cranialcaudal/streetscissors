@@ -634,17 +634,63 @@ def roll_is_slide(roll_dir):
     return bool(SLIDE_STOCKS.search(str(doc.get("film") or "")))
 
 
+def looks_like_slide(scans):
+    """Whether colour strips are reversal film, read off the film itself.
+
+    A colour negative wears an orange mask: its clearest film is far redder
+    than it is blue, and nothing on it is truly black. A slide's highlights
+    are neutral, and its gaps and shadows are the blackest thing in the scan.
+    Read down the middle of each strip, clear of the holder's edges; the
+    middle strip's verdict is the roll's, so one odd strip cannot decide it.
+    """
+    votes = []
+    for scan in scans:
+        w, h = dimensions(scan)
+        if h >= w:
+            x = int(w * MIDDLE_INSET)
+            crop = (x, 0, w - 2 * x, h)
+        else:
+            y = int(h * MIDDLE_INSET)
+            crop = (0, y, w, h - 2 * y)
+        rgb = read_rgb(scan, crop)
+        film = [(rgb[i], rgb[i + 1], rgb[i + 2]) for i in range(0, len(rgb) - 2, 3)
+                if min(rgb[i], rgb[i + 1], rgb[i + 2]) < 236]
+        if len(film) < 200:
+            continue
+        film.sort(key=sum)
+        clear = film[int(len(film) * 0.97):]
+        red = sum(p[0] for p in clear) / float(len(clear))
+        blue = sum(p[2] for p in clear) / float(len(clear))
+        black = sum(1 for p in film if sum(p) <= 48) / float(len(film))
+        # A roll of night slides is black nearly everywhere, and what little
+        # is lit may be any colour (stage lights are red); a negative is
+        # never that black, fogged leader and all.
+        votes.append(black >= 0.25 or (blue >= 0.8 * max(red, 1.0) and black >= 0.02))
+    return bool(votes) and sum(votes) * 2 > len(votes)
+
+
 def roll_mode(roll_dir, asked=None):
-    """color, bw or slide. What roll.json says of the film outranks what was
-    asked for and the folder's name, neither of which can say "slide"."""
-    if roll_dir and roll_is_slide(roll_dir):
-        return "slide"
-    if asked:
-        return asked
-    name = os.path.basename(os.path.normpath(roll_dir)).lower()
+    """color, bw or slide. What roll.json says of the film comes first
+    ("process": "slide" or "negative", or a reversal stock under "film");
+    then what was asked for, or else the folder's name; and a roll taken for
+    colour is looked at, because neither of those can say "slide"."""
+    said = None
+    if roll_dir:
+        try:
+            with open(os.path.join(roll_dir, "roll.json")) as fh:
+                said = str((json.load(fh) or {}).get("process") or "").strip().lower()
+        except (OSError, ValueError, AttributeError):
+            said = None
+        if roll_is_slide(roll_dir):
+            return "slide"
+    name = os.path.basename(os.path.normpath(roll_dir or "")).lower()
     if name.endswith("_slide"):
         return "slide"
-    return "color" if name.endswith("_color") or name.endswith("_colour") else "bw"
+    mode = asked or ("color" if name.endswith("_color") or name.endswith("_colour") else "bw")
+    if mode == "color" and roll_dir and said not in ("negative", "c-41", "c41") \
+            and looks_like_slide(strip_scans(roll_dir)):
+        return "slide"
+    return mode
 
 
 def roll_format(roll_dir):
