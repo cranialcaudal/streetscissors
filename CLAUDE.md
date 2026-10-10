@@ -666,6 +666,31 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       black as the holder; film that dark is taken for reversal film, in colour.
  Written against a slide made by inverting a
       negative strip, not yet against real E100.
+  - **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
+    things went wrong at once when one strip of an August roll was scanned again on the site.
+    **The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`
+    cut 242 mm: the holder's own plastic past the glass (black in the scan, a block of white on
+    the sheet) and 60 mm of glass, which also shrank every picture on the sheet by a quarter.
+    With no rectangle, each strip is now cut to its own film and 4 mm of glass either end
+    (`film_rows/5`, `film_run/2`); `film-develop strips` paints out any holder left in an older
+    file (`holder_mask`). Rolls 023 and 047 were trimmed by hand that day (originals in
+    `~/film-pipeline-backups/2026-10-10/`). **The colour was another scanner's.** Epson's own
+    program set its levels scan by scan; the site takes what the scanner gives. The same film
+    base read 224, 141, 107 in the August strips and 177, 102, 75 in the new one, the roll's
+    base is the middle strip's, and the new strip and its three singles printed lavender.
+    `film-develop` now reads a roll scanned on two instruments as two (`strip_source/2`:
+    "glass" when the strip shows glass or carries the mark the site writes into every scan it
+    makes, `@studio_mark`, in the TIFF's description; "plain" otherwise), keeps both models in
+    `frames.json` (`films`), and `film` is the glass's, since a single is always scanned on
+    the glass. **A single off the glass of a frame whose strip is plain** (singles added to an
+    old roll) is developed on the roll's glass model when it has one and read by itself
+    otherwise; that second case is not yet checked against a real roll. **The end frames kept
+    their rebate**: `trim_to_pictures` stopped at the first line a shade less than bare, so a
+    strip's first picture kept 4 mm of clear film (a black bar on the print); it now carries
+    over such lines. And **a deleted strip is set aside** in the archive's `.trash`
+    (`set_aside/2`), not destroyed: deleting the strip to scan it again took its only scan.
+    Still as it was: a strip scanned again joins the end of the roll and has to be moved back
+    into place under Strips.
   - **What the author knows of a roll is `roll.json` in its folder** (`Web.Negatives.RollMeta`,
     2026-10-07): when it was shot, camera, film stock, place, notes. **Shot is as exact as is
     known**: `2023`, `2023-06` or `2023-06-14`, and nothing invents the rest. It is typed under

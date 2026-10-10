@@ -922,4 +922,41 @@ defmodule Web.ScannerTest do
       assert Web.Scanner.slide?(dir)
     end
   end
+
+  describe "Pipeline: where the film lies along a strip of an uncalibrated holder" do
+    defp lines(parts),
+      do: Enum.flat_map(parts, fn {value, count} -> List.duplicate(value, count) end)
+
+    test "the film is the stretch between the glass, and the holder past the glass is left off" do
+      {holder, glass, film} = {3, 254, 120}
+
+      assert {%{from: 25, floor: 20}, %{to: 125, ceiling: 155}} =
+               Pipeline.film_run(
+                 lines([{holder, 20}, {glass, 5}, {film, 100}, {glass, 30}, {holder, 3}]),
+                 15
+               )
+    end
+
+    test "film lying against the holder's end begins where the black stops" do
+      assert {%{from: 20, floor: 20}, %{to: 120, ceiling: 130}} =
+               Pipeline.film_run(lines([{3, 20}, {120, 100}, {254, 10}]), 15)
+    end
+
+    test "a scrap shorter than a strip is not one, and glass alone holds nothing" do
+      assert Pipeline.film_run(lines([{254, 40}, {120, 6}, {254, 40}]), 15) == nil
+      assert Pipeline.film_run(lines([{254, 80}]), 15) == nil
+    end
+
+    test "with nothing to read, the whole height asked for is what is cut" do
+      # the suite's ImageMagick copies and cannot measure
+      assert Pipeline.film_rows(
+               "/nowhere/pass.tiff",
+               400,
+               %{left_mm: 5.0, width_mm: 57.0},
+               0.0,
+               242.0
+             ) ==
+               {0.0, 242.0}
+    end
+  end
 end

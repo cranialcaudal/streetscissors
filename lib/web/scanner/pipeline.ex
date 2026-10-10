@@ -253,13 +253,27 @@ defmodule Web.Scanner.Pipeline do
     end
   end
 
+  # Written into every scan the site makes. The scanner's own program sets
+  # its levels scan by scan and the site takes what the scanner gives, so the
+  # same film reads differently from the two, and `film-develop` has to know
+  # which a file is to give it the right colour (roll 023, 2026-10-10).
+  @studio_mark "streetscissors scanner studio"
+
+  @holder_dark 15
+  @glass_bright 235
+  @glass_margin_mm 4.0
+  @least_film_mm 15.0
+
   @doc """
   Takes the strips out of one pass over the holder: `scan` is the whole
   transparency area at `dpi`, and `strips` where `Web.Scanner.Detect` found
   film on it (`%{left_mm, width_mm}`, left to right). Each becomes the roll's
   next strip, at the archive's 300 dpi, in grey for black and white film.
-  `rows` is the holder's `{top_mm, height_mm}`, or nil for the whole height
-  of the scan.
+  `rows` is the holder's `{top_mm, height_mm}`. With none configured (the 120
+  holder has none), each strip is cut to its own film with a few millimetres
+  of glass either end (`film_rows/5`): the whole height of the scan takes in
+  the holder's own plastic past the glass, which is black in the scan and a
+  block of white on the sheet, and a quarter of every strip was glass.
 
   Where each strip lies on the glass is written to the roll's `holder.json`,
   replacing what was there: it is true until the film is moved, and is what
@@ -292,6 +306,7 @@ defmodule Web.Scanner.Pipeline do
       |> Enum.reduce_while({:ok, []}, fn strip, {:ok, done} ->
         name = next_strip_name(roll_dir)
         target = Path.join(roll_dir, name)
+        {top, tall} = if rows, do: {top, tall}, else: film_rows(scan, dpi, strip, top, tall)
         crop = "#{px.(strip.width_mm)}x#{px.(tall)}+#{px.(strip.left_mm)}+#{px.(top)}"
 
         args =
@@ -304,6 +319,9 @@ defmodule Web.Scanner.Pipeline do
               "PixelsPerInch",
               "-density",
               "300",
+              "-set",
+              "comment",
+              @studio_mark,
               "tiff:" <> target <> ".partial"
             ]
 
@@ -331,6 +349,108 @@ defmodule Web.Scanner.Pipeline do
       File.write!(glass_path(), look(scan))
 
       {:ok, Enum.map(placed, &elem(&1, 0))}
+    end
+  end
+
+  @doc """
+  Where the film lies along one strip of a pass, as `{top_mm, height_mm}`:
+  the film and #{@glass_margin_mm} mm of glass beyond each end, never the
+  holder. `strip` is `%{left_mm, width_mm}`; `top` and `tall` are what to
+  fall back on when no film can be told from the glass.
+
+  The middle of the strip's width is read down its length. A line is the
+  holder when it is black, glass when it is as bright as glass, and film
+  otherwise. Stretches that are not glass are the candidates; black at an
+  end of one that touches the edge of the scan is the holder and is left
+  off; the longest with film in it is the strip. (A slide whose last frame is
+  black and lies against the holder's end would lose that frame's edge. No
+  such film has been scanned yet.)
+  """
+  def film_rows(scan, dpi, strip, top, tall) do
+    px = fn mm -> round(mm / 25.4 * dpi) end
+    inset = strip.width_mm * 0.2
+
+    crop =
+      "#{px.(strip.width_mm - 2 * inset)}x#{px.(tall)}+#{px.(strip.left_mm + inset)}+#{px.(top)}"
+
+    rows = px.(tall)
+
+    args = [
+      scan <> "[0]",
+      "-alpha",
+      "off",
+      "-crop",
+      crop,
+      "+repage",
+      "-colorspace",
+      "Gray",
+      "-scale",
+      "1x#{rows}!",
+      "-depth",
+      "8",
+      "gray:-"
+    ]
+
+    with true <- rows > 0,
+         {lines, 0} when byte_size(lines) == rows <- System.cmd(Negatives.magick_bin(), args),
+         {first, last} <- film_run(:binary.bin_to_list(lines), @least_film_mm / 25.4 * dpi) do
+      margin = px.(@glass_margin_mm)
+      mm = fn count -> count / dpi * 25.4 end
+      from = max(first.from - margin, first.floor)
+      to = min(last.to + margin, last.ceiling)
+      {top + mm.(from), mm.(to - from)}
+    else
+      _ -> {top, tall}
+    end
+  end
+
+  # The longest stretch of lines that are not glass and hold at least `least`
+  # lines of film, as `{%{from, floor}, %{to, ceiling}}`: where the film
+  # begins and ends, and how far a margin may reach before it meets the
+  # holder or the edge of the scan.
+  @doc false
+  def film_run(lines, least) do
+    kinds =
+      Enum.map(lines, fn
+        v when v <= @holder_dark -> :holder
+        v when v >= @glass_bright -> :glass
+        _ -> :film
+      end)
+
+    count = length(kinds)
+
+    runs =
+      kinds
+      |> Enum.with_index()
+      |> Enum.chunk_by(fn {kind, _} -> kind == :glass end)
+      |> Enum.reject(fn [{kind, _} | _] -> kind == :glass end)
+      |> Enum.map(fn run ->
+        # black at an end that touches the edge of the scan is the holder
+        run =
+          if elem(hd(run), 1) == 0, do: Enum.drop_while(run, &(elem(&1, 0) == :holder)), else: run
+
+        if run != [] and elem(List.last(run), 1) == count - 1,
+          do:
+            run |> Enum.reverse() |> Enum.drop_while(&(elem(&1, 0) == :holder)) |> Enum.reverse(),
+          else: run
+      end)
+      |> Enum.filter(fn run -> Enum.count(run, &(elem(&1, 0) == :film)) >= least end)
+
+    case Enum.max_by(runs, &length/1, fn -> nil end) do
+      nil ->
+        nil
+
+      run ->
+        from = elem(hd(run), 1)
+        to = elem(List.last(run), 1) + 1
+
+        holder_before =
+          kinds |> Enum.take(from) |> Enum.reverse() |> Enum.find_index(&(&1 != :glass))
+
+        holder_after = kinds |> Enum.drop(to) |> Enum.find_index(&(&1 != :glass))
+
+        {%{from: from, floor: if(holder_before, do: from - holder_before, else: 0)},
+         %{to: to, ceiling: if(holder_after, do: to + holder_after, else: count)}}
     end
   end
 
@@ -719,7 +839,8 @@ defmodule Web.Scanner.Pipeline do
 
     case System.cmd(
            Negatives.magick_bin(),
-           [band <> "[0]", "-crop", crop, "+repage"] ++ turn ++ ["tiff:" <> target],
+           [band <> "[0]", "-crop", crop, "+repage"] ++
+             turn ++ ["-set", "comment", @studio_mark, "tiff:" <> target],
            stderr_to_stdout: true
          ) do
       {_, 0} -> :ok
@@ -817,8 +938,26 @@ defmodule Web.Scanner.Pipeline do
   """
   def delete_strip(roll_dir, filename) do
     file = Path.basename(filename)
-    File.rm(Path.join(roll_dir, file))
+    set_aside(Path.join(roll_dir, file), roll_dir)
     reorder_strips(roll_dir, Enum.map(list_strips(roll_dir), & &1.file))
+  end
+
+  # A strip taken off a roll goes to the archive's `.trash`, as a retired
+  # roll does, under the roll's name and the moment: the scan of a negative is
+  # not something to destroy because a button was pressed. (A strip deleted to
+  # be scanned again took its only scan with it, 2026-10-09.)
+  defp set_aside(path, roll_dir) do
+    if File.exists?(path) do
+      stamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%dT%H%M%S")
+      trash = Path.join([Negatives.base_path(), ".trash", "#{Path.basename(roll_dir)}_strips"])
+
+      with :ok <- File.mkdir_p(trash),
+           :ok <- File.rename(path, Path.join(trash, "#{stamp}_#{Path.basename(path)}")) do
+        :ok
+      else
+        _ -> File.rm(path)
+      end
+    end
   end
 
   @doc """
