@@ -9,8 +9,8 @@ config :web, WebWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest
 
 # `force_ssl` is deliberately not set. Caddy is the only thing that listens on
 # 80 and 443: it redirects plain HTTP and sends the HSTS header itself. The
-# release listens on :4000 for Caddy and for the deploy script's health checks
-# on localhost, which a redirect to https would break.
+# release listens on 127.0.0.1:4000 (config/runtime.exs) for Caddy and for the
+# deploy script's health checks, which a redirect to https would break.
 
 # The session cookie carries the admin's login, so it is only ever sent over
 # TLS. Read when the endpoint compiles (it is a module attribute there), so it
