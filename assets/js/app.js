@@ -53,15 +53,6 @@ topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
-window.addEventListener("phx:copy_to_clipboard", (e) => {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(e.detail.text).then(() => {
-      // Optional: replace with a nicer toast if available
-      console.log("Copied to clipboard");
-    });
-  }
-})
-
 // A tab left open across a deploy is sent the new markup but keeps the old
 // stylesheet (WebWeb.FreshAssets). Load the page again, once, and not out
 // from under something being typed.
