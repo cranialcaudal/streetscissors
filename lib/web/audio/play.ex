@@ -28,6 +28,5 @@ defmodule Web.Audio.Play do
       :longitude
     ])
     |> validate_required([:audio_log_id])
-    |> unique_constraint([:audio_log_id, :witness])
   end
 end

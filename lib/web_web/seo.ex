@@ -241,6 +241,45 @@ defmodule WebWeb.SEO do
     end
   end
 
+  @doc """
+  Speculation rules: the browser fetches a same-site page as soon as someone
+  looks set to open it (the pointer rests on its link, or the press begins),
+  so the click is answered from memory. Browsers that do not know the tag
+  ignore it.
+
+  **Prefetch, never prerender.** A prerender runs the page, which here would
+  open LiveView sockets and count views of pages nobody looked at. A prefetch
+  is one GET, marked `Sec-Purpose: prefetch`, which `WebWeb.Plugs.Analytics`
+  does not count; the page reports itself seen when it is actually shown
+  (`/seen`, from app.js).
+
+  Left out: the admin, anything that acts or costs (`/search?q=`, the feed,
+  downloads, originals, logging out), and media.
+  """
+  def speculation_rules_tag do
+    rules = %{
+      "prefetch" => [
+        %{
+          "where" => %{
+            "and" => [
+              %{"href_matches" => "/*"},
+              %{"not" => %{"href_matches" => "/admin/*"}},
+              %{"not" => %{"href_matches" => "/uploads/*"}},
+              %{"not" => %{"href_matches" => "/search\\?*"}},
+              %{"not" => %{"href_matches" => "/feed*"}},
+              %{"not" => %{"href_matches" => "/*/original"}},
+              %{"not" => %{"href_matches" => "/fitness/export/*"}},
+              %{"not" => %{"selector_matches" => "[download], [rel~=nofollow], [target=_blank]"}}
+            ]
+          },
+          "eagerness" => "moderate"
+        }
+      ]
+    }
+
+    ~s(<script type="speculationrules">#{Jason.encode!(rules)}</script>)
+  end
+
   defp json_ld_tag(data) do
     ~s(<script type="application/ld+json">#{Jason.encode!(data)}</script>)
   end

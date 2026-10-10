@@ -1,0 +1,74 @@
+<%!--
+One search across the site (Web.Search). A plain GET form, so the query is the
+address: a search can be linked to, reloaded and gone back to, and none of it
+needs JavaScript. Results come grouped by the section they live in.
+--%>
+<div class="container site-search">
+  <article class="glass-panel site-search-panel">
+    <h1 class="site-search-title">Search</h1>
+
+    <%!-- app.js offers names under the field as it is typed in
+          (`data-suggest` is the address it asks). Without it this is the
+          same form: type, press Enter. --%>
+    <form
+      action={~p"/search"}
+      method="get"
+      role="search"
+      class="site-search-form"
+      data-suggest={~p"/search/suggest"}
+    >
+      <input
+        type="search"
+        name="q"
+        value={@query}
+        class="site-search-input"
+        placeholder="A post, a roll, an exercise, a saint…"
+        aria-label="Search the site"
+        maxlength="80"
+        autocomplete="off"
+        autofocus={@query == ""}
+      />
+      <button type="submit" class="site-search-button">Search</button>
+    </form>
+
+    <p :if={@limited} class="site-search-note" role="status">
+      That is a lot of searching in one minute. Give it a moment and try again.
+    </p>
+
+    <p :if={@query != "" and not @searched} class="site-search-note" role="status">
+      Type at least two characters.
+    </p>
+
+    <p :if={@searched and not @limited and @groups == []} class="site-search-note" role="status">
+      Nothing here matches “{@query}”. Every word has to appear, so fewer words find more.
+    </p>
+
+    <p :if={@groups != []} class="site-search-note" role="status">
+      {@count} {if @count == 1, do: "result", else: "results"} for “{@query}”
+    </p>
+
+    <section :for={group <- @groups} class="site-search-group">
+      <h2 class="site-search-section">
+        {group.section}
+        <span class="site-search-count">{length(group.results) + group.more}</span>
+      </h2>
+      <ol class="site-search-results">
+        <li :for={result <- group.results}>
+          <a href={result.path} class="site-search-result">
+            <span class="site-search-result-title">{result.title}</span>
+            <span :if={result.context} class="site-search-result-context">{result.context}</span>
+          </a>
+        </li>
+      </ol>
+      <p :if={group.more > 0} class="site-search-more">
+        and {group.more} more. Add a word to narrow it<span :if={group.all}>, or <a href={
+            group.all
+          }>see them all</a></span>.
+      </p>
+    </section>
+
+    <p :if={@query == ""} class="site-search-note">
+      Posts, captain's logs, exercises, activities, rolls of film, saints, books of the Bible and the manual.
+    </p>
+  </article>
+</div>

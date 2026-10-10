@@ -2,6 +2,12 @@ defmodule WebWeb.Plugs.Analytics do
   @moduledoc """
   Records one hit per page view.
 
+  **A prefetch is not a view.** The root layout's speculation rules have the
+  browser fetch a page when a link is hovered, marked `Sec-Purpose: prefetch`,
+  and it does not ask again when the link is followed. So a prefetch is not
+  counted here; the page says so itself when it is actually shown
+  (`WebWeb.SeenController`, which calls `record/2` with the page's path).
+
   What counts as a hit lives in `Web.Analytics` (`bot_user_agent?/1`,
   `sub_resource_path?/1`, `hash_ip/1`) rather than here, so the historical
   purge applies exactly the same rules this plug does going forward.
@@ -14,16 +20,28 @@ defmodule WebWeb.Plugs.Analytics do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    # Run asynchronously to not block request
-    Task.start(fn ->
-      record_hit(conn)
-    end)
+    unless prefetch?(conn) do
+      # Run asynchronously to not block request
+      Task.start(fn -> record(conn, conn.request_path) end)
+    end
 
     conn
   end
 
-  defp record_hit(conn) do
-    path = conn.request_path
+  @doc "Whether the browser is fetching this ahead of anyone asking to see it."
+  def prefetch?(conn) do
+    Enum.any?(
+      get_req_header(conn, "sec-purpose") ++ get_req_header(conn, "purpose"),
+      &String.contains?(&1, "prefetch")
+    )
+  end
+
+  @doc """
+  Counts one view of `path` by whoever sent `conn`, under the same rules
+  whichever way it is reported: no bots, no admin, no excluded address, no
+  sub-resource.
+  """
+  def record(conn, path) do
     real_ip = get_client_ip(conn)
     ua = get_req_header(conn, "user-agent") |> List.first() || "unknown"
 

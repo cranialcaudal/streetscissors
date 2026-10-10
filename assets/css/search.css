@@ -1,0 +1,219 @@
+/* The search page (/search) and the exercise wiki's filter.
+ *
+ * Everything reads the site's tokens, so the page is paper under the default
+ * theme and the wiki's field is steel under `.steel`.
+ */
+
+.site-search-panel {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.5rem 3rem 3rem;
+  min-height: 60vh;
+}
+
+.site-search-title {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--ink);
+}
+
+.site-search-form,
+.wiki-search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.site-search-input,
+.wiki-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 2.75rem;
+  padding: 0 0.9rem;
+  background: var(--paper-raised);
+  border: 1.5px solid var(--rule-strong);
+  border-radius: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.site-search-input:focus-visible,
+.wiki-search-input:focus-visible {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: 2px;
+  border-color: var(--accent-ink);
+}
+
+.site-search-button {
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  background: transparent;
+  border: 1.5px solid var(--accent-ink);
+  border-radius: 0;
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.site-search-button:hover,
+.site-search-button:focus-visible {
+  background: var(--accent-ink);
+  color: var(--paper);
+}
+
+/* The names offered under the field while it is typed in (app.js). */
+.site-search-form {
+  position: relative;
+}
+
+.site-search-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--paper-raised);
+  border: 1.5px solid var(--rule-strong);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.site-search-suggestion {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.9rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-search-suggestions > li:last-child .site-search-suggestion {
+  border-bottom: 0;
+}
+
+.site-search-suggestion-section {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.site-search-suggestion:hover,
+.site-search-suggestion[aria-selected="true"] {
+  background: var(--accent-ink);
+  color: var(--paper);
+}
+
+.site-search-suggestion:hover .site-search-suggestion-section,
+.site-search-suggestion[aria-selected="true"] .site-search-suggestion-section {
+  color: var(--paper);
+}
+
+.site-search-note,
+.site-search-more,
+.wiki-search-note {
+  margin: 1rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink-3);
+}
+
+.site-search-more a {
+  color: var(--accent-ink);
+}
+
+.site-search-group {
+  margin-top: 2rem;
+}
+
+.site-search-section {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule-strong);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.site-search-count {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.site-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-search-results > li {
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0;
+  min-height: 44px;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.site-search-result-title {
+  color: var(--accent-ink);
+  font-size: 1.05rem;
+}
+
+.site-search-result:hover .site-search-result-title,
+.site-search-result:focus-visible .site-search-result-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-search-result-context {
+  color: var(--ink-3);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ── The wiki's filter ───────────────────────────────────────────── */
+
+.wiki-search {
+  margin-bottom: 1.5rem;
+  max-width: 32rem;
+}
+
+.wiki-search-note {
+  margin: 0 0 1.5rem;
+}
+
+.wiki-search-note a {
+  color: var(--accent-ink);
+}
+
+@media (max-width: 600px) {
+  .site-search-panel {
+    padding: 1.5rem 1.1rem 2rem;
+  }
+}

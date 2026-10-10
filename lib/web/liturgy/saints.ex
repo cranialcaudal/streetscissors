@@ -26,6 +26,11 @@ defmodule Web.Liturgy.Saints do
     end
   end
 
+  @doc "Every entry that has a life, as `{identifier, [name]}`, for the site search."
+  def names do
+    for {symbol, %{lives: [_ | _] = lives}} <- data(), do: {symbol, Enum.map(lives, & &1.name)}
+  end
+
   defp present(%{file: file} = image) do
     path = Application.app_dir(:web, Path.join("priv/static/images/saints", file))
     if File.exists?(path), do: image

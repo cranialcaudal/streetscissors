@@ -74,10 +74,150 @@ window.addEventListener("phx:stale-assets", () => {
   window.location.reload()
 })
 
-// "Print this year" on /almanac/:year. That page is a controller render with
+// "Print this year" on /daybook/:year. That page is a controller render with
 // no hooks, so one delegated listener serves any `data-print` button.
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-print]")) window.print()
+})
+
+// A page that was fetched ahead of time (the speculation rules in the root
+// layout) is not counted as a view by the server, and the browser makes no
+// second request when the link is followed. So the page says so itself, once,
+// when it is really on screen. Every other page was counted when it was asked for.
+const reportSeen = () => {
+  const [entry] = performance.getEntriesByType("navigation")
+  if (!entry || entry.deliveryType !== "navigational-prefetch") return
+  if (!navigator.sendBeacon) return
+  navigator.sendBeacon(`/seen?p=${encodeURIComponent(location.pathname)}`)
+}
+if (document.visibilityState === "visible") reportSeen()
+else document.addEventListener("visibilitychange", reportSeen, { once: true })
+
+// The search field offers names as it is typed in. /search is a controller
+// render with no hooks, and this is enhancement only: without it the form
+// still submits. ↓ ↑ move through the offers, Enter opens the one chosen (or
+// searches, if none is), Escape puts them away.
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector("form[data-suggest]")
+  const input = form && form.querySelector('input[name="q"]')
+  if (!input) return
+
+  const list = document.createElement("ul")
+  list.className = "site-search-suggestions"
+  list.id = "site-search-suggestions"
+  list.setAttribute("role", "listbox")
+  list.setAttribute("aria-label", "Suggestions")
+  list.hidden = true
+  form.appendChild(list)
+
+  input.setAttribute("role", "combobox")
+  input.setAttribute("aria-autocomplete", "list")
+  input.setAttribute("aria-controls", list.id)
+  input.setAttribute("aria-expanded", "false")
+
+  let options = []
+  let active = -1
+  let timer = null
+  let request = null
+  let asked = ""
+
+  const choose = (i) => {
+    active = i
+    options.forEach((option, n) => option.setAttribute("aria-selected", n === i ? "true" : "false"))
+    if (i >= 0) input.setAttribute("aria-activedescendant", options[i].id)
+    else input.removeAttribute("aria-activedescendant")
+  }
+
+  // Put away or brought back, the list starts with nothing chosen.
+  const open = (on) => {
+    on = on && options.length > 0
+    list.hidden = !on
+    input.setAttribute("aria-expanded", on ? "true" : "false")
+    choose(-1)
+  }
+  const close = () => open(false)
+
+  // Built with textContent throughout: a title is never parsed as markup.
+  const show = (items) => {
+    list.replaceChildren()
+    options = items.map((item, n) => {
+      const row = document.createElement("li")
+      row.setAttribute("role", "presentation")
+      const link = document.createElement("a")
+      link.className = "site-search-suggestion"
+      link.id = `site-search-suggestion-${n}`
+      link.href = item.path
+      link.setAttribute("role", "option")
+      link.setAttribute("aria-selected", "false")
+      link.tabIndex = -1
+      const title = document.createElement("span")
+      title.textContent = item.title
+      const section = document.createElement("span")
+      section.className = "site-search-suggestion-section"
+      section.textContent = item.section
+      link.append(title, section)
+      row.appendChild(link)
+      list.appendChild(row)
+      return link
+    })
+    open(true)
+  }
+
+  const ask = () => {
+    const query = input.value.trim()
+    if (query.length < 2) {
+      asked = ""
+      if (request) request.abort()
+      return show([])
+    }
+    if (query === asked) return open(true)
+    asked = query
+    if (request) request.abort()
+    request = new AbortController()
+    // No Accept header of its own: the route sits in the :browser pipeline,
+    // which takes html, and answered a request for application/json with 406.
+    fetch(`${form.dataset.suggest}?q=${encodeURIComponent(query)}`, { signal: request.signal })
+      .then((response) => (response.ok ? response.json() : []))
+      // An answer to something no longer in the field is thrown away.
+      .then((items) => input.value.trim() === query && show(items))
+      .catch(() => {})
+  }
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer)
+    timer = setTimeout(ask, 150)
+  })
+  input.addEventListener("focus", () => {
+    if (input.value.trim() === asked) open(true)
+  })
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!list.hidden) e.preventDefault()
+      return close()
+    }
+    if (list.hidden || options.length === 0) {
+      if (e.key === "ArrowDown") ask()
+      return
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      choose(active + 1 >= options.length ? 0 : active + 1)
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      choose(active <= 0 ? options.length - 1 : active - 1)
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault()
+      location.assign(options[active].href)
+    }
+  })
+
+  // Pressing an offer must not blur the field first, or the list would
+  // close before the click lands.
+  list.addEventListener("mousedown", (e) => e.preventDefault())
+  document.addEventListener("click", (e) => {
+    if (!form.contains(e.target)) close()
+  })
 })
 
 // The prayer pages (/Christ/*) are controller renders with no hooks, and all of
@@ -170,7 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("keydown", (e) => {
       if (!stepping || typing(e) || !plain(e)) return
-      if (e.key === "ArrowRight" || (e.key === " " && !e.target.closest("button, a"))) {
+      if (e.key === "ArrowRight" || (e.key === " " && !e.target.closest("button, a, summary"))) {
         e.preventDefault()
         show(at + 1)
       } else if (e.key === "ArrowLeft") {

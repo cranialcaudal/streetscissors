@@ -252,6 +252,19 @@ defmodule Web.Negatives do
     end
   end
 
+  @doc """
+  Makes every copy of a roll's photographs the pages ask for (the preview and
+  each narrower width), so the first visitor to a roll is not the one who
+  waits for them. Quietly does nothing for a roll that is not listed yet.
+  """
+  def warm_frame_previews(roll) do
+    for frame <- list_frames(roll), width <- [nil | @widths] do
+      frame_preview_path(roll, frame.frame, width)
+    end
+
+    :ok
+  end
+
   defp parse_roll(token) do
     case Regex.run(~r/\A(?:roll)?0*(\d{1,4})(?:_[\w-]*)?\z/i, to_string(token)) do
       [_, num] -> {:ok, num}
@@ -464,6 +477,7 @@ defmodule Web.Negatives do
       color: color,
       frames: frames,
       folder: folder,
+      meta: Web.Negatives.RollMeta.read(Path.join(base_path(), folder)),
       image_url:
         "/negatives/image/#{filename}?v=#{NaiveDateTime.diff(mtime, ~N[1970-01-01 00:00:00])}",
       preview_url:

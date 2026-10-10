@@ -124,7 +124,7 @@ defmodule Web.NearbyTest do
   end
 
   test "a year with nothing in it offers the years there are" do
-    assert [%{kind: "Year", path: "/almanac/2030"} | _] = Nearby.suggest("/almanac/1999")
+    assert [%{kind: "Year", path: "/daybook/2030"} | _] = Nearby.suggest("/daybook/1999")
   end
 
   test "a misspelled exercise offers the one that was meant" do

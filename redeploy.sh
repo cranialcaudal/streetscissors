@@ -64,6 +64,31 @@ fi
 echo "==> Build release"
 mix release --overwrite
 
+# A restart kills a scan in progress and the run of singles behind it (it did,
+# twice, on 2026-10-07). So the restart waits for the scanner to be idle, asked
+# at this moment and not before the build, and gives up rather than wait for ever.
+echo "==> Wait for the scanner"
+# The build above replaced the release's files, cookie included, so the node
+# that is serving is asked through the copy kept of it. No answer means it is
+# not up, so not scanning.
+ASK="_build/prod/rel/web.previous/bin/web"
+[ -x "$ASK" ] || ASK="_build/prod/rel/web/bin/web"
+scanner_busy() {
+  systemctl --user is-active --quiet streetscissors.service || return 1
+  out=$("$ASK" rpc 'IO.write(inspect(Web.Scanner.Bed.status().job != nil))' 2>/dev/null) || return 1
+  [ "$out" = "true" ]
+}
+waited=0
+while scanner_busy; do
+  if [ "$waited" -ge 900 ]; then
+    echo "    the scanner has been busy for 15 minutes; not restarting. Run this again when it is free." >&2
+    exit 1
+  fi
+  [ "$waited" -eq 0 ] && echo "    a scan is running; waiting for it to finish"
+  sleep 5; waited=$((waited + 5))
+done
+echo "    idle"
+
 echo "==> Restart"
 systemctl --user restart streetscissors.service
 

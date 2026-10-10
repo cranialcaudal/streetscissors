@@ -78,10 +78,10 @@ defmodule WebWeb.LogsLiveTest do
          %{conn: conn} do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
-      # Someone other than this browser, so its play is a second witness.
+      # Someone other than this browser, so its play is a second view.
       Audio.record_play(loud.id, @someone_else, "10.0.0.9")
 
-      {:ok, view, html} = live(conn, "/logs?sort=witnessed")
+      {:ok, view, html} = live(conn, "/logs?sort=viewed")
       assert html =~ ~s(id="log-plate-#{loud.id}")
 
       # Playing the featured entry must not pull it out of the theater
@@ -96,9 +96,9 @@ defmodule WebWeb.LogsLiveTest do
       refute after_play =~ ~s(id="log-plate-#{quiet.id}")
     end
 
-    # Witnesses, not plays: watching again is not a second witness, and the
-    # console counts people across the archive rather than adding up entries.
-    test "a replay from the same witness moves nothing", %{conn: conn} do
+    # Watching again straight away is not a second view, and the console adds
+    # up the entries on the page.
+    test "a replay straight away moves nothing", %{conn: conn} do
       first = log_fixture(recorded_on: ~D[2026-09-18])
       second = log_fixture(recorded_on: ~D[2026-09-17])
       Audio.record_play(second.id, @someone_else, "10.0.0.9")
@@ -116,8 +116,11 @@ defmodule WebWeb.LogsLiveTest do
 
       assert Audio.get_play_count(first.id) == 1
       assert Audio.get_play_count(second.id) == 2
-      # This browser and someone else: two people, though three entry-witnesses.
-      assert render(view) =~ ~r{<dt>Witnessed</dt>\s*<dd>2</dd>}
+      # One view of the first and two of the second.
+      html = render(view)
+      assert html =~ ~r{<dt>Views</dt>\s*<dd>3</dd>}
+      # The first leads the page, so only the second is a card.
+      assert html =~ "· 2 views<"
     end
 
     test "the sort lives in the URL so a view can be linked to", %{conn: conn} do
@@ -125,11 +128,11 @@ defmodule WebWeb.LogsLiveTest do
 
       {:ok, view, _html} = live(conn, "/logs")
 
-      view |> element("a", "Most witnessed") |> render_click()
-      assert_patched(view, "/logs?sort=witnessed")
+      view |> element("a", "Most viewed") |> render_click()
+      assert_patched(view, "/logs?sort=viewed")
     end
 
-    test "sorting by most witnessed orders on play count", %{conn: conn} do
+    test "sorting by most viewed orders on view count", %{conn: conn} do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
 
@@ -137,9 +140,12 @@ defmodule WebWeb.LogsLiveTest do
       Audio.record_play(loud.id, @someone_else, "127.0.0.2")
       Audio.record_play(quiet.id, @this_browser, "127.0.0.3")
 
-      {:ok, _view, html} = live(conn, "/logs?sort=witnessed")
+      # The sort's old name still answers, for links made before the rename.
+      {:ok, _view, old} = live(conn, "/logs?sort=witnessed")
+      {:ok, _view, html} = live(conn, "/logs?sort=viewed")
+      assert old =~ ~s(id="log-plate-#{loud.id}")
 
-      # The most-witnessed entry leads, so it is the one in the theater.
+      # The most-viewed entry leads, so it is the one in the theater.
       assert html =~ ~s(id="log-plate-#{loud.id}")
     end
 
@@ -147,7 +153,7 @@ defmodule WebWeb.LogsLiveTest do
       log_fixture(recorded_on: ~D[2026-09-18], keywords: "ferry")
       log_fixture(recorded_on: ~D[2026-09-17], keywords: "bowling-green")
 
-      {:ok, _view, html} = live(conn, "/logs?sort=witnessed&keyword=ferry")
+      {:ok, _view, html} = live(conn, "/logs?sort=viewed&keyword=ferry")
 
       assert html =~ "Friday, 18 September 2026"
       refute html =~ "Thursday, 17 September 2026"
@@ -297,7 +303,7 @@ defmodule WebWeb.LogsLiveTest do
       assert Audio.get_play_count(other.id) == 0
     end
 
-    test "the admin watching an entry back is not a witness", %{conn: conn} do
+    test "the admin watching an entry back is not a view", %{conn: conn} do
       log = log_fixture()
       conn = Plug.Test.init_test_session(conn, admin_user: true)
 

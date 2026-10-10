@@ -47,7 +47,7 @@ defmodule WebWeb.LogsLive.Show do
      |> assign(:json_ld, json_ld)
      |> assign(:log, log)
      |> assign(:client_ip, client_ip(socket))
-     # The admin watching the entries back is not a witness.
+     # The admin watching the entries back is not a view.
      |> assign(:is_admin, session["admin_user"] == true)
      |> assign(:play_count, Audio.get_play_count(log.id))}
   end

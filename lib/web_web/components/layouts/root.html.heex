@@ -22,13 +22,27 @@
     <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/favicon-32.png"} />
     <link rel="icon" type="image/png" sizes="16x16" href={~p"/images/favicon-16.png"} />
     <link rel="apple-touch-icon" sizes="180x180" href={~p"/images/apple-touch-icon.png"} />
-    
-<!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <%!-- Fonts are served from here (assets/css/fonts.css, priv/static/fonts).
+          These two are what the header draws with, the wordmark and its
+          controls, so they are asked for in the first round trip beside the
+          stylesheet instead of after it. `crossorigin` is required on a font
+          preload even for the same origin, or the browser fetches it twice.
+          The addresses must be the ones fonts.css ends up naming (~p gives
+          the digested one, as phx.digest rewrites the stylesheet's). --%>
     <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=League+Spartan:wght@400;500;600;700;800&family=Saira+Condensed:wght@400;500;600;700&family=Sorts+Mill+Goudy:ital@0;1&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href={~p"/fonts/sorts-mill-goudy-400-latin.woff2"}
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href={~p"/fonts/ibm-plex-mono-600-latin.woff2"}
+      crossorigin
     />
 
     <%!-- Per-page metadata (WebWeb.SEO). Pages assign :page_title,
@@ -72,6 +86,8 @@
     {raw(WebWeb.SEO.person_json_ld_tag())}
     {raw(WebWeb.SEO.website_json_ld_tag())}
     {raw(WebWeb.SEO.page_json_ld_tag(assigns))}
+    <%!-- The next page, fetched while the pointer is still on its link. --%>
+    {raw(WebWeb.SEO.speculation_rules_tag())}
 
     <%!-- Lets browsers and feed readers discover the feeds: the whole site,
           and — when a page is filtered on a keyword — that keyword's thread

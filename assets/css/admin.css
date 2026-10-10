@@ -1990,18 +1990,251 @@ button.adm-tab:hover {
    Two columns: the roll and its strips on the left, the sheet they make
    and its gates on the right. Folds to one at tablet width. */
 
-.adm-scan-grid {
+/* The scanner studio takes the whole of the screen: its work is looking at
+   pictures. Everything pressed often is one bar that stays in view. */
+.adm-page:has(.adm-scan-bench) { max-width: none; }
+
+.adm-scan-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.25rem;
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 0;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.adm-scan-roll {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 0 2.5rem;
+  gap: 0.1rem;
+  margin-right: auto;
+  font-family: var(--font-data);
+}
+
+.adm-scan-roll strong { font-size: 1.05rem; color: var(--ink); }
+.adm-scan-roll span { font-size: 0.8rem; color: var(--ink-3); }
+
+.adm-scan-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-scan-bar-actions .adm-count { margin-left: 0.4rem; }
+.admin-layout .adm-scan-go { min-width: 7.5rem; justify-content: center; font-size: 1rem; }
+
+.adm-scan-bar .adm-scan-job,
+.adm-scan-bar-note {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
+.adm-scan-drawer {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+}
+
+.adm-scan-drawer[hidden] { display: none; }
+
+.adm-scan-meta {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.adm-scan-meta .adm-panel-title { margin: 0 0 0.75rem; }
+.adm-scan-drawer .adm-scan-strips { margin-top: 0; }
+.adm-scan-drawer .adm-form-actions { margin: 0.75rem 0 1rem; }
+
+/* The loop for each load: three steps, the current one lit, and the line
+   that says what it wants. */
+.adm-scan-steps {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adm-scan-steps li {
+  counter-increment: step;
+  padding: 0.3rem 0.8rem;
+  color: var(--ink-4);
+  border: 1px solid var(--rule);
+}
+
+.adm-scan-steps li::before { content: counter(step) "  "; }
+
+.adm-scan-steps li.is-current {
+  color: var(--paper);
+  background: var(--adm-act);
+  border-color: var(--adm-act);
+}
+
+.adm-scan-now {
+  flex: 1 1 20rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.adm-scan-progress {
+  flex: 1 0 100%;
+  width: 100%;
+  height: 0.35rem;
+  border: 0;
+  background: var(--paper-deep);
+  accent-color: var(--adm-act);
+}
+
+.adm-scan-progress::-webkit-progress-bar { background: var(--paper-deep); }
+.adm-scan-progress::-webkit-progress-value { background: var(--adm-act); }
+.adm-scan-progress::-moz-progress-bar { background: var(--adm-act); }
+
+.adm-scan-stage { margin-bottom: 2.5rem; }
+
+/* The frames of the load, with the picture of the holder beside them. */
+.adm-scan-load.has-glass {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 22rem);
+  gap: 1.5rem;
   align-items: start;
 }
 
 @media (max-width: 1024px) {
-  .adm-scan-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .adm-scan-load.has-glass { grid-template-columns: minmax(0, 1fr); }
 }
+
+.adm-scan-collection {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.adm-scan-collection .adm-scan-stage-head { margin-bottom: 1.25rem; }
+
+/* The collection: a wall of the roll's singles, pictures first. */
+.adm-scan-singles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1.25rem 1rem;
+  align-items: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-scan-single {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.adm-scan-single .adm-scan-pick-picture { border: 1px solid var(--rule); }
+
+.adm-scan-single-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+.adm-scan-single-tools {
+  display: flex;
+  gap: 0.15rem;
+}
+
+/* Quiet until wanted: the picture is the thing to look at. */
+.admin-layout .adm-scan-tool {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+
+.admin-layout .adm-scan-tool:hover:not(:disabled),
+.admin-layout .adm-scan-tool:focus-visible {
+  background: var(--paper-raised);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.admin-layout .adm-scan-tool--remove:hover:not(:disabled),
+.admin-layout .adm-scan-tool--remove:focus-visible {
+  border-color: var(--adm-fail);
+  color: var(--adm-fail);
+}
+
+.admin-layout .adm-scan-tool:disabled { opacity: 0.4; cursor: default; }
+
+.adm-scan-fault p { margin: 0 0 0.6rem; }
+
+.adm-scan-fault {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid var(--adm-fail);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.adm-scan-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.adm-scan-stage-head .adm-panel-title { margin: 0; }
+
+.adm-scan-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-scan-filter .adm-label { margin: 0; }
+.adm-scan-filter .adm-input { width: auto; }
+
+.adm-scan-blank {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  min-height: 9rem;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--rule-strong);
+  text-align: center;
+  font-size: 1.15rem;
+  color: var(--ink-2);
+}
+
+.adm-scan-blank p { margin: 0; }
+
+.adm-scan-look-wrap { margin: 1rem 0; }
 
 .adm-scan-path {
   color: var(--ink-2);
@@ -2135,16 +2368,21 @@ button.adm-tab:hover {
 
 .adm-scan-gates {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 1rem;
-  margin: 1rem 0;
+  gap: 0.4rem;
+  width: 100%;
 }
 
 .adm-scan-gate {
-  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem;
   background: var(--paper-raised);
   border: 1px solid var(--rule);
   border-left: 4px solid var(--adm-held);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
 }
 
 .adm-scan-gate.is-pass { border-left-color: var(--adm-live); }
@@ -2166,8 +2404,130 @@ button.adm-tab:hover {
 }
 
 .adm-scan-frame {
-  max-width: 7rem;
+  max-width: 12rem;
   margin-bottom: 0;
 }
 
+/* The frames of the strip in the holder, each a tick box under its picture. */
+.adm-scan-frames {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
 
+.adm-scan-pick {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.adm-scan-pick:has(input:checked) { border-color: var(--adm-act); }
+.adm-scan-pick.is-printed { border-left: 3px solid var(--adm-live); }
+
+/* Every picture gets the same box, whichever way up it is, so a portrait
+   among landscapes does not stretch its row or shuffle the rest. The picture
+   is laid into the box, not the box around the picture: an aspect-ratio
+   gives way to content taller than it. */
+.adm-scan-pick-picture {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 2;
+  background: #000;
+  overflow: hidden;
+}
+
+.adm-scan-pick-picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.adm-scan-pick-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.adm-scan-pick-name input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--adm-act);
+}
+
+.adm-scan-pick-turn { margin-left: auto; }
+.adm-scan-pick-name .adm-scan-pick-note { margin-left: 0.25rem; }
+
+/* The picture of the last scan, with its turn button under it. */
+.adm-scan-glass {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.adm-scan-glass .adm-scan-bed { margin: 0; }
+
+.adm-scan-pick-note {
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+
+
+/* Where a roll ends (the scanner): asked once a load is settled and the roll
+   holds more strips than a sleeve, and the rolls that wait to be published. */
+.admin-layout .adm-scan-end,
+.admin-layout .adm-scan-waiting {
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--adm-held);
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.admin-layout .adm-scan-waiting { border-color: var(--adm-rule, currentColor); }
+.admin-layout .adm-scan-end-ask { margin: 0; font-family: var(--font-ui); }
+.admin-layout .adm-scan-end-options { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.admin-layout .adm-scan-end-option {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.admin-layout .adm-scan-end-option:hover { background: transparent; color: var(--adm-act); }
+
+.admin-layout .adm-scan-end-option.is-chosen,
+.admin-layout .adm-scan-end-option.is-chosen:hover {
+  border-color: var(--adm-act);
+  color: var(--adm-act);
+  font-weight: 600;
+}
+
+.admin-layout .adm-scan-waiting-row {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-ui);
+}

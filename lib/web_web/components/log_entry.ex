@@ -68,7 +68,7 @@ defmodule WebWeb.LogEntry do
     [
       {"Recorded", Calendar.strftime(log.recorded_on, "%-d %b %Y")},
       {"Length", format_duration(log.duration) || "—"},
-      {"Witnessed", to_string(plays)}
+      {"Views", format_count(plays)}
     ]
   end
 
@@ -97,7 +97,7 @@ defmodule WebWeb.LogEntry do
     <%!-- phx-update="ignore": the hook owns everything in here once it
           mounts. LiveView then merges only data-* attributes onto the plate
           and never touches its class or children, so no patch — counting a
-          witness is one — can reset a running player or its state. --%>
+          view is one — can reset a running player or its state. --%>
     <div
       id={@id}
       class={["log-plate", "log--#{@log.kind}", is_nil(@poster) && "log-plate--blank"]}
@@ -171,13 +171,20 @@ defmodule WebWeb.LogEntry do
           })
           this.media.addEventListener("error", () => this.setState("error"))
 
-          // A witness is someone who watched, not someone who pressed play:
+          // A view is someone who watched, not someone who pressed play:
           // count only time that actually played — small forward steps
           // between timeupdates, so a seek or scrub adds nothing — and send
-          // it once, when 30 seconds have played (half the entry, if it is
-          // shorter than a minute). The server keeps one row per browser.
+          // it when 30 seconds have played (half the entry, if it is shorter
+          // than a minute). Running to the end starts the count over, so
+          // watching it through again is offered as another view; the server
+          // takes one per browser per half hour.
           this.media.addEventListener("timeupdate", () => this.tally())
           this.media.addEventListener("seeking", () => { this.lastTime = null })
+          this.media.addEventListener("ended", () => {
+            this.counted = false
+            this.watched = 0
+            this.lastTime = null
+          })
         },
 
         setState(state) {
@@ -307,7 +314,7 @@ defmodule WebWeb.LogEntry do
         <span class="log-card-title">{title(@log)}</span>
         <span :if={Log.ordinal(@log)} class="log-card-ordinal">Entry {Log.ordinal(@log)}</span>
         <span :if={presence(@log.caption)} class="log-card-caption">{@log.caption}</span>
-        <span class="log-card-stats">{kind_label(@log)} · {@plays} witnessed</span>
+        <span class="log-card-stats">{kind_label(@log)} · {views_label(@plays)}</span>
       </span>
     </.link>
     """

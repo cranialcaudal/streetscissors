@@ -208,6 +208,30 @@ defmodule WebWeb.FaithHTML do
     """
   end
 
+  @doc """
+  A prayer most people have by heart, or a passage that is beside the point
+  for someone who does: its name, with the words behind a `<details>` that
+  is closed until asked for. Pass `text`, or put anything in the slot.
+  """
+  attr :title, :string, required: true
+  attr :what, :string, default: nil, doc: "a quieter word after the name, such as a citation"
+  attr :text, :string, default: nil
+  slot :inner_block
+
+  def known(assigns) do
+    ~H"""
+    <details class="faith-known">
+      <summary>
+        <span>{@title}<span :if={@what} class="faith-known-what">{@what}</span></span>
+      </summary>
+      <div class="faith-known-body faith-prayer">
+        <p :if={@text}>{@text}</p>
+        {render_slot(@inner_block)}
+      </div>
+    </details>
+    """
+  end
+
   @doc "Versicle and response, or a line said straight through."
   attr :lines, :list, required: true
 
@@ -242,7 +266,7 @@ defmodule WebWeb.FaithHTML do
               label={if type == :psalm, do: "Psalm", else: "Canticle"}
               lines
             />
-            <p class="faith-doxology">{part.doxology}</p>
+            <.known title="Glory Be" text={part.doxology} />
           <% :reading -> %>
             <.passage passage={part.passage} citation={part.citation} label="Reading" />
             <p class="faith-rubric">A pause in silence.</p>
@@ -253,14 +277,9 @@ defmodule WebWeb.FaithHTML do
               label={"#{part.title} (#{part.latin})"}
               lines
             />
-            <p class="faith-doxology">{part.doxology}</p>
+            <.known title="Glory Be" text={part.doxology} />
           <% :prayer -> %>
-            <section class="faith-prayer">
-              <h3 class="faith-passage-head">
-                <span class="faith-passage-label">{part.title}</span>
-              </h3>
-              <p>{part.text}</p>
-            </section>
+            <.known title={part.title} text={part.text} />
         <% end %>
       <% end %>
       <p class="faith-colophon">
@@ -313,55 +332,65 @@ defmodule WebWeb.FaithHTML do
       <p :if={@season == :easter} class="faith-note">
         In Easter Time the Regina Caeli is said in place of the Angelus.
       </p>
-      <.versicles lines={@midday.lines} />
+      <.known title={@midday.title}>
+        <.versicles lines={@midday.lines} />
+      </.known>
     </div>
     """
   end
 
-  @doc "The Rosary written out: the opening prayers, five mysteries, the close."
+  @doc """
+  The Rosary as an order of prayer: what is said on which bead, and the five
+  mysteries by name. The words of each prayer and the scripture each mystery
+  rests on are there for whoever wants them, behind `known/1`.
+  """
   attr :set, :map, required: true
 
   def rosary_text(assigns) do
-    assigns = assign(assigns, :prayer, &Prayers.text/1)
+    assigns =
+      assign(assigns,
+        prayers:
+          for key <- ~w(sign_of_the_cross apostles_creed our_father hail_mary glory_be
+                        fatima salve_regina)a do
+            {Prayers.title(key), Prayers.text(key)}
+          end
+      )
 
     ~H"""
     <div class="faith-office">
-      <p class="faith-rubric">On the crucifix</p>
-      <section class="faith-prayer">
-        <p>{@prayer.(:sign_of_the_cross)}</p>
-        <p>{@prayer.(:apostles_creed)}</p>
-      </section>
-      <p class="faith-rubric">Then one Our Father, three Hail Marys and one Glory Be</p>
-      <section class="faith-prayer">
-        <p>{@prayer.(:our_father)}</p>
-        <p>{@prayer.(:hail_mary)}</p>
-        <p>{@prayer.(:glory_be)}</p>
-      </section>
+      <ol class="faith-order">
+        <li>On the crucifix, the Sign of the Cross and the Apostles' Creed.</li>
+        <li>One Our Father, three Hail Marys, one Glory Be.</li>
+        <li>
+          For each mystery: one Our Father, ten Hail Marys, one Glory Be and the Fatima Prayer.
+        </li>
+        <li>At the end, the Hail, Holy Queen.</li>
+      </ol>
 
       <%= for {mystery, index} <- Enum.with_index(@set.mysteries, 1) do %>
         <h3 class="faith-mystery">
           <span class="faith-mystery-n">{index}</span> {mystery.title}
         </h3>
-        <.passage passage={mystery.passage} citation={mystery.citation} />
-        <p :if={mystery.note} class="faith-note">{mystery.note}</p>
-        <p class="faith-rubric">
-          One Our Father, ten Hail Marys, one Glory Be, and the Fatima Prayer
-        </p>
+        <.mystery_scripture mystery={mystery} />
       <% end %>
 
-      <section class="faith-prayer">
-        <h3 class="faith-passage-head">
-          <span class="faith-passage-label">{Prayers.title(:fatima)}</span>
-        </h3>
-        <p>{@prayer.(:fatima)}</p>
-      </section>
-      <section class="faith-prayer">
-        <h3 class="faith-passage-head">
-          <span class="faith-passage-label">{Prayers.title(:salve_regina)}</span>
-        </h3>
-        <p>{@prayer.(:salve_regina)}</p>
-      </section>
+      <h3 class="faith-mystery">The prayers</h3>
+      <div>
+        <.known :for={{title, text} <- @prayers} title={title} text={text} />
+      </div>
     </div>
+    """
+  end
+
+  @doc "The passage a mystery rests on, out of the way until it is wanted."
+  attr :mystery, :map, required: true
+
+  def mystery_scripture(assigns) do
+    ~H"""
+    <.known title="Scripture" what={@mystery.citation}>
+      <.passage passage={@mystery.passage} citation={@mystery.citation} />
+      <p :if={@mystery.note} class="faith-note">{@mystery.note}</p>
+    </.known>
     """
   end
 

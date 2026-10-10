@@ -44,6 +44,14 @@ defmodule WebWeb.LegacyRedirectController do
     moved(conn, if(conn.query_string == "", do: path, else: path <> "?" <> conn.query_string))
   end
 
+  # The daybook was /almanac until 2026-10-07: the week, a week, a year.
+  def almanac(conn, params) do
+    rest = Enum.map(params["rest"] || [], &URI.encode(&1, fn c -> URI.char_unreserved?(c) end))
+    path = Enum.join(["/daybook" | rest], "/")
+
+    moved(conn, if(conn.query_string == "", do: path, else: path <> "?" <> conn.query_string))
+  end
+
   defp moved(conn, to) do
     conn
     |> put_status(:moved_permanently)

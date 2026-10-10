@@ -235,64 +235,70 @@ defmodule Web.Audio do
   @doc "Total runtime across the given logs, in seconds."
   def total_runtime(logs), do: logs |> Enum.map(&(&1.duration || 0)) |> Enum.sum()
 
-  # --- Play tracking ---
+  # --- View tracking ---
+
+  # One browser adds at most one view to a log in this many seconds.
+  @view_window 30 * 60
 
   @doc """
-  Records that someone witnessed a log. A witness is an anonymous token the
-  browser keeps for itself, and the hook only sends it once 30 seconds have
-  actually played (half the entry, if it is shorter than a minute) — so a
-  press of play and a quick exit is not a witness, and scrubbing adds nothing.
-  `<video>` and `<audio>` both drive it, so the same hook serves either kind.
+  Records a view of a log, the way a video site counts one. The hook only
+  sends this once 30 seconds have actually played (half the entry, if it is
+  shorter than a minute) — so a press of play and a quick exit is not a view,
+  and scrubbing adds nothing. `<video>` and `<audio>` both drive it, so the
+  same hook serves either kind.
 
-  One row per witness per log: the unique index makes a replay a no-op. A
-  missing or malformed token is `:ignored`, never counted. The IP is kept
-  only for reference.
+  Watching again is another view, but not at once: `witness` is an anonymous
+  token the browser keeps for itself, and a browser with a view of this log
+  in the last 30 minutes is `:throttled`, so a loop or a reload cannot run
+  the figure up. A missing or malformed token is `:ignored`, never counted.
+  The IP is kept only for reference.
   """
   def record_play(audio_log_id, witness, ip_address, user_agent \\ nil)
 
   def record_play(audio_log_id, witness, ip_address, user_agent) when is_binary(witness) do
-    if Regex.match?(~r/\A[A-Za-z0-9-]{8,64}\z/, witness) do
-      %Play{}
-      |> Play.changeset(%{
-        audio_log_id: audio_log_id,
-        witness: witness,
-        ip_address: ip_address,
-        user_agent: user_agent
-      })
-      |> Repo.insert(on_conflict: :nothing, conflict_target: [:audio_log_id, :witness])
-    else
-      :ignored
+    cond do
+      not Regex.match?(~r/\A[A-Za-z0-9-]{8,64}\z/, witness) ->
+        :ignored
+
+      viewed_recently?(audio_log_id, witness) ->
+        :throttled
+
+      true ->
+        %Play{}
+        |> Play.changeset(%{
+          audio_log_id: audio_log_id,
+          witness: witness,
+          ip_address: ip_address,
+          user_agent: user_agent
+        })
+        |> Repo.insert()
     end
   end
 
   def record_play(_audio_log_id, _witness, _ip_address, _user_agent), do: :ignored
 
+  defp viewed_recently?(audio_log_id, witness) do
+    since = NaiveDateTime.add(NaiveDateTime.utc_now(), -@view_window)
+
+    Repo.exists?(
+      from p in Play,
+        where:
+          p.audio_log_id == ^audio_log_id and p.witness == ^witness and p.inserted_at > ^since
+    )
+  end
+
   @doc """
-  How many people witnessed one log — distinct witnesses, not plays. Rows
-  from before witnesses existed carry no token and count for nothing.
+  How many views one log has: every recorded play, the ones from before
+  browsers carried a token included.
   """
   def get_play_count(audio_log_id) do
-    from(p in Play,
-      where: p.audio_log_id == ^audio_log_id and not is_nil(p.witness),
-      select: count(p.witness, :distinct)
-    )
-    |> Repo.one()
+    Repo.aggregate(from(p in Play, where: p.audio_log_id == ^audio_log_id), :count)
   end
 
-  @doc "Witness counts for every log, as `%{audio_log_id => count}`."
+  @doc "View counts for every log that has any, as `%{audio_log_id => count}`."
   def get_all_play_counts do
-    Map.new(witnesses_by_log(), fn {id, witnesses} -> {id, MapSet.size(witnesses)} end)
-  end
-
-  @doc """
-  The witnesses of every log, as `%{audio_log_id => MapSet of tokens}`, so
-  callers can union them to count people across several entries.
-  """
-  def witnesses_by_log do
-    from(p in Play, where: not is_nil(p.witness), select: {p.audio_log_id, p.witness})
+    from(p in Play, group_by: p.audio_log_id, select: {p.audio_log_id, count(p.id)})
     |> Repo.all()
-    |> Enum.reduce(%{}, fn {log_id, witness}, acc ->
-      Map.update(acc, log_id, MapSet.new([witness]), &MapSet.put(&1, witness))
-    end)
+    |> Map.new()
   end
 end

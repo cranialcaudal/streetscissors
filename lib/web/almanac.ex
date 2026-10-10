@@ -1,6 +1,9 @@
 defmodule Web.Almanac do
   @moduledoc """
-  The site read by date: everything made on a day, and a year seen at once.
+  The daybook (`/daybook`; "the almanac" until 2026-10-07, and this module
+  keeps that name). The site read by date, in the manner of an engagement calendar: a week to
+  an opening, a picture facing seven ruled days, with a day's page behind
+  each date and the year at a glance at the front.
 
   A feed slices a person into formats and hands them over one at a time. The
   almanac does the opposite — it puts the essay, the recording, the roll of
@@ -71,6 +74,157 @@ defmodule Web.Almanac do
              |> Enum.min(Date, fn -> nil end)
          }}
     end
+  end
+
+  @doc """
+  One week, Monday to Sunday, as an engagement calendar lays it out:
+
+      %{monday, year, week, days: [%{date, entries, observance, training}],
+        plate, month, previous, next}
+
+  `year` and `week` are the ISO week's, which is what the address carries.
+  Each day has its entries, the day the Church keeps when it is more than a
+  weekday (`observance`, as a printed calendar marks its holidays), and, from
+  `today` on, the regimen's one word for that weekday (`training`): what is
+  written in a diary ahead of time. Days already gone say only what was made.
+
+  `plate` is the picture facing the week: a roll or recording from the week
+  itself, else a roll from the archive chosen by the week's number, so the
+  same week always shows the same picture. `previous` and `next` are the
+  nearest weeks either side that have work in them, as with days.
+
+  `:error` for a week with nothing in it, unless it is the week `today` is
+  in: the current week is always a page, blank lines and all.
+  """
+  def week(%Date{} = date, entries \\ entries(), today \\ Web.Clock.local_today()) do
+    monday = Date.beginning_of_week(date)
+    days = Date.range(monday, Date.add(monday, 6))
+    by_day = entries |> Enum.filter(&(&1.date in days)) |> Enum.group_by(& &1.date)
+
+    if by_day == %{} and monday != Date.beginning_of_week(today) do
+      :error
+    else
+      {year, week} = :calendar.iso_week_number(Date.to_erl(monday))
+      mondays = entries |> Enum.map(&Date.beginning_of_week(&1.date)) |> Enum.uniq()
+      themes = training_themes()
+
+      {:ok,
+       %{
+         monday: monday,
+         year: year,
+         week: week,
+         days:
+           for day <- days do
+             %{
+               date: day,
+               entries: by_day |> Map.get(day, []) |> Enum.sort_by(&kind_index(&1.kind)),
+               observance: observance(day),
+               training: Date.compare(day, today) != :lt && themes[Date.day_of_week(day)]
+             }
+           end,
+         plate: plate(by_day, week),
+         # The month most of the week is in.
+         month: monday |> Date.add(3) |> Date.beginning_of_month(),
+         work_days: entries |> Enum.map(& &1.date) |> MapSet.new(),
+         previous:
+           mondays
+           |> Enum.filter(&(Date.compare(&1, monday) == :lt))
+           |> Enum.max(Date, fn -> nil end),
+         next:
+           mondays
+           |> Enum.filter(&(Date.compare(&1, monday) == :gt))
+           |> Enum.min(Date, fn -> nil end)
+       }}
+    end
+  end
+
+  @doc "The Monday of an ISO week, or `:error` when that year has no such week."
+  def monday_of(year, week) when is_integer(year) and is_integer(week) and week in 1..53 do
+    # The fourth of January is always in week one.
+    with {:ok, fourth} <- Date.new(year, 1, 4) do
+      monday = fourth |> Date.beginning_of_week() |> Date.add((week - 1) * 7)
+
+      case :calendar.iso_week_number(Date.to_erl(monday)) do
+        {^year, ^week} -> {:ok, monday}
+        _ -> :error
+      end
+    end
+  end
+
+  def monday_of(_year, _week), do: :error
+
+  @doc "The address of the week a date falls in."
+  def week_path(%Date{} = date) do
+    {year, week} =
+      date |> Date.beginning_of_week() |> Date.to_erl() |> :calendar.iso_week_number()
+
+    "/daybook/#{year}/week/#{week}"
+  end
+
+  # What a printed calendar puts in small type beside the date. A weekday of
+  # the season is no observance; a Sunday is, by its own name.
+  defp observance(date) do
+    case Web.Liturgy.Calendar.day(date).celebration do
+      %{rank: :weekday} -> nil
+      %{title: title} -> title
+    end
+  rescue
+    _ -> nil
+  end
+
+  # The regimen's word for each weekday (1 = Monday), from the vault.
+  defp training_themes do
+    slugs = ~w(monday tuesday wednesday thursday friday saturday sunday)
+
+    for day <- Web.Fitness.Vault.list_days(),
+        index = Enum.find_index(slugs, &(&1 == day.slug)),
+        is_binary(day.theme) and day.theme != "",
+        into: %{},
+        do: {index + 1, day.theme}
+  rescue
+    _ -> %{}
+  end
+
+  defp plate(by_day, week) do
+    made =
+      by_day
+      |> Enum.sort_by(fn {date, _} -> date end, Date)
+      |> Enum.flat_map(fn {_, list} -> list end)
+      |> Enum.filter(& &1.image)
+
+    case Enum.find(made, &(&1.kind == :roll)) || List.first(made) do
+      nil ->
+        archive_plate(week)
+
+      entry ->
+        %{
+          image: entry.image,
+          kind: entry.kind,
+          title: entry.title,
+          path: entry.path,
+          of_week: true
+        }
+    end
+  end
+
+  defp archive_plate(week) do
+    case Negatives.list_contact_sheets() do
+      [] ->
+        nil
+
+      sheets ->
+        sheet = Enum.at(sheets, rem(week, length(sheets)))
+
+        %{
+          image: sheet.preview_url,
+          kind: :roll,
+          title: "Roll #{sheet.roll}",
+          path: "/negatives/roll/#{sheet.roll}",
+          of_week: false
+        }
+    end
+  rescue
+    _ -> nil
   end
 
   @doc "Years with anything in them, newest first."

@@ -2,6 +2,7 @@ defmodule WebWeb.NegativesLive do
   use WebWeb, :live_view
 
   alias Web.Negatives
+  alias Web.Negatives.RollMeta
   alias Web.Negatives.Sheet
   alias WebWeb.NegativesLive.Format
   import WebWeb.Navigation, only: [return_context: 1]
@@ -118,6 +119,7 @@ defmodule WebWeb.NegativesLive do
          # stray false in an assign is a trap for the next reader.
          prev_frame: if(index > 0, do: Enum.at(frames, index - 1)),
          next_frame: Enum.at(frames, index + 1),
+         frame_position: index + 1,
          page_title: "Roll ##{sheet.roll} · frame #{number}",
          # Its own social card and canonical URL — otherwise every shared
          # photo link fell back to the site-wide default logo/description.
@@ -182,6 +184,7 @@ defmodule WebWeb.NegativesLive do
     |> assign(:prev_sheet, if(position && position > 0, do: Enum.at(ordered, position - 1)))
     |> assign(:next_sheet, position && Enum.at(ordered, position + 1))
     |> assign(:frame, nil)
+    |> assign(:frame_position, nil)
     |> assign(:prev_frame, nil)
     |> assign(:next_frame, nil)
   end
@@ -328,7 +331,8 @@ defmodule WebWeb.NegativesLive do
           sizing class — both are "one image, controls beneath". --%>
     <div class={[
       "minimal-viewer-container darkroom",
-      @view_mode in [:single, :frame] && "single-mode-active"
+      @view_mode in [:single, :frame] && "single-mode-active",
+      @view_mode == :frame && "photo-mode-active"
     ]}>
       <%!-- Arrow keys walk the archive the way the arrows on the sheet do, and
             Escape leaves a photograph for the sheet it was cut from. One
@@ -477,94 +481,163 @@ defmodule WebWeb.NegativesLive do
           </nav>
 
           <%= if @view_mode == :frame do %>
-            <main class="single-presentation-viewport h-entry">
+            <%!-- One photograph, and the screen given over to it. What is
+                  around it is the least that says where you are and gets you
+                  elsewhere: the roll it came from, its place in the run, its
+                  neighbours. On a phone the neighbours are a swipe away and a
+                  pull down goes back to the sheet (see .Swipe below). --%>
+            <main
+              class="single-presentation-viewport photo-view h-entry"
+              id="photo-view"
+              phx-hook=".Swipe"
+            >
               <WebWeb.Microformats.entry_fields path={Format.frame_path(@sheet.roll, @frame.frame)} />
-              <div class="presentation-stage">
-                <div class="stage-image-wrapper">
-                  <%!-- A phone takes the 960 copy; a wide screen the full preview. --%>
-                  <img
-                    src={@frame.url}
-                    srcset={Negatives.srcset(@frame.url)}
-                    sizes="(max-width: 900px) 100vw, 70vw"
-                    alt={"Roll ##{@sheet.roll}, frame #{@frame.frame}"}
-                    class="stage-image u-photo"
-                  />
-                </div>
 
-                <div class="header-flanked-controls">
-                  <.link
-                    :if={@prev_frame}
-                    patch={
-                      Format.frame_path(
-                        @sheet.roll,
-                        @prev_frame.frame,
-                        view_opts(assigns, mode: :single)
-                      )
-                    }
-                    class="nav-pill-btn prev-btn"
-                  >
-                    <.icon name="hero-arrow-left" class="size-5" /> PREVIOUS
-                  </.link>
+              <header class="photo-bar">
+                <.link
+                  patch={sheet_path(assigns, @sheet, mode: :single)}
+                  class="photo-bar-back"
+                  data-swipe-up
+                  aria-label={"Back to the contact sheet of roll ##{@sheet.roll}"}
+                >
+                  <.icon name="hero-squares-2x2" class="size-5" />
+                  <span>Sheet</span>
+                </.link>
+                <p class="photo-bar-title">
+                  <span class="p-name">Frame {@frame.frame}</span>
+                  <span class="photo-bar-count">{@frame_position} / {length(@frames)}</span>
+                </p>
+                <a
+                  href={@frame.original_url}
+                  download
+                  class="photo-bar-download"
+                  title="Download the full-resolution print"
+                  aria-label="Download the full-resolution print"
+                >
+                  <.icon name="hero-arrow-down-tray" class="size-5" />
+                </a>
+              </header>
 
-                  <div class="flanked-title">
-                    <span class="title-main p-name">Frame {@frame.frame}</span>
-                    <%!-- The provenance the URL exists to carry: wherever this
-                          photograph is linked from, it names the roll it was cut
-                          from and links back to that sheet. --%>
-                    <span class="title-sub">
-                      <.link
-                        patch={sheet_path(assigns, @sheet, mode: :single)}
-                        class="frame-origin"
-                      >
-                        From Roll #{@sheet.roll}
-                      </.link>
-                      •
-                      <%!-- The day the roll was scanned, which is the day it
-                            sits on in the almanac. --%>
-                      <.link
-                        :if={match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}
-                        href={~p"/day/#{@sheet.date}"}
-                        class="frame-origin"
-                      >
-                        <time class="dt-published" datetime={@sheet.date}>{@sheet.date}</time>
-                      </.link>
-                      <span :if={!match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}>
-                        {@sheet.date}
-                      </span>
-                      • {@sheet.format} Film
-                    </span>
-                  </div>
+              <%!-- The neighbours are fetched ahead, at the size this screen
+                    takes, so a swipe lands on a picture and not on a blank. --%>
+              <div
+                class="photo-stage"
+                data-swipe-surface
+                data-preload={
+                  [@prev_frame, @next_frame]
+                  |> Enum.reject(&is_nil/1)
+                  |> Enum.map_join("|", &Negatives.srcset(&1.url))
+                }
+                data-preload-sizes="(max-width: 900px) 100vw, 90vw"
+              >
+                <.link
+                  :if={@prev_frame}
+                  patch={
+                    Format.frame_path(
+                      @sheet.roll,
+                      @prev_frame.frame,
+                      view_opts(assigns, mode: :single)
+                    )
+                  }
+                  class="photo-arrow photo-arrow--prev prev-btn"
+                  data-swipe-prev
+                  aria-label={"Previous photograph: frame #{@prev_frame.frame}"}
+                >
+                  <.icon name="hero-chevron-left" class="size-10" />
+                </.link>
 
-                  <.link
-                    :if={@next_frame}
-                    patch={
-                      Format.frame_path(
-                        @sheet.roll,
-                        @next_frame.frame,
-                        view_opts(assigns, mode: :single)
-                      )
-                    }
-                    class="nav-pill-btn next-btn"
-                  >
-                    NEXT <.icon name="hero-arrow-right" class="size-5" />
-                  </.link>
+                <%!-- Keyed by frame, so stepping swaps the element and the new
+                      picture can be brought in from the side it came from.
+                      A phone takes the 960 copy; a wide screen the full preview. --%>
+                <img
+                  id={"photo-#{@sheet.roll}-#{@frame.frame}"}
+                  src={@frame.url}
+                  srcset={Negatives.srcset(@frame.url)}
+                  sizes="(max-width: 900px) 100vw, 90vw"
+                  alt={"Roll ##{@sheet.roll}, frame #{@frame.frame}"}
+                  class="photo-image photo-over u-photo"
+                  data-swipe-target
+                  data-fade
+                  draggable="false"
+                />
+                <%!-- The small copy the gallery and the strip have already
+                      fetched, shown at once in the same place; the photograph
+                      proper comes in over it. --%>
+                <img
+                  id={"photo-under-#{@sheet.roll}-#{@frame.frame}"}
+                  src={Negatives.sized_url(@frame.url, 480)}
+                  alt=""
+                  class="photo-image photo-under"
+                  aria-hidden="true"
+                  draggable="false"
+                />
 
-                  <a
-                    href={@frame.original_url}
-                    download
-                    class="download-icon-btn"
-                    title="Download the full-resolution print"
-                  >
-                    <.icon name="hero-arrow-down-tray" class="size-5" />
-                  </a>
-                </div>
-
-                <footer class="stage-footer">
-                  <.link patch={sheet_path(assigns, @sheet, mode: :single)} class="index-toggle-btn">
-                    <.icon name="hero-photo" class="size-5" /> Back to the contact sheet
-                  </.link>
-                </footer>
+                <.link
+                  :if={@next_frame}
+                  patch={
+                    Format.frame_path(
+                      @sheet.roll,
+                      @next_frame.frame,
+                      view_opts(assigns, mode: :single)
+                    )
+                  }
+                  class="photo-arrow photo-arrow--next next-btn"
+                  data-swipe-next
+                  aria-label={"Next photograph: frame #{@next_frame.frame}"}
+                >
+                  <.icon name="hero-chevron-right" class="size-10" />
+                </.link>
               </div>
+
+              <%!-- The roll's other photographs, the one showing marked. --%>
+              <nav
+                :if={length(@frames) > 1}
+                class="photo-strip"
+                aria-label={"Photographs from roll ##{@sheet.roll}"}
+              >
+                <.link
+                  :for={frame <- @frames}
+                  patch={
+                    Format.frame_path(
+                      @sheet.roll,
+                      frame.frame,
+                      view_opts(assigns, mode: :single)
+                    )
+                  }
+                  class={["photo-strip-item", frame.frame == @frame.frame && "is-current"]}
+                  aria-current={frame.frame == @frame.frame && "true"}
+                  aria-label={"Frame #{frame.frame}"}
+                >
+                  <img src={Negatives.sized_url(frame.url, 480)} alt="" loading="lazy" />
+                </.link>
+              </nav>
+
+              <%!-- The provenance the URL exists to carry: wherever this
+                    photograph is linked from, it names the roll it was cut
+                    from and links back to that sheet. --%>
+              <p class="photo-caption">
+                <.link patch={sheet_path(assigns, @sheet, mode: :single)} class="frame-origin">
+                  From Roll #{@sheet.roll}
+                </.link>
+                <span class="sheet-meta-dot">•</span>
+                <%!-- The day the roll was scanned, which is the day it sits
+                      on in the daybook. --%>
+                <.link
+                  :if={match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}
+                  href={~p"/day/#{@sheet.date}"}
+                  class="frame-origin"
+                >
+                  <time class="dt-published" datetime={@sheet.date}>{@sheet.date}</time>
+                </.link>
+                <span :if={!match?({:ok, _}, Date.from_iso8601(to_string(@sheet.date)))}>
+                  {@sheet.date}
+                </span>
+                <span class="sheet-meta-dot">•</span>
+                {@sheet.format} Film
+                <span :if={@sheet.meta.shot}>
+                  <span class="sheet-meta-dot">•</span> Shot {RollMeta.shot_line(@sheet.meta)}
+                </span>
+              </p>
 
               <%!-- Keyed by frame: the arrows patch, and a new id is what
                     remounts the letters for the photograph now showing. --%>
@@ -588,6 +661,34 @@ defmodule WebWeb.NegativesLive do
                       position is here because a corridor wants its doors
                       numbered — stepping through 31 rolls without one is
                       walking with your eyes shut. --%>
+                  <%!-- Below 1200px there is no rail, so the way between rolls
+                        is here, above the sheet and under the thumb: the
+                        neighbours by number, and the whole list in the middle.
+                        A sideways swipe on the sheet does the same. --%>
+                  <nav class="roll-bar" aria-label="Rolls">
+                    <.link
+                      :if={@prev_sheet}
+                      patch={sheet_path(assigns, @prev_sheet)}
+                      class="roll-bar-step"
+                      aria-label={"Previous sheet: roll ##{@prev_sheet.roll}"}
+                    >
+                      <.icon name="hero-chevron-left" class="size-4" /> {@prev_sheet.roll}
+                    </.link>
+                    <span :if={!@prev_sheet} class="roll-bar-step is-spent" aria-hidden="true"></span>
+                    <.link patch={sheet_path(assigns, @sheet, mode: :index)} class="roll-bar-all">
+                      <.icon name="hero-list-bullet" class="size-4" /> All {length(@ordered)} rolls
+                    </.link>
+                    <.link
+                      :if={@next_sheet}
+                      patch={sheet_path(assigns, @next_sheet)}
+                      class="roll-bar-step"
+                      aria-label={"Next sheet: roll ##{@next_sheet.roll}"}
+                    >
+                      {@next_sheet.roll} <.icon name="hero-chevron-right" class="size-4" />
+                    </.link>
+                    <span :if={!@next_sheet} class="roll-bar-step is-spent" aria-hidden="true"></span>
+                  </nav>
+
                   <p class="sheet-meta">
                     Roll #{@sheet.roll} <span class="sheet-meta-dot">•</span> {@sheet.date}
                     <span class="sheet-meta-dot">•</span> {@sheet.format} Film
@@ -595,12 +696,32 @@ defmodule WebWeb.NegativesLive do
                       {@position} of {length(@ordered)}
                     </span>
                   </p>
+                  <%!-- What the author knows of the roll and the film cannot
+                      say. The date above is the day it was scanned, which is
+                      where the roll is filed; when it was shot is only said. --%>
+                  <p :if={!RollMeta.empty?(@sheet.meta)} class="sheet-about">
+                    <span :if={@sheet.meta.shot}>Shot {RollMeta.shot_line(@sheet.meta)}</span>
+                    <span :if={RollMeta.gear_line(@sheet.meta)}>
+                      {RollMeta.gear_line(@sheet.meta)}
+                    </span>
+                    <span :if={@sheet.meta.notes} class="sheet-about-notes">{@sheet.meta.notes}</span>
+                  </p>
 
                   <%!-- A lightbox, not a page with a control bar: the arrows and the
                       download sit on the sheet itself, so nothing below it competes
                       with the photograph for the screen. The same controls collapse
                       into a bottom bar on phones (see negatives.css). --%>
-                  <div class="stage-image-wrapper stage-image-wrapper--sheet">
+                  <div
+                    class="stage-image-wrapper stage-image-wrapper--sheet"
+                    id="sheet-stage"
+                    phx-hook=".Swipe"
+                    data-swipe-surface
+                    data-preload={
+                      [@prev_sheet, @next_sheet]
+                      |> Enum.reject(&is_nil/1)
+                      |> Enum.map_join("|", & &1.preview_url)
+                    }
+                  >
                     <%!-- The plate is the photograph's own box: it carries the
                           sheet's exact proportions, which is the only way an
                           overlay can be positioned as a fraction of it and land
@@ -608,9 +729,20 @@ defmodule WebWeb.NegativesLive do
                           to letting the image size itself, as it always did. --%>
                     <div
                       class={["sheet-plate", is_nil(@sheet_ar) && "sheet-plate--unmeasured"]}
+                      data-swipe-target
                       style={@sheet_ar && "--sheet-ar: #{Float.round(@sheet_ar, 6)}"}
                     >
-                      <img src={@sheet.preview_url} alt={@sheet.filename} class="stage-image" />
+                      <%!-- Keyed by roll: a new sheet is a new element, so the
+                            last one is never stretched into the next one's
+                            shape while that loads. --%>
+                      <img
+                        id={"sheet-image-#{@sheet.slug}"}
+                        src={@sheet.preview_url}
+                        alt={@sheet.filename}
+                        class="stage-image"
+                        data-fade
+                        decoding="async"
+                      />
 
                       <%!-- Selects, marked the way selects are marked: a grease
                             pencil ring round the frames worth printing. Only
@@ -645,6 +777,7 @@ defmodule WebWeb.NegativesLive do
                       :if={@prev_sheet}
                       patch={sheet_path(assigns, @prev_sheet)}
                       class="stage-arrow stage-arrow--prev prev-btn"
+                      data-swipe-prev
                       aria-label={"Previous sheet: roll ##{@prev_sheet.roll}"}
                     >
                       <.icon name="hero-chevron-left" class="size-10" />
@@ -661,6 +794,7 @@ defmodule WebWeb.NegativesLive do
                       :if={@next_sheet}
                       patch={sheet_path(assigns, @next_sheet)}
                       class="stage-arrow stage-arrow--next next-btn"
+                      data-swipe-next
                       aria-label={"Next sheet: roll ##{@next_sheet.roll}"}
                     >
                       <.icon name="hero-chevron-right" class="size-10" />
@@ -689,12 +823,14 @@ defmodule WebWeb.NegativesLive do
                       below, each one reached through the sheet it came from.
                       Renders only once frames are actually published. --%>
                   <section :if={@frames != []} class="frame-strip">
-                    <h2 class="frame-strip-title">Printed from this roll</h2>
-                    <div class="frame-strip-rail">
-                      <%!-- These used to point at the image bytes, which dead-ended
-                            on a bare file instead of the frame's own page. They
-                            are also the way in on a phone, where a ring on the
-                            sheet is smaller than a thumb. --%>
+                    <h2 class="frame-strip-title">
+                      Photographs from this roll
+                      <span class="frame-strip-count">{length(@frames)}</span>
+                    </h2>
+                    <div class={["frame-gallery", @sheet.format != "35mm" && "frame-gallery--square"]}>
+                      <%!-- These point at the frame's own page, not the image
+                            bytes. They are also the way in on a phone, where a
+                            ring on the sheet is smaller than a thumb. --%>
                       <.link
                         :for={frame <- @frames}
                         patch={
@@ -707,24 +843,16 @@ defmodule WebWeb.NegativesLive do
                         class="frame-thumb"
                         aria-label={"View frame #{frame.frame} of roll ##{@sheet.roll}"}
                       >
-                        <%!-- 92 pixels tall on the page: the narrowest copy, not the preview. --%>
                         <img
                           src={Negatives.sized_url(frame.url, 480)}
                           alt={"Frame #{frame.frame}"}
                           loading="lazy"
+                          decoding="async"
                         />
                         <span class="frame-thumb-num">{frame.frame}</span>
                       </.link>
                     </div>
                   </section>
-
-                  <%!-- Only reachable below 1200px, where the rail has folded
-                        away and the full table is the only index there is. --%>
-                  <footer class="stage-footer stage-footer--index">
-                    <.link patch={sheet_path(assigns, @sheet, mode: :index)} class="index-toggle-btn">
-                      <.icon name="hero-list-bullet" class="size-5" /> Full Index by Scan Date
-                    </.link>
-                  </footer>
                 </div>
               <% else %>
                 <div class="empty-state-minimal">
@@ -737,6 +865,193 @@ defmodule WebWeb.NegativesLive do
         </div>
       <% end %>
     </div>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".Swipe">
+      // A finger on the picture. Sideways goes to the neighbour, and the
+      // picture follows the finger so it is plain what is about to happen;
+      // down, from the top of the page, goes back to the sheet. The hook
+      // presses the page's own links ([data-swipe-prev], -next, -up), so a
+      // swipe lands exactly where the arrow would and the URL moves with it.
+      //
+      // Two fingers are the browser's (pinch to look closer), and so is a
+      // swipe while zoomed in, which is panning.
+      export default {
+        mounted() {
+          this.surface = this.el.matches("[data-swipe-surface]")
+            ? this.el
+            : this.el.querySelector("[data-swipe-surface]") || this.el
+          this.gesture = null
+          this.entering = null
+
+          this.onStart = (e) => {
+            const zoomed = window.visualViewport && window.visualViewport.scale > 1.05
+            if (e.touches.length !== 1 || zoomed) { this.gesture = null; return }
+            const t = e.touches[0]
+            this.gesture = { x: t.clientX, y: t.clientY, at: e.timeStamp, axis: null, dx: 0, dy: 0 }
+          }
+
+          this.onMove = (e) => {
+            const g = this.gesture
+            if (!g) return
+            if (e.touches.length !== 1) { this.settle(); return }
+
+            const t = e.touches[0]
+            const dx = t.clientX - g.x
+            const dy = t.clientY - g.y
+
+            if (!g.axis) {
+              if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+              if (Math.abs(dx) > Math.abs(dy) * 1.2) g.axis = "x"
+              else if (dy > 0 && this.link("up") && window.scrollY <= 0) g.axis = "down"
+              else { this.gesture = null; return }
+            }
+
+            if (e.cancelable) e.preventDefault()
+            g.dx = dx
+            g.dy = dy
+            this.follow(g)
+          }
+
+          this.onEnd = (e) => {
+            const g = this.gesture
+            this.gesture = null
+            if (!g || !g.axis) return
+
+            const ms = Math.max(e.timeStamp - g.at, 1)
+            const width = this.surface.clientWidth || window.innerWidth
+
+            if (g.axis === "x") {
+              const flick = Math.abs(g.dx) / ms > 0.45 && Math.abs(g.dx) > 28
+              const far = Math.abs(g.dx) > Math.min(110, width * 0.22)
+              const way = g.dx < 0 ? "next" : "prev"
+              const link = this.link(way)
+              if ((flick || far) && link) return this.leave(link, way, width)
+            } else {
+              const link = this.link("up")
+              if ((g.dy > 110 || (g.dy / ms > 0.5 && g.dy > 40)) && link) return link.click()
+            }
+
+            this.settle()
+          }
+
+          this.ready = {}
+          this.arrive()
+          this.surface.addEventListener("touchstart", this.onStart, { passive: true })
+          this.surface.addEventListener("touchmove", this.onMove, { passive: false })
+          this.surface.addEventListener("touchend", this.onEnd)
+          this.surface.addEventListener("touchcancel", () => this.settle())
+          this.reveal()
+        },
+
+        updated() {
+          const target = this.target()
+          if (target) {
+            // The picture that has just arrived comes in from the side it was
+            // pulled from.
+            const from = this.entering === "next" ? 36 : this.entering === "prev" ? -36 : 0
+            target.style.transition = "none"
+            target.style.transform = from ? `translate3d(${from}px, 0, 0)` : ""
+            target.style.opacity = from ? "0.3" : ""
+            if (from) {
+              requestAnimationFrame(() => requestAnimationFrame(() => {
+                target.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out"
+                target.style.transform = ""
+                target.style.opacity = ""
+              }))
+            }
+          }
+          this.entering = null
+          this.arrive()
+          this.reveal()
+        },
+
+        destroyed() {
+          this.surface.removeEventListener("touchstart", this.onStart)
+          this.surface.removeEventListener("touchmove", this.onMove)
+          this.surface.removeEventListener("touchend", this.onEnd)
+        },
+
+        target() { return this.el.querySelector("[data-swipe-target]") },
+        link(way) { return this.el.querySelector(`a[data-swipe-${way}]`) },
+
+        follow(g) {
+          const target = this.target()
+          if (!target) return
+          target.style.transition = "none"
+
+          if (g.axis === "x") {
+            // With nowhere to go that way, the picture gives a little and no more.
+            const open = this.link(g.dx < 0 ? "next" : "prev")
+            const dx = open ? g.dx : g.dx * 0.22
+            target.style.transform = `translate3d(${dx}px, 0, 0)`
+          } else {
+            const dy = Math.max(g.dy, 0)
+            const scale = Math.max(1 - dy / 1400, 0.82)
+            target.style.transform = `translate3d(0, ${dy}px, 0) scale(${scale})`
+            target.style.opacity = String(Math.max(1 - dy / 500, 0.35))
+          }
+        },
+
+        leave(link, way, width) {
+          const target = this.target()
+          this.entering = way
+          if (target) {
+            target.style.transition = "transform 0.16s ease-in, opacity 0.16s ease-in"
+            target.style.transform = `translate3d(${way === "next" ? -width : width}px, 0, 0)`
+            target.style.opacity = "0.2"
+          }
+          link.click()
+        },
+
+        // What happens each time a picture arrives: it fades in when it has
+        // loaded (at once if it was fetched ahead), and its neighbours are
+        // fetched so the next step has nothing to wait for.
+        arrive() {
+          this.el.querySelectorAll("img[data-fade]").forEach((img) => {
+            if (img.complete) { img.classList.remove("is-loading"); return }
+            img.classList.add("is-loading")
+            const shown = () => img.classList.remove("is-loading")
+            img.addEventListener("load", shown, { once: true })
+            img.addEventListener("error", shown, { once: true })
+          })
+
+          const sizes = this.surface.dataset.preloadSizes
+          const wanted = (this.surface.dataset.preload || "").split("|").filter(Boolean)
+          const fetchAhead = () => wanted.forEach((src) => {
+            if (this.ready[src]) return
+            const img = new Image()
+            img.decoding = "async"
+            if (src.includes(" ")) { if (sizes) img.sizes = sizes; img.srcset = src } else { img.src = src }
+            this.ready[src] = img
+          })
+
+          // After the picture on screen, not in competition with it.
+          const main = this.el.querySelector("img[data-fade]")
+          if (!main || main.complete) fetchAhead()
+          else main.addEventListener("load", fetchAhead, { once: true })
+        },
+
+        settle() {
+          this.gesture = null
+          const target = this.target()
+          if (!target) return
+          target.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out"
+          target.style.transform = ""
+          target.style.opacity = ""
+        },
+
+        // Keeps the photograph that is showing in view in the strip beneath it.
+        reveal() {
+          const strip = this.el.querySelector(".photo-strip")
+          const current = strip && strip.querySelector("[aria-current]")
+          // Its own scroll position, not scrollIntoView: that would also drag
+          // the page down to the strip.
+          if (current) {
+            strip.scrollLeft = current.offsetLeft - (strip.clientWidth - current.clientWidth) / 2
+          }
+        }
+      }
+    </script>
 
     <script :type={Phoenix.LiveView.ColocatedHook} name=".RailScroll">
       // Keeps the roll you are looking at visible in the rail. The rail is its

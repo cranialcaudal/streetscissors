@@ -54,6 +54,8 @@ defmodule WebWeb.FitnessLive.Index do
     )
     |> assign(:logging_slug, nil)
     |> assign(:logging_name, nil)
+    |> assign(:logging_last, nil)
+    |> assign_logged_today()
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
 
@@ -101,55 +103,46 @@ defmodule WebWeb.FitnessLive.Index do
 
   # Fired by the inline "Log" button that Web.Fitness.Vault stitches onto any
   # checkbox line referencing a `[[slug]]` exercise (see
-  # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). Only exercises with a
-  # matching row in the `exercises` DB table are actually loggable — most of
-  # the regimen's older wiki-links predate that table and won't resolve,
-  # which is expected, not an error, so it just flashes instead of opening
-  # the form.
+  # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). Any exercise the wiki has
+  # can be logged (`Fitness.loggable_exercise/1`); the form opens showing the
+  # last entry for it, which is the number to beat.
   @impl true
   def handle_event("open_log", _params, %{assigns: %{is_admin: false}} = socket) do
     {:noreply, socket}
   end
 
   def handle_event("open_log", %{"slug" => slug}, socket) do
-    case Fitness.get_exercise_by_slug(slug) do
-      %Fitness.Exercise{} = exercise ->
+    case Fitness.loggable_exercise(slug) do
+      {:ok, exercise} ->
         {:noreply,
          socket
          |> assign(:logging_slug, slug)
-         |> assign(:logging_name, exercise.name)}
+         |> assign(:logging_name, exercise.name)
+         |> assign(:logging_last, Fitness.last_exercise_log(exercise.id))}
 
-      nil ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "This exercise isn't wired up for logging yet."
-         )}
+      :error ->
+        {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
     end
   end
 
-  @impl true
-  def handle_event("close_log", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:logging_slug, nil)
-     |> assign(:logging_name, nil)}
-  end
+  def handle_event("close_log", _params, socket), do: {:noreply, close_log(socket)}
 
-  @impl true
+  # Escape closes the form. Any other key is somebody typing in it.
+  def handle_event("log_key", %{"key" => "Escape"}, socket), do: {:noreply, close_log(socket)}
+  def handle_event("log_key", _params, socket), do: {:noreply, socket}
+
   def handle_event("save_log", _params, %{assigns: %{is_admin: false}} = socket) do
     {:noreply, socket}
   end
 
   def handle_event("save_log", %{"log" => params}, socket) do
-    slug = socket.assigns.logging_slug
-
-    with %Fitness.Exercise{} = exercise <- Fitness.get_exercise_by_slug(slug),
+    with {:ok, exercise} <- Fitness.loggable_exercise(socket.assigns.logging_slug),
          metrics when map_size(metrics) > 0 <- log_metrics(params) do
       attrs = %{
         exercise_id: exercise.id,
-        date: Date.utc_today(),
+        # The day it is here, not in Greenwich: an evening session was being
+        # filed under tomorrow.
+        date: Web.Clock.local_today(),
         metrics: metrics,
         note: blank_to_nil(params["note"])
       }
@@ -159,8 +152,8 @@ defmodule WebWeb.FitnessLive.Index do
           {:noreply,
            socket
            |> put_flash(:info, "Logged #{exercise.name}.")
-           |> assign(:logging_slug, nil)
-           |> assign(:logging_name, nil)}
+           |> close_log()
+           |> assign_logged_today()}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
@@ -168,6 +161,35 @@ defmodule WebWeb.FitnessLive.Index do
     else
       _ -> {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
     end
+  end
+
+  def handle_event("delete_log", _params, %{assigns: %{is_admin: false}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("delete_log", %{"id" => id}, socket) do
+    with {id, ""} <- Integer.parse(id), do: Fitness.delete_exercise_log(id)
+    {:noreply, socket |> put_flash(:info, "Entry removed.") |> assign_logged_today()}
+  end
+
+  defp close_log(socket) do
+    socket
+    |> assign(:logging_slug, nil)
+    |> assign(:logging_name, nil)
+    |> assign(:logging_last, nil)
+  end
+
+  # What has been logged today, for the admin only: the proof an entry went
+  # in, and the place to take a wrong one back out.
+  defp assign_logged_today(%{assigns: %{is_admin: true}} = socket),
+    do: assign(socket, :logged_today, Fitness.exercise_logs_on(Web.Clock.local_today()))
+
+  defp assign_logged_today(socket), do: assign(socket, :logged_today, [])
+
+  @doc "A log entry's values in a line: `200 lbs · 3 x 12`."
+  def log_line(%{metrics: metrics, note: note}) do
+    values = for key <- ~w(weight distance time result), value = metrics[key], do: value
+    Enum.join(values ++ List.wrap(note), " · ")
   end
 
   # Builds the `metrics` map the CSV export already understands
@@ -193,9 +215,13 @@ defmodule WebWeb.FitnessLive.Index do
   def render(assigns) do
     ~H"""
     <div class="blog-bento-wrapper steel fitness-landing">
-      <%!-- What is about to be done comes first: the days, each over the one
-            word its file gives as `theme:`, then the one being looked at. The week, the other modules and the section's own tabs
-            are underneath it. --%>
+      <%!-- The section's tabs lead, as they do on the wiki and Activities,
+            so both are one click from the top. Then what is about to be done:
+            the days, each over the one word its file gives as `theme:`, then
+            the one being looked at. The week and the other modules are
+            underneath it. --%>
+      <WebWeb.FitnessSubnav.subnav active={:regimen} />
+
       <nav class="day-strip" aria-label="Days of the week">
         <.link
           :for={day <- @weekdays}
@@ -270,6 +296,27 @@ defmodule WebWeb.FitnessLive.Index do
               </div>
             </article>
 
+            <%!-- The admin's own record of the day: never rendered for a
+                  visitor, who is sent an empty list. --%>
+            <section :if={@is_admin and @logged_today != []} class="day-logged" id="logged-today">
+              <h2 class="day-page-section">Logged today</h2>
+              <ul class="day-logged-list">
+                <li :for={log <- @logged_today} id={"logged-#{log.id}"}>
+                  <span class="day-logged-name">{log.exercise.name}</span>
+                  <span class="day-logged-values">{log_line(log)}</span>
+                  <button
+                    type="button"
+                    class="reset-btn"
+                    phx-click="delete_log"
+                    phx-value-id={log.id}
+                    data-confirm={"Remove this #{log.exercise.name} entry?"}
+                  >
+                    Remove
+                  </button>
+                </li>
+              </ul>
+            </section>
+
             <p class="day-page-reset">
               <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
             </p>
@@ -318,12 +365,22 @@ defmodule WebWeb.FitnessLive.Index do
             clock times render for the admin only. --%>
       <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
 
-      <WebWeb.FitnessSubnav.subnav active={:regimen} />
-
       <%= if @logging_slug do %>
-        <div class="log-modal-backdrop" phx-click="close_log">
-          <div class="log-modal" phx-click-away="close_log">
+        <%!-- No phx-click on the backdrop: LiveView hands a click to the
+              nearest ancestor that has one, so every click *inside* the form,
+              on a field included, closed it. Clicking outside the form is
+              phx-click-away's job, and Escape closes it too. --%>
+        <div class="log-modal-backdrop" phx-window-keydown="log_key">
+          <div
+            class="log-modal"
+            phx-click-away="close_log"
+            role="dialog"
+            aria-label={"Log #{@logging_name}"}
+          >
             <h3>Log: {@logging_name}</h3>
+            <p :if={@logging_last} class="log-modal-last">
+              Last time, {Calendar.strftime(@logging_last.date, "%-d %b")}: {log_line(@logging_last)}
+            </p>
             <form phx-submit="save_log">
               <label>
                 Weight <input type="text" name="log[weight]" placeholder="e.g. 200 lbs" autofocus />
@@ -399,7 +456,12 @@ defmodule WebWeb.FitnessLive.Index do
       .is-admin .log-trigger:hover { border-color: var(--theme-color); color: var(--theme-color); background: rgba(194, 69, 29, 0.1); }
 
       /* Log-entry modal */
-      .log-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+      .log-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10001; }
+      .log-modal-last { margin: -0.5rem 0 1rem; color: var(--ink-3); font-size: 0.85rem; }
+      .day-logged-list { list-style: none; margin: 0 0 1.5rem; padding: 0; }
+      .day-logged-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--rule); }
+      .day-logged-name { color: var(--ink); font-weight: 600; }
+      .day-logged-values { flex: 1; color: var(--ink-2); }
       .log-modal { background: var(--paper-sunk); border: 1px solid rgba(23, 20, 15, 0.15); border-radius: 8px; padding: 1.5rem; width: 90%; max-width: 360px; }
       .log-modal h3 { color: var(--theme-color); font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px; font-size: 1.1rem; margin: 0 0 1rem 0; }
       .log-modal label { display: block; color: var(--ink-3); font-size: 0.85rem; margin-bottom: 0.75rem; }

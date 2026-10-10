@@ -64,6 +64,10 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# What is never written to a log, whatever logs parameters. `contact` is the
+# guestbook's optional email-or-phone field (Web.General.Contact).
+config :phoenix, :filter_parameters, ["password", "contact"]
+
 # Extensions the stock MIME table does not resolve, which LiveView's
 # `allow_upload` rejects outright when they appear in an `accept` list.
 # The table is built into the dependency at compile time, but through

@@ -36,8 +36,7 @@ is simply the full text.
         <li :for={step <- @steps} data-bead={step.bead} data-title={step.title} hidden>
           <h2 class="faith-beads-title">{step.title}</h2>
           <%= if step.bead == :mystery do %>
-            <.passage passage={step.mystery.passage} citation={step.mystery.citation} />
-            <p :if={step.mystery.note} class="faith-note">{step.mystery.note}</p>
+            <.mystery_scripture mystery={step.mystery} />
           <% else %>
             <p class="faith-beads-text">{step.text}</p>
           <% end %>

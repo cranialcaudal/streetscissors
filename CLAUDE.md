@@ -161,7 +161,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   keeps it. The days link with `navigate`, never `patch` (a patch would carry one day's ticked
   boxes onto the next day's list). The strip of days at the top prints each day's one word
   (`theme:` in `weekly/<day>.md`: "legs", "arms", "cardio") and fills today in hot metal. The
-  day's checklist leads the page; under it sit
+  section's tabs (Wiki, Activities) sit above that strip, as they do on the other fitness pages
+  (they were at the foot of the page until 2026-10-07); then the day's checklist; under it sit
+  **Logging** (admin only, the inline "Log" button on a checklist line): the wiki decides
+  what can be logged, not the `exercises` table. `Fitness.loggable_exercise/1` makes the row a
+  log hangs from the first time an exercise is logged; until 2026-10-08 it only looked the
+  slug up, the table knew 17 of 126 exercises, and the tests passed because they seeded the
+  row first. The form shows the last entry, saved entries list under the day ("Logged
+  today", with Remove), and entries are dated by `Web.Clock`. **The modal's backdrop must not
+  carry `phx-click`**: LiveView gives a click to the nearest ancestor that has one, so it
+  closed the form on every click inside it.
   **The Week**: `Web.Fitness.Week` reads
   `content/fitness/week.md` and `WebWeb.FitnessWeek` renders it, untimed chips for visitors and clock
   times for the admin only, so the public page never says when he's out of the house), Komoot-synced rides
@@ -390,6 +399,12 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   - **`/Christ` is the whole day on one page** (`?date=` for any other day), **and only the day**:
     the saints of the day by name (a life is on the saint's own page), the fast in a line, and
     each prayer written out behind its own `<details>`, so it opens in place with no JavaScript.
+    **Inside an hour, what people know by heart is a name** (`FaithHTML.known/1`, a closed
+    `<details class="faith-known">`): the Our Father, the Glory Be after each psalm, the
+    Angelus. Psalms, readings and canticles change daily and stay written out. **The Rosary is
+    the order of prayer and the mysteries by name**; each mystery's scripture is behind
+    `mystery_scripture/1` (closed, on the written form and on its bead), and the words of the
+    prayers are listed once at the foot. Don't write them back out.
     The essay on the Carmelite fast came off the page on 2026-10-07; don't put explanation back.
     Each prayer is a component in `FaithHTML` (`office/1`, `masses/1`, `midday/1`,
     `rosary_text/1`) because it is also a page of its own. `app.js` only enhances: it opens the
@@ -409,10 +424,15 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `.faith` re-inks the site's tokens as `.steel` and `.darkroom` do: brown wool ground, cream
     type, and red thread. `--stitch` is the sewn line (always `dashed`: the panel's edge and the
     three seams) and `--accent-ink` is the same red lifted to pass as small text on brown.
+    Deepened on 2026-10-07 (`--paper: #1e120a`, crimson `--stitch`); `--accent-ink` is as
+    saturated as it can be and still hold 4.5:1 on `--paper-raised`, so check before pushing it.
     **Under `.faith` `--ink` is light.** Print goes back to black on white.
   - The address is `/Christ`, capital and all (renamed from `/faith` on 2026-10-07); `/faith/*`
     and `/christ/*` 301 there (`LegacyRedirectController.christ/2`). The code keeps the old
     name: `FaithController`, `faith.css`, `.faith-*`.
+  - **It is on the homepage** (2026-10-07): the third skinny card, where "How It Works" was.
+    `/how-to` is a link in the home footer beside the almanac, which with `/about` is still
+    the only way to it.
   - `priv/faith/guide.md` (the essay on the fast) is kept on disk but nothing renders it.
 
 - **Captain's logs** (`Web.Audio`) are the blog's sibling, not a feature of it: DB-backed
@@ -450,7 +470,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     legacy ladder's `v0/index.m3u8`), clearing the trims already baked in. On prod, through
     `bin/web rpc`.
   - **The player (`LogEntry.plate/1` + `.LogPlayer`) owns its plate**: `phx-update="ignore"`,
-    so a patch — counting a witness is one — never resets it. Its state is a class that only
+    so a patch — counting a view is one — never resets it. Its state is a class that only
     repeats what the media element reported: `is-loading` from the click, `is-playing` on the
     element's own `playing` event, `is-error` on an `error` event, a refused `play()` or 15 s
     of nothing, with **Try again** and **Open the file**. `start()` calls `play()` inside the
@@ -483,10 +503,14 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     that looks like a strip. The LiveView never runs a scan itself; the slow tools go through
     `start_async`.
   - **`Web.Scanner.Driver`** is pure argument-building and parsing (the `Web.Media.FFmpeg`
-    split). Every scan passes `--source "Transparency Unit" --film-type "Negative Film"`; a strip
-    is 300 dpi cut to its format's **holder rectangle** (`-l -t -x -y`, mm, from
-    `SCANNER_AREA_35MM` / `SCANNER_AREA_120`; 620 uses 120's), a keeper 2400 dpi cut to its
-    frame's region from `frames.json` plus a margin. **One strip placement per scan** — there is
+    split). Every scan passes `--source "Transparency Unit" --film-type "Positive Film"` (the backend's
+    "Negative Film" doesn't invert, it pre-corrects the orange mask that `film-develop` removes
+    itself; "Positive Film" is the unconverted negative the archive holds); a strip
+    is cut to its format's **holder rectangle** (`-l -t -x -y`, mm, from
+    `SCANNER_AREA_35MM` / `SCANNER_AREA_120`; 620 uses 120's), a chosen frame is 1600 dpi. **The V550 scans film only at 400, 800,
+    1600 and 3200 dpi**, and `scanimage` rounds any other figure to the nearest and exits 0, so
+    the driver asks only for those: a strip is scanned at 400 and `Bed` resamples it to the
+    archive's 300 (`Driver.strip_resample/0`) before it is renamed into the roll. **One strip placement per scan** — there is
     no bed-wide strip detection. SANE lists webcams too, and first: only a `:scanner` is ever
     used (`Driver.pick/1`; `SCANNER_DEVICE` pins a backend by id *prefix*, since the id carries
     the USB address).
@@ -502,25 +526,311 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     strip deletes `frames.json` (it now describes other strips), so Gate 1 fails until the roll
     is analysed again. A keeper's raw scan goes to `raw-frames/frame-NN.tiff` and only the
     developed `frames/NN.png` is served.
-  - **No simulation in production.** `Web.Scanner.Simulation` draws pretend scans only when
-    `:scanner_simulation` is set, which `dev.exs` and `test.exs` do. With no scanner and no
-    simulation the page disables its scan buttons and still takes uploads (copied, never
-    converted). The suite runs against `test/support/stub_scanimage`, `stub_film_develop` and
-    `stub_contact_sheet`, switched by `STUB_*` env vars.
+  - **Scan is a look; approval is what sends the scanner back** (2026-10-07, the author's
+    order of work). `Driver.pass_args/2` scans the whole transparency area in colour at 400
+    dpi, the scanner's quickest (28 s), and everything comes from that file in a `start_async`
+    (`take_pass/3`): `Detect.read/2` says what the film is and where each strip lies (both
+    slots of the 35mm holder are two strips from one pass), the roll is named to match and its
+    folder made if it had none, `Pipeline.add_pass/6` cuts each strip at the archive's 300 dpi
+    (grey for black and white) and writes **where each lies on the glass to the roll's
+    `holder.json`**, and the roll is analysed. `SCANNER_AREA_*` now gives only the holder's
+    top and height; the strips' edges are found.
+  - **Approved singles are scanned at 1600 dpi, in bands.** `Pipeline.frames/1` lists the
+    frames and `suggested?/1` ticks every one the analysis calls well exposed (a reading of
+    the negative's tone, not of the picture: the archive held no prints to learn taste from).
+    On approval `Pipeline.glass_rect/3` places each ticked frame on the glass from
+    `holder.json`, and `Driver.bands/2` gathers frames that are side by side or neighbours
+    into one crossing, because **the scanner's time goes with the length of glass it crosses**
+    (135 s for the whole holder at 1600; one band took 62 s for three frames). Each frame is
+    cut out of its band (`cut_from_band/6`) and developed. Moving, turning or deleting a strip
+    deletes `holder.json`: such a strip's frames are scanned one at a time, with 3 mm of room,
+    on the understanding that it was put back in the calibrated slot. **What was proposed and
+    what was chosen go to the roll's `selects.json`** (`record_selects/3`), with each frame's
+    turn (`rotation/2`: landscape unless the author turned it, and the way it is printed).
+    The run of scans is the LiveView's, so closing the page stops it after the scan under
+    way. The small positives the picker shows are `film-develop analyze --export` output in a
+    0700 folder under the system tmp dir, never in the archive.
+  - **`film-develop` was reworked on 2026-10-07** (it lives in `~/.local/bin`, outside this repo;
+    the copy it replaced is in `~/film-pipeline-backups/2026-10-07/`). What the site relies on:
+    - **A frame's rectangle in `frames.json` is the picture itself**, rebate and film edges
+      left out. That is why a single scanned in place gets no margin
+      (`Driver.keeper_margin(:in_place)` is 0) and why the grease-pencil rings sit tighter.
+    - **35mm is cut on the film's fixed 38 mm grid**, so a strip holds however many frames it
+      holds and frame numbers run on across strips of different lengths. The old tool cut
+      every strip into six and cut through pictures on 19 of the archive's 53 strips.
+      `mis_split` and the "Try --frames-per-strip" retry in `generate_frames_analysis/4` now
+      only arise for 120 and 620, whose spacing is the camera's.
+    - **The roll sets the colour and a frame only its exposure** (the `film` block: base,
+      a power per channel, white). Developing frame by frame is what tinted thin negatives.
+      `develop` also removes small white dust specks unless told `--no-dust`.
+    - The whole archive was re-analysed and every sheet rebuilt that day.
+    - **Glass is never film** (2026-10-09; the copy it replaced is in
+      `~/film-pipeline-backups/2026-10-09/`). A strip from the scanner studio is the whole
+      holder slot, so there is bare glass beyond the film's ends, and the holder's grey edges
+      down its sides pass the tool's film test. Three things went wrong from that: the film's
+      extent ran on over the glass, the "film base" was read off it (238 where the film's is
+      about 170, so no gap between frames ever read as bare), and the 38 mm grid was hung on
+      the glass just past the film's end. Roll 035's first strip (two night frames, a third,
+      and a fogged leader) had every frame cut 9 mm late. Now `glass_level/1` finds the glass,
+      `film_on_glass/5` reads the strip down the middle of its width only, stops the film where
+      the glass starts and measures base on the film, and `grid_35mm` looks for gaps on the
+      film: between frames, and in the last millimetre inside each end (a cut between frames
+      ends on rebate, a leader does not). **A scan that shows no glass (every roll before 031)
+      is read exactly as before**, checked strip by strip. The frame is named
+      (`FRAME_35MM = 36`, the gap is what the pitch leaves) and `analyze --frame-mm 18` is a
+      half-frame camera. Rolls 031 to 036 were analysed by the old rule and are not redone;
+      re-analysing one moves its frames by up to 2 mm, and by more on its short strips.
+    - **Slide film is a third mode** (2026-10-09, for a roll of E100). `film-develop` has
+      `color`, `bw` and `slide`; a slide is already the picture, so nothing is inverted or
+      colour-balanced (the roll's brightest highlight is white, the same in all channels, and
+      a frame may only nudge its own black and white), frames are found by their **dark**
+      gaps, and dust removal is skipped. **The site does not know the mode exists, and the tool tells
+      by looking** (`looks_like_slide/1`): a roll the page calls colour is a slide when the
+      clearest film down the middle of its strips is neutral (a colour negative's orange mask
+      makes it far redder than blue) and at least 2% of it is true black. All eleven colour
+      negative rolls in the archive read as negatives by it. `roll.json` outranks the look
+      either way: a reversal stock under Film or `"process": "slide"` makes it a slide,
+      `"process": "negative"` keeps it a negative. The page's own detection still has to call
+      the roll **colour** (`Web.Scanner.Detect` knows only colour and black and white, and a
+      roll taken for black and white is stored grey). 35mm only.
+    - **A slide developed badly is balanced channel by channel** (2026-10-09, six rolls of
+      E100 that came out dense with a red black). The slide branch of `film_model` reads, per
+      channel and pooled over the roll's pictures, a **black** (taken off: the film's read
+      about 7, 2, 2 and every shadow wore it), a **contrast** (`power`: the film is crossed,
+      red at twice green and blue through the midtones and level only near white, so each
+      channel is bent until the roll's midtones agree, `SLIDE_BALANCE` of the way) and a
+      **white** (held further back, since a roll's highlights are lamps and signs). A frame
+      then sets its own white and raises its own midtones; one with nothing lit stays night.
+      The roll decides the colour, never a frame. `roll.json` may overrule it:
+      `"slide": {"lift": 1.2, "balance": 0.6, "warmth": 0.5}`. `film-develop redevelop ROLL`
+      develops every single again, but **on a published roll go through
+      `Web.Scanner.Pipeline.develop_keeper/2`** (by `bin/web rpc`), which also turns the print
+      and remakes its previews. A slide's singles are scanned at **16 bits**
+      (`Driver.band_args/5` `deep: true`, when `Scanner.slide?/1`); the print is 8.
+    - **Medium format's frame count is read off the film** (`count_by_template/4`): 120 and
+      620 are one film in different cameras, and a 620 roll of 6x9 (two to a strip) was being
+      cut in three. On a strip on glass, each count from 2 to 6 is laid cut to cut and the one
+      whose gaps are all gap wins; `--frames-per-strip` still insists. Scans without glass
+      (every roll before 031) are counted as before.
+    - **The frame is 36 mm; the spacing is the camera's** (2026-10-09, roll 048, a camera
+      that wound 41.8 mm on one strip and 467, 467, 430 px on the next). "38.00 mm apart
+      whatever the camera" was wrong. On a strip on glass, a 38 mm grid that puts picture in
+      one of its own gaps (`grid_cuts_a_picture/7`; only gaps with a frame kept on each side,
+      since past the last frame there may be a fogged leader) gives way to
+      **`walk_frames/6`**: the plainest frame is found first (gap outside, picture inside, at
+      both ends of a 36 mm window, `_frame_score/5`) and the strip is walked each way from it,
+      each next frame looked for from touching the last to 10 mm on, and a frame with no edge
+      of its own set one spacing on so the count stays right. The walk is believed only where
+      it differs from the grid by more than 2.5 mm, so an evenly wound roll keeps its grid.
+      Every strip on glass is then cut as whole 36 mm frames, and **`snap_frames/6`** moves a
+      frame up to 5 mm onto its own picture, but only for an edge at *both* its ends (a thin
+      frame has edges inside it that pass for one).
+    - **A roll's contrast is the whole roll's when few frames score well**, and a dense
+      frame may be darkened further (`GAMMA_LIMITS` low end 0.5, was 0.72). "Well exposed" is
+      the spread of the *scan's* values, which a dense, overexposed negative squeezes, so on
+      roll 048 one thin frame set the contrast for all seven and the rest printed blown.
+      Under a third of the roll scoring well, `film_model` reads every frame. **The page's
+      small positives and a developed single are the same recipe**: a preview that is too
+      bright means the single will be.
+    - **A strip's film base is read off its film** when it is on glass. The whole-strip
+      reading that feeds `film_model` took in the holder's grey edges, so a colour negative's
+      base came out nearly neutral (blue 65 where the film's is 38) and every shadow printed
+      blue. Scanner-era colour negatives analysed before this (031) carry that cast until
+      analysed again.
+    - **Dark film is placed by a template of the frame, not by counting black lines**
+      (`grid_by_template/6`, 2026-10-09, roll 037: night pictures on E100). Between two night
+      frames a slide's gap is a third of a brightness level darker than the pictures, and a
+      dark corner of a picture is exactly as black as a gap, so "is this line black" hung the
+      grid on the pictures' shadows and every frame came out 4 to 7 mm off. The strip is now
+      read as brightness with its fractions (`middle_trace/2`) and a grid of 36 mm frames and
+      2 mm gaps is slid along it under two rules: **nothing of a picture may lie in a gap**
+      (a gap is at the strip's own gap level within 6%, or that grid is out), and **a picture
+      edge beside a gap is the score**. Frames it places stay on its grid, all the same size.
+      A slide is always placed this way; **a negative on glass is, when its gaps do not read
+      bare** (thin, fogged or expired film), and otherwise as before. With no evidence at
+      all, a strip a whole number of frames long is laid end to end between its cuts
+      (`whole_strip/3`). The page's own finder (`Web.Scanner.Detect`) also had to learn that
+      a slot showing bare glass past the film's ends holds film even when the film is as
+      black as the holder; film that dark is taken for reversal film, in colour.
+ Written against a slide made by inverting a
+      negative strip, not yet against real E100.
+  - **What the author knows of a roll is `roll.json` in its folder** (`Web.Negatives.RollMeta`,
+    2026-10-07): when it was shot, camera, film stock, place, notes. **Shot is as exact as is
+    known**: `2023`, `2023-06` or `2023-06-14`, and nothing invents the rest. It is typed under
+    Roll on the scanner page (saved on change; said before the roll has a folder, it is held
+    and written when the first preview makes one) and shown on the roll's page on `/negatives`
+    (`.sheet-about`). **The roll is still filed by its scan date** everywhere (folder name,
+    index, almanac, day pages, feeds): his choice, so nothing published moves. Other keys in
+    the file are kept; `roll001` has the catalog row there from the `negatives` command.
+  - **Nothing after a scan holds the bench** (2026-10-07, "it has to move faster after the scan
+    is made"). A band's frames are cut and developed in their own `start_async` (`{:develop,
+    id}`, three at a time), so the scanner goes straight to the next band and the page is back
+    at Load when the last band is in, developed or not. `developing` is frames per roll
+    folder, since by then the bench may hold another roll. `film-develop` writes `frames.json`
+    whole (beside, then moved) because a frame can be developing while the next look analyses.
+  - **A sleeve holds so many strips** (`scanner_strips_per_roll` in site settings, default 7,
+    under Roll; blank is saved as the word `off`, since a setting cannot be saved empty and
+    blank used to leave the old number in force). **Nothing is decided at the look and
+    nothing is published until Publish is pressed** (reworked 2026-10-09, his words: "the
+    whole process just needs a rehaul"). It used to give the full roll the left slot's strip,
+    start the next roll with the right slot's before anything had been seen, keep that
+    strip's singles out of reach until the full roll was settled, and then publish the full
+    roll unasked.
+  - **Where one roll ends is asked after the load is worked.** The holder takes two strips,
+    so the strip that fills a roll often shares the glass with the next roll's first. Every
+    strip of a look joins the roll on the bench, past the count if need be, and their singles
+    are chosen and scanned together. When the load is settled, `settle_roll/1` looks at the
+    count: one strip over, and the page asks which of the roll's last two begins the next
+    roll (`#roll-end`; the last is chosen, the other may be picked, and Preview is refused
+    until it is answered); the `"end_roll"` event swaps them if need be
+    (`Scanner.reorder_strips/2`, singles carried) and cuts with `Pipeline.split_roll/2`,
+    which takes the strip's singles, selections and place on the glass with it. A roll with
+    exactly its count is simply full: the next Preview opens the next roll. Rolls complete
+    and not yet in the catalog are listed on the bench (`#waiting-rolls`,
+    `Pipeline.unpublished_rolls/1`) with Publish and Open. Only Publish pressed with frames
+    still ticked publishes by itself, after scanning them. "New roll from here" on a strip
+    is still there for any other case.
+  - The Epson backend sometimes refuses a scan with `sane_start: Invalid argument` when asked
+    right after another; the page asks once more after 2.5 s before calling it a failure.
+  - **A run cut short is found again** (`Pipeline.owed_singles/1`). The run of scans lives in
+    the LiveView and the scan in `Bed`, so a restart of the service kills both; on 2026-10-07
+    two deploys landed seconds after Scan was pressed and ten chosen singles were silently
+    never made. What was chosen is written to `selects.json` before the scanner starts, so
+    "chosen and no print" is exactly what an interrupted run leaves. On opening a roll those
+    frames are put back up, ticked, with a notice, if their strips are still on the glass;
+    otherwise they are listed over the collection. **`redeploy.sh` waits for the scanner to
+    be idle at the moment of the restart**, asking the serving node through the kept copy of
+    its release (the build replaces the cookie), and gives up after 15 minutes.
+  - **Singles are added to any published roll from one button** ("Add singles to an old
+    roll", `Pipeline.identify/5`): the same look and the same comparison as below, made
+    against every roll of that width of film, and the roll that fits best is opened with
+    those strips up to choose from. Nothing is proposed, only singles owed come back
+    ticked, and the prints are on the roll's page as soon as they are developed (the site
+    reads `frames/` at request time; no republish). One roll per load. **Publish with
+    frames ticked scans them first** (`then_publish?`): it used to publish and drop them.
+  - **A strip laid back in the holder is found, not assumed** (`Pipeline.relocate/5`, "Find
+    this roll's strips on the glass"). A look that adds nothing: each piece of film on the
+    glass is compared with every strip the roll has, by a small picture of it (8 across, a
+    row every 0.5 mm, **each row less its own mean**), at every offset within 45 mm and both
+    ways up. Taking the row mean off matters: brightness along a strip is mostly frame gaps,
+    which all five-frame strips share (0.87 between different rolls); what is left is the
+    picture (same film 1.00, any other at most 0.37 on the scanner, line drawn at 0.6). The
+    offset goes into the strip's place in `holder.json` and "other way up" into `flipped`,
+    which `glass_rect/3` and `cut_from_band/6` honour. It replaces the old put-back path's
+    assumption that a strip sits where it first did.
+  - **What is on the glass is one thing for the whole archive** (`<archive>/.on-glass`): a
+    roll's `holder.json` holds only while it belongs to the most recent look, into any roll.
+    Roll 032 once went on claiming its last strips through the whole of roll 033.
+  - **Deleting, reordering or turning a strip carries its singles with their frames**
+    (`Pipeline.carry_singles/3`): prints are filed by frame number and those operations
+    renumber frames, which once left six prints attached to the wrong pictures. A roll with
+    singles is re-analysed inside the operation to learn the new numbers. Where strips lie on
+    the glass survives a reorder (renamed) but not a turn. "Discard this load" takes a pending
+    load back out, and a look that reads frame for frame like a strip already on the roll
+    says so.
+  - **Only the tab that started a scan acts on its result** (jobs carry `owner: self()`).
+    Every open studio hears the scanner on PubSub, and two tabs each cut the same pass into
+    the roll before this.
+  - One sticky bar (`#hardware-scan`) holds the roll's name, Roll, Strips, Publish and the
+    primary button. The roll's settings (`#roll-config`) and the strips (`#strips`) are
+    drawers, one open at a time, **hidden with the `hidden` attribute and kept in the DOM**,
+    since their forms are still what the events and the tests address.
+    `.adm-page:has(.adm-scan-bench)` lifts the admin's 1120px limit for this page only. **A
+    reload opens the roll in progress** (`Pipeline.roll_in_progress/0`: the newest roll folder
+    the catalog does not list), not the next free number.
   - Styled only by `adm-scan-*` rules in `admin.css`.
+
+- **Search** (2026-10-07). `Web.Search.search/1` answers one query across every section, grouped
+  by section (Blog, Captain's logs, Exercise wiki, Activities, Photographs, Saints, The Bible,
+  How it works). **There is no index**: each query reads the same public list functions the
+  pages read, so drafts, unpublished logs and `/food` cannot turn up, and a source that is
+  missing answers nothing. Every word must appear **at the start of a word** (`pull` finds
+  "Pull-Ups", not "controlled"); a name that is the query leads, text matches come last with
+  the line they were found on. `/search?q=` (`PageController.search/2`) is a plain GET form,
+  `noindex`, out of the sitemap, and rate-limited per address because a query reads files.
+  **Every page is in the search, always** (his rule, 2026-10-07): a page with no content of its
+  own to list goes in `Web.Search`'s `@fixed` (title, path, what it is, other words for it),
+  and `search_test.exs` walks the router and fails on a public address that is not findable.
+  Only `/food` and `/england2026` are held back (`Search.unlisted/0`). Frames are found after
+  their rolls.
+  **The field offers names as it is typed in**: `Search.suggest/1` (eight nearest by name
+  across all sections, no body is read) behind `GET /search/suggest` (JSON, its own looser
+  rate limit), drawn by a `DOMContentLoaded` block in `app.js` as an ARIA combobox. It is
+  enhancement only; the form works without it.
+  The way in is a magnifier in the header of every page: `blog_header/1` on the inner pages
+  and the homepage's own top bar. In `blog_header/1` it is a square at every width. On the
+  homepage it is a square on a wide screen, and **on a phone it is the bar**: a field-shaped
+  control leading the row and taking the width the three marks (guestbook, profile, contact)
+  leave, since a fourth square among squares read as clutter (2026-10-07). **Icons are an allowlist**
+  (`@source inline(...)` in `app.css`): `<.icon>` with a name not on it renders an empty
+  square, with no error anywhere, which is how the magnifier first shipped. **The exercise wiki has its own filter** (`/fitness/wiki?q=`, patched as you type)
+  over name, group, anatomy and category; it is a narrowing of one page, not `Web.Search`.
+
+- **Speed** (2026-10-07; measured with headless Chrome on a throttled phone profile, and
+  pinned by `test/web_web/speed_test.exs`). The server was never the slow part.
+  - **Type is served from here**: `assets/css/fonts.css` + `priv/static/fonts/*.woff2` (latin
+    and latin-ext of the five families, SIL OFL, `LICENSES.md` beside them). No page asks
+    Google. The root layout **preloads the two files the header draws with** (Goudy regular,
+    Plex Mono 600) with `crossorigin`; `~p` gives the digested address, the same one
+    `phx.digest` rewrites into the stylesheet, and they must stay the same or the font is
+    fetched twice. A new family needs its files, its `@font-face` rules, and nothing else.
+  - **The next page is fetched ahead**: `SEO.speculation_rules_tag/0` has the browser
+    *prefetch* a same-site link when the pointer rests on it. **Never prerender**: that runs
+    the page, opening LiveView sockets and counting views nobody made. A prefetch carries
+    `Sec-Purpose: prefetch` and **`WebWeb.Plugs.Analytics` does not count it**; the browser
+    makes no second request when the link is followed, so `app.js` posts `/seen?p=<path>`
+    (`WebWeb.SeenController`, outside `:browser` because a beacon has no CSRF token) when a
+    prefetched page is actually shown. Both doors count through `Analytics.record/2`.
+    Break either half and "witnessed" silently over- or under-counts.
+  - `@view-transition { navigation: auto }` (`header.css`): the header keeps its place
+    between pages.
+  - The homepage hero is asked for at 480/960 with `fetchpriority="high"`, never lazy (it was
+    the full preview, 410 KB of a 586 KB page). Negatives images with `?v=` are kept a month.
+  - **`Web.Warm`** runs once after the Endpoint starts and reads everything that is parsed on
+    first use into `:persistent_term` (lectionary, calendars, saints, the day's Bible books,
+    the manual), so the first visitor after a deploy does not wait for it: `/Christ` was
+    260 ms cold and 5 ms warm. `Web.Docs.render_file/1` keeps a rendered document until its
+    file's mtime changes.
+  - The service worker precaches icons only; it used to fetch the undigested stylesheet and
+    script that no page uses.
+
+- **The guestbook shows every approved signature**, newest first. It used to stop at sixty
+  days, which emptied the page on 2026-10-07. Signatures 2–8 predate the July move off the
+  container stack and were restored that day from its old databases
+  (`~/.local/share/containers/storage/volumes/sqlite_data/_data/` and
+  `~/streetscissors-backups/repo-root-2026-10-04/`); ids 1 and 3 were tests and id 7 is in no
+  copy that survives.
+
+- **A signer may leave an email address or phone number** (optional, 2026-10-07), and it is
+  the most protected thing on the site. `Web.General.Contact` encrypts it under a key derived
+  from `SECRET_KEY_BASE` and `guestbook_entries.contact_sealed` holds only ciphertext, so
+  every database copy (nightly snapshots, pre-migration copies, the unencrypted mirror) is
+  free of it; `.env` is in no backup. **Rotating `SECRET_KEY_BASE` makes every sealed contact
+  unreadable for good.** The column is `load_in_query: false`: only
+  `General.guestbook_contact/1` reads it, for `/admin/guestbook`, which opens one contact at
+  a time on a click and can forget one without deleting the signature. It never reaches the
+  public page, PubSub, the notification letter (which sits in `oban_jobs`) or a log
+  (`contact` is in `:filter_parameters`; both schema fields are `redact: true`). Don't add
+  it to an export, a search source or an email. `test/web/guestbook_contact_test.exs` pins
+  each of these. Known gap: a LiveView crash while the form is being filled in can write the
+  last event, field included, to the local journal.
 
 - **Keywords** are the one filtering vocabulary shared by both sections, normalized through
   `Web.Keywords` (`parse/1`, `normalize/1`, `tally/1`, `slugify/1`) so `"New York"` and
   `"new-york"` are one token. A post's keywords live in its frontmatter (`keywords:`, or Obsidian's
   `tags:`; `Blog.set_keywords/2` rewrites the line in place from the admin); a log's live in the
   `audio_logs.keywords` column, normalized in the changeset. Both sections sort by **most recent**
-  or **most witnessed** with the sort and `?keyword=` filter in the URL. "Witnessed" counts
-  people, not loads: for posts, distinct `ip_hash` in `analytics_hits` unioned across every
-  address the post has lived at; for logs, distinct `audio_plays.witness` tokens — an anonymous
-  id the browser keeps in `localStorage`, sent by the `.LogPlayer` hook only after 30 s have
-  actually played (half the entry if shorter), one row per browser per log by unique index, and
-  never recorded for an admin session. Plays from before 2026-09-22 have no token (they were all
-  logged against Caddy's `::1`) and count for nothing.
+  or by their count, with the sort and `?keyword=` filter in the URL. The two counts differ.
+  **Posts are "witnessed"**: people, not loads — distinct `ip_hash` in `analytics_hits` unioned
+  across every address the post has lived at. **Logs have "views", counted the way a video site
+  counts them** (2026-10-07; they were distinct witnesses, and read 0 everywhere): every
+  `audio_plays` row is a view. The `.LogPlayer` hook sends one only after 30 s have actually
+  played (half the entry if shorter) and again after the entry has run to its end;
+  `Audio.record_play/4` takes at most one per browser per log per 30 minutes (`:throttled`
+  otherwise), the browser being `audio_plays.witness`, an anonymous id kept in `localStorage`.
+  Never recorded for an admin session. Plays from before 2026-09-22 have no token and count as
+  views. `/logs?sort=viewed`; `?sort=witnessed` still answers. Figures print short
+  (`Format.format_count/1`: `1.2K`).
 
 - **The 404** (`WebWeb.ErrorHTML`, `WebWeb.NotFound`, `Web.Nearby`). The page is a **whole
   document** (`error_html/not_found.html.heex`), not a block for a layout: an address no route
@@ -580,8 +890,21 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `"frame:<roll>/<n>"` (roll padded like `/negatives/roll/013`). `resolve/1` checks it exists and
     is public (a draft log is `:error`); `from_path/1` maps a site path to a ref. Letters,
     webmentions and the admin all store and resolve refs through it.
-  - **The almanac** (`Web.Almanac`, `AlmanacController`): `/day/:date` and `/almanac/:year`, built
-    from dates every section already has. Posts use their `date`, logs `recorded_on`, rolls the
+  - **The daybook** (`/daybook`) **is an engagement calendar** (his direction, 2026-10-07; it
+    was "the almanac", a year page with day pages behind it, and he renamed it the same day
+    because an almanac looks ahead and this keeps a record). `/almanac*` 301s there
+    (`LegacyRedirectController.almanac/2`); **the code keeps the old name** (`Web.Almanac`,
+    `AlmanacController`, `almanac.css`, `.almanac-*`), as the prayer pages kept `Faith*`.
+    **`/daybook` is this week** and `/daybook/:year/week/:n` any ISO
+    week (`Almanac.week/3`, `week.html.heex`): a plate on one side (a roll or recording from
+    that week, else a roll from the archive picked by the week's number, so a week always
+    shows the same picture) and seven ruled days on the other. A day row carries what the
+    Church keeps when it is more than a weekday (`Web.Liturgy.Calendar`, as a printed
+    calendar marks holidays), the work made, and **from today on only**, the regimen's
+    `theme:` word for that weekday ("Training: legs"). `/daybook/:year` is now "the year at a
+    glance". The current week is always a page; any other empty week is a 404.
+  - **The daybook's data** (`Web.Almanac`, `AlmanacController`): `/day/:date`, weeks and
+    `/daybook/:year` are built from dates every section already has. Posts use their `date`, logs `recorded_on`, rolls the
     sheet's scan date (the day it came out of the tank), and rides their Pacific-local day.
     **Never times**, the same rule as the public week. An empty day or year is a **404**, and
     prev/next only point at days with work, so crawlers can't walk an infinite calendar. Every
@@ -676,6 +999,22 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   targets are ≥44px; solid ink marks the current choice (the header, `/blog`, post pages). The back control
   shows just the destination ("return to fitness" → "Fitness") and carries the full "Back to …" as
   its aria-label; both controls fold to equal icon squares at ≤900px.
+  **Back goes to the last thing the reader was looking at** (`assets/js/trail.js`,
+  2026-10-09), not to the page's parent and not to the browser's previous page. The link in
+  the markup (`data-back`) is the parent and stays the fallback; the script keeps a trail of
+  *things* per tab in `sessionStorage`: a thing is a path without its query, and the
+  negatives archive, the regimen's days and the daybook's weeks are each one thing however
+  far the reader walks inside (`FAMILIES`: also the days read one after another and the
+  Bible's chapters), remembered at the last address seen. A new section that is walked rather
+  than visited belongs in that list. **A page that came out of somewhere goes back there
+  whatever the trail says** (`UP`): a single photograph to its contact sheet. **A thing is
+  remembered with the reader's place on it**: how far down, and which link was pressed, put
+  back on return (the link is the surer mark; a folded `<details>` it sat in is reopened,
+  and a sideways shelf is scrolled to it). The place is put back several times over four
+  seconds, because a LiveView page is redrawn after it loads (the day's checklist threw the
+  page to its top when its ticks arrived), and dropped the moment the reader scrolls. A 404
+  is never put on the trail. It leans on every piece having one address and every view of
+  it living in the query.
   **A tab left open across a deploy reloads itself** (`WebWeb.FreshAssets`, an `on_mount` of the
   public `live_session`, with `phx:stale-assets` in `app.js`): it used to reconnect, take the
   new markup and keep the old digested stylesheet, so new parts of a page showed unstyled.

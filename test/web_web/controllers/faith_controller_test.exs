@@ -25,6 +25,15 @@ defmodule WebWeb.FaithControllerTest do
     assert html =~ "Luke 10:38-42"
     assert html =~ "The Agony in the Garden"
     assert html =~ "Hail, holy Queen"
+
+    # A prayer known by heart is its name, with the words behind a <details>
+    # that is closed until asked for. The psalms stay written out.
+    assert html =~ ~r{<details class="faith-known">\s*<summary>\s*<span>The Our Father}
+    assert html =~ ~r{<details class="faith-known">\s*<summary>\s*<span>Glory Be}
+    assert html =~ ~r{<details class="faith-known">\s*<summary>\s*<span>The Angelus}
+    refute html =~ ~s(<details class="faith-known" open)
+    refute html =~ "faith-doxology"
+    assert html =~ ~s(class="faith-verses faith-verses--lines")
     assert html =~ ~s(href="/Christ/hours/vespers?date=2026-10-06")
 
     # The guide to the fast is no longer on the page.
@@ -157,6 +166,20 @@ defmodule WebWeb.FaithControllerTest do
     assert html =~ "The Annunciation"
     assert html =~ "Luke 1:26-38"
     assert html =~ "Hail Mary, full of grace"
+
+    # The written form is the order of prayer and the mysteries by name: each
+    # mystery's scripture is behind its own closed <details>, twice over (the
+    # written form and the bead-by-bead step), and so are the prayers' words.
+    [written] = Regex.run(~r{<div data-rosary-text>.*}s, html)
+    assert written =~ "one Our Father, ten Hail Marys, one Glory Be and the Fatima Prayer"
+    assert length(Regex.scan(~r{<h3 class="faith-mystery">}, written)) == 6
+    assert length(Regex.scan(~r{<span>Scripture<span class="faith-known-what">}, written)) == 5
+    assert written =~ ~r{<span>Scripture<span class="faith-known-what">Luke 1:26-38</span>}
+    assert written =~ ~r{<details class="faith-known">\s*<summary>\s*<span>The Hail Mary}
+    refute written =~ "<details open"
+    [before_scripture | _] = String.split(written, "faith-known", parts: 2)
+    refute before_scripture =~ "faith-passage"
+
     # The steps app.js walks.
     assert html =~ ~s(data-bead="small" data-title="Hail Mary, 10 of 10")
     assert html =~ ~s(data-title="The Fifth Mystery: The Finding in the Temple")

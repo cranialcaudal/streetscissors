@@ -1,0 +1,132 @@
+<%!-- A week as an engagement calendar opens to it: a picture on one side,
+      seven ruled days on the other. Each day carries what the Church keeps
+      (as a printed calendar marks its holidays), what was made, and, for
+      the days still to come, the regimen's word for it. Never an hour: see
+      Web.Almanac. --%>
+<div class="almanac almanac-week">
+  <header class="almanac-head">
+    <p class="almanac-slug">
+      <.link href={~p"/daybook/#{@week.monday.year}"}>The daybook · {@week.year}</.link>
+      <span class="almanac-slug-week">Week {@week.week}</span>
+    </p>
+    <h1 class="almanac-date">{week_span(@week.monday)}</h1>
+    <div class="almanac-tools">
+      <nav class="almanac-years almanac-weeks" aria-label="Weeks">
+        <.link :if={@week.previous} href={week_path(@week.previous)} rel="prev">
+          <.icon name="hero-arrow-left" class="size-4" /> {week_span(@week.previous)}
+        </.link>
+        <.link
+          :if={@week.monday != Date.beginning_of_week(@today)}
+          href={~p"/daybook"}
+          class="almanac-this-week"
+        >
+          This week
+        </.link>
+        <.link :if={@week.next} href={week_path(@week.next)} rel="next">
+          {week_span(@week.next)} <.icon name="hero-arrow-right" class="size-4" />
+        </.link>
+      </nav>
+      <.link href={~p"/daybook/#{@week.monday.year}"} class="almanac-print">
+        The year at a glance
+      </.link>
+    </div>
+  </header>
+
+  <div class={["almanac-spread", is_nil(@week.plate) && "almanac-spread--no-plate"]}>
+    <div class="almanac-verso">
+      <figure :if={@week.plate} class="almanac-plate">
+        <.link href={@week.plate.path}>
+          <img src={plate_src(@week.plate)} alt={@week.plate.title} loading="lazy" />
+        </.link>
+        <figcaption>
+          <.link href={@week.plate.path}>{@week.plate.title}</.link><span>{if @week.plate.of_week, do: ", from this week", else: ", from the archive"}</span>
+        </figcaption>
+      </figure>
+
+      <section
+        class="almanac-month almanac-mini"
+        aria-label={Calendar.strftime(@week.month, "%B %Y")}
+      >
+        <h2 class="almanac-month-title">{Calendar.strftime(@week.month, "%B %Y")}</h2>
+        <ol class="almanac-cal">
+          <li
+            :for={initial <- ~w(M T W T F S S)}
+            class="almanac-cell almanac-cal-head"
+            aria-hidden="true"
+          >
+            {initial}
+          </li>
+          <li
+            :for={date <- calendar_cells(@week.month)}
+            class={[
+              "almanac-cell",
+              date && MapSet.member?(@week.work_days, date) && "has-work",
+              date && Date.beginning_of_week(date) == @week.monday && "in-week",
+              date == @today && "is-today"
+            ]}
+          >
+            <%= cond do %>
+              <% is_nil(date) -> %>
+              <% MapSet.member?(@week.work_days, date) -> %>
+                <.link href={day_path(date)} class="almanac-cell-link">
+                  <span class="almanac-cell-num">{date.day}</span>
+                </.link>
+              <% true -> %>
+                <span class="almanac-cell-num">{date.day}</span>
+            <% end %>
+          </li>
+        </ol>
+      </section>
+    </div>
+
+    <ol class="almanac-diary">
+      <li
+        :for={day <- @week.days}
+        class={[
+          "almanac-diary-day",
+          day.entries != [] && "has-work",
+          day.date == @today && "is-today"
+        ]}
+      >
+        <div class="almanac-diary-date">
+          <time datetime={Date.to_iso8601(day.date)}>
+            <span class="almanac-diary-weekday">{Calendar.strftime(day.date, "%A")}</span>
+            <%= if day.entries != [] do %>
+              <.link href={day_path(day.date)} class="almanac-diary-num">{day.date.day}</.link>
+            <% else %>
+              <span class="almanac-diary-num">{day.date.day}</span>
+            <% end %>
+            <span :if={day.date.month != @week.month.month} class="almanac-diary-month">
+              {Calendar.strftime(day.date, "%b")}
+            </span>
+          </time>
+          <span :if={day.date == @today} class="almanac-diary-today">Today</span>
+        </div>
+
+        <div class="almanac-diary-lines">
+          <p :if={day.observance} class="almanac-diary-observance">{day.observance}</p>
+          <ul :if={day.entries != []} class="almanac-diary-entries">
+            <li :for={entry <- day.entries}>
+              <span class={["almanac-mark", "almanac-mark--#{entry.kind}"]} aria-hidden="true">
+              </span>
+              <.link href={entry.path}>{entry.title}</.link>
+              <span :if={entry.note} class="almanac-diary-note">{entry.note}</span>
+            </li>
+          </ul>
+          <p :if={day.training} class="almanac-diary-training">
+            <.link href={~p"/fitness/day/#{String.downcase(Calendar.strftime(day.date, "%A"))}"}>
+              Training: {day.training}
+            </.link>
+          </p>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <ul class="almanac-legend" aria-label="Key">
+    <li :for={kind <- Web.Almanac.kinds()}>
+      <span class={["almanac-mark", "almanac-mark--#{kind}"]} aria-hidden="true"></span>
+      {kind_heading(kind)}
+    </li>
+  </ul>
+</div>

@@ -13,8 +13,8 @@ defmodule WebWeb.LogsLive.Index do
   Shaped like the rides archive — the newest entry in view owns the first
   screen, everything else is one chronological run beneath it, and the years
   are a footnote. Sort and keyword filter both live in the URL
-  (`?sort=witnessed&keyword=nyc`) so any view of the archive can be linked to.
-  "Witnessed" for a log means plays.
+  (`?sort=viewed&keyword=nyc`) so any view of the archive can be linked to.
+  `?sort=witnessed` is the same sort under its old name, kept for old links.
 
   One read in `mount/3`, filtering in `handle_params/3` against the list
   already in memory, so a sort or filter click is a patch that costs no query.
@@ -32,11 +32,11 @@ defmodule WebWeb.LogsLive.Index do
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
      |> assign(:client_ip, client_ip(socket))
-     # The admin watching the entries back is not a witness.
+     # The admin watching the entries back is not a view.
      |> assign(:is_admin, session["admin_user"] == true)
      |> assign(:keywords, Audio.list_keywords())
      |> assign(:logs, Audio.list_ready_logs())
-     |> assign_witnesses()}
+     |> assign_views()}
   end
 
   def handle_params(params, _uri, socket) do
@@ -67,10 +67,10 @@ defmodule WebWeb.LogsLive.Index do
 
         # The readouts move; the running order does not. Re-sorting here
         # would let watching something reorder the page underneath the
-        # watcher — and under "most witnessed" it would pull the entry you
+        # watcher — and under "most viewed" it would pull the entry you
         # just started out of the theater mid-play. The order settles on the
         # next patch or visit, which is when a reader expects it to.
-        {:noreply, assign_witnesses(socket)}
+        {:noreply, assign_views(socket)}
     end
   end
 
@@ -83,21 +83,16 @@ defmodule WebWeb.LogsLive.Index do
 
   defp play_target(_socket, _id), do: nil
 
-  # Every figure counts witnesses, not plays: each card is how many people
-  # saw that entry, and the console total is how many people saw any entry
-  # on this page — a union, so someone who watched three counts once. Only
-  # logs actually on this page count, so the readout can never exceed what
-  # the archive below it accounts for.
-  defp assign_witnesses(socket) do
-    witnesses = Audio.witnesses_by_log()
-
-    total =
-      socket.assigns.logs
-      |> Enum.reduce(MapSet.new(), &MapSet.union(&2, Map.get(witnesses, &1.id, MapSet.new())))
-      |> MapSet.size()
+  # Every figure counts views: each card is how many times that entry was
+  # watched, and the console total is those added up. Only logs actually on
+  # this page count, so the readout can never exceed what the archive below
+  # it accounts for.
+  defp assign_views(socket) do
+    counts = Audio.get_all_play_counts()
+    total = socket.assigns.logs |> Enum.map(&Map.get(counts, &1.id, 0)) |> Enum.sum()
 
     socket
-    |> assign(:play_counts, Map.new(witnesses, fn {id, set} -> {id, MapSet.size(set)} end))
+    |> assign(:play_counts, counts)
     |> assign(:total_plays, total)
   end
 
@@ -109,7 +104,8 @@ defmodule WebWeb.LogsLive.Index do
 
   # Total functions: an unknown value falls back to the default rather than
   # crashing on a hand-edited URL.
-  defp parse_sort("witnessed"), do: "witnessed"
+  defp parse_sort("viewed"), do: "viewed"
+  defp parse_sort("witnessed"), do: "viewed"
   defp parse_sort(_), do: "recent"
 
   # Read by the root layout's <link rel="alternate"> on first render; the
@@ -130,7 +126,7 @@ defmodule WebWeb.LogsLive.Index do
   end
 
   # list_ready_logs/0 already returns newest recording first, so "recent" is
-  # the identity and only "witnessed" has to re-order. The featured entry is
+  # the identity and only "viewed" has to re-order. The featured entry is
   # whatever leads the current view, so it follows the sort and the filter.
   defp assign_visible(socket) do
     %{logs: logs, play_counts: play_counts, sort: sort, keyword: keyword} = socket.assigns
@@ -140,7 +136,7 @@ defmodule WebWeb.LogsLive.Index do
       |> Enum.filter(&Web.Keywords.match?(Log.keyword_list(&1), keyword))
       |> then(fn filtered ->
         case sort do
-          "witnessed" -> Enum.sort_by(filtered, &Map.get(play_counts, &1.id, 0), :desc)
+          "viewed" -> Enum.sort_by(filtered, &Map.get(play_counts, &1.id, 0), :desc)
           _ -> filtered
         end
       end)
@@ -183,8 +179,8 @@ defmodule WebWeb.LogsLive.Index do
             <dd>{format_runtime(@runtime)}</dd>
           </div>
           <div class="status-cell">
-            <dt>Witnessed</dt>
-            <dd>{@total_plays}</dd>
+            <dt>Views</dt>
+            <dd>{format_count(@total_plays)}</dd>
           </div>
         </dl>
 
@@ -198,11 +194,11 @@ defmodule WebWeb.LogsLive.Index do
             Most recent
           </.link>
           <.link
-            patch={logs_path("witnessed", @keyword)}
-            class={["console-btn", @sort == "witnessed" && "is-active"]}
-            aria-current={@sort == "witnessed" && "true"}
+            patch={logs_path("viewed", @keyword)}
+            class={["console-btn", @sort == "viewed" && "is-active"]}
+            aria-current={@sort == "viewed" && "true"}
           >
-            Most witnessed
+            Most viewed
           </.link>
         </nav>
 

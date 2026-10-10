@@ -20,12 +20,16 @@ if command -v magick >/dev/null 2>&1; then
   exec magick "$@"
 fi
 
-input="$1"
+# A path may carry its format in front (`tiff:/path`), as the scanner's
+# resample step writes it.
+input="${1#tiff:}"
 for last; do :; done
-output="$last"
+output="${last#tiff:}"
 
 mkdir -p "$(dirname "$output")"
-if [ -f "$input" ]; then
+if [ "$input" = "$output" ]; then
+  :
+elif [ -f "$input" ]; then
   cp "$input" "$output"
 else
   touch "$output"

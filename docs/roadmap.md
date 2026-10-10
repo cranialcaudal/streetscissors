@@ -30,7 +30,7 @@ Most of the foundation is already built.
 
 A feed is also how people find you, answer you and keep up. This phase gives the site those things in its own terms: nothing counted, nothing ranked, nothing fed.
 
-- **The almanac.** Every day with work in it has a page, holding the essay, the recording, the roll of film and the ride from that day side by side. Every year has a page too, laid out like a contact sheet, and printing it produces a clean edition of the year. Every piece's date links to its day.
+- **The daybook.** Every day with work in it has a page, holding the essay, the recording, the roll of film and the ride from that day side by side. Every year has a page too, laid out like a contact sheet, and printing it produces a clean edition of the year. Every piece's date links to its day.
 - **Letters.** A reader can write to the author about one particular post, log or frame. A letter is signed and private. It appears beneath the piece only if the writer allowed it and the author chooses to.
 - **Follow a thought, not an account.** The feed carries the whole site, and any keyword has a feed of its own that follows it across the blog and the logs. The captain's logs arrive in a podcast app as a show.
 - **Readable by other sites.** Posts, logs and frames carry the standard IndieWeb markup, so readers and other personal sites understand them without a platform in between. Links to profiles elsewhere are the owner's choice, and there are none by default.
@@ -114,7 +114,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 ## 11. Sequencing
 
 - **Phase 1, the admin:** done.
-- **Phase 2, answered and followed:** the almanac, letters, feeds, IndieWeb markup, and webmentions received.
+- **Phase 2, answered and followed:** the daybook, letters, feeds, IndieWeb markup, and webmentions received.
 - **Phase 3, the backup:** done.
 - **Phase 4, the publishing loop:** done.
 - **Phase 5, public polish:** index parity, cross-links, the 404 page, print styles, the year as a book, and the route audit.

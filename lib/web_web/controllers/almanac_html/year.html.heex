@@ -1,20 +1,21 @@
-<%!-- A year seen at once, laid out like a contact sheet: twelve months, one
+<%!-- The year at a glance, as at the front of an engagement calendar, laid out like a contact sheet: twelve months, one
       cell per day, a mark for each kind of work made on it. The print rules in
       almanac.css make this page the printed edition. --%>
 <div class="almanac almanac-year">
   <header class="almanac-head">
-    <p class="almanac-slug">The almanac</p>
+    <p class="almanac-slug">The daybook</p>
     <h1 class="almanac-date">{@almanac.year}</h1>
     <p class="almanac-lede">{year_summary(@almanac.totals)}</p>
     <div class="almanac-tools">
       <nav class="almanac-years" aria-label="Years">
-        <.link :if={@almanac.previous} href={~p"/almanac/#{@almanac.previous}"} rel="prev">
+        <.link :if={@almanac.previous} href={~p"/daybook/#{@almanac.previous}"} rel="prev">
           <.icon name="hero-arrow-left" class="size-4" /> {@almanac.previous}
         </.link>
-        <.link :if={@almanac.next} href={~p"/almanac/#{@almanac.next}"} rel="next">
+        <.link :if={@almanac.next} href={~p"/daybook/#{@almanac.next}"} rel="next">
           {@almanac.next} <.icon name="hero-arrow-right" class="size-4" />
         </.link>
       </nav>
+      <.link href={~p"/daybook"} class="almanac-print">This week</.link>
       <button type="button" class="almanac-print" data-print>Print this year</button>
     </div>
     <ul class="almanac-legend" aria-label="Key">

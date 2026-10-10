@@ -32,6 +32,25 @@
         <WebWeb.CoreComponents.grammar_button />
       </div>
 
+      <%!-- Optional, and private: sealed before it is stored and shown to
+            nobody but the author (Web.General.Contact). It is never printed
+            on this page, by this template or any other. --%>
+      <.input
+        field={@form[:contact]}
+        type="text"
+        label="Email or phone (optional)"
+        class="guestbook-input"
+        error_class="is-invalid"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        maxlength="120"
+        aria-describedby="guestbook-contact-note"
+      />
+      <p id="guestbook-contact-note" class="guestbook-private-note">
+        Only if you'd like to hear back. It is never shown here or anywhere on the site, it is stored encrypted, and only I can read it.
+      </p>
+
       <div class="guestbook-captcha">
         <label for="guestbook-captcha" class="guestbook-label">
           Answer this to show you're human

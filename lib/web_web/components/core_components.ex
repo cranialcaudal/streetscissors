@@ -789,6 +789,11 @@ defmodule WebWeb.CoreComponents do
       </div>
 
       <div class="header-right">
+        <%!-- A square at every width: the two worded controls are a matched
+              pair, and a third word would push the wordmark off its line. --%>
+        <a href={~p"/search"} class="header-action header-action--search" aria-label="Search">
+          <.icon name="hero-magnifying-glass" class="header-action-icon size-4" />
+        </a>
         <button
           type="button"
           onclick="window.dispatchEvent(new CustomEvent('trigger-dispatch'))"

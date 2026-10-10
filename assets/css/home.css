@@ -40,6 +40,15 @@
   letter-spacing: 0.16em;
   cursor: pointer;
 }
+/* On a wide screen search is a square mark with no word. */
+.home-top-bar .top-bar-link--search {
+  min-width: 0;
+  width: var(--top-bar-mark);
+  padding: 0;
+}
+.top-bar-search-word {
+  display: none;
+}
 .home-top-bar .top-bar-link:hover,
 .home-top-bar .top-bar-link:focus-visible {
   background: var(--accent-ink);
@@ -369,8 +378,8 @@
   font-size: 0.75rem;
 }
 
-/* The one way in to the almanac from the front door: the row of cards
-   above is measured to fit a phone's screen, so it stays at three. */
+/* The way in to the almanac and the manual from the front door: the row of
+   cards above is measured to fit a phone's screen, so it stays at three. */
 .home-footer-link {
   margin-left: 0.75rem;
   color: var(--accent-ink);
@@ -396,7 +405,46 @@
     justify-content: center;
     gap: 0.5rem;
   }
-  /* Phones get the top bar as three marks: guestbook, profile, contact.
+  /* Phones: the bar is one row the width of the cards under it. Search
+     leads as a field-shaped control taking whatever width is left, and
+     the three marks (guestbook, profile, contact) sit together at the
+     right. `.top-bar-center` dissolves so its children line up with the
+     other two as items of the one row. */
+  .home-top-bar {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+  }
+  .home-top-bar .top-bar-center {
+    display: contents;
+  }
+  .home-top-bar .top-bar-link--search {
+    order: -1;
+    flex: 1 1 auto;
+    width: auto !important;
+    justify-content: flex-start !important;
+    gap: 0.6rem !important;
+    padding: 0 0.9rem !important;
+    background: var(--paper-raised);
+    border-color: var(--rule-strong);
+    color: var(--ink-3) !important;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+  }
+  .home-top-bar .top-bar-link--search .top-bar-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+    color: var(--accent-ink);
+  }
+  .home-top-bar .top-bar-link--search:hover,
+  .home-top-bar .top-bar-link--search:focus-visible {
+    background: var(--paper-raised);
+    border-color: var(--accent-ink);
+    color: var(--ink) !important;
+  }
+  .top-bar-search-word {
+    display: inline;
+  }
+  /* Phones get the rest of the bar as three marks: guestbook, profile, contact.
      The words give way to each link's own line icon (never an emoji: a
      ✒ or ✉ character got swapped for a colour emoji by some phones)
      so the row never wraps, and the playlist pill (whose value is

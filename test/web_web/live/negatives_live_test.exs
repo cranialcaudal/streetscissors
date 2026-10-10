@@ -4,15 +4,47 @@ defmodule WebWeb.NegativesLiveTest do
 
   alias Web.NegativesFixtures, as: Fixture
 
+  test "what the author says of a roll is shown with it, and a roll with nothing said shows nothing",
+       %{conn: conn} do
+    root = Fixture.archive!()
+
+    folder =
+      Fixture.put_roll!(root, roll: "040", date: "2026-10-07", format: "35mm", color: "color")
+
+    Fixture.put_sheet!(root, "roll040_2026-10-07_35mm_color", 2400, 3000)
+    Fixture.put_roll!(root, roll: "041", date: "2026-10-08")
+    Fixture.put_sheet!(root, "roll041_2026-10-08_120_bw", 2400, 3000)
+
+    File.write!(
+      Path.join(folder, "roll.json"),
+      Jason.encode!(%{
+        "shot" => "2023-06",
+        "camera" => "Olympus XA",
+        "notes" => "Found in a drawer."
+      })
+    )
+
+    {:ok, _view, html} = live(conn, "/negatives/roll/040")
+
+    # Filed by the day it was scanned; when it was shot is said beside it.
+    assert html =~ "2026-10-07"
+    assert html =~ "Shot June 2023"
+    assert html =~ "Olympus XA"
+    assert html =~ "Found in a drawer."
+
+    {:ok, view, _html} = live(conn, "/negatives/roll/041")
+    refute has_element?(view, ".sheet-about")
+  end
+
   test "renders minimalist viewer and can toggle to index by scan date", %{conn: conn} do
     {:ok, view, html} = live(conn, "/negatives")
 
-    assert html =~ "Full Index by Scan Date"
+    assert html =~ ~r/All \d+ rolls/
     assert has_element?(view, ".single-presentation-viewport")
 
     # Every control is a link now, so the toggle is a patch and lands in the
     # URL — which is what lets Back undo it.
-    view |> element("a.index-toggle-btn") |> render_click()
+    view |> element("a.roll-bar-all") |> render_click()
 
     assert render(view) =~ "Contact Sheets Index"
     assert has_element?(view, ".minimal-index-table")
@@ -196,6 +228,13 @@ defmodule WebWeb.NegativesLiveTest do
     # a previous and no next — the strip does not wrap into another sheet.
     assert has_element?(view, "a.prev-btn[href='/negatives/roll/013/frame/1']")
     refute has_element?(view, "a.next-btn")
+
+    # Where it is in the roll's photographs, the others beside it, and the
+    # links a swipe presses.
+    assert has_element?(view, ".photo-bar-count", "2 / 2")
+    assert has_element?(view, "a.photo-strip-item.is-current[aria-current]")
+    assert has_element?(view, "#photo-view a[data-swipe-prev]")
+    assert has_element?(view, "#photo-view a[data-swipe-up][href='/negatives/roll/013']")
 
     File.rm_rf!(tmp)
   end

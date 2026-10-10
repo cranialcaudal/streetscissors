@@ -63,6 +63,16 @@
             height="96"
           />
         </a>
+
+        <%!-- Search. On a wide screen it is one more square mark; on a phone
+              it is the bar itself: a field-shaped control that takes the
+              width the three marks leave (home.css), because a fourth
+              square in a row of squares read as clutter. Its word is
+              shown only there. --%>
+        <a href={~p"/search"} class="top-bar-link top-bar-link--search" aria-label="Search">
+          <.icon name="hero-magnifying-glass" class="size-4 top-bar-icon" />
+          <span class="top-bar-search-word" aria-hidden="true">Search</span>
+        </a>
       </div>
 
       <button
@@ -101,7 +111,18 @@
 <!-- Full-width photo hero: a random contact sheet behind the label -->
     <a href={~p"/negatives?from=home"} class="bento-card bento-card-hero">
       <%= if @hero_sheet do %>
-        <img class="bento-hero-image" src={@hero_sheet.preview_url} alt="" loading="lazy" />
+        <%!-- The largest thing on the first screen, so it is asked for
+              first and at the size it is drawn: the full preview was 410 KB
+              here, and it was marked lazy. --%>
+        <img
+          class="bento-hero-image"
+          src={Web.Negatives.sized_url(@hero_sheet.preview_url, 960)}
+          srcset={"#{Web.Negatives.sized_url(@hero_sheet.preview_url, 480)} 480w, #{Web.Negatives.sized_url(@hero_sheet.preview_url, 960)} 960w"}
+          sizes="(max-width: 550px) 100vw, 960px"
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+        />
       <% end %>
       <div class="bento-hero-scrim"></div>
       <%!-- Geometry is measured off the rendered font, never guessed — see
@@ -133,13 +154,14 @@
       <a href={~p"/about?from=home"} class="bento-card bento-card-skinny">
         <span class="bento-label-small">About Me</span>
       </a>
-      <a href={~p"/how-to?from=home"} class="bento-card bento-card-skinny">
-        <span class="bento-label-small">How It Works</span>
+      <a href={~p"/Christ"} class="bento-card bento-card-skinny">
+        <span class="bento-label-small">Christ</span>
       </a>
     </div>
     <footer class="home-footer">
       &copy; 2026 Cesar Anthony Moreno &middot; streetscissors.
-      <a href={~p"/almanac"} class="home-footer-link">The almanac</a>
+      <a href={~p"/daybook"} class="home-footer-link">The daybook</a>
+      <a href={~p"/how-to?from=home"} class="home-footer-link">How it works</a>
       <WebWeb.Microformats.representative_card />
       <a
         href={~p"/admin/login"}

@@ -286,38 +286,50 @@ defmodule Web.AudioTest do
     end
   end
 
-  describe "play tracking" do
+  describe "view tracking" do
     @alice "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b"
     @bob "8c7d6e5f-4a3b-4c2d-9e1f-0a9b8c7d6e5f"
 
-    test "each browser that watched is one witness" do
+    # Moves every recorded view back in time, as if it had happened earlier.
+    defp age_views(minutes) do
+      then = NaiveDateTime.add(NaiveDateTime.utc_now(), -minutes * 60)
+      Web.Repo.update_all(Web.Audio.Play, set: [inserted_at: then])
+    end
+
+    test "each browser that watched is a view" do
       log = log_fixture()
       Audio.record_play(log.id, @alice, "127.0.0.1")
       Audio.record_play(log.id, @bob, "127.0.0.1")
 
-      # One address, two browsers: a household is two witnesses.
       assert Audio.get_play_count(log.id) == 2
       assert Audio.get_all_play_counts() == %{log.id => 2}
     end
 
-    # The figure is witnesses, not plays: someone who watches five times
-    # witnessed it once — the unique index makes a replay a no-op.
-    test "repeat plays from one witness count once" do
+    # A loop or a reload must not run the figure up.
+    test "watching again straight away is not another view" do
       log = log_fixture()
       other = log_fixture(recorded_on: ~D[2026-01-01])
 
-      for _ <- 1..5, do: Audio.record_play(log.id, @alice, "127.0.0.1")
+      assert {:ok, _} = Audio.record_play(log.id, @alice, "127.0.0.1")
+      for _ <- 1..4, do: assert(Audio.record_play(log.id, @alice, "127.0.0.1") == :throttled)
       Audio.record_play(log.id, @bob, "127.0.0.2")
+      # The window is per log: another entry is its own view.
       Audio.record_play(other.id, @alice, "127.0.0.1")
 
       assert Audio.get_play_count(log.id) == 2
       assert Audio.get_all_play_counts() == %{log.id => 2, other.id => 1}
-      assert Web.Repo.aggregate(Web.Audio.Play, :count) == 3
+    end
 
-      assert Audio.witnesses_by_log() == %{
-               log.id => MapSet.new([@alice, @bob]),
-               other.id => MapSet.new([@alice])
-             }
+    test "watching again after half an hour is another view" do
+      log = log_fixture()
+
+      Audio.record_play(log.id, @alice, "127.0.0.1")
+      age_views(29)
+      assert Audio.record_play(log.id, @alice, "127.0.0.1") == :throttled
+
+      age_views(31)
+      assert {:ok, _} = Audio.record_play(log.id, @alice, "127.0.0.1")
+      assert Audio.get_play_count(log.id) == 2
     end
 
     test "a missing or malformed witness is ignored" do
@@ -331,16 +343,16 @@ defmodule Web.AudioTest do
       assert Audio.get_play_count(log.id) == 0
     end
 
-    # Every play before witnesses existed was logged against the proxy's own
-    # address, so nobody in them can be told apart. They stay, uncounted.
-    test "plays recorded before witnesses count for nothing" do
+    # Plays from before browsers carried a token are views like any other;
+    # leaving them out is what had every entry reading nought.
+    test "plays recorded before tokens count as views" do
       log = log_fixture()
       Web.Repo.insert!(%Web.Audio.Play{audio_log_id: log.id, ip_address: "::1"})
       Web.Repo.insert!(%Web.Audio.Play{audio_log_id: log.id, ip_address: "::1"})
       Audio.record_play(log.id, @alice, "127.0.0.1")
 
-      assert Audio.get_play_count(log.id) == 1
-      assert Audio.witnesses_by_log() == %{log.id => MapSet.new([@alice])}
+      assert Audio.get_play_count(log.id) == 3
+      assert Audio.get_all_play_counts() == %{log.id => 3}
     end
   end
 end

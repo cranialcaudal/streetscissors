@@ -3,7 +3,8 @@
 <div class="almanac almanac-day">
   <header class="almanac-head">
     <p class="almanac-slug">
-      <.link href={~p"/almanac/#{@day.date.year}"}>The almanac · {@day.date.year}</.link>
+      <.link href={~p"/daybook/#{@day.date.year}"}>The daybook · {@day.date.year}</.link>
+      <.link href={week_path(@day.date)} class="almanac-slug-week">The week</.link>
     </p>
     <h1 class="almanac-date">
       <time datetime={Date.to_iso8601(@day.date)}>

@@ -10,6 +10,20 @@ defmodule WebWeb.PageControllerTest do
     # The manual is only reachable from here and /about — if this link goes, it
     # becomes a page nobody can find.
     assert html =~ ~s(href="/how-to?from=home")
+    # The prayer pages took the manual's card; the manual dropped to the foot.
+    [cards] = Regex.run(~r{<div class="bento-fitness-sub-row.*?</div>}s, html)
+    assert cards =~ ~s(href="/Christ")
+    refute cards =~ "/how-to"
+    [footer] = Regex.run(~r{<footer class="home-footer">.*?</footer>}s, html)
+    assert footer =~ ~s(href="/how-to?from=home")
+    # The hero is the first screen's largest picture: sized, and never lazy.
+    if html =~ "bento-hero-image" do
+      [hero] = Regex.run(~r{<img[^>]*class="bento-hero-image"[^>]*>}s, html)
+      assert hero =~ "w=960"
+      assert hero =~ ~s(fetchpriority="high")
+      refute hero =~ "lazy"
+    end
+
     refute html =~ "Another Blog"
     refute html =~ "&#39;s Machine"
     refute html =~ "All Manuscripts"
@@ -30,6 +44,86 @@ defmodule WebWeb.PageControllerTest do
 
     assert bar =~ ~s(class="spotify-pill-main" tabindex="0")
     refute bar =~ "#1DB954"
+  end
+
+  describe "GET /search" do
+    test "the page is a form, reachable from the homepage and every header", %{conn: conn} do
+      html = conn |> get(~p"/search") |> html_response(200)
+
+      assert html =~ ~s(<form action="/search" method="get" role="search")
+      assert html =~ ~s(name="robots" content="noindex, follow")
+      refute html =~ "site-search-group"
+
+      # The homepage has its own bar, and search is a mark in it.
+      home = conn |> get(~p"/") |> html_response(200)
+      [bar] = Regex.run(~r{<nav class="home-top-bar">.*?</nav>}s, home)
+
+      assert bar =~
+               ~s(<a href="/search" class="top-bar-link top-bar-link--search" aria-label="Search">)
+
+      assert bar =~ "hero-magnifying-glass "
+      # On a phone it is drawn as a field with its word in it (home.css).
+      assert bar =~ ~s(<span class="top-bar-search-word" aria-hidden="true">Search</span>)
+
+      # The shared header carries it on every inner page.
+      assert conn |> get(~p"/about") |> html_response(200) =~
+               ~s(<a href="/search" class="header-action header-action--search" aria-label="Search">)
+
+      # Icons are an allowlist in app.css: one that is not on it renders as
+      # an empty square, which is how this control first shipped.
+      assert File.read!("assets/css/app.css") =~ ~r/@source inline\("[^"]*hero-magnifying-glass /
+    end
+
+    test "results come grouped by section, with the query kept in the field", %{conn: conn} do
+      html = conn |> get(~p"/search?q=push-ups") |> html_response(200)
+
+      assert html =~ ~s(value="push-ups")
+      assert html =~ "Exercise wiki"
+      assert html =~ ~s(href="/fitness/wiki/push-ups")
+    end
+
+    test "nothing found and too short both say so", %{conn: conn} do
+      assert conn |> get(~p"/search?q=zzzzqqqq") |> html_response(200) =~
+               "Nothing here matches “zzzzqqqq”"
+
+      assert conn |> get(~p"/search?q=z") |> html_response(200) =~
+               "Type at least two characters."
+    end
+
+    test "a query is escaped, not rendered", %{conn: conn} do
+      html = conn |> get("/search?q=%3Cscript%3Ealert(1)%3C/script%3E") |> html_response(200)
+      refute html =~ "<script>alert(1)</script>"
+    end
+
+    test "the field says where to ask for suggestions, and they come back as JSON",
+         %{conn: conn} do
+      assert conn |> get(~p"/search") |> html_response(200) =~ ~s(data-suggest="/search/suggest")
+
+      conn = get(conn, ~p"/search/suggest?q=push")
+
+      assert [%{"title" => "Push-ups", "path" => "/fitness/wiki/push-ups", "section" => section}] =
+               json_response(conn, 200)
+
+      assert section == "Exercise wiki"
+      assert get_resp_header(conn, "x-robots-tag") == ["noindex"]
+
+      # As a browser's fetch sends it.
+      assert build_conn()
+             |> put_req_header("accept", "*/*")
+             |> get(~p"/search/suggest?q=push")
+             |> json_response(200) != []
+
+      assert build_conn() |> get(~p"/search/suggest") |> json_response(200) == []
+      assert build_conn() |> get("/search/suggest?q[]=x") |> json_response(200) == []
+    end
+
+    test "one address may not search without limit", %{conn: conn} do
+      Web.RateLimit.reset_all()
+      for _ <- 1..30, do: conn |> get(~p"/search?q=push") |> html_response(200)
+
+      assert conn |> get(~p"/search?q=push") |> html_response(429) =~ "a lot of searching"
+      Web.RateLimit.reset_all()
+    end
   end
 
   describe "GET /how-to" do

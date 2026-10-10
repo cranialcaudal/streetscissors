@@ -94,9 +94,9 @@ defmodule WebWeb.PageController do
     # production because the systemd unit pins its working directory to the
     # checkout.
     {html_content, contents} =
-      case File.read(@how_to_path) do
-        {:ok, markdown} ->
-          Web.Docs.render(markdown)
+      case Web.Docs.render_file(@how_to_path) do
+        {:ok, rendered} ->
+          rendered
 
         {:error, _} ->
           {"<p>The manual could not be read from <code>#{@how_to_path}</code>.</p>", []}
@@ -117,6 +117,66 @@ defmodule WebWeb.PageController do
     )
   end
 
+  # Each search reads the content off disk, so one address may not ask for
+  # more than a person typing would.
+  @search_limit 30
+  @search_window :timer.minutes(1)
+
+  def search(conn, params) do
+    query = Web.Search.clean(params["q"])
+
+    {groups, limited} =
+      cond do
+        not Web.Search.searchable?(query) ->
+          {[], false}
+
+        match?(
+          {:error, :rate_limited, _},
+          Web.RateLimit.hit("search:#{WebWeb.ClientIP.from_conn(conn)}",
+            limit: @search_limit,
+            window: @search_window
+          )
+        ) ->
+          {[], true}
+
+        true ->
+          {Web.Search.search(query), false}
+      end
+
+    conn
+    |> put_status(if(limited, do: 429, else: 200))
+    |> assign(:page_title, if(query == "", do: "Search", else: "Search: #{query}"))
+    |> assign(:robots, "noindex, follow")
+    |> render(:search,
+      query: query,
+      groups: groups,
+      limited: limited,
+      searched: Web.Search.searchable?(query),
+      count: groups |> Enum.map(&(length(&1.results) + &1.more)) |> Enum.sum()
+    )
+  end
+
+  # Asked on each pause in typing, so it is allowed far more often than a
+  # search, and it reads no post or exercise body. Past the limit the field
+  # simply stops offering; the search itself still works.
+  @suggest_limit 240
+
+  def suggest(conn, params) do
+    suggestions =
+      case Web.RateLimit.hit("suggest:#{WebWeb.ClientIP.from_conn(conn)}",
+             limit: @suggest_limit,
+             window: @search_window
+           ) do
+        {:ok, _remaining} -> Web.Search.suggest(params["q"])
+        _ -> []
+      end
+
+    conn
+    |> put_resp_header("cache-control", "private, max-age=60")
+    |> put_resp_header("x-robots-tag", "noindex")
+    |> json(suggestions)
+  end
+
   @roadmap_path "docs/roadmap.md"
   @roadmap_description "The plan for finishing the streetscissors site: what already stands, what gets built next, and in what order."
 
@@ -124,9 +184,9 @@ defmodule WebWeb.PageController do
     # Same shell as the manual: docs/roadmap.md is read off disk at request
     # time, so edits go live without a redeploy.
     {html_content, contents} =
-      case File.read(@roadmap_path) do
-        {:ok, markdown} ->
-          Web.Docs.render(markdown)
+      case Web.Docs.render_file(@roadmap_path) do
+        {:ok, rendered} ->
+          rendered
 
         {:error, _} ->
           {"<p>The roadmap could not be read.</p>", []}

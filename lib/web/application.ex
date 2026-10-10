@@ -56,7 +56,11 @@ defmodule Web.Application do
       # server.
       Web.Backup.MirrorWatcher,
       # Start to serve requests, typically the last entry
-      WebWeb.Endpoint
+      WebWeb.Endpoint,
+      # Then read what the first visitor after a deploy would otherwise wait
+      # for (Web.Warm). After the Endpoint, in its own process: it must never
+      # be the reason the site is slow to come up.
+      Supervisor.child_spec({Task, &Web.Warm.run/0}, id: :warm)
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

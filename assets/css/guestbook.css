@@ -129,6 +129,16 @@ textarea.guestbook-input {
   margin: -0.5rem 0 1.25rem;
 }
 
+/* Under the optional contact field: what happens to what is typed there. */
+.guestbook-private-note {
+  margin: -0.6rem 0 1.5rem;
+  max-width: 46ch;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
 .guestbook-captcha { margin-bottom: 1.5rem; }
 
 /* WebWeb.CaptchaHTML sets the question in the homoglyph face with an

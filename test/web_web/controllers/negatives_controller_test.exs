@@ -115,5 +115,12 @@ defmodule WebWeb.NegativesControllerTest do
 
     assert response(conn, 200)
     assert get_resp_header(conn, "content-type") |> hd() =~ "image/"
+    # An address with no fingerprint can change underneath: kept for a day.
+    assert get_resp_header(conn, "cache-control") == ["public, max-age=86400"]
+
+    # With `?v=`, which every page writes into its image URLs, for a month.
+    conn = get(build_conn(), "/negatives/preview/roll044_2026-01-01_120_bw.png?v=1786464863")
+    assert response(conn, 200)
+    assert get_resp_header(conn, "cache-control") == ["public, max-age=2592000"]
   end
 end

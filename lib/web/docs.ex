@@ -55,6 +55,32 @@ defmodule Web.Docs do
     |> anchor_headings()
   end
 
+  @doc """
+  `render/1` for a file, remembered until the file changes. The manual is
+  nine hundred lines and Earmark took 60 ms over it on every request; the
+  file's modification time is the whole of what the result depends on, so an
+  edit still goes live on the next request with no redeploy.
+  `{:error, reason}` when the file cannot be read.
+  """
+  @spec render_file(Path.t()) :: {:ok, {String.t(), [entry()]}} | {:error, term()}
+  def render_file(path) do
+    key = {__MODULE__, :file, path}
+
+    with {:ok, %File.Stat{mtime: mtime}} <- File.stat(path) do
+      case :persistent_term.get(key, nil) do
+        {^mtime, rendered} ->
+          {:ok, rendered}
+
+        _ ->
+          with {:ok, markdown} <- File.read(path) do
+            rendered = render(markdown)
+            :persistent_term.put(key, {mtime, rendered})
+            {:ok, rendered}
+          end
+      end
+    end
+  end
+
   # Earmark does not implement GFM task lists: `- [ ] Eggs` arrives as an
   # ordinary `<li>` whose text begins with a literal "[ ]", so a shopping list
   # written as a checklist renders as prose about brackets. These are the same

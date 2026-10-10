@@ -12,17 +12,28 @@ defmodule WebWeb.NegativesController do
 
   def serve_preview(conn, %{"filename" => filename} = params) do
     case Negatives.preview_path(filename, width(params)) do
-      {:ok, path} -> send_image(conn, path)
+      {:ok, path} -> conn |> fingerprinted(params) |> send_image(path)
       :error -> not_found(conn)
     end
   end
 
   def serve_frame(conn, %{"roll" => roll, "frame" => frame} = params) do
     case Negatives.frame_preview_path(roll, frame, width(params)) do
-      {:ok, path} -> send_image(conn, path)
+      {:ok, path} -> conn |> fingerprinted(params) |> send_image(path)
       :error -> not_found(conn)
     end
   end
+
+  # An address that carries `?v=` (the file's own fingerprint, which every
+  # page writes into its image URLs) names one version of one file for good,
+  # so a browser may keep it for a month without asking again. Not a year and
+  # not `immutable`: `v` is the scan's own date, and a preview is re-rendered
+  # from the same scan when the way previews are made changes. Without `v`
+  # the address can change underneath, and it is kept for a day.
+  defp fingerprinted(conn, %{"v" => v}) when is_binary(v) and v != "",
+    do: assign(conn, :image_cache, "public, max-age=2592000")
+
+  defp fingerprinted(conn, _params), do: conn
 
   # `?w=` asks for a narrower copy. Only the widths Negatives keeps are
   # honoured; anything else is the full preview, not a new file on disk.
@@ -114,7 +125,7 @@ defmodule WebWeb.NegativesController do
     conn
     # No charset: these are image bytes, and Plug appends one by default.
     |> put_resp_content_type(content_type, nil)
-    |> put_resp_header("cache-control", "public, max-age=86400")
+    |> put_resp_header("cache-control", conn.assigns[:image_cache] || "public, max-age=86400")
     |> send_file(200, path)
   end
 

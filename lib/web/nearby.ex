@@ -12,7 +12,7 @@ defmodule Web.Nearby do
     * `/logs/<date>` — the recordings nearest that day
     * `/negatives/roll/<n>` (or `/archive/…`) — the rolls nearest that number
     * `/day/<date>` — the nearest days either side that have work on them
-    * `/almanac/<year>` — the years there are
+    * `/daybook/<year>` — the years there are
     * `/fitness/wiki/<slug>` — the exercises whose names are closest
     * `/<slug>`, one bare word — a post by that name, if one is close
 
@@ -64,6 +64,7 @@ defmodule Web.Nearby do
 
   defp near(["negatives" | _]), do: rolls_near(nil)
   defp near(["day", date | _]), do: days_near(date)
+  defp near(["daybook" | _]), do: years()
   defp near(["almanac" | _]), do: years()
   defp near(["fitness", "wiki", slug | _]), do: similar_exercises(slug)
 
@@ -135,7 +136,7 @@ defmodule Web.Nearby do
     end
   end
 
-  # --- The almanac -----------------------------------------------------------
+  # --- The daybook -----------------------------------------------------------
 
   defp days_near(text) do
     dates = Almanac.entries() |> Enum.map(& &1.date) |> Enum.uniq()
@@ -155,7 +156,7 @@ defmodule Web.Nearby do
 
   defp years do
     for year <- Almanac.years() do
-      %{kind: "Year", title: "#{year}, the year at once", path: "/almanac/#{year}"}
+      %{kind: "Year", title: "#{year}, the year at once", path: "/daybook/#{year}"}
     end
   end
 

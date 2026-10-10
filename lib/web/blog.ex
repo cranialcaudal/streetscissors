@@ -12,7 +12,7 @@ defmodule Web.Blog do
 
   **Drafts.** A post whose frontmatter says `draft: true` is off the site:
   `list_posts/0` and `get_post/1` do not see it, so neither does anything
-  built on them — the index, the feeds, the sitemap, the almanac, the `/pc`
+  built on them — the index, the feeds, the sitemap, the daybook, the `/pc`
   terminal, letters. Only the admin asks for drafts, with `list_all_posts/0`
   and `get_post(slug, drafts: true)`.
 

@@ -4,7 +4,12 @@
 #   -L                  lists what STUB_SCANIMAGE_DEVICES says (default: a
 #                       webcam and nothing else, which is a laptop with no
 #                       scanner plugged in)
-#   --output-file PATH  "scans": prints two progress lines and writes PATH
+#   --output-file PATH  "scans": prints two progress lines and writes PATH,
+#                       a real 4x4 TIFF, since a strip is resampled by
+#                       ImageMagick before it lands
+#
+# STUB_SCANIMAGE_IMAGE=FILE "scans" that file instead, for a test that needs
+# something particular on the glass.
 #
 # STUB_SCANIMAGE_FAIL=1 exits 1 after writing half a file, the way a scan
 # interrupted at the cable does. STUB_SCANIMAGE_HANG=1 never finishes.
@@ -40,4 +45,10 @@ if [ "${STUB_SCANIMAGE_FAIL:-0}" = "1" ]; then
   exit 1
 fi
 printf 'Progress: 100.0%%\r'
-printf 'strip scan' > "$output"
+if [ -n "${STUB_SCANIMAGE_IMAGE:-}" ]; then
+  cp "$STUB_SCANIMAGE_IMAGE" "$output"
+  exit 0
+fi
+base64 -d > "$output" <<'TIFF'
+SUkqABgAAAB/f39/f39/f39/f39/f39/DQAAAQMAAQAAAAQAAAABAQMAAQAAAAQAAAACAQMAAQAAAAgAAAADAQMAAQAAAAEAAAAGAQMAAQAAAAEAAAAKAQMAAQAAAAEAAAARAQQAAQAAAAgAAAASAQMAAQAAAAEAAAAVAQMAAQAAAAEAAAAWAQMAAQAAAAQAAAAXAQQAAQAAABAAAAAcAQMAAQAAAAEAAAApAQMAAgAAAAAAAQAAAAAA
+TIFF

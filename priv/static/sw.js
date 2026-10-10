@@ -1,10 +1,7 @@
 // streetscissors service worker
-const CACHE_NAME = "streetscissors-v1";
+const CACHE_NAME = "streetscissors-v2";
 
 const PRECACHE_ASSETS = [
-  "/",
-  "/assets/css/app.css",
-  "/assets/js/app.js",
   "/images/icon-192.png",
   "/images/icon-512.png",
   "/images/preview_logo.png",

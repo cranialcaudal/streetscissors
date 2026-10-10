@@ -66,14 +66,23 @@ defmodule WebWeb.Router do
       # The manual: how the site and the film pipeline work, rendered from
       # docs/how-to.md so the same file reads on GitHub.
       get "/how-to", PageController, :how_to
+      # One search across every section (Web.Search). The query is the URL.
+      get "/search", PageController, :search
+      # What the search field offers while it is being typed in (JSON).
+      get "/search/suggest", PageController, :suggest
       # The roadmap: where the site is going, rendered from
       # docs/roadmap.md the same way.
       get "/roadmap", PageController, :roadmap
 
       # The site read by date: one day whole, one year at once (Web.Almanac).
       get "/day/:date", AlmanacController, :day
-      get "/almanac", AlmanacController, :index
-      get "/almanac/:year", AlmanacController, :year
+      get "/daybook", AlmanacController, :index
+      get "/daybook/:year", AlmanacController, :year
+      get "/daybook/:year/week/:week", AlmanacController, :week
+      # It was "the almanac" until 2026-10-07; an almanac looks ahead, and
+      # this keeps a record. Old links follow.
+      get "/almanac", LegacyRedirectController, :almanac
+      get "/almanac/*rest", LegacyRedirectController, :almanac
 
       # The kitchen, rendered from content/fitness/meals.md. Deliberately
       # unlisted: nothing links to it, it is out of the sitemap and robots.txt,
@@ -207,6 +216,18 @@ defmodule WebWeb.Router do
   # is always a line of plain text.
   scope "/", WebWeb do
     post "/webmention", WebmentionController, :create
+  end
+
+  # A prefetched page reporting that it was actually shown
+  # (WebWeb.SeenController). A beacon has no CSRF token, so it cannot go
+  # through :browser; it needs the session only to tell the admin apart.
+  pipeline :beacon do
+    plug :fetch_session
+  end
+
+  scope "/", WebWeb do
+    pipe_through :beacon
+    post "/seen", SeenController, :create
   end
 
   # Apple Health workouts, posted by an app on the phone as they are recorded

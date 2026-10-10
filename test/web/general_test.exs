@@ -60,6 +60,24 @@ defmodule Web.GeneralTest do
       assert [%GuestbookEntry{}] = General.list_approved_guestbook_entries()
     end
 
+    # The page went empty when its last signature turned 61 days old.
+    test "an approved signature stays on the page however old it is" do
+      old =
+        Web.Repo.insert!(%GuestbookEntry{
+          name: "sean",
+          message: "Your Hired!",
+          approved: true,
+          inserted_at: ~U[2026-01-12 17:50:02Z],
+          updated_at: ~U[2026-01-12 17:50:02Z]
+        })
+
+      {:ok, recent} = General.create_guestbook_entry(%{message: "hello", name: "friend"})
+      {:ok, recent} = General.approve_guestbook_entry(recent)
+
+      # Newest first.
+      assert Enum.map(General.list_approved_guestbook_entries(), & &1.id) == [recent.id, old.id]
+    end
+
     test "unapprove_guestbook_entry/1 pulls it back off the public page" do
       {:ok, entry} = General.create_guestbook_entry(%{message: "hello", name: "friend"})
       {:ok, entry} = General.approve_guestbook_entry(entry)

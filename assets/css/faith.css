@@ -14,10 +14,10 @@
  */
 
 .faith {
-  --paper: #2c1d14;
-  --paper-raised: #3a271b;
-  --paper-sunk: #2f2016;
-  --paper-deep: #22160e;
+  --paper: #1e120a;
+  --paper-raised: #2a1a0f;
+  --paper-sunk: #21140b;
+  --paper-deep: #150c06;
 
   --ink: #f3e9d6;
   --ink-2: #d9cab0;
@@ -28,8 +28,10 @@
   --rule-strong: rgba(243, 233, 214, 0.42);
   --hairline: var(--rule);
 
-  --stitch: #d8322a;
-  --accent-ink: #f4705e;
+  /* Crimson thread, and the same red lifted only as far as small type needs
+     to pass on the wool (5.2:1 on --paper, 4.7:1 on --paper-raised). */
+  --stitch: #c81a22;
+  --accent-ink: #f0503f;
   --accent-color: var(--accent-ink);
   --theme-color: var(--accent-ink);
 
@@ -589,6 +591,81 @@
   font-size: 1.05rem;
   font-style: italic;
   color: var(--ink-2);
+}
+
+/* A prayer most people have by heart: its name, and the words behind it for
+   whoever wants them. Closed until asked for; no script involved. */
+.faith-known {
+  border-bottom: 1px dashed var(--rule-strong);
+}
+
+.faith-known + .faith-known {
+  margin-top: 0;
+}
+
+.faith-known > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 44px;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.faith-known > summary::-webkit-details-marker {
+  display: none;
+}
+
+.faith-known > summary::after {
+  content: "+";
+  font-family: var(--font-data);
+  font-size: 1.1rem;
+}
+
+.faith-known[open] > summary::after {
+  content: "\2212";
+}
+
+.faith-known > summary:hover,
+.faith-known > summary:focus-visible {
+  color: var(--ink);
+}
+
+.faith-known-what {
+  margin-left: 0.6em;
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.faith-known-body {
+  padding: 0.4rem 0 1.2rem;
+}
+
+.faith-known-body > * + * {
+  margin-top: 0.9rem;
+}
+
+/* The order of the Rosary, a line to a step. */
+.faith-order {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+.faith-order > li + li {
+  margin-top: 0.3rem;
 }
 
 .faith-mass-name,

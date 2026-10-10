@@ -60,15 +60,19 @@ defmodule WebWeb.FitnessLandingTest do
       refute has_element?(view, ~s(nav.day-strip a[title="Monday"] .day-strip-theme))
     end
 
-    test "the workout comes before the week and the section's tabs", %{conn: conn} do
+    test "the section's tabs lead, then the workout, then the week", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness/day/sunday")
 
+      {wiki, _} = :binary.match(html, ~s(href="/fitness/wiki"))
+      {activities, _} = :binary.match(html, ~s(href="/fitness/rides"))
+      {strip, _} = :binary.match(html, ~s(class="day-strip"))
       {day, _} = :binary.match(html, ~s(data-day="sunday"))
       {week, _} = :binary.match(html, ~s(id="the-week"))
-      {tabs, _} = :binary.match(html, ~s(href="/fitness/wiki"))
 
+      assert wiki < strip
+      assert activities < strip
+      assert strip < day
       assert day < week
-      assert week < tabs
     end
 
     test "a day that is not a weekday goes to today", %{conn: conn} do
@@ -157,24 +161,74 @@ defmodule WebWeb.FitnessLandingTest do
   # the whole page, dark on the steel ground — so these check for the styled
   # notice, not just the words.
   describe "logging an exercise, as the admin" do
+    # No row is seeded in `exercises`, on purpose. This suite used to make one
+    # first, which is the only reason it passed: on the site that table knew
+    # 17 of the wiki's 126 exercises, and the Log button on every other line
+    # answered "not wired up for logging".
     setup %{conn: conn} do
-      {:ok, _} = Web.Fitness.create_exercise(%{name: "Push-ups", slug: "push-ups"})
-
-      {:ok, view, _html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/tuesday")
+      conn = init_test_session(conn, %{"admin_user" => true})
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
 
       view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
 
-      %{view: view}
+      %{view: view, conn: conn}
     end
 
-    test "a saved entry is confirmed in a notice", %{view: view} do
+    test "any exercise the wiki has can be logged, whether or not the table knew it",
+         %{view: view} do
+      assert has_element?(view, ".log-modal h3", "Log: Push-ups")
+      refute has_element?(view, "#flash-error")
+      # The row a log hangs from was made from the wiki's own entry.
+      assert %{name: "Push-ups", muscle_group: "upper"} =
+               Web.Fitness.get_exercise_by_slug("push-ups")
+    end
+
+    test "a click inside the form does not close it", %{view: view} do
+      # LiveView gives a click to the nearest ancestor with phx-click, so one
+      # on the backdrop closed the form whenever a field was clicked.
+      refute has_element?(view, ".log-modal-backdrop[phx-click]")
+      assert has_element?(view, ".log-modal[phx-click-away=close_log]")
+
+      render_keydown(view, "log_key", %{"key" => "2"})
+      assert has_element?(view, "form[phx-submit=save_log]")
+
+      render_keydown(view, "log_key", %{"key" => "Escape"})
+      refute has_element?(view, "form[phx-submit=save_log]")
+    end
+
+    test "a saved entry is confirmed in a notice and listed under the day", %{view: view} do
       view
-      |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"})
+      |> form("form[phx-submit=save_log]", log: %{weight: "bodyweight", result: "3 x 12"})
       |> render_submit()
 
       assert has_element?(view, "#flash-info.flash-notice[role=status]", "Logged Push-ups.")
       refute has_element?(view, "form[phx-submit=save_log]")
+
+      assert has_element?(view, "#logged-today .day-logged-name", "Push-ups")
+      assert has_element?(view, "#logged-today .day-logged-values", "bodyweight · 3 x 12")
+
+      # Filed under the day it is here, not in Greenwich.
+      assert [%{date: date}] = Web.Fitness.list_exercise_logs()
+      assert date == Web.Clock.local_today()
+    end
+
+    test "the form opens on the last entry, the number to beat", %{view: view, conn: conn} do
+      view |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"}) |> render_submit()
+
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+
+      assert has_element?(view, ".log-modal-last", "3 x 12")
+    end
+
+    test "a wrong entry can be taken back out", %{view: view} do
+      view |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"}) |> render_submit()
+      [log] = Web.Fitness.list_exercise_logs()
+
+      view |> element("#logged-#{log.id} button", "Remove") |> render_click()
+
+      refute has_element?(view, "#logged-today")
+      assert Web.Fitness.list_exercise_logs() == []
     end
 
     test "an empty entry is refused in an alert, with the form still open", %{view: view} do
@@ -187,6 +241,42 @@ defmodule WebWeb.FitnessLandingTest do
              )
 
       assert has_element?(view, "form[phx-submit=save_log]")
+    end
+
+    test "a name the wiki does not have is refused, and makes no row", %{view: view} do
+      render_click(view, "close_log")
+      render_click(view, "open_log", %{"slug" => "no-such-exercise"})
+
+      assert has_element?(view, "#flash-error", "no exercise by that name")
+      refute has_element?(view, "form[phx-submit=save_log]")
+      assert Web.Fitness.get_exercise_by_slug("no-such-exercise") == nil
+    end
+  end
+
+  describe "logging, for everyone else" do
+    test "a visitor can open nothing, save nothing, and is shown nobody's log", %{conn: conn} do
+      {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+      {:ok, _} =
+        Web.Fitness.create_exercise_log(%{
+          exercise_id: exercise.id,
+          date: Web.Clock.local_today(),
+          metrics: %{"result" => "3 x 12"}
+        })
+
+      {:ok, view, html} = live(conn, ~p"/fitness/day/tuesday")
+
+      refute html =~ "Logged today"
+      refute html =~ "3 x 12"
+
+      render_click(view, "open_log", %{"slug" => "push-ups"})
+      refute has_element?(view, "form[phx-submit=save_log]")
+
+      render_click(view, "save_log", %{"log" => %{"result" => "9 x 99"}})
+      [log] = Web.Fitness.list_exercise_logs()
+      render_click(view, "delete_log", %{"id" => to_string(log.id)})
+
+      assert [%{metrics: %{"result" => "3 x 12"}}] = Web.Fitness.list_exercise_logs()
     end
   end
 

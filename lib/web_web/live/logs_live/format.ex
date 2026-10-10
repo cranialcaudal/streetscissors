@@ -12,7 +12,7 @@ defmodule WebWeb.LogsLive.Format do
   """
   def logs_path(sort, keyword) do
     params =
-      [{"sort", if(sort == "witnessed", do: "witnessed")}, {"keyword", keyword}]
+      [{"sort", if(sort == "viewed", do: "viewed")}, {"keyword", keyword}]
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
     if params == [], do: ~p"/logs", else: ~p"/logs?#{params}"
@@ -60,6 +60,41 @@ defmodule WebWeb.LogsLive.Format do
 
     Enum.join([year.year, count, format_runtime(year.seconds)], " · ")
   end
+
+  @doc """
+  A count the way a video site prints one: exact below a thousand, then
+  `1.2K`, `34K`, `1.2M`, cut short rather than rounded up.
+
+      iex> WebWeb.LogsLive.Format.format_count(999)
+      "999"
+      iex> WebWeb.LogsLive.Format.format_count(1_250)
+      "1.2K"
+      iex> WebWeb.LogsLive.Format.format_count(34_900)
+      "34K"
+      iex> WebWeb.LogsLive.Format.format_count(1_000_000)
+      "1M"
+  """
+  def format_count(n) when is_integer(n) and n >= 1_000_000, do: short(n, 1_000_000, "M")
+  def format_count(n) when is_integer(n) and n >= 1_000, do: short(n, 1_000, "K")
+  def format_count(n) when is_integer(n), do: Integer.to_string(n)
+
+  defp short(n, unit, suffix) do
+    whole = div(n, unit)
+    tenth = n |> rem(unit) |> div(div(unit, 10))
+
+    if whole < 10 and tenth > 0, do: "#{whole}.#{tenth}#{suffix}", else: "#{whole}#{suffix}"
+  end
+
+  @doc """
+  A view count with its word: `1 view`, `12 views`, `1.2K views`.
+
+      iex> WebWeb.LogsLive.Format.views_label(1)
+      "1 view"
+      iex> WebWeb.LogsLive.Format.views_label(0)
+      "0 views"
+  """
+  def views_label(1), do: "1 view"
+  def views_label(n), do: "#{format_count(n)} views"
 
   @doc "Nil for blank strings, so `:if` checks read cleanly in templates."
   def presence(nil), do: nil

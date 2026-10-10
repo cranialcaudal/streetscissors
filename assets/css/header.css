@@ -13,6 +13,18 @@
    square, keeping their names for screen readers.
    ─────────────────────────────────────────────────────────────────── */
 
+/* Going from one page to the next, the header is the same header: it holds
+   still while the page under it changes, instead of blinking out and back.
+   Browsers without cross-document view transitions simply load the page. */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition { navigation: auto; }
+
+    .blog-universal-header { view-transition-name: site-header; }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation-duration: 0.12s; }
+}
+
 .blog-universal-header {
     position: sticky;
     top: 0;
@@ -106,6 +118,16 @@
     transition: transform 0.15s ease;
 }
 
+/* Search is the same frame without a word in it, so it stays the 44px
+   square the other two fold into, beside Newsletter & Contact. */
+.header-right { gap: 0.5rem; }
+
+.blog-universal-header .header-action--search {
+    min-width: 0;
+    width: 2.75rem;
+    padding: 0;
+}
+
 /* Each icon leans the way its control goes. */
 .header-action--back:hover .header-action-icon { transform: translateX(-2px); }
 .header-action--contact:hover .header-action-icon { transform: translateY(-1px); }
@@ -156,4 +178,8 @@
     }
 
     .blog-universal-header .site-title-overlay { font-size: 1.4rem !important; }
+
+    /* Three squares and the wordmark on a phone: the pair on the right
+       closes up so the name keeps its line. */
+    .header-right { gap: 0.3rem; }
 }

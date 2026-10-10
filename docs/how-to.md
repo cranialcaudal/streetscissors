@@ -26,7 +26,7 @@ This site is that argument, built:
 
 **Answered, not commented.** A feed is also how people keep up with each other and reply, so the site does that too, on its own terms:
 
-- **Every day is a page.** Under `/almanac`, a day with work in it holds everything made that day side by side. A year is laid out like a contact sheet, and it prints as a clean edition.
+- **Every day is a page.** `/daybook` opens like an engagement calendar, at this week: a photograph on one side and seven ruled days on the other. A day with work in it holds everything made that day side by side. A year is laid out like a contact sheet, and it prints as a clean edition.
 - **You can follow a keyword.** The feed at `/feed` carries everything, and `/feed?keyword=film` follows one thread across the blog and the logs. You follow a thought rather than an account.
 - **You can write a letter.** Under any post, log or photograph, you can write to the author about that piece. It is private unless you allow it to be published and the author chooses to publish it.
 - **Other sites can cite a piece.** A site that links to a piece can say so by webmention. Once the link is checked and approved, it appears beneath the piece as "Cited by": a conversation between two homes, with no platform in the middle. It runs the other way too: when a post here links to another site, that site is told, so it can show the citation on its side.
@@ -72,6 +72,7 @@ contents come from.
 | `/newsletter` | Sign-up for the mailing list | Database |
 | `/about` | Who made this | A text file |
 | `/how-to` | This page | `docs/how-to.md` |
+| `/search` | One search across all of the above | Everything, read as you ask |
 | `/admin` | The private side, behind a password | All of the above, edited in one place |
 
 Three of those deserve a note.
@@ -79,7 +80,8 @@ Three of those deserve a note.
 **`/blog` and `/logs` are siblings, not parent and child.** The blog is written
 work; the logs are spoken work. They are separate systems that happen to share
 one vocabulary; see *Keywords* in Part 4. Both can be sorted by **most recent**
-or by **most witnessed**, which means most read or most listened to.
+or by their count: **most witnessed** for the blog, which means most read, and
+**most viewed** for the logs.
 
 **`/pc` is a joke that tells the truth.** It looks like an old DOS prompt. Type
 `roll007` and press Enter and it takes you to that roll of film. It works
@@ -347,12 +349,23 @@ A sterile computer-drawn ellipse would break the feeling of a real darkroom proo
 
 Scanning a roll used to mean switching between the terminal wizard (`negatives`), the file manager and Epson's `iscan`. The admin's **Scanner** page (`/admin/scanner`) does the same job from the browser, because the server is the machine the scanner is plugged into:
 
-1. **Name the roll** — number, scan date, format, film. The page shows the folder it will fill and offers the lowest free roll number.
-2. **Scan the strips, one at a time.** Lay a strip in the film holder and press *Scan strip*. The scanner is driven through its transparency unit as negative film, at 300 dpi, cut to the holder slot for that format. The page stays usable while it scans and shows the progress. Strips scanned elsewhere can be dropped in instead; they are kept exactly as they were.
-3. **Put them in order.** Move a strip earlier or later, or turn it 180°. The order of the files is the order of the sheet.
-4. **Analyse and assemble.** These run `film-develop` and `digital-contact-sheet-maker` — the same tools `negatives` uses — so the roll is identical to one made in the terminal. If either fails, the page says what it said; it never makes up a result.
-5. **Publish**, once both gates pass: the strip files match `frames.json`, and the sheet is exactly the size those strips compose to. That adds the roll to `catalog.csv`, and it is on `/negatives`.
-6. **Rescan the keepers.** Put a frame's strip back in the holder and it is scanned at 2400 dpi and developed into `frames/`, which is what gives a frame its own page and its grease-pencil ring.
+The page follows one loop for each load of the holder, and its one big button always says what is next.
+
+1. **Load the holder and press Preview.** Both slots of the 35mm holder can be filled. A quick look over the glass (about 30 seconds) reads the format and whether the film is colour, names the roll and makes its folder, adds every strip it finds, and shows the frames of this load as positives, lying landscape. If the holder was loaded wrong, fix it and press Preview again: the second look replaces the first. 620 is 120 film and reads as 120, so set that one by hand first, under Roll.
+2. **Select.** The well exposed frames are ticked for you. Tick the ones you want as singles and turn any that are the wrong way up.
+3. **Press Scan.** The scanner goes back for the ticked frames at 1600 dpi; frames next to each other, or side by side in the two slots, are taken in one crossing (about a minute for three). Leave the film where it is. With nothing ticked the button reads "No singles, next load" and just moves on.
+4. **Load the next strips.** When the scan ends the page is back at Preview. The singles you scanned are listed under **Singles in roll**, where each can still be turned or removed; those are the pictures that get a page of their own.
+5. **Publish roll**, when the roll is all in. One press assembles the contact sheet, checks it and puts the roll on `/negatives`. If it stops, it says at which step. Pressed while a load is still at Select with frames ticked, it scans those singles first and publishes when they are in.
+
+**Adding singles to a roll that is already published.** Lay strips of that roll back in the holder (either slot, either way up; one roll at a time) and press **Add singles to an old roll**. The page looks at the glass, matches the film against every roll in the archive, opens the roll it belongs to and shows those strips' frames. Tick what you want and press Scan: the new singles go straight onto the roll's page, with their rings on the contact sheet. Nothing is published again. Frames chosen earlier and never made come back ticked. **Back to new film** returns to the roll you were building. If it cannot place the film, open the roll from the Archive tab and use *Find this roll's strips on the glass* there.
+
+**Batches.** Under Roll, *Strips per roll* (7 to begin with) is how many strips make a roll. When a roll has that many and its singles are scanned, it is published on its own and the page opens the next roll, so a pile of rolls is one long run of load, preview, select, scan. Leave it blank to finish each roll yourself with Publish roll. Singles are developed in the background: as soon as the scanner stops, change the film.
+
+**About the roll.** Under Roll, say what you know that the film cannot: when it was shot (a year, a month or a day, as exact as you know it), the camera, the film stock, the place, and a note. It is saved as you type, kept with the roll, and shown on the roll's page. The roll is still filed by the day it was scanned.
+
+Strips can be put in order, turned 180° or deleted under Strips. Do that before scanning singles from them, since singles are filed by frame number.
+
+Strips scanned elsewhere can still be dropped onto the page, under Strips; they are kept exactly as they were, and a single from one means putting the strip back in the calibrated slot.
 
 With no scanner connected the page says so and scans nothing. The slot rectangles for the film holder are set once, in `.env` (`SCANNER_AREA_35MM`, `SCANNER_AREA_120`); the page's **Setup** tab shows what is set and which scanner is in use.
 
@@ -926,5 +939,6 @@ frames, so it fits in a scanner.
 **Tailwind**: A popular CSS toolkit. Installed here but deliberately producing
 nothing; all styling on this site is written by hand.
 
-**Witnessed**; This site's word for how many times a piece has been read or
-listened to. `/blog` and `/logs` can both be sorted by it.
+**Witnessed**; This site's word for how many people have read a piece.
+`/blog` can be sorted by it. A captain's log has **views** instead: one each
+time it is watched or listened to for thirty seconds or more.

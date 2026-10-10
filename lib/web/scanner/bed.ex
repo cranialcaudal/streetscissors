@@ -15,7 +15,9 @@ defmodule Web.Scanner.Bed do
 
   A scan is written beside its target as `.partial` and renamed only when
   `scanimage` exits 0, so a failed or killed scan never leaves a truncated
-  TIFF sitting in a roll folder looking like a strip.
+  TIFF sitting in a roll folder looking like a strip. A job that carries
+  `resample: {from, to}` (dpi) is brought to that resolution before the
+  rename, and a scan that can't be is a failed scan.
 
   Subscribers on `"scanner"` receive:
 
@@ -29,11 +31,12 @@ defmodule Web.Scanner.Bed do
   use GenServer
   require Logger
 
+  alias Web.Negatives
   alias Web.Scanner.Driver
 
   @topic "scanner"
 
-  # A 2400 dpi frame is the slow one; anything past this has hung.
+  # A frame at print resolution is the slow one; anything past this has hung.
   @scan_timeout_ms :timer.minutes(15)
   @list_timeout_ms 20_000
 
@@ -171,8 +174,14 @@ defmodule Web.Scanner.Bed do
         fail(job, "scanimage reported success but wrote nothing")
 
       true ->
-        File.rename!(job.partial, job.target)
-        broadcast({:scanner, :done, public(job)})
+        case resample(job) do
+          :ok ->
+            File.rename!(job.partial, job.target)
+            broadcast({:scanner, :done, public(job)})
+
+          {:error, reason} ->
+            fail(job, reason)
+        end
     end
 
     {:noreply, %{state | job: nil}}
@@ -186,6 +195,21 @@ defmodule Web.Scanner.Bed do
 
   # A port or timer from a scan already given up on.
   def handle_info(_message, state), do: {:noreply, state}
+
+  # A strip is a few megabytes, so this is done here rather than handed off:
+  # the bed stays busy until the file is the one the roll expects.
+  defp resample(%{resample: {from, to} = change, partial: partial}) when from != to do
+    case System.cmd(Negatives.magick_bin(), Driver.resample_args(partial, change),
+           stderr_to_stdout: true
+         ) do
+      {_output, 0} -> :ok
+      {output, _status} -> {:error, "couldn't bring the scan to #{to} dpi: #{tail(output)}"}
+    end
+  rescue
+    error -> {:error, "couldn't bring the scan to #{to} dpi: #{Exception.message(error)}"}
+  end
+
+  defp resample(_job), do: :ok
 
   defp listed(state, devices) do
     if state.listing, do: Process.cancel_timer(state.listing.timer)

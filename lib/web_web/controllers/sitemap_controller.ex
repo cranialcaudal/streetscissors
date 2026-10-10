@@ -72,14 +72,14 @@ defmodule WebWeb.SitemapController do
     _ -> []
   end
 
-  # Every year and every day with work in it — and only those: an empty day
+  # This week, then every year, week and day with work in it — and only those: an empty day
   # is a 404, so listing it would send crawlers to a dead end.
   defp almanac_urls do
     entries = Web.Almanac.entries()
 
     years =
       Enum.map(Web.Almanac.years(entries), fn year ->
-        {"/almanac/#{year}", nil, "monthly", "0.5"}
+        {"/daybook/#{year}", nil, "monthly", "0.5"}
       end)
 
     days =
@@ -88,7 +88,13 @@ defmodule WebWeb.SitemapController do
       |> Enum.uniq()
       |> Enum.map(&{"/day/#{Date.to_iso8601(&1)}", &1, "yearly", "0.3"})
 
-    years ++ days
+    weeks =
+      entries
+      |> Enum.map(&Web.Almanac.week_path(&1.date))
+      |> Enum.uniq()
+      |> Enum.map(&{&1, nil, "yearly", "0.3"})
+
+    [{"/daybook", nil, "weekly", "0.5"}] ++ years ++ weeks ++ days
   rescue
     _ -> []
   end

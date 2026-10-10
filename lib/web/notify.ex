@@ -66,7 +66,7 @@ defmodule Web.Notify do
       #{entry.name} signed the guestbook:
 
       #{excerpt(entry.message)}
-
+      #{if entry.has_contact, do: "\nThey left a way to reach them. It is not in this letter; it is in the admin.\n", else: ""}
       It is held until you approve it:
       #{WebWeb.Endpoint.url()}/admin/guestbook?show=held
       """

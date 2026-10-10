@@ -1,7 +1,8 @@
 defmodule WebWeb.AlmanacHTML do
   @moduledoc """
-  The almanac's pages: one day (`day.html.heex`) and one year laid out like a
-  contact sheet (`year.html.heex`). Styled by `assets/css/almanac.css`, which
+  The daybook's pages: a week as an engagement calendar opens to it
+  (`week.html.heex`), one day (`day.html.heex`), and the year at a glance,
+  laid out like a contact sheet (`year.html.heex`). Styled by `assets/css/daybook.css`, which
   also carries the year's print rules — the printed page is the edition.
   """
 
@@ -57,6 +58,32 @@ defmodule WebWeb.AlmanacHTML do
   defp join_list([one]), do: one
   defp join_list(items), do: Enum.join(Enum.drop(items, -1), ", ") <> " and " <> List.last(items)
 
+  @doc "The address of the week a date falls in."
+  def week_path(%Date{} = date), do: Web.Almanac.week_path(date)
+
+  @doc """
+  A week in words, as the head of its page: `5–11 October 2026`,
+  `28 September – 4 October 2026`, `29 December 2025 – 4 January 2026`.
+  """
+  def week_span(%Date{} = monday) do
+    sunday = Date.add(monday, 6)
+
+    cond do
+      monday.month == sunday.month ->
+        "#{monday.day}–#{Calendar.strftime(sunday, "%-d %B %Y")}"
+
+      monday.year == sunday.year ->
+        "#{Calendar.strftime(monday, "%-d %B")} – #{Calendar.strftime(sunday, "%-d %B %Y")}"
+
+      true ->
+        "#{Calendar.strftime(monday, "%-d %B %Y")} – #{Calendar.strftime(sunday, "%-d %B %Y")}"
+    end
+  end
+
+  @doc "The plate facing a week, at the width the spread shows it."
+  def plate_src(%{kind: :roll, image: image}), do: Web.Negatives.sized_url(image, 960)
+  def plate_src(%{image: image}), do: image
+
   @doc "The address of a day."
   def day_path(%Date{} = date), do: ~p"/day/#{Date.to_iso8601(date)}"
 
@@ -80,7 +107,7 @@ defmodule WebWeb.AlmanacHTML do
     "#{Calendar.strftime(date, "%-d %B")}: #{counts}"
   end
 
-  @doc "The kinds present in a day's entries, in the almanac's order, once each."
+  @doc "The kinds present in a day's entries, in the daybook's order, once each."
   def kinds_on(entries) do
     present = MapSet.new(entries, & &1.kind)
     Enum.filter(Web.Almanac.kinds(), &MapSet.member?(present, &1))
