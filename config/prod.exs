@@ -7,15 +7,16 @@ import Config
 # before starting your production server.
 config :web, WebWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
-# config :web, WebWeb.Endpoint,
-#   force_ssl: [rewrite_on: [:x_forwarded_proto]],
-#   exclude: [
-#     # paths: ["/health"],
-#     hosts: ["localhost", "127.0.0.1"]
-#   ]
+# `force_ssl` is deliberately not set. Caddy is the only thing that listens on
+# 80 and 443: it redirects plain HTTP and sends the HSTS header itself. The
+# release listens on :4000 for Caddy and for the deploy script's health checks
+# on localhost, which a redirect to https would break.
+
+# The session cookie carries the admin's login, so it is only ever sent over
+# TLS. Read when the endpoint compiles (it is a module attribute there), so it
+# is set here and not in runtime.exs. This was lost when the site moved from
+# the old dev-mode deploy to a release: the flag lived in config/dev.exs.
+config :web, :secure_cookies?, true
 
 # Configure Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req

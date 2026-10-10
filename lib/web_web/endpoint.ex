@@ -1,17 +1,19 @@
 defmodule WebWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :web
 
-  # The session is a signed cookie: readable by the client, not tamperable —
-  # PROVIDED the salt and secret_key_base stay secret. Both were previously
-  # hardcoded here and in config/dev.exs, in a public repo, which made an admin
-  # cookie (`%{"admin_user" => true}`) forgeable without the password. They now
-  # come from the environment on a public deploy; see config/dev.exs.
+  # The session is a signed cookie: readable by the client, not tamperable,
+  # so long as the secret_key_base stays secret. That was once hardcoded in
+  # config/dev.exs, in a public repo, while the site ran in dev mode, which
+  # made an admin cookie (`%{"admin_user" => true}`) forgeable without the
+  # password. Production now takes SECRET_KEY_BASE from the environment
+  # (config/runtime.exs) and will not boot without it. The salt is not a
+  # secret; it only keeps keys derived for different purposes apart.
   @session_options [
     store: :cookie,
     key: "_web_key",
     signing_salt: Application.compile_env(:web, :session_signing_salt, "dev_only_salt"),
     same_site: "Lax",
-    # Never send the admin cookie over plaintext once TLS is in front.
+    # Never send the admin cookie over plaintext: true in config/prod.exs.
     secure: Application.compile_env(:web, :secure_cookies?, false),
     # Bounds the damage of a stolen cookie; there is no server-side session
     # store to revoke against.
@@ -35,9 +37,10 @@ defmodule WebWeb.Endpoint do
   # old stylesheet, and only for clients sending `Accept-Encoding: gzip`
   # (i.e. every browser, but not curl by default).
   #
-  # This deployment builds assets with `mix assets.build` and does not digest,
-  # so there is nothing legitimate for gzip to serve. Caddy compresses on the
-  # wire anyway.
+  # ./redeploy.sh does digest now (`mix assets.deploy`), so the .gz files are
+  # fresh on every deploy; it stays off all the same, because Caddy compresses
+  # on the wire and a second source of compressed bytes is a second way to
+  # serve the wrong ones.
   plug Plug.Static,
     at: "/",
     from: :web,

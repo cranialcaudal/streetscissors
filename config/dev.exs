@@ -1,64 +1,30 @@
 import Config
 
-# ══════════════════════════════════════════════════════════════════════
-# PUBLIC DEPLOY GUARD — read this before changing anything below.
+# Development only. The live site is a MIX_ENV=prod release: its settings are
+# config/prod.exs (fixed at build time) and config/runtime.exs (read from the
+# environment at boot), and nothing in this file reaches it.
 #
-# streetscissors.com is served by `mix phx.server` under MIX_ENV=dev (see
-# ~/.config/systemd/user/streetscissors.service), so **this file is the
-# production config**. The hardening in runtime.exs sits behind
-# `config_env() == :prod` and therefore never runs.
-#
-# `PUBLIC_DEPLOY=true` turns off everything that leaks internals or accepts a
-# committed secret. It is set by the systemd unit, NOT by .env — so sourcing
-# .env locally still gives you a normal dev server with code reloading.
-#
-# Config is evaluated at COMPILE time. The service compiles on boot with the
-# flag set, so a restart applies it; but a local `MIX_ENV=dev` run afterwards
-# shares _build/dev and will need `mix compile --force`. (`mix test` uses
-# _build/test and is unaffected.) The /dev routes carry a second, runtime admin
-# check in router.ex precisely so a stale build cannot re-expose them.
-# ══════════════════════════════════════════════════════════════════════
-public_deploy? = System.get_env("PUBLIC_DEPLOY") == "true"
+# Until September 2026 the site was served by `mix phx.server` in this
+# environment, with a PUBLIC_DEPLOY switch in this file that turned it into a
+# production config. That switch is gone with the deploy it served; what
+# survives of it is the habit it taught, which is that nothing below is a
+# secret. Every value here is published in a public repository.
 
-require_env = fn name ->
-  System.get_env(name) ||
-    raise """
-    #{name} is required when PUBLIC_DEPLOY=true.
-
-    Generate one with:  mix phx.gen.secret
-    Then add it to .env and restart the service.
-    """
-end
-
-# Local-only fallbacks. These are published in a public git repo — they are
-# NOT secrets, and the public deploy refuses to boot with them.
-secret_key_base =
-  if public_deploy?,
-    do: require_env.("SECRET_KEY_BASE"),
-    else: String.duplicate("dev_only_insecure_secret_key_base", 2)
-
-session_signing_salt =
-  if public_deploy?, do: require_env.("SESSION_SIGNING_SALT"), else: "dev_only_salt"
-
-live_view_signing_salt =
-  if public_deploy?, do: require_env.("LIVE_VIEW_SIGNING_SALT"), else: "dev_only_lv_salt"
-
-config :web, :session_signing_salt, session_signing_salt
-config :web, :secure_cookies?, public_deploy?
-config :web, WebWeb.Endpoint, live_view: [signing_salt: live_view_signing_salt]
+# Not secrets: these sign nothing but a development session on localhost.
+config :web, :session_signing_salt, "dev_only_salt"
+config :web, :secure_cookies?, false
 
 # Configure your database
 #
-# The two debug flags are off on the public deploy. `stacktrace: true` attaches
-# a stacktrace to every query, and `show_sensitive_data_on_connection_error`
-# puts connection parameters — credentials included — into the log when the
-# database refuses a connection. Both are the right defaults for a local
-# console and the wrong ones for a machine serving traffic.
+# Both debug flags are the right defaults for a local console and the wrong
+# ones for a machine serving traffic: `stacktrace` attaches one to every
+# query, and `show_sensitive_data_on_connection_error` puts connection
+# parameters into the log when the database refuses a connection.
 config :web, Web.Repo,
   database: Path.expand("../web_dev.db", __DIR__),
   pool_size: 5,
-  stacktrace: not public_deploy?,
-  show_sensitive_data_on_connection_error: not public_deploy?
+  stacktrace: true,
+  show_sensitive_data_on_connection_error: true
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -67,48 +33,23 @@ config :web, Web.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :web, WebWeb.Endpoint,
-  # Bound to all interfaces because Caddy fronts this on the host.
-  # PORT override lets dev run alongside the prod container, which also binds 4000.
+  # PORT lets a development server run beside the live site, which holds 4000
+  # on this machine.
   http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
-  # The canonical public URL. Caddy terminates TLS in front, so this must say
-  # https/443 — Endpoint.url/0 feeds the sitemap, canonical links and og:url.
-  url:
-    if(public_deploy?,
-      do: [host: System.get_env("PHX_HOST") || "streetscissors.com", port: 443, scheme: "https"],
-      else: [host: "localhost", port: String.to_integer(System.get_env("PORT") || "4000")]
-    ),
-  # Websocket origin checking. Off locally (host varies), enforced in public.
-  check_origin:
-    if(public_deploy?,
-      do: ["//streetscissors.com", "//www.streetscissors.com"],
-      else: false
-    ),
-  # Both of these leak: debug_errors renders stacktraces, request params AND
-  # session contents to whoever tripped the crash; code_reloader exposes a
-  # live-reload socket and takes a compile lock on every request.
-  code_reloader: not public_deploy?,
-  debug_errors: not public_deploy?,
-  # Serve content-addressed asset URLs so returning visitors get far-future
-  # caching and a deploy busts the cache by changing the filename. Only when
-  # public: locally the manifest goes stale the moment you edit a stylesheet,
-  # and `~p"/assets/css/app.css"` would then silently serve the old build.
-  #
-  # This is only safe because ./redeploy.sh runs `mix assets.deploy`, which
-  # regenerates the manifest before every restart. Do not set this without
-  # that step — a manifest older than priv/static serves the stale asset it
-  # points at, with no error anywhere.
-  cache_static_manifest: if(public_deploy?, do: "priv/static/cache_manifest.json"),
-  secret_key_base: secret_key_base,
-  # Asset watchers are a local authoring tool; on the server they would rebuild
-  # priv/static underneath live traffic.
-  watchers:
-    if(public_deploy?,
-      do: [],
-      else: [
-        esbuild: {Esbuild, :install_and_run, [:web, ~w(--sourcemap=inline --watch)]},
-        tailwind: {Tailwind, :install_and_run, [:web, ~w(--watch)]}
-      ]
-    )
+  url: [host: "localhost", port: String.to_integer(System.get_env("PORT") || "4000")],
+  check_origin: false,
+  # Both of these leak, which is why production has neither: debug_errors
+  # renders stacktraces, request params and session contents to whoever
+  # tripped the crash, and code_reloader exposes a live-reload socket and takes
+  # a compile lock on every request.
+  code_reloader: true,
+  debug_errors: true,
+  secret_key_base: String.duplicate("dev_only_insecure_secret_key_base", 2),
+  watchers: [
+    esbuild: {Esbuild, :install_and_run, [:web, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:web, ~w(--watch)]}
+  ],
+  live_view: [signing_salt: "dev_only_lv_salt"]
 
 # ## SSL Support
 #
@@ -133,36 +74,30 @@ config :web, WebWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
-# Reload browser tabs when matching files change. Local only — the reload
-# socket is public surface and the file watcher is pointless on the server.
-if not public_deploy? do
-  config :web, WebWeb.Endpoint,
-    live_reload: [
-      web_console_logger: true,
-      patterns: [
-        # Static assets, except user uploads
-        ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
-        # Gettext translations
-        ~r"priv/gettext/.*\.po$"E,
-        # Router, Controllers, LiveViews and LiveComponents
-        ~r"lib/web_web/router\.ex$"E,
-        ~r"lib/web_web/(controllers|live|components)/.*\.(ex|heex)$"E
-      ]
+# Reload browser tabs when matching files change.
+config :web, WebWeb.Endpoint,
+  live_reload: [
+    web_console_logger: true,
+    patterns: [
+      # Static assets, except user uploads
+      ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
+      # Gettext translations
+      ~r"priv/gettext/.*\.po$"E,
+      # Router, Controllers, LiveViews and LiveComponents
+      ~r"lib/web_web/router\.ex$"E,
+      ~r"lib/web_web/(controllers|live|components)/.*\.(ex|heex)$"E
     ]
-end
+  ]
 
-# LiveDashboard + Swoosh mailbox preview. These were publicly reachable at
-# https://streetscissors.com/dev/dashboard — process inspector, ETS browser and
-# ecto_stats, all unauthenticated. router.ex also gates the scope on an admin
-# session at runtime, so both have to fail for it to leak again.
-config :web, dev_routes: not public_deploy?
+# LiveDashboard and the Swoosh mailbox preview, under /dev. Development only:
+# they were once reachable on the public site (process inspector, ETS browser,
+# ecto_stats, all unauthenticated), so router.ex also gates the scope on an
+# admin session at runtime, and ./redeploy.sh fails a deploy that answers them.
+config :web, dev_routes: true
 
-# Admin dashboard password. The old `|| "dev-admin"` fallback shipped in a
-# public repo, and the raise-guard for it lived in the prod-only block of
-# runtime.exs that this deployment never executes.
-config :web,
-       :admin_password,
-       if(public_deploy?, do: require_env.("ADMIN_PASSWORD"), else: "dev-admin")
+# The admin password for a development server. Production takes
+# ADMIN_PASSWORD from the environment and will not boot without it.
+config :web, :admin_password, "dev-admin"
 
 # Komoot auto-sync credentials (optional — sync is disabled when unset).
 config :web, :komoot,
@@ -196,31 +131,27 @@ config :web, :uploads_mirror_path, System.get_env("UPLOADS_MIRROR_PATH")
 # of web_dev.db written there would sit among the live snapshots as the newest
 # of them, which is the one a restore reaches for, and would push a real one
 # out of the fourteen that are kept. BACKUP_PATH and CONTENT_BACKUP_PATH still
-# win, and a public deploy keeps the real default.
+# win.
 #
 # Nor does it announce anything to other sites. The posts it reads are the
 # real ones, and it would send their citations out again from localhost.
-unless public_deploy? do
-  config :web,
-         :backup_path,
-         System.get_env("BACKUP_PATH") || Path.expand("../tmp/dev_backups/db", __DIR__)
+config :web,
+       :backup_path,
+       System.get_env("BACKUP_PATH") || Path.expand("../tmp/dev_backups/db", __DIR__)
 
-  config :web,
-         :content_backup_path,
-         System.get_env("CONTENT_BACKUP_PATH") ||
-           Path.expand("../tmp/dev_backups/content", __DIR__)
+config :web,
+       :content_backup_path,
+       System.get_env("CONTENT_BACKUP_PATH") ||
+         Path.expand("../tmp/dev_backups/content", __DIR__)
 
-  config :web, :webmention_send, false
-end
+config :web, :webmention_send, false
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
-# Debug logging is a firehose on a machine serving traffic — every query, every
-# LiveView diff — and it all lands in the journal. config/prod.exs sets :info
-# for exactly this reason, but that file never loads here: the deploy runs
-# MIX_ENV=dev with PUBLIC_DEPLOY=true. Match it.
-config :logger, level: if(public_deploy?, do: :info, else: :debug)
+# Every query and every LiveView diff: right for a console, and the reason
+# config/prod.exs sets :info.
+config :logger, level: :debug
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
@@ -231,13 +162,11 @@ config :phoenix, :plug_init_mode, :runtime
 
 config :phoenix_live_view,
   # These stamp every element with its template file and line number
-  # (data-phx-loc="27"), which on the public deploy just bloats the HTML and
-  # publishes the template structure. Local only.
-  # Changing this configuration requires mix clean and a full recompile.
-  debug_heex_annotations: not public_deploy?,
-  debug_attributes: not public_deploy?,
-  # Helpful, but explicitly documented as expensive — not for serving traffic.
-  enable_expensive_runtime_checks: not public_deploy?
+  # (data-phx-loc="27"). Changing them needs `mix clean` and a full recompile.
+  debug_heex_annotations: true,
+  debug_attributes: true,
+  # Helpful, and documented as expensive: not for serving traffic.
+  enable_expensive_runtime_checks: true
 
 # Enable swoosh api client for Resend adapter
 config :swoosh, :api_client, Swoosh.ApiClient.Finch

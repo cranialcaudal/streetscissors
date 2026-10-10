@@ -20,10 +20,9 @@ config :web, WebWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Web.PubSub,
-  # Placeholder only. The public deploy overrides this from
-  # LIVE_VIEW_SIGNING_SALT in config/dev.exs and refuses to boot without it —
-  # a committed salt plus a committed secret_key_base is enough to forge a
-  # session, so nothing real belongs here.
+  # A salt, not a secret: it only separates what LiveView signs from what
+  # the session signs. What must stay secret is SECRET_KEY_BASE, which
+  # production takes from the environment and will not boot without.
   live_view: [signing_salt: "dev_only_placeholder"]
 
 # Configure the mailer
