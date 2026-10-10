@@ -48,8 +48,9 @@ Three things worth knowing:
 
 1. **Assets are built before the release**, because a release packages `priv/` into
    itself. Built afterwards, they change the checkout and not the thing being served.
-2. **`config/runtime.exs` is read at boot**, so changing it takes a restart; changing
-   `lib/` or the other config files takes a rebuild.
+2. **`config/runtime.exs` is evaluated at boot**, so a changed value in `.env` or in the
+   unit takes only a restart. The file itself is packed into the release, so editing it,
+   like anything in `lib/` or `config/`, takes a deploy.
 3. **Content needs no deploy.** Posts, the fitness vault and the negatives are read from
    disk on each request.
 
@@ -61,14 +62,16 @@ database migration; the script's header says what that means.
 ## Architecture
 
 **New here? Read [`docs/how-to.md`](docs/how-to.md)** — the same file the site serves at
-[/how-to](https://streetscissors.com/how-to). It explains the whole thing in parts, assuming
-nothing: what the project is for, how a roll of film becomes a page, how a markdown file
-becomes a post, what every command does. Written for beginner programmers and for
-photographers. The three files below are the short version, for people who already know
-Phoenix.
+[/how-to](https://streetscissors.com/how-to). It explains the whole thing in parts. The
+first four assume nothing: what the project is for, how a roll of film becomes a page, how
+a markdown file becomes a post. The rest is for someone who programs and wants to know how
+the site is run: the path a request takes, the processes and what each is for,
+configuration, the deploy step by step, backups and how to restore from them, what the
+machine checks about itself, and what to look at first when something breaks.
 
 `CLAUDE.md` is the map — the non-obvious wiring, the design system, the file-based content
 systems and their gotchas. `AGENTS.md` covers Phoenix/LiveView conventions.
+[`ops/systemd/`](ops/systemd) holds the two unit files that run the live site.
 
 Worth knowing up front: the design is hand-written CSS only. Tailwind runs with
 `source(none)`, so no utility classes generate and heroicons must be safelisted in
@@ -80,8 +83,9 @@ Split, deliberately.
 
 - **The software is MIT** — `lib/`, `assets/`, `config/`, `test/`, `priv/repo/`, `docs/`,
   `mix.exs` and the root scripts. Take it, learn from it, build on it.
-- **The content is all rights reserved** — everything under `content/` and
-  `priv/static/images/`. The posts, the photographs, the recordings and the training notes
-  are here so the site can be built, not licensed for reuse.
+- **The content is all rights reserved, and is not in this repository** — the posts, the
+  photographs, the recordings and the training notes stay on the machine that serves them
+  (`content/` and `priv/static/images/` are ignored by git). A clone builds, boots and
+  passes its tests without them.
 
 Full terms in [`LICENSE`](LICENSE).

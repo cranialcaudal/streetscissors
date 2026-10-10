@@ -151,7 +151,8 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   guestbook signature. Every probe takes its outside world as options and `test.exs` runs none.
   `GET /health` sits in a scope with no pipeline, so it sets no cookie and logs no hit;
   `.github/workflows/uptime.yml` asks it from outside, which is the only thing that can see the
-  machine being off. **There is no dynamic DNS**: the registrar's panel has no API, so a changed
+  machine being off. **GitHub runs a schedule only from the repository's default branch**
+  (`master`): while that file is only on a work branch, the check from outside does not exist. **There is no dynamic DNS**: the registrar's panel has no API, so a changed
   address is mailed with the value to type in.
 
 - **Feature areas** beyond the blog: fitness (`Web.Fitness` + `Web.Fitness.Vault` markdown regimen/wiki;
@@ -1106,12 +1107,23 @@ second attempt after a bad deploy does not replace the good copy with the broken
 **`./rollback.sh` swaps the two and restarts**; run twice, it swaps back. It does not touch the
 checkout or undo a migration.
 
-There is also a container path (`Dockerfile`, `docker-compose.yml`, `deploy.sh`,
-`Caddyfile.prod`) and `start_prod.sh` for running the release by hand. Production secrets/config
-resolve at runtime in `config/runtime.exs` (`:admin_password`, mailer, etc. come from env there).
-The live database is outside the checkout (`DATABASE_PATH`, exported by the unit); `web_dev.db`
-and `web_test.db` in the repo root are the development and test databases. Migrations auto-run
-on release boot via the supervised `Ecto.Migrator`.
+**The unit files are kept in `ops/systemd/`**, with `%h` and `%u` for the home directory and
+the user so that neither is published. The installed copies are in `~/.config/systemd/user/`,
+and a change to one belongs in the other. `start_prod.sh` starts the release by hand with the
+same exports (change both together) and refuses to run while the unit is up. **The container
+path (`Dockerfile`, `docker-compose.yml`, `deploy.sh`, `Caddyfile.prod`) is stale**: it predates
+the data folders, the scanner and the film tools, and must not be run on the host.
+
+Production secrets/config resolve at runtime in `config/runtime.exs` (`:admin_password`, mailer,
+etc. come from env there). That file is packed into the release, so an edit to it is a deploy;
+only a changed *value* in `.env` or the unit is a restart. **The release listens on
+`127.0.0.1:4000` only** (Caddy and the deploy's health checks reach it as `localhost:4000`):
+bound wider, a caller on the house network could go round the proxy and write its own
+`x-forwarded-for`, which is the address every rate limit counts by. The session cookie is
+`Secure` in prod (`:secure_cookies?`, compile-time, `config/prod.exs`). The live database is
+outside the checkout (`DATABASE_PATH`, exported by the unit); `web_dev.db` and `web_test.db` in
+the repo root are the development and test databases. Migrations auto-run on release boot via
+the supervised `Ecto.Migrator`.
 
 **This machine is both the server and the workbench**, so `config/dev.exs` keeps a development
 server off the live site's ground: its backups go to `tmp/dev_backups/` rather than the real

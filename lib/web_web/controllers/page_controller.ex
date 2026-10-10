@@ -95,7 +95,7 @@ defmodule WebWeb.PageController do
   defp put_present(map, key, value), do: Map.put(map, key, value)
 
   @how_to_path "docs/how-to.md"
-  @how_to_description "How the streetscissors site and the film pipeline behind it actually work: written for beginners, in parts."
+  @how_to_description "How the streetscissors site and the film pipeline behind it work, and how the whole thing is run: in parts, from what it is for to the deploy script."
 
   def how_to(conn, params) do
     # `docs/`, not `content/`: the manual documents the software and is licensed
