@@ -325,6 +325,17 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       without it Chrome marches on the CPU). **The film's ground is steel's `--paper-sunk`
       written as a number in `render.html`**, so the picture has no edge on the page: change
       one, change the other, and film again.
+    - **The body is smooth and the muscles lie under it** (2026-10-10, "he's too lumpy"): in
+      `figure3d.js` a shape that is a muscle is sunk (`SINK`) and melted in widely (`MELT`),
+      so it rounds the form without standing off it, and the tones step softly. **A hand is
+      read off what is beside it** (`touching/3`): a fist round a bar, handle or band, a flat
+      palm on a floor, box, wall or ball, open otherwise; no figure file says which. Knees,
+      elbows, wrists and ankles have their own small shapes. **A dumbbell's handle is square
+      to the forearm**, and a held prop's `"grip": "across"` (a curl, a press) or `"neutral"`
+      (a hammer curl, a row, a carry; the default) says which way it runs. **A figure file
+      with a key the running release does not know shows nothing on the live site**, so a
+      new key waits for a deploy: six figures' `grip` versions are in
+      `tmp/figures-with-grip/` until then.
     - **Films are content, not code.** They live in `figures/` under the uploads root (which
       the proxy serves), each named by a hash of its own bytes, with `clips.json` saying which
       film is whose, what it was filmed from, and where each pose begins. The live site's

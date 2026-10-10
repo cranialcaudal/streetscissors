@@ -122,18 +122,18 @@ export function lift(track, f) {
 
 // ── The body round the joints ────────────────────────────────────────────
 
-export function body(J, hot) {
+export function body(J, hot, touch = {}) {
   const cones = [], ells = []
   const h = (muscle) => (muscle && hot.has(muscle) ? 1 : 0)
   const cone = (a, b, ra, rb, muscle = null, mat = SKIN) => {
     if (v.len(v.sub(a, b)) < 0.05) b = v.add(b, [0, 0.05, 0])
-    cones.push({ a, b, ra, rb, hot: h(muscle), mat })
+    cones.push({ a, b, ra, rb, hot: h(muscle) + (muscle ? 2 : 0), mat })
   }
   // ax is the first axis, ay roughly the second; radii are along ax, ay and ax × ay
   const ell = (c, ax, ay, radii, muscle = null, mat = SKIN) => {
     const x = v.norm(ax, [1, 0, 0])
     const y = v.norm(v.reject(ay, x), v.norm(v.cross(x, [0.3, 0.2, 0.9])))
-    ells.push({ c, x, y, radii, hot: h(muscle), mat })
+    ells.push({ c, x, y, radii, hot: h(muscle) + (muscle ? 2 : 0), mat })
   }
 
   const lat = v.norm(v.sub(J.sh_a, J.sh_b), [0, 0, 1])
@@ -190,10 +190,36 @@ export function body(J, hot) {
     ell(P(v.mix(S, E, 0.52), [fr, 0.8]), along, fr, [5.4, 2.2, 2.1], "biceps")
     ell(P(v.mix(S, E, 0.5), [fr, -0.9]), along, fr, [6.0, 2.2, 2.2], "triceps")
     const reachDir = v.norm(v.sub(H, E), along)
-    cone(E, H, 2.1, 1.5, "forearms")
+    cone(E, H, 2.1, 1.45, "forearms")
     ell(v.mix(E, H, 0.3), reachDir, fr, [4.6, 2.3, 2.1], "forearms")
-    ell(P(H, [reachDir, 1.7]), reachDir, fr, [2.6, 1.1, 1.9])
-    ell(P(H, [reachDir, 0.6], [fr, 1.1]), reachDir, fr, [1.6, 0.8, 0.8])
+    // the point of the elbow, behind the joint
+    ell(P(E, [fr, -1.0]), along, fr, [1.7, 1.5, 1.6])
+    const did = touch[s === 1 ? "hand_a" : "hand_b"]
+    if (did && did.grip) {
+      // a fist: the fingers rolled round what is held, the thumb closing it
+      const bar = did.grip
+      const back = v.norm(v.reject(reachDir, bar), fr)
+      ell(H, bar, back, [2.15, 1.75, 1.75])
+      ell(P(H, [back, 1.0]), bar, back, [2.0, 1.0, 1.9])
+      ell(P(H, [back, -0.9], [bar, 1.5 * s]), back, bar, [1.5, 0.75, 0.8])
+      ell(P(H, [back, -1.5]), reachDir, bar, [1.5, 1.7, 1.25])
+    } else if (did && did.flat) {
+      // a palm laid on what it rests on, fingers ahead of the wrist
+      const n = did.flat
+      let ahead = v.reject(reachDir, n)
+      ahead = v.len(ahead) < 0.35 ? v.norm(v.reject(frUp, n), [1, 0, 0]) : v.norm(ahead)
+      const wide = v.cross(n, ahead)
+      ell(P(did.at, [ahead, 1.3], [n, 0.75]), ahead, n, [2.3, 0.75, 2.0])
+      ell(P(did.at, [ahead, 3.7], [n, 0.55]), ahead, n, [1.9, 0.55, 1.8])
+      ell(P(did.at, [ahead, 1.2], [n, 0.6], [wide, 2.0 * s]), v.norm(v.add(ahead, v.mul(wide, 0.7 * s))), n, [1.5, 0.55, 0.7])
+      ell(P(did.at, [ahead, -0.6], [n, 1.1]), ahead, n, [1.6, 1.1, 1.7])
+    } else {
+      // an open hand: the palm, the fingers a little curled, the thumb
+      ell(P(H, [reachDir, 1.6]), reachDir, fr, [2.3, 0.95, 1.9])
+      ell(P(H, [reachDir, 3.6], [fr, 0.45]), v.norm(v.add(reachDir, v.mul(fr, 0.35))), fr, [1.8, 0.7, 1.7])
+      ell(P(H, [reachDir, 0.9], [fr, 1.0]), reachDir, fr, [1.6, 0.7, 0.75])
+      ell(H, reachDir, fr, [1.3, 1.15, 1.6])
+    }
   }
 
   // legs
@@ -210,6 +236,9 @@ export function body(J, hot) {
     const shin = v.norm(v.sub(A, K), along)
     const frS = v.norm(v.reject(fr, shin), fr)
     cone(K, A, 2.6, 1.7)
+    // the kneecap in front of the joint, and the ankle bones either side of it
+    ell(P(K, [fr, 1.5]), along, fr, [2.1, 1.6, 2.0])
+    ell(A, shin, frS, [1.9, 1.7, 2.2])
     ell(P(v.mix(K, A, 0.3), [frS, -0.9]), shin, frS, [5.6, 2.4, 2.5], "calves")
     // a shoe: a long low toe box and a heel, flat underneath
     const toe = v.norm(v.sub(T, A), [1, 0, 0])
@@ -218,6 +247,42 @@ export function body(J, hot) {
     ell(P(A, [toe, -0.8], [sole, 0.2]), toe, sole, [2.5, 2.1, 2.1], null, SHOES)
   }
   return { cones, ells }
+}
+
+// ── What a hand is doing ─────────────────────────────────────────────────
+
+// A hand is a fist round whatever bar, handle or band passes through it, a
+// flat palm on whatever it rests on (the floor, a box, a wall, a ball), and
+// open otherwise. Which it is is read off the things beside it, so a figure
+// file never has to say. Returns {grip: axis}, {flat: normal, at: point on
+// the surface} or null.
+function touching(H, things, track) {
+  let best = null, near = 1.6
+  const take = (d, what) => { if (d < near) { near = d; best = what } }
+  for (const t of things) {
+    if (t.type === 0) {
+      const ab = v.sub(t.b, t.a), len2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2]
+      const k = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, v.sub(H, t.a).reduce((acc, x, i) => acc + x * ab[i], 0) / len2))
+      const q = v.add(t.a, v.mul(ab, k))
+      // a band ends in the hand; a bar or a handle passes through it
+      take(v.len(v.sub(H, q)) - t.r - 0.6, { grip: v.norm(ab, [0, 0, 1]) })
+    } else if (t.type === 1) {
+      const q = v.sub(H, t.a), half = t.b
+      const out = q.map((x, i) => Math.abs(x) - half[i])
+      const axis = out.indexOf(Math.max(...out))
+      if (out.every((o, i) => i === axis || o < 1.0)) {
+        const n = [0, 0, 0]; n[axis] = Math.sign(q[axis]) || 1
+        const at = H.slice(); at[axis] = t.a[axis] + n[axis] * half[axis]
+        take(Math.abs(out[axis]) - 0.6, { flat: n, at })
+      }
+    } else {
+      const r = t.type === 2 ? t.r : Math.min(...t.b)
+      const n = v.norm(v.sub(H, t.a), [0, 1, 0])
+      take(Math.abs(v.len(v.sub(H, t.a)) - r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, r)) })
+    }
+  }
+  if (!best && (track.floor || mode(track) === "plan") && H[1] < 2.6 && mode(track) !== "plan") best = { flat: [0, 1, 0], at: [H[0], 0, H[2]] }
+  return best
 }
 
 // ── What is held, stood on or pulled ─────────────────────────────────────
@@ -278,7 +343,14 @@ export function gear(track, i, J) {
         capsule(b, v.add(top, v.mul(across, 1.6)), 0.7)
         sphere(weight, 4.3)
       } else if (p.kind === "dumbbell") {
-        const axis = m === "side" ? [1, 0, 0] : [0, 0, 1]
+        // The handle lies across the palm, so it is square to the forearm: a
+        // dumbbell curled to the shoulder turns with the hand, it does not
+        // stay level. Held across, it runs from side to side (a curl, a
+        // press); held neutral, front to back (a hammer curl, a row, a carry).
+        const E = p.hold === "hand_a" ? J.elbow_a : p.hold === "hand_b" ? J.elbow_b : null
+        const fore = E ? v.norm(v.sub(hand, E), [0, -1, 0]) : [0, -1, 0]
+        const flat = m === "side" ? [1, 0, 0] : [0, 0, 1]
+        const axis = p.grip === "across" ? v.norm(v.reject(across, fore), across) : v.norm(v.cross(fore, across), flat)
         capsule(v.add(grip, v.mul(axis, -3.2)), v.add(grip, v.mul(axis, 3.2)), 0.8)
         sphere(v.add(grip, v.mul(axis, -3.6)), 2.5); sphere(v.add(grip, v.mul(axis, 3.6)), 2.5)
       } else if (p.kind === "bar") {
@@ -335,7 +407,7 @@ function waterLevel(track) {
 
 // ── Drawing ──────────────────────────────────────────────────────────────
 
-const NC = 28, NE = 48, NP = 28
+const NC = 28, NE = 60, NP = 28
 
 const FRAG = `#version 300 es
 precision highp float;
@@ -369,23 +441,29 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 // The body: every shape melted into its neighbours. hot is how much of the
 // surface here belongs to a muscle that is being worked; mat is what the
 // nearest shape is made of.
+// A muscle lies under the skin, not on it: its shape is sunk a little and
+// melted in widely, so it rounds the form it belongs to without standing off
+// it as a lump of its own. It still says where the surface is lit.
+const float SINK = 0.7, MELT = 3.2;
 float body(vec3 p, out float hot, out float mat) {
   float d = 1e9, near = 1e9, hotNear = 1e9; mat = 0.0;
   for (int i = 0; i < uNC; i++) {
     float di = sdRoundCone(p, uCA[i].xyz, uCB[i].xyz, uCA[i].w, uCB[i].w);
-    d = smin(d, di, uK);
-    if (uCM[i].x > 0.5) hotNear = min(hotNear, di);
+    bool mus = uCM[i].x > 1.5;
+    d = smin(d, mus ? di + SINK : di, mus ? MELT : uK);
+    if (mod(uCM[i].x, 2.0) > 0.5) hotNear = min(hotNear, di);
     if (di < near) { near = di; mat = uCM[i].y; }
   }
   for (int i = 0; i < uNE; i++) {
     vec3 q = p - uEC[i].xyz; vec3 ez = cross(uEX[i], uEY[i]);
     float di = sdEllipsoid(vec3(dot(q, uEX[i]), dot(q, uEY[i]), dot(q, ez)), uER[i].xyz);
-    d = smin(d, di, uK);
-    if (uEC[i].w > 0.5) hotNear = min(hotNear, di);
+    bool mus = uEC[i].w > 1.5;
+    d = smin(d, mus ? di + SINK : di, mus ? MELT : uK);
+    if (mod(uEC[i].w, 2.0) > 0.5) hotNear = min(hotNear, di);
     if (di < near) { near = di; mat = uER[i].w; }
   }
   // How far under the skin the nearest worked muscle lies at this point.
-  hot = 1.0 - smoothstep(0.35, 1.5, hotNear - d);
+  hot = 1.0 - smoothstep(0.25 + SINK, 1.2 + SINK, hotNear - d);
   return d;
 }
 
@@ -480,7 +558,7 @@ vec3 shade(vec2 px) {
     // Three flat tones, as a figure is painted rather than lit: full light,
     // half tone, shadow, with a soft step between them.
     float lit = clamp(dot(n, key), 0.0, 1.0) * sh;
-    float tone = 0.56 + 0.24 * smoothstep(0.03, 0.10, lit) + 0.20 * smoothstep(0.46, 0.56, lit);
+    float tone = 0.60 + 0.22 * smoothstep(0.02, 0.30, lit) + 0.18 * smoothstep(0.35, 0.85, lit);
     float fil = 0.5 + 0.5 * dot(n, fill);
     col = base * tone * mix(0.80, 1.0, occ);
     col += base * vec3(0.30, 0.42, 0.58) * 0.10 * fil * (1.0 - smoothstep(0.03, 0.10, lit));
@@ -579,7 +657,7 @@ export function prepare(track, muscles) {
   const frames = track.frames.map((f, i) => {
     const J = lift(track, f)
     const things = gear(track, i, J)
-    return { J, shapes: body(J, hot), things, bound: bound(J, things) }
+    return { J, shapes: body(J, hot, { hand_a: touching(J.hand_a, things, track), hand_b: touching(J.hand_b, things, track) }), things, bound: bound(J, things) }
   })
   return { frames, cam: camera(track, frames) }
 }

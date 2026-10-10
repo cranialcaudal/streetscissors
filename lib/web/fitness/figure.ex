@@ -272,7 +272,7 @@ defmodule Web.Fitness.Figure do
         [pair(grip), pair(weight)]
       end)
 
-    %{kind: prop.kind, hold: hold, mode: prop.mode, at: places}
+    %{kind: prop.kind, hold: hold, mode: prop.mode, grip: prop.grip, at: places}
   end
 
   defp track_prop(%{kind: :line} = line, frames) do
@@ -499,8 +499,12 @@ defmodule Web.Fitness.Figure do
   defp parse_prop(%{"kind" => kind} = prop, n) when kind in ~w(kettlebell dumbbell ball bar) do
     hold = Map.get(prop, "hold", "hands")
     mode = Map.get(prop, "mode", "hang")
+    grip = Map.get(prop, "grip", "neutral")
 
     cond do
+      grip not in ~w(neutral across) ->
+        {nil, ["prop #{n}: grip must be neutral (the handle runs front to back) or across"]}
+
       hold not in @holds ->
         {nil, ["prop #{n}: hold must be one of #{Enum.join(@holds, ", ")}"]}
 
@@ -511,8 +515,9 @@ defmodule Web.Fitness.Figure do
         {%{
            kind: String.to_existing_atom(kind),
            hold: String.to_existing_atom(hold),
-           mode: String.to_existing_atom(mode)
-         }, unknown_keys(prop, ~w(kind hold mode), "prop #{n}")}
+           mode: String.to_existing_atom(mode),
+           grip: grip
+         }, unknown_keys(prop, ~w(kind hold mode grip), "prop #{n}")}
     end
   end
 
