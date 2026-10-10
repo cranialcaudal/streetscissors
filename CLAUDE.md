@@ -978,6 +978,19 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   batch `.md` drop and keyword editing, and `/admin/content` 301s to `/admin/blog`. The logs booth's
   `.LogRecorder` hook and its `data-role` markup are load-bearing (see above); restyle around them.
 
+- **The manual** (`docs/how-to.md`, `/how-to`, `Web.Docs`) **is live the moment it is saved**:
+  the release reads it from the checkout and renders it again when its mtime moves, so write
+  it beside and rename it over. Parts 1 to 4 assume nothing; parts 5 to 9 are for someone
+  running the site and have to be kept true to the code (the versions, the scheduler's table,
+  the environment table, the deploy's steps, the rate limits). Three things about the page it
+  is drawn on: **a table's first column never wraps** (`how-to.css`), so it holds a short name
+  and never a sentence; **a code word with no space or hyphen cannot break**, and one over
+  about 24 characters outside a table or a fenced block pushes a phone's page sideways; and
+  its headings are in the search, so a heading with a word beginning `push` breaks the
+  suggestion test that expects only Push-ups. The page tests want at least eight parts, a
+  table, and a heading with "keywords" in it. It is a public page: no host addresses, no
+  names, nothing about the unlisted pages, and nothing about a weakness that is still open.
+
 - **Frontend**: hand-written CSS only — Tailwind v4 runs with `source(none)` so **no utility
   classes generate**; heroicons must be safelisted in `assets/css/app.css`. Design system is
   **"UC Press / Valley print"** (replaced the old black-ground "hairline mono" look): paper ground
