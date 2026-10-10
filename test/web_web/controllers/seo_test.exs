@@ -60,13 +60,42 @@ defmodule WebWeb.SEOTest do
     end
 
     test "about page contains ProfilePage structured data and author name", %{conn: conn} do
-      with_author("Cesar Anthony Moreno", fn ->
+      with_author("Ada Example", fn ->
         html = conn |> get(~p"/about") |> html_response(200)
 
-        assert html =~ "About · Cesar Anthony Moreno"
+        assert html =~ "About · Ada Example"
         assert html =~ ~s("@type":"ProfilePage")
-        assert html =~ ~s("name":"Cesar Anthony Moreno")
-        assert html =~ ~s("name":"UC Davis")
+        assert html =~ ~s("name":"Ada Example")
+        # What she does and where is the vault's to say (content/about.json).
+        assert html =~ ~s("jobTitle":"Archivist")
+        assert html =~ ~s("name":"Example University")
+        assert html =~ "About Ada Example — an invented person for the tests."
+      end)
+    end
+
+    test "with nothing said of the author, the pages say less and still render", %{conn: conn} do
+      was = Application.get_env(:web, :about_json_path)
+      Application.put_env(:web, :about_json_path, "/nonexistent/about.json")
+      on_exit(fn -> Application.put_env(:web, :about_json_path, was) end)
+
+      with_author(nil, fn ->
+        about = conn |> get(~p"/about") |> html_response(200)
+        assert about =~ "About · the author"
+        refute about =~ "jobTitle"
+        refute about =~ "worksFor"
+
+        home = conn |> get(~p"/") |> html_response(200)
+        refute home =~ "open.spotify.com/user"
+        assert home =~ "streetscissors."
+      end)
+    end
+
+    test "the homepage names its author and links a profile only as the host says", %{conn: conn} do
+      with_author("Ada Example", fn ->
+        home = conn |> get(~p"/") |> html_response(200)
+        assert home =~ ~s(href="https://open.spotify.com/user/example")
+        assert home =~ "Ada Example"
+        assert home =~ "#{Web.Clock.local_today().year}"
       end)
     end
 

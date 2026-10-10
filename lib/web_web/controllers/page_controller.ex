@@ -30,7 +30,7 @@ defmodule WebWeb.PageController do
     |> assign(:og_title, title)
     |> assign(:og_description, desc)
     |> assign(:canonical_path, ~p"/")
-    |> render(:home)
+    |> render(:home, author: author, spotify_profile: Web.Author.link("spotify_profile"))
   end
 
   def about(conn, params) do
@@ -50,31 +50,38 @@ defmodule WebWeb.PageController do
       end
 
     {return_to, return_label} = return_context(params["from"])
-    author = SEO.author_name() || "Cesar Anthony Moreno"
+    # Who the author is comes from the host (AUTHOR_NAME, content/about.json),
+    # never from here: this file is public.
+    author = SEO.author_name() || "the author"
     crumbs = [{"Home", ~p"/"}, {"About", ~p"/about"}]
+
+    person =
+      %{"@type" => "Person", "name" => author, "url" => SEO.absolute("/about")}
+      |> put_present("jobTitle", Web.Author.get("job_title"))
+      |> put_present(
+        "worksFor",
+        case Web.Author.get("works_for") do
+          nil -> nil
+          name -> %{"@type" => "Organization", "name" => name}
+        end
+      )
 
     profile_json_ld = %{
       "@context" => "https://schema.org",
       "@type" => "ProfilePage",
-      "mainEntity" => %{
-        "@type" => "Person",
-        "name" => author,
-        "url" => SEO.absolute("/about"),
-        "jobTitle" => "Researcher",
-        "worksFor" => %{
-          "@type" => "Organization",
-          "name" => "UC Davis"
-        }
-      }
+      "mainEntity" => person
     }
+
+    description =
+      case Web.Author.get("description") do
+        nil -> "About #{author}, who makes streetscissors."
+        said -> "About #{author} — #{said}."
+      end
 
     conn
     |> assign(:page_title, "About · #{author}")
     |> assign(:og_title, "About · #{author}")
-    |> assign(
-      :og_description,
-      "About #{author} — researcher at UC Davis studying cognitive science, writer, and photographer behind streetscissors."
-    )
+    |> assign(:og_description, description)
     |> assign(:canonical_path, ~p"/about")
     |> assign(:json_ld, [profile_json_ld, SEO.breadcrumb_json_ld(crumbs)])
     |> render(:about,
@@ -83,6 +90,9 @@ defmodule WebWeb.PageController do
       html_content: html_content
     )
   end
+
+  defp put_present(map, _key, nil), do: map
+  defp put_present(map, key, value), do: Map.put(map, key, value)
 
   @how_to_path "docs/how-to.md"
   @how_to_description "How the streetscissors site and the film pipeline behind it actually work: written for beginners, in parts."

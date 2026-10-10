@@ -59,6 +59,9 @@ config :web, :ffprobe_bin, Path.expand("../test/support/stub_ffprobe", __DIR__)
 # prints. The stub copies rather than converts — nothing here decodes an image.
 config :web, :magick_bin, Path.expand("../test/support/stub_magick", __DIR__)
 
+# Who the author is, for the pages that say: an invented person.
+config :web, :about_json_path, Path.expand("../test/support/fixtures/about.json", __DIR__)
+
 # The figure camera is a browser marching rays and ffmpeg behind it; the stub
 # writes a film's worth of bytes at once.
 config :web, :figure_camera, {Path.expand("../test/support/stub_camera", __DIR__), []}

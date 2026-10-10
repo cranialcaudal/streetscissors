@@ -50,7 +50,8 @@
         </div>
 
         <a
-          href="https://open.spotify.com/user/moreno90042"
+          :if={@spotify_profile}
+          href={@spotify_profile}
           target="_blank"
           class="spotify-pill-profile"
           title="Spotify Profile"
@@ -159,8 +160,9 @@
       </a>
     </div>
     <footer class="home-footer">
-      &copy; 2026 Cesar Anthony Moreno &middot; streetscissors.
-      <a href={~p"/daybook"} class="home-footer-link">The daybook</a>
+      &copy; {Web.Clock.local_today().year}
+      <span :if={@author}>{@author} &middot;</span>
+      streetscissors. <a href={~p"/daybook"} class="home-footer-link">The daybook</a>
       <a href={~p"/how-to?from=home"} class="home-footer-link">How it works</a>
       <WebWeb.Microformats.representative_card />
       <a
