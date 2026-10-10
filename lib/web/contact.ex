@@ -26,17 +26,6 @@ defmodule Web.Contact do
     |> Map.new()
   end
 
-  def mark_as_read(id) do
-    case Repo.get(Message, id) do
-      nil ->
-        {:error, :not_found}
-
-      message ->
-        Ecto.Changeset.change(message, read: true)
-        |> Repo.update()
-    end
-  end
-
   def get_message(id), do: Repo.get(Message, id)
 
   def update_status(id, status) do

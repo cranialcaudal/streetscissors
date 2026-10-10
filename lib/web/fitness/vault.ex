@@ -174,25 +174,6 @@ defmodule Web.Fitness.Vault do
     end
   end
 
-  @doc "Returns a MapSet of all exercise slugs explicitly referenced in the weekly regimen."
-  def active_slugs do
-    @day_order
-    |> Enum.map(fn day ->
-      path = find_day_path(day)
-
-      case File.read(path) do
-        {:ok, content} ->
-          Regex.scan(~r/\[\[(.*?)(?:\|.*?)?\]\]/, content)
-          |> Enum.map(fn match -> Enum.at(match, 1) end)
-
-        _ ->
-          []
-      end
-    end)
-    |> List.flatten()
-    |> MapSet.new()
-  end
-
   @doc """
   Updates a weekly regimen day.
 

@@ -55,9 +55,6 @@ defmodule Web.Rides do
     Map.new(Repo.all(Ride), &{&1.komoot_id, &1})
   end
 
-  @doc "A ride by its Komoot tour id, false starts included, or nil."
-  def get_by_komoot_id(komoot_id), do: Repo.get_by(Ride, komoot_id: to_string(komoot_id))
-
   def create_ride(attrs) do
     %Ride{} |> Ride.changeset(attrs) |> Repo.insert()
   end

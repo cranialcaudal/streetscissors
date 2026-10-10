@@ -392,34 +392,6 @@ defmodule Web.Negatives do
     end
   end
 
-  @doc """
-  Gets summary statistics of the film archive.
-  """
-  def get_stats do
-    sheets = list_contact_sheets()
-    total_rolls = length(sheets)
-
-    total_frames =
-      Enum.reduce(sheets, 0, fn sheet, acc ->
-        case Integer.parse(to_string(sheet.frames)) do
-          {n, _} -> acc + n
-          :error -> acc
-        end
-      end)
-
-    latest_date =
-      case sheets do
-        [first | _] -> first.date
-        [] -> nil
-      end
-
-    %{
-      total_rolls: total_rolls,
-      total_frames: total_frames,
-      latest_date: latest_date
-    }
-  end
-
   defp parse_sheet_file(filename, dir, catalog) do
     slug = Path.rootname(filename)
     full_path = Path.join(dir, filename)

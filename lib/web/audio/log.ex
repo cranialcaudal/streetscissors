@@ -135,10 +135,6 @@ defmodule Web.Audio.Log do
   def poster_url(%__MODULE__{poster_path: path}) when is_binary(path), do: path
   def poster_url(%__MODULE__{}), do: nil
 
-  @doc "True once the entry has media a visitor can actually play."
-  def ready?(%__MODULE__{status: "ready"}), do: true
-  def ready?(%__MODULE__{}), do: false
-
   def video?(%__MODULE__{kind: "video"}), do: true
   def video?(%__MODULE__{}), do: false
 

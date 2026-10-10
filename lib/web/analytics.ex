@@ -71,11 +71,6 @@ defmodule Web.Analytics do
     |> Repo.insert()
   end
 
-  def list_recent_hits(limit \\ 50) do
-    from(h in Hit, order_by: [desc: h.inserted_at], limit: ^limit)
-    |> Repo.all()
-  end
-
   # Hits for today (resets at local midnight, DST included — see Web.Clock)
   def count_hits_today do
     today_start = Web.Clock.local_day_start_utc()
@@ -176,12 +171,6 @@ defmodule Web.Analytics do
     {total_in_window, final_data}
   end
 
-  def count_total_hits do
-    # Per user request: All-time hits is the aggregate of the 28 bi-weekly bins
-    {total, _} = get_biweekly_trends(28)
-    total
-  end
-
   def top_pages(limit \\ 5) do
     from(h in Hit,
       group_by: h.path,
@@ -190,10 +179,6 @@ defmodule Web.Analytics do
       limit: ^limit
     )
     |> Repo.all()
-  end
-
-  def reset_all_hits do
-    Repo.delete_all(Hit)
   end
 
   @doc """
@@ -240,5 +225,14 @@ defmodule Web.Analytics do
       slug = path |> String.split("/") |> List.last() |> URI.decode()
       Map.update(acc, slug, MapSet.new([ip_hash]), &MapSet.put(&1, ip_hash))
     end)
+  end
+
+  @doc """
+  Forgets every visit. Nothing on the site calls this: it is for the console
+  (`bin/web rpc 'Web.Analytics.reset_all_hits()'`), and it cannot be undone
+  except from a database snapshot.
+  """
+  def reset_all_hits do
+    Repo.delete_all(Hit)
   end
 end

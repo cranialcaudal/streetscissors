@@ -41,12 +41,4 @@ defmodule Web.SiteSettings do
     Repo.delete_all(from(s in Setting, where: s.key == ^key))
     :ok
   end
-
-  @doc """
-  Returns a map of all settings.
-  """
-  def get_all_settings do
-    Repo.all(Setting)
-    |> Enum.into(%{}, fn s -> {s.key, s.value} end)
-  end
 end

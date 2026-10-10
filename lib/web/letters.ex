@@ -66,7 +66,4 @@ defmodule Web.Letters do
   end
 
   def unpublish(nil), do: {:error, :not_found}
-
-  @doc "True for a contact message that is a letter about a piece."
-  def letter?(%Message{piece: piece}), do: is_binary(piece)
 end

@@ -16,13 +16,6 @@ defmodule Web.Fitness do
   end
 
   @doc """
-  Gets a single exercise.
-
-  Raises `Ecto.NoResultsError` if the Exercise does not exist.
-  """
-  def get_exercise!(id), do: Repo.get!(Exercise, id)
-
-  @doc """
   Gets a single exercise by slug.
   """
   def get_exercise_by_slug(slug) do
@@ -52,13 +45,6 @@ defmodule Web.Fitness do
   """
   def delete_exercise(%Exercise{} = exercise) do
     Repo.delete(exercise)
-  end
-
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking exercise changes.
-  """
-  def change_exercise(%Exercise{} = exercise, attrs \\ %{}) do
-    Exercise.changeset(exercise, attrs)
   end
 
   alias Web.Fitness.ExerciseLog
@@ -137,52 +123,5 @@ defmodule Web.Fitness do
   def list_exercise_logs do
     Repo.all(ExerciseLog)
     |> Repo.preload(:exercise)
-  end
-
-  alias Web.Fitness.WorkoutSession
-  alias Web.Fitness.WorkoutSet
-
-  def create_workout_session(attrs \\ %{}) do
-    %WorkoutSession{}
-    |> WorkoutSession.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def get_or_create_todays_session do
-    today = Date.utc_today()
-
-    case Repo.get_by(WorkoutSession, date: today) do
-      nil -> create_workout_session(%{date: today, name: "Daily Workout"})
-      session -> {:ok, session}
-    end
-  end
-
-  def add_workout_set(attrs \\ %{}) do
-    %WorkoutSet{}
-    |> WorkoutSet.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def get_last_set_for_exercise(exercise_id) do
-    Repo.one(
-      from s in WorkoutSet,
-        where: s.exercise_id == ^exercise_id,
-        order_by: [desc: s.inserted_at],
-        limit: 1
-    )
-  end
-
-  def list_recent_active_muscles(days \\ 2) do
-    cutoff = Date.utc_today() |> Date.add(-days)
-
-    query =
-      from s in WorkoutSet,
-        join: sess in assoc(s, :workout_session),
-        join: e in assoc(s, :exercise),
-        where: sess.date >= ^cutoff,
-        distinct: true,
-        select: e.muscle_group
-
-    Repo.all(query)
   end
 end
