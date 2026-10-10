@@ -1,40 +1,68 @@
 #!/bin/bash
 #
-# Start the MIX_ENV=prod release by hand. The supervised path is the systemd
-# user unit `streetscissors.service`; this is for running the release in a
-# terminal to check it.
+# Start the MIX_ENV=prod release by hand, in a terminal, with the environment
+# the systemd unit gives it. The supervised path is the unit
+# (`streetscissors.service`; a copy is kept in ops/systemd/). This is for the
+# rare case of wanting the release's own output in front of you, with the unit
+# stopped.
 #
 # Build it first:  MIX_ENV=prod mix assets.deploy && MIX_ENV=prod mix release
+#
+# The paths below have to say what the unit says, so a change to one is a
+# change to both. They once did not: this file went on naming web_dev.db as
+# the live database after the data moved out of the checkout. Had it been run,
+# it would have served the development database to the public and filed
+# snapshots of it among the real backups.
+set -euo pipefail
+
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+BESIDE="$(dirname "$ROOT")"
+DATA="$BESIDE/streetscissors-data"
+BACKUPS="$BESIDE/streetscissors-backups"
+DRIVE="/run/media/$(id -un)/Third/streetscissors-backups"
+
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+# A second copy would migrate the database and take its boot backup before it
+# found port 4000 taken.
+if systemctl --user is-active --quiet streetscissors.service; then
+  echo "streetscissors.service is running, so this would be a second copy of the site." >&2
+  echo "Stop it first (systemctl --user stop streetscissors), or leave it and use:" >&2
+  echo "  journalctl --user -u streetscissors -f     its output" >&2
+  echo "  _build/prod/rel/web/bin/web remote         a console inside it" >&2
+  exit 1
+fi
+
+# SQLite makes an empty database where it finds none, and the site comes up
+# looking wiped.
+if [ ! -f "$DATA/streetscissors.db" ]; then
+  echo "No database at $DATA/streetscissors.db; not starting." >&2
+  exit 1
+fi
+
+export LANG=en_US.UTF-8
+# ~/.local/bin holds the film pipeline's tools, which the scanner page runs.
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+export PHX_SERVER=true
+export PHX_HOST=streetscissors.com
+export PORT=4000
 
 set -a
 source "$ROOT/.env"
 set +a
 
-export PHX_SERVER=true
-export PHX_HOST=streetscissors.com
-
-# The live database. This previously pointed at street_scissors_prod.db, a
-# relic from the retired container stack that is seven migrations behind and
-# has no rides table at all — starting the release would have served an empty
-# site and then migrated the wrong file. That file is now renamed
-# .retired-2026-07-17 and nothing points at it.
-#
-# Note the container stack is different: docker-compose.yml's
-# /data/street_scissors_prod.db is a path inside a named volume, not this repo,
-# and is correct in that context.
-export DATABASE_PATH="$ROOT/web_dev.db"
-
-# File-based content lives in the checkout, not in the release. Without these
-# every fitness and blog page renders empty — runtime.exs only overrides the
-# defaults when they are set.
+# After .env, as in the unit, so that nothing in it can point these elsewhere.
+export DATABASE_PATH="$DATA/streetscissors.db"
+export RIDE_THUMBS_PATH="$DATA/ride_thumbs"
+export UPLOADS_PATH="$DATA/uploads"
 export BLOG_PATH="$ROOT/content/blog"
 export FITNESS_PATH="$ROOT/content/fitness"
+export BACKUP_PATH="$BACKUPS/db"
+export CONTENT_BACKUP_PATH="$BACKUPS/content"
+export BACKUP_MIRROR_PATH="$DRIVE/db"
+export PHOTOS_MIRROR_PATH="$DRIVE/negatives"
+export CONTENT_MIRROR_PATH="$DRIVE/content"
+export UPLOADS_MIRROR_PATH="$DRIVE/uploads"
+export MONITOR_UNITS=caddy-streetscissors.service
 
-# Audio uploads must land outside the release: `mix release` replaces priv/ on
-# every build, which would delete them.
-export UPLOADS_PATH="$ROOT/uploads"
-
-export PORT=4000
-
-"$ROOT/_build/prod/rel/web/bin/web" start
+exec "$ROOT/_build/prod/rel/web/bin/web" start

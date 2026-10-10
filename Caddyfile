@@ -1,6 +1,7 @@
-# Production Caddyfile
-#
-# IMPORTANT: Replace 'email@example.com' with your actual email for Let's Encrypt notifications!
+# The live site's Caddyfile. Caddy is run from the checkout by the user unit
+# caddy-streetscissors.service (ops/systemd/), which is what the relative
+# paths below are relative to. It is read when Caddy starts and when it is
+# told to look again: systemctl --user reload caddy-streetscissors
 #
 
 # HTTP/3 disabled: deploys SIGKILL caddy, leaving browsers (esp. Firefox) with
@@ -101,7 +102,7 @@ www.streetscissors.com {
 }
 
 streetscissors.com {
-    # Replace with your email address to avoid rate limits
+    # Where Let's Encrypt writes about this certificate.
     tls admin@streetscissors.com
 
     # A browser that has been here once refuses plain HTTP for a year, so a

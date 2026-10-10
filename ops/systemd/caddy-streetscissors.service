@@ -1,0 +1,36 @@
+# The unit that runs Caddy in front of the site: ports 80 and 443, TLS, the media files.
+#
+# The installed copy is ~/.config/systemd/user/caddy-streetscissors.service.
+# This is that file with %h where it has the home directory and %u where it
+# has the user's name, so neither is written into a public repository;
+# systemd expands both.
+#
+# To update the installed copy (this restarts nothing; the change applies
+# from the next restart, which is how ./redeploy.sh ends):
+#   cp ops/systemd/*.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#
+# On a new machine, after that:
+#   systemctl --user enable --now caddy-streetscissors streetscissors
+#   loginctl enable-linger "$USER"     # so they run with nobody logged in
+#
+# A change made to the installed copy belongs here too, or the next install
+# from this folder undoes it.
+[Unit]
+Description=Caddy reverse proxy for Street Scissors (:80/:443 -> :4000)
+After=network-online.target streetscissors.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/streetscissors
+# Reuse the existing Let's Encrypt cert store at ~/.local/share/caddy.
+Environment=XDG_DATA_HOME=%h/.local/share
+ExecStart=/usr/bin/caddy run --config %h/streetscissors/Caddyfile
+ExecReload=/usr/bin/caddy reload --config %h/streetscissors/Caddyfile --force
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

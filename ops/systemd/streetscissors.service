@@ -1,0 +1,87 @@
+# The unit that runs the live site: the compiled release, on 127.0.0.1:4000.
+#
+# The installed copy is ~/.config/systemd/user/streetscissors.service.
+# This is that file with %h where it has the home directory and %u where it
+# has the user's name, so neither is written into a public repository;
+# systemd expands both.
+#
+# To update the installed copy (this restarts nothing; the change applies
+# from the next restart, which is how ./redeploy.sh ends):
+#   cp ops/systemd/*.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#
+# On a new machine, after that:
+#   systemctl --user enable --now caddy-streetscissors streetscissors
+#   loginctl enable-linger "$USER"     # so they run with nobody logged in
+#
+# A change made to the installed copy belongs here too, or the next install
+# from this folder undoes it.
+[Unit]
+Description=Street Scissors — Phoenix MIX_ENV=prod release on :4000
+Documentation=https://streetscissors.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/streetscissors
+
+# This runs a compiled OTP release, not `mix phx.server`. Consequences worth
+# knowing:
+#   * config/prod.exs and the `config_env() == :prod` block in runtime.exs are
+#     what configure this. config/dev.exs plays no part.
+#   * runtime.exs is evaluated at BOOT, so a changed value in .env or in this
+#     unit takes only a restart. The file itself is copied into the release
+#     when it is built, so editing it, like anything in lib/ or config/, needs
+#     ./redeploy.sh.
+#   * Migrations run automatically on boot (Web.Application keys off
+#     RELEASE_NAME, which the release sets).
+Environment=LANG=en_US.UTF-8
+# ~/.local/bin holds the film pipeline's tools (film-develop,
+# digital-contact-sheet-maker), which the admin's scanner page runs.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PHX_SERVER=true
+Environment=PHX_HOST=streetscissors.com
+Environment=PORT=4000
+
+# Secrets come from .env: SECRET_KEY_BASE, ADMIN_PASSWORD, RESEND_API_KEY,
+# KOMOOT_* (.env.example lists them all). The prod block of runtime.exs raises
+# at boot if a required one is missing, which is deliberate — better a refused
+# start than a site quietly serving without them.
+#
+# The deployment paths are exported AFTER sourcing .env, deliberately. Anything
+# set with Environment= above would be silently overwritten by a variable of the
+# same name in .env, which is exactly how this unit first came up serving the
+# development database while claiming otherwise. Exporting here makes the unit
+# authoritative regardless of what .env happens to contain.
+# start_prod.sh repeats this list for a start by hand: change both.
+#
+# Production data lives OUTSIDE the checkout and outside the release: a release
+# ships priv/ inside itself and replaces it wholesale on every build, so
+# uploaded audio and cached Komoot thumbnails would be destroyed on each deploy
+# if they stayed there. Content, by contrast, is read from the checkout at
+# request time — without BLOG_PATH and FITNESS_PATH every blog and fitness page
+# renders empty. BACKUP_PATH is pinned so a release staged against a copy of the
+# database cannot write snapshots of that copy into the real backup directory.
+ExecStart=/usr/bin/bash -c 'set -a; . %h/streetscissors/.env; set +a; \
+  export DATABASE_PATH=%h/streetscissors-data/streetscissors.db; \
+  export RIDE_THUMBS_PATH=%h/streetscissors-data/ride_thumbs; \
+  export UPLOADS_PATH=%h/streetscissors-data/uploads; \
+  export BLOG_PATH=%h/streetscissors/content/blog; \
+  export FITNESS_PATH=%h/streetscissors/content/fitness; \
+  export BACKUP_PATH=%h/streetscissors-backups/db; \
+  export CONTENT_BACKUP_PATH=%h/streetscissors-backups/content; \
+  export BACKUP_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/db; \
+  export PHOTOS_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/negatives; \
+  export CONTENT_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/content; \
+  export UPLOADS_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/uploads; \
+  export MONITOR_UNITS=caddy-streetscissors.service; \
+  exec %h/streetscissors/_build/prod/rel/web/bin/web start'
+ExecStop=%h/streetscissors/_build/prod/rel/web/bin/web stop
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=25
+
+[Install]
+WantedBy=default.target
