@@ -163,7 +163,7 @@ BLACK_CEILING = 0.85
 BLACK_STRENGTH = 0.9
 MID_TARGET = 0.42
 MID_STRENGTH = 0.6
-GAMMA_LIMITS = (0.72, 1.5)
+GAMMA_LIMITS = (0.5, 1.5)   # the low end was 0.72: a dense frame stayed washed out
 # How far a frame may lean to its own colour reading, at full quality.
 COLOUR_LEAN = 0.5
 
@@ -211,6 +211,9 @@ TEMPLATE_PITCH_STEPS = (-6, 4)
 # (roll 048 ran at 41.8), so where 38 does not fit the film, a pitch up to
 # this is tried, the frame staying the size it is.
 FRAME_PITCH_MOST_MM = 44.5
+# How many tolerances off the gap level the film just outside a frame's edge
+# may be and still count as gap.
+EDGE_GAP_SLACK = 3.0
 # How far a single frame may be moved off its grid onto its own picture.
 SNAP_MM = 5.0
 # How far past touching the last frame the next may start: frame plus this
@@ -382,8 +385,14 @@ def film_model(mode, frames, strips, dial=None):
     * The contrast is the one that puts the roll's middle density at a middle
       grey once its dense end is white, within bounds.
     """
-    good = [f for f in frames if f[2] and f[3] >= WELL_EXPOSED] or \
-           [f for f in frames if f[2]]
+    held = [f for f in frames if f[2]]
+    good = [f for f in held if f[3] >= WELL_EXPOSED]
+    # A roll's colour and contrast are the roll's: read off one or two frames
+    # because the rest scored low (a dense, overexposed roll scores low
+    # throughout), the contrast came out fit for those few and every other
+    # frame printed blown. Under a third of the roll is not the roll.
+    if len(good) * 3 < len(held):
+        good = held
     strips = [t for t in strips if t[2]]
     if not good or not strips:
         return None
@@ -1367,7 +1376,10 @@ def _frame_score(trace, start, end, darker, frame_mm):
             return 0.0
         if outside is None:               # the film's own cut: gap enough
             outside = level
-        if (outside - level) * sign > tol:
+        # Gap outside, give or take: the rebate at a strip's end is often a
+        # little fogged, and held to the strict level the true edge of the
+        # first frame was refused and the film's cut taken for it instead.
+        if (outside - level) * sign > EDGE_GAP_SLACK * tol:
             return 0.0                    # not gap outside: no frame's edge
         return min(max((within - outside) * sign / tol, 0.0), TEMPLATE_EDGE_MOST)
 
