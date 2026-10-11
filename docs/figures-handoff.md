@@ -21,10 +21,16 @@ and do not edit the code that does them:
   the body holding still, such as the legs under a standing lift (**brace**). The page gives
   the first; rules read the other two off the figure (`lib/web/fitness/chain.ex`): where the
   load is, and what the body rests on.
-- **Hands, shoulders and feet.** A hand closes into a fist round whatever bar or handle
-  passes through it and lies flat on whatever it rests on. The shoulder rises with an arm
-  reaching overhead and comes forward with one reaching out. A foot up on its toes bends
-  where the toes begin.
+- **Hands, wrists, shoulders and feet.** A hand has no fingers: it is a palm and a plate of
+  fingers hinged at the knuckles, on a wrist that bends. What it does is read off what is
+  beside it. Round a bar, a handle or a band's end it is a fist. On a floor, a box or a wall
+  it lies flat with the wrist bent back under the forearm. On a ball, a dome or a bell the
+  fingers fold over the curve. With nothing near it, it is a loose fist that hangs a little
+  from the wrist when the arm is held level. The shoulder rises with an arm reaching overhead
+  and comes forward with one reaching out. A foot up on its toes bends where the toes begin.
+  **The only way you change a hand is by where you put it**: a hand "on the floor" at y = 95
+  is four units above the floor, so it is drawn as a fist hovering in the air. Put it at
+  y = 99 (or on the top of the box, or on the bar) and the hand changes by itself.
 - **The kettlebell** has a handle. Put the hand where the handle should be; the bell hangs
   from it.
 
@@ -138,7 +144,11 @@ Do these steps in order. Do not skip a step. Do not batch several figures into o
 3. **Check**: `mix fitness.film --check <slug>`. Note every line it prints.
 4. **Draw** the stills (command 2) and open every image. For each pose answer, in writing:
    - Is the posture what the page says (standing, seated, lying, which way up)?
-   - Are the hands on what they should hold, and the feet on the floor or the box?
+   - Are the hands on what they should hold, and the feet on the floor or the box? A hand
+     meant to rest on something must be drawn flat on it (or wrapped over it, if it is
+     round), and a hand meant to hold a bar must be a fist round it. A loose fist near a
+     surface or a bar means the pose has the hand a few units off: move the hand, not
+     anything else.
    - Is the equipment there, in the right place, and not through the body?
    - Does the pose match the reference photograph?
    - Are the lit muscles sensible? Run command 4. Strongest orange should be on the muscles

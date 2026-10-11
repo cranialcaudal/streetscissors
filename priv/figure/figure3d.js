@@ -133,6 +133,10 @@ export function lift(track, f) {
 
 // ── The body round the joints ────────────────────────────────────────────
 
+// The hand: how long the palm is from the wrist to the knuckles, and how far
+// (in radians) the fingers turn at the knuckles when the hand is a fist.
+const HAND_PALM = 3.3, HAND_FOLD = 2.6
+
 export function body(J, hot, touch = {}) {
   const cones = [], ells = []
   const h = (muscle) => (muscle && hot.get(muscle)) || 0
@@ -192,6 +196,25 @@ export function body(J, hot, touch = {}) {
   for (const s of [1, -1]) ell(P(skull, [ear, 3.9 * s], [crown, -0.8], [face, -0.4]), face, crown, [0.9, 1.3, 0.5])
   ell(P(skull, [crown, 1.3], [face, -1.1]), face, crown, [4.5, 4.6, 4.3], null, HAIR)
 
+  // A hand without fingers: two plates, the palm and the fingers as one, hinged
+  // at the knuckles, on a wrist that is a joint of its own. `dir` is the way
+  // the palm runs from the wrist `W`, `back` the way the back of the hand
+  // faces, `curl` how far the fingers are folded toward the palm (0 laid
+  // flat, 1 a fist), `s` which hand, for the side the thumb is on.
+  const hand = (W, dir, back, curl, s) => {
+    const side = v.norm(v.cross(dir, back), [0, 0, 1])
+    ell(W, dir, back, [1.25, 1.1, 1.55])
+    ell(P(W, [dir, HAND_PALM * 0.52]), dir, back, [HAND_PALM * 0.58, 0.85, 1.9])
+    const knuckles = P(W, [dir, HAND_PALM])
+    const fold = curl * HAND_FOLD
+    const along = v.norm(v.add(v.mul(dir, Math.cos(fold)), v.mul(back, -Math.sin(fold))), dir)
+    const over = v.norm(v.add(v.mul(back, Math.cos(fold)), v.mul(dir, Math.sin(fold))), back)
+    const long = 1.55 - 0.45 * curl
+    ell(P(knuckles, [along, long * 0.9], [back, -0.15 * curl]), along, over, [long + 0.35, 0.75 + 0.25 * curl, 1.8])
+    // the thumb lies along the palm's edge, and across the fingers as they close
+    ell(P(W, [dir, 1.5 + 0.6 * curl], [side, 1.75 * s * (1 - 0.35 * curl)], [back, -0.5 * curl]), dir, back, [1.45, 0.7, 0.75])
+  }
+
   // arms
   for (const [s, S, E, H] of [[1, J.sh_a, J.elbow_a, J.hand_a], [-1, J.sh_b, J.elbow_b, J.hand_b]]) {
     cone(v.mix(J.nape, J.neck, 0.5), S, 2.4, 2.1, "traps")
@@ -217,28 +240,24 @@ export function body(J, hot, touch = {}) {
       ell(P(H, [back, -0.9], [bar, 1.5 * s]), back, bar, [1.5, 0.75, 0.8])
       ell(P(H, [back, -1.5]), reachDir, bar, [1.5, 1.7, 1.25])
     } else if (did && did.flat) {
-      // a palm laid on what it rests on, fingers ahead of the wrist
+      // A palm laid on what it rests on, the wrist bent back as far as the
+      // forearm stands over it. On something round (a ball, a dome, a bell)
+      // the fingers fold at the knuckles to follow it.
       const n = did.flat
       let ahead = v.reject(reachDir, n)
       ahead = v.len(ahead) < 0.35 ? v.norm(v.reject(frUp, n), [1, 0, 0]) : v.norm(ahead)
-      const wide = v.cross(n, ahead)
-      ell(P(did.at, [ahead, 1.3], [n, 0.75]), ahead, n, [2.3, 0.75, 2.0])
-      ell(P(did.at, [ahead, 3.7], [n, 0.55]), ahead, n, [1.9, 0.55, 1.8])
-      ell(P(did.at, [ahead, 1.2], [n, 0.6], [wide, 2.0 * s]), v.norm(v.add(ahead, v.mul(wide, 0.7 * s))), n, [1.5, 0.55, 0.7])
-      ell(P(did.at, [ahead, -0.6], [n, 1.1]), ahead, n, [1.6, 1.1, 1.7])
+      const wrap = did.round ? Math.min(HAND_PALM / did.round, 1.1) / HAND_FOLD : 0
+      hand(P(did.at, [ahead, -0.3], [n, 0.95]), ahead, n, wrap, s)
     } else if (!touch.open) {
-      // a hand with nothing in it is a loose fist: a runner's, a boxer's.
-      // Laid open it read as a blade, and a punch as a slap.
-      ell(P(H, [reachDir, 1.5]), reachDir, fr, [2.0, 1.3, 1.85])
-      ell(P(H, [reachDir, 2.5], [fr, 0.75]), fr, reachDir, [1.25, 1.0, 1.75])
-      ell(P(H, [reachDir, 1.4], [fr, 1.25]), reachDir, fr, [1.4, 0.7, 0.8])
-      ell(H, reachDir, fr, [1.3, 1.15, 1.6])
+      // A hand with nothing in it is a loose fist: a runner's, a boxer's. Laid
+      // open it read as a blade, and a punch as a slap. Its wrist is slack:
+      // held out level, the hand hangs a little from it.
+      const slack = Math.max(0, 1 - Math.abs(reachDir[1])) * 0.24
+      const dir = v.norm(v.add(reachDir, [0, -slack, 0]), reachDir)
+      hand(H, dir, v.norm(v.reject(v.mul(fr, -1), dir), v.mul(fr, -1)), 0.8, s)
     } else {
-      // an open hand, for a swimmer: the palm, the fingers a little curled, the thumb
-      ell(P(H, [reachDir, 1.6]), reachDir, fr, [2.3, 0.95, 1.9])
-      ell(P(H, [reachDir, 3.6], [fr, 0.45]), v.norm(v.add(reachDir, v.mul(fr, 0.35))), fr, [1.8, 0.7, 1.7])
-      ell(P(H, [reachDir, 0.9], [fr, 1.0]), reachDir, fr, [1.6, 0.7, 0.75])
-      ell(H, reachDir, fr, [1.3, 1.15, 1.6])
+      // an open hand, for a swimmer: the fingers a little curled
+      hand(H, reachDir, v.mul(fr, -1), 0.1, s)
     }
   }
 
@@ -314,14 +333,14 @@ function touching(H, things, track) {
       }
     } else if (t.type === 2) {
       const n = v.norm(v.sub(H, t.a), [0, 1, 0])
-      take(Math.abs(v.len(v.sub(H, t.a)) - t.r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, t.r)) })
+      take(Math.abs(v.len(v.sub(H, t.a)) - t.r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, t.r)), round: t.r })
     } else {
       // a dome: the point of it under the hand, and the way its surface faces there
       const q = v.sub(H, t.a)
       const k = 1 / Math.max(Math.hypot(q[0] / t.b[0], q[1] / t.b[1], q[2] / t.b[2]), 1e-6)
       const at = v.add(t.a, v.mul(q, k))
       const n = v.norm([q[0] / (t.b[0] * t.b[0]), q[1] / (t.b[1] * t.b[1]), q[2] / (t.b[2] * t.b[2])], [0, 1, 0])
-      take(Math.abs(v.len(q) * (1 - k)) - 0.8, { flat: n, at })
+      take(Math.abs(v.len(q) * (1 - k)) - 0.8, { flat: n, at, round: Math.max(...t.b) * 1.5 })
     }
   }
   if (!best && (track.floor || mode(track) === "plan") && H[1] < 2.6 && mode(track) !== "plan") best = { flat: [0, 1, 0], at: [H[0], 0, H[2]] }
