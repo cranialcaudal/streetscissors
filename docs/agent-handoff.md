@@ -80,7 +80,8 @@ From now on every command is run in `~/streetscissors-gemini`.
 | How everything is wired, in full | `CLAUDE.md`. Long. Search it, do not read it whole |
 | Coding conventions for Phoenix | `AGENTS.md` |
 
-How to find the code behind something you see on a page: search for its words.
+The table in section 4a says where each section lives. To find the code behind something
+you see on a page, search for its words.
 
 ```bash
 grep -rn "Written Work" lib/ assets/ | head
@@ -102,6 +103,101 @@ visitor reads when a task says so.
 | Regimen / Wiki / Activities | the three fitness pages: the week's plan, the exercise pages, the rides |
 | Roll, sheet, frame | a roll of film, its contact sheet, one photograph |
 | `/Christ` | the prayer pages. In code `Faith*`. The capital C is the real address |
+
+## 4a. The whole site, section by section
+
+Every public section, where its code is, where its content comes from, and the trap that
+catches newcomers. "Content" means files or rows the owner writes; you never edit those, only
+the code that reads them. The test suite uses invented content in `test/support/fixtures/`,
+so a test never sees the owner's real pages.
+
+| Section (address) | Code that draws it | Rules and data | Stylesheet, theme class | The trap |
+|---|---|---|---|---|
+| Home (`/`) | `controllers/page_html/home.html.heex` | `PageController.home` | `home.css` | Two tests look for the wordmark's `aria-label`. The layout is the owner's: do not rearrange it |
+| Blog (`/blog`, `/blog/:slug`) | `controllers/blog_html/` | `Web.Blog`: markdown files with frontmatter, read at each request | `writing.css`, `.writing` | A draft (`draft: true`) must never appear anywhere. Use `Blog.list_posts/0`, which leaves drafts out |
+| Captain's logs (`/logs`) | `live/logs_live/`, `components/log_entry.ex` | `Web.Audio` (database), `Web.Media` (ffmpeg) | `logs.css`, `.nx01` | The list page must not load a player. The player element is `phx-update="ignore"`: do not put changing markup inside it |
+| Photographs (`/negatives`) | `live/negatives_live.ex`, `live/negatives_live/` | `Web.Negatives` reads scans from a folder outside the repo | `negatives.css`, `.darkroom` | The address is the whole state: every control is a link built by `NegativesLive.Format`. Never keep view state in an assign that the address does not carry |
+| Fitness plan (`/fitness`, `/fitness/day/:day`) | `live/fitness_live/index.ex` | `Web.Fitness`, `Web.Fitness.Vault` (markdown) | `steel.css`, `.steel` | Days link with `navigate`, never `patch`. Never show a time of day to a visitor |
+| Exercise wiki (`/fitness/wiki`) | `live/fitness_live/wiki.ex`, `show.ex`, `components/fitness_figure.ex` | `Web.Fitness.Vault`, `Web.Fitness.Figure`, `Web.Fitness.Clip` | `fitness_wiki.css`, `.steel` | The moving figure is a film made elsewhere. See `figures-handoff.md` |
+| Activities (`/fitness/rides`) | `live/rides_live/`, `components/activity.ex` | `Web.Rides` (database, synced from Komoot hourly) | `rides.css`, `.steel` | **Privacy.** A ride is shown through Komoot only when `Rides.clear?/1`. Never show a map, a start point or a time yourself |
+| Daybook (`/daybook`, `/day/:date`) | `controllers/almanac_html/` | `Web.Almanac` (built from the other sections' dates) | `almanac.css` | An empty day or week is a 404 on purpose. Never link one |
+| Prayer (`/Christ/...`) | `controllers/faith_html.ex`, `faith_html/` | `Web.Liturgy.*`, `Web.Bible` (files in `priv/`) | `faith.css`, `.faith` | Nothing is fetched from another site, ever. Do not add explanation text. Do not edit `priv/liturgy` or `priv/bible` |
+| Search (`/search`) | `PageController.search`, `page_html/` | `Web.Search` | `search.css` | **Every public page must be findable**: a test walks the router and fails if a new address is missing from `Web.Search` |
+| Guestbook (`/guestbook`) | `live/guestbook_live.ex` | `Web.General` | `guestbook.css` | A signer's contact detail is encrypted. Never print, log, export or email it |
+| Newsletter (`/newsletter`, `/contact`) | `live/newsletter_live.ex`, `newsletter_overlay_live.ex` | `Web.Newsletter`, `Web.Contact` | `glass.css` | The overlay lives in every page's frame. What it assigns affects every page |
+| Letters (foot of posts, logs, frames) | `live/letters_live.ex` | `Web.Letters`, `Web.Pieces` | `letters.css` | A nested live view: it gets the visitor's address from its session, not from the socket |
+| Manual (`/how-to`), roadmap | `PageController`, `Web.Docs` | `docs/how-to.md`, the roadmap file | `how-to.css` | The manual is public and live the moment the file is saved. A table's first column must be short |
+| Terminal (`/pc`) | `live/pc_live.ex` | `Web.Pc` | `pc.css` | Reads optional files at compile time: must compile when they are absent |
+| Feed, sitemap, share cards | `feed_controller.ex`, `sitemap_controller.ex`, `share_controller.ex` | `Web.ShareCard` | none | Unlisted pages (`/food`, `/england2026`) stay out of all three |
+| 404 | `error_html/not_found.html.heex`, `not_found.ex` | `Web.Nearby` | `not_found.css` | It is a whole HTML document with no layout. It must never raise |
+| Admin (`/admin/...`) | `live/admin_live/`, `components/admin_components.ex` | each area's own module | `admin.css` (`adm-` classes) | A new admin page goes inside `live_session :admin` in the router, or it is open to the world |
+
+Behind the pages (no HTML of their own): `Web.Backup` (nightly copies), `Web.Monitor` (the
+machine checks itself), `Web.Scheduler` (timed jobs), `Web.Analytics` (counting readers),
+`Web.Webmentions`, `Web.Komoot`, `Web.Scanner`. Leave these alone unless a task names one.
+
+### How much care each part needs
+
+- **Free to change with tests:** the public pages' markup and stylesheets, `core_components.ex`,
+  `Web.Search`, `Web.Almanac`, `Web.Nearby`, `Web.Keywords`, the blog's and wiki's reading
+  code, tests, `docs/`.
+- **Change only when a task names it, and say so in your report:** anything in `Web.Rides`
+  (privacy), `Web.General` (the guestbook's sealed contact), `Web.Analytics` and the `/seen`
+  beacon (reader counts), `Web.Audio` and `Web.Media`, the admin pages, `assets/js/app.js`
+  and `trail.js`, the root layout, `router.ex`.
+- **Never** (rule 5): the scanner, deploy scripts, configuration that the live site boots
+  from, migrations, the owner's content, the prayer pages' data.
+
+### Recipes
+
+**Add a public page.**
+1. Add the route in `router.ex` beside its section's other routes, inside the `:browser`
+   scope. A live page goes in the existing public `live_session`.
+2. Put its outermost element in the section's theme class (`steel`, `darkroom`, `nx01`,
+   `faith`, or none for paper) and draw the header with `<.blog_header ... />` as a
+   neighbouring page does. Copy a neighbour; do not invent a frame.
+3. Add it to `Web.Search` (its `@fixed` list: title, path, one line, other words for it), or
+   `test/web_web/search_test.exs` fails.
+4. Add it to `sitemap_controller.ex` if a search engine should find it.
+5. Test: the page answers 200, shows its heading, and is found by a search for its name.
+
+**Add something to an existing page.** Find the function that already supplies that page's
+data (`grep -n "def " lib/web/<area>.ex`). Use it. Do not read files or query the database
+from a template or a component.
+
+**Add a style.** Find the page's stylesheet in the table above. Use tokens. Give the class a
+prefix the file already uses. If the page is under a theme class, look at the result in that
+theme's terms: under `.darkroom`, `.nx01` and `.faith` the ink is light and the paper dark.
+After any CSS change run `mix assets.build 2>&1 | tail -3`; it must end without an error.
+
+**Add a click or a key that needs JavaScript.** First try without: a link, a `<details>`, a
+form. If it must be a script, a live page uses a colocated hook (search for `phx-hook=".`
+to see one); a controller page uses a delegated listener in `assets/js/app.js`. Never add a
+`<script>` tag to a template and never add a library.
+
+**Add an icon.** Use `<.icon name="hero-..." />` and add that exact name to the
+`@source inline(...)` list in `assets/css/app.css`. Then run `mix assets.build`.
+
+**Add a site setting.** `Web.SiteSettings.get_setting(key, default)` reads one. The form is
+`live/admin_live/settings.ex`. A setting cannot be saved empty. No migration is needed.
+
+**Change how content files are read** (a new frontmatter key, a new embed). Change the
+reading module, keep every existing file valid, add a fixture under `test/support/fixtures/`
+that uses the new thing, and never write to `content/`.
+
+**Count or measure readers.** Do not. The counting has two halves (the plug and the `/seen`
+beacon) that must agree, and a test pins both.
+
+### Things that look like bugs and are not
+
+- Class names from an older design (`blog-bento-*`, `almanac-*`, `faith-*`, `Faith*`,
+  `Almanac*`) on pages now called something else. Leave the names.
+- `/almanac`, `/faith`, `/christ`, `/audio`, `/manuscripts`, `/rides`, `/archive`: old
+  addresses that redirect. Leave them.
+- Tailwind is installed but generates nothing. That is deliberate.
+- One test fails in the owner's folder (a private one about the week's timetable). In your
+  copy it does not exist.
+- Tables named `blog_posts`, `tags`, `post_tags`: nothing reads them. Leave them.
 
 ## 5. The loop for every task
 
