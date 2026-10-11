@@ -360,8 +360,9 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       (the pelvis was a ball round the hip joints, and the thighs ran together under it), a
       waist that was a long tube from the hips up, a head a third too broad, a neck and upper
       arm a sixth too thick, a wrist a quarter too thin, shoulders a hand too high. Thirteen
-      measures were more than 8% out; two are now, and both belong to the pose engine or the
-      shoe. `test/web/fitness_measure_test.exs` holds the proportions (skipped without node).
+      measures were more than 8% out; five are now and none is the body's: the ankle's height
+      and the forearm to the grip are the pose engine's, a shoe is wider than a foot, and the
+      head is a ball by design (below). `test/web/fitness_measure_test.exs` holds the proportions (skipped without node).
       What to know before touching `body/3` again:
       - `HIPS`, `KNEES`, `FEET` in `lift/2` are how far the leg's joints are from the middle;
         a front view's pose has its hips at 5 and they are brought in to `HIPS`.
@@ -377,6 +378,27 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
         it; under a flat palm it is at the point, and that forearm is a fifth too long.
       - With the hips a man's width `kb-swings` fails the rule check (the bell does not fit
         between knees a hip's width apart): its wide-stance file waits on the deploy.
+    - **The head is a ball with the author's drawing traced on it** (2026-10-11: "Draw the
+      face with this style. Round out the head and just trace the image. It's my abstract
+      drawing"). His drawing is a circle with four strokes: a line down the middle of the
+      face, two arcs from temple to temple that make a lens, and a short stroke across the
+      middle line low down. There is no skull, jaw, nose, brow, ear or hair any more. The
+      strokes are not shapes: `face()` in the shader inks them where the hit point lies on
+      the ball, each stroke being where a plane cuts it, so they turn with the head and say
+      which way it looks. The `FACE_*` constants are the trace, **laid on 11 degrees higher
+      than drawn** because the camera looks down by that much. A copy of the drawing is
+      `tmp/figure-face-drawing.jpg` (not in git). The flat fallback drawing still has its
+      own plain head.
+    - **A frame is drawn in bands** (`BANDS`, in `draw`), and that is what a black frame was.
+      This machine's graphics driver (i915) resets any single job that has not made way
+      within 640 ms of something else asking for the card: the desktop redrawing, a second
+      render, its own heartbeat every 2.5 s. The page's WebGL context is then lost and
+      every later frame is black, with nothing said except in the kernel's log
+      (`journalctl -k | grep "preemption time out"`). With a hundred shapes a whole 1080
+      frame takes about a second, so every render died the moment the desktop was in use.
+      Each band is finished before the next and takes tens of milliseconds; a lost context
+      now raises an error. Two renders at once, which always gave blank pictures, gave good
+      ones when tried. **If black frames ever return, read the kernel's log first.**
     - **Films are content, not code.** They live in `figures/` under the uploads root (which
       the proxy serves), each named by a hash of its own bytes, with `clips.json` saying which
       film is whose, what it was filmed from, and where each pose begins. The live site's

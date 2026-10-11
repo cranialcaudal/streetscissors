@@ -204,13 +204,15 @@ row("radiale_stylion_length", "elbow joint to the wrist", narrow.t * FORE, "a ha
 const E = bent.J.elbow_a
 row("elbow_grip_length", "back of the elbow to the grip", bent.J.hand_a[0] - (E[0] - 8 + enter(bent.D, add(E, [-8, 0, 0]), X)), "the hand's point is the middle of a fist")
 
-// the neck and the head
+// The neck and the head. The head is a ball (the author's drawing of one),
+// so it is as broad as it is long: against a man's head, which is three
+// quarters as broad as long, it will always measure broad.
 const neckDir = norm(sub(J.head, J.neck)), neckU = norm(cross(neckDir, Z))
 row("neck_girth", "round the neck", Math.min(...fractions(0.15, 0.6).map((t) => slice(D, mix(J.neck, J.head, t), neckU, Z).girth)))
-const head = heights(J.head[1] + 0.8, J.head[1] + 3.5).map((y) => slice(D, [J.head[0], y, 0], X, Z))
-row("head_breadth", "head, side to side", Math.max(...head.map((h) => h.w)), "with the hair")
-row("head_length", "head, front to back", Math.max(...head.map((h) => h.u)), "with the hair")
-row("head_girth", "round the head", Math.max(...head.map((h) => h.girth)), "with the hair")
+const head = heights(J.head[1] - 1.5, J.head[1] + 1.5).map((y) => slice(D, [J.head[0], y, 0], X, Z))
+row("head_breadth", "head, side to side", Math.max(...head.map((h) => h.w)), "a ball, by design")
+row("head_length", "head, front to back", Math.max(...head.map((h) => h.u)))
+row("head_girth", "round the head", Math.max(...head.map((h) => h.girth)), "a ball, by design")
 
 // the foot, which is a shoe
 const sole = slice(D, [mix(J.foot_a, J.toe_a, 0.4)[0], 1.3, J.foot_a[2]], X, Z)

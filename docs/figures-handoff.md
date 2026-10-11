@@ -59,11 +59,16 @@ and do not edit the code that does them:
   `mix fitness.film --measure` stands the figure upright and compares 31 of its measurements
   with those of lean men from a public survey of 4,082 soldiers (ANSUR II). You may run it;
   it takes 7 seconds, draws nothing and changes nothing. It must end with
-  `2 of 31 measures are more than 8% from the men's`. If it says anything else, stop and
+  `5 of 31 measures are more than 8% from the men's`. If it says anything else, stop and
   report: someone has changed the body. Because of it these are also **correct, not
   faults**:
   - The hips are much narrower than the shoulders and only a little wider than the waist.
-  - The head looks small beside older stills. It is a man's size now.
+  - **The head is a plain ball with four black strokes on it and no hair, nose or ears.**
+    That is the owner's own drawing of a head, traced: a line down the middle of the face,
+    two arcs that make a lens across it, and a short stroke low on the middle line. The
+    strokes are on the side of the head the figure is facing, so from the side you see
+    only part of them and from behind almost none. Never report the face as missing or
+    wrong unless the strokes are on the wrong side of the head for the exercise.
   - The shoulders slope down from the neck when the arms hang.
   - The crotch is high and the legs look long.
 
@@ -81,7 +86,9 @@ and do not edit the code that does them:
 1. **Never deploy, restart or stop anything.** Do not run `./redeploy.sh`, `./rollback.sh`,
    `systemctl`, `mix phx.server` or `iex -S mix phx.server`. This machine is the live server.
 2. **One render at a time.** Never start a second `mix fitness.film` while one is running, and
-   never run it in parallel. Two renders at once produce blank pictures silently.
+   never run it in parallel. It used to produce blank pictures silently. The cause was found
+   and fixed on 2026-10-11 (the graphics driver was resetting long draws), but two at once
+   are still slower than one after the other, and the fix has been tried only a few times.
 3. **Do not add a key to a pose file that this document does not list.** The live site refuses
    a pose file with a key it does not know and the page then shows no figure at all.
 4. **Do not use the keys `stance` or `grip` in `content/fitness/figures/`** until the owner says
@@ -261,8 +268,10 @@ About 2 hours 40 minutes (the new body has more parts: a film that took 55 secon
 about 85). Every line must end `1 filmed, 0 already current, 0 not filmed.` Re-run
 any slug that did not. Do nothing else on the machine's graphics card meanwhile.
 
-Then look for black frames. The renderer has been seen to give one black picture with
-nothing else running, and a film with a black frame in it flashes. For every film:
+Then look for black frames. Until 2026-10-11 the renderer could give black pictures (the
+graphics driver reset a draw that ran too long). That is fixed, and a render that loses the
+graphics card now stops with an error instead of going on in black, but check all the same,
+because a film with a black frame in it flashes. For every film:
 
 ```bash
 cd ~/streetscissors-data/uploads/figures

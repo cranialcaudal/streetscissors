@@ -286,21 +286,16 @@ export function body(J, hot, touch = {}) {
   // in front of it the two straps from behind each ear to the top of the
   // breastbone, which turn and nod the head and make the V of the throat.
   cone(P(J.neck, [upUp, -1.2]), P(J.nape, [crown, 1.8]), 2.6, 2.3, "neck")
-  // The head, to a man's measure: it was a third too broad and a seventh too
-  // long, a doll's head on a man's body. Every part of it is placed and
-  // sized through `feature`, so the three numbers are the head's size.
-  const LONG = 0.9, TALL = 0.95, BROAD = 0.82
-  const skull = P(J.head, [crown, -0.8])
-  const feature = (fwd, up, side, radii, mat = SKIN) =>
-    ell(P(skull, [face, fwd * LONG], [crown, up * TALL], [ear, side * BROAD]), face, crown, [radii[0] * LONG, radii[1] * TALL, radii[2] * BROAD], null, mat)
-  for (const s of [1, -1]) cone(P(skull, [ear, 3.0 * BROAD * s], [crown, -2.6 * TALL], [face, -0.9 * LONG]), P(notch, [lat, 0.9 * s], [frUp, -0.5]), 0.85, 0.8, "neck")
-  feature(0, 0, 0, [4.4, 5.2, 4.0])
-  feature(1.2, -2.9, 0, [3.2, 2.9, 3.0])
-  feature(3.9, -3.9, 0, [1.3, 1.2, 1.6])
-  feature(4.3, -1.0, 0, [0.9, 1.3, 0.75])
-  feature(3.6, 0.9, 0, [1.2, 0.7, 3.0])
-  for (const s of [1, -1]) feature(-0.4, -0.8, 3.9 * s, [0.9, 1.3, 0.55])
-  feature(-1.1, 1.3, 0, [4.5, 4.6, 4.3], HAIR)
+  // The head is a ball, and the face is drawn on it (see `face` in the
+  // shader): the author's own drawing of a head, a circle with four strokes,
+  // traced. No skull, jaw, nose, brow, ears or hair: the strokes say which
+  // way the head is turned, which is what a face is for on a figure this
+  // size. A ball as long as a man's head is a third broader than one, and
+  // that is the drawing's doing, not a fault for the tape.
+  const HEAD = 4.7
+  const ball = P(J.head, [crown, -0.6])
+  ell(ball, face, crown, [HEAD, HEAD, HEAD])
+  for (const s of [1, -1]) cone(P(ball, [ear, 2.6 * s], [crown, -2.6], [face, -0.8]), P(notch, [lat, 0.9 * s], [frUp, -0.5]), 0.85, 0.8, "neck")
 
   // A hand without fingers: two plates, the palm and the fingers as one, hinged
   // at the knuckles, on a wrist that is a joint of its own. `dir` is the way
@@ -339,7 +334,7 @@ export function body(J, hot, touch = {}) {
     // bends. The one behind straightens it and runs round the back of the
     // joint to the point of the elbow, so a bent elbow draws it out.
     cone(S, E, 2.0, 1.5)
-    ell(E, along, fr, [1.7, 1.5, 1.85])
+    ell(E, along, fr, [1.7, 1.4, 1.85])
     const reachDir = v.norm(v.sub(H, E), along)
     const biFrom = P(S, [fr, 1.2], [along, 1.0]), biTo = P(v.mix(E, H, 0.16), [fr, 0.4])
     const biceps = swell(dist(biFrom, E) + dist(E, biTo), dist(biFrom, biTo))
@@ -361,7 +356,7 @@ export function body(J, hot, touch = {}) {
     cone(E, wrist, 1.5, 1.15)
     ell(v.mix(E, H, 0.31), reachDir, fr, [5.2, 2.3, 2.1], "forearms")
     // the point of the elbow, behind the joint
-    ell(P(E, [fr, -0.4]), along, fr, [1.5, 1.0, 1.5])
+    ell(P(E, [fr, -0.35]), along, fr, [1.5, 0.95, 1.5])
     if (did && did.grip) {
       // a fist: the fingers rolled round what is held, the thumb closing it
       const bar = did.grip
@@ -467,7 +462,7 @@ export function body(J, hot, touch = {}) {
       ell(P(A, [toe, -0.8], [sole, 0.2]), toe, sole, [2.5, 2.1, 2.1], null, SHOES)
     }
   }
-  return { cones, ells }
+  return { cones, ells, head: { at: ball, r: HEAD, face, crown } }
 }
 
 // ── The same solid, without a picture ────────────────────────────────────
@@ -688,6 +683,7 @@ function waterLevel(track) {
 // ── Drawing ──────────────────────────────────────────────────────────────
 
 const NC = 28, NE = 84, NP = 28
+const BANDS = 16 // how many pieces a frame is drawn in: see draw()
 
 const FRAG = `#version 300 es
 precision highp float;
@@ -695,6 +691,8 @@ uniform vec2 uRes;
 uniform vec3 uC, uR, uU, uCenter, uBg;
 uniform float uHalf, uFloor, uWater, uK;
 uniform vec4 uBound; // a sphere that holds everything drawn this frame
+uniform vec4 uHead;  // the head's ball: its middle and its radius
+uniform vec3 uHeadF, uHeadU; // the way the face looks, and the way the crown points
 uniform int uNC, uNE, uNP;
 uniform vec4 uCA[${NC}], uCB[${NC}], uCM[${NC}];
 uniform vec4 uEC[${NE}], uER[${NE}];
@@ -811,6 +809,51 @@ float occlusion(vec3 p, vec3 n) {
   return clamp(1.0 - 0.28 * occ, 0.0, 1.0);
 }
 
+// The face: the author's drawing of a head, traced on to the ball. A circle
+// with four strokes. A line from the crown down the middle of the face,
+// stopping short of the chin. Two arcs that start together at one temple
+// and end together at the other, the upper bowed up over the brow and the
+// lower all but straight, so that from the front they make a lens. A short
+// stroke across the middle line, low down.
+//
+// Each stroke is where a plane cuts the ball, so it turns with the head and
+// is seen from the side as a drawing of a head is. The drawing was made
+// looking straight at the head and the camera looks down on a standing figure
+// by 11 degrees, so the strokes are laid on 11 degrees higher than they were
+// drawn: seen from the camera they are where the pencil put them.
+//
+// Heights are shares of the ball's radius above its middle. FACE_TEMPLE is
+// where the two arcs meet; FACE_BROW and FACE_EYE are how far each arc's
+// plane is tipped up toward the front, in radians; FACE_CHIN is where the
+// middle line stops; FACE_MOUTH is the short stroke's height and
+// FACE_MOUTH_HALF half its length; FACE_LINE is half a stroke's width, in
+// stage units.
+const float FACE_TEMPLE = 0.37, FACE_BROW = 0.454, FACE_EYE = 0.096, FACE_CHIN = -0.64;
+const float FACE_MOUTH = -0.20, FACE_MOUTH_HALF = 0.20, FACE_LINE = 0.26;
+// how much of a stroke is at this distance (an angle on the ball) from its line
+float stroke(float d) { float w = FACE_LINE / uHead.w; return 1.0 - smoothstep(w * 0.75, w * 1.15, d); }
+// an arc from temple to temple, its plane tipped up toward the front by tip
+float arc(vec3 q, float tip) {
+  float c = cos(tip), s = sin(tip);
+  float d = abs(asin(clamp(q.y * c - q.x * s, -1.0, 1.0)) - asin(FACE_TEMPLE * c));
+  // only the half of the circle that is in front of the temples
+  return stroke(d) * smoothstep(-0.04, 0.02, q.x * c + (q.y - FACE_TEMPLE) * s);
+}
+float face(vec3 p) {
+  vec3 q = (p - uHead.xyz) / uHead.w;
+  float r = length(q);
+  // the ball's own surface, not the neck under it or a hand held before it
+  if (r > 1.05 || r < 0.93) return 0.0;
+  // q as (toward the face, toward the crown, toward an ear), on the ball
+  q = vec3(dot(q, uHeadF), dot(q, uHeadU), dot(q, cross(uHeadF, uHeadU))) / r;
+  // the middle line, from a little behind the crown down the front
+  float middle = stroke(abs(asin(clamp(q.z, -1.0, 1.0))))
+    * smoothstep(FACE_CHIN - 0.03, FACE_CHIN + 0.01, q.y) * max(smoothstep(-0.02, 0.02, q.x), smoothstep(0.80, 0.84, q.y));
+  float mouth = stroke(abs(asin(clamp(q.y, -1.0, 1.0)) - asin(FACE_MOUTH)))
+    * (1.0 - smoothstep(FACE_MOUTH_HALF - 0.02, FACE_MOUTH_HALF + 0.02, abs(q.z))) * step(0.0, q.x);
+  return max(max(middle, mouth), max(arc(q, FACE_BROW), arc(q, FACE_EYE)));
+}
+
 // The drawn line. OUTLINE is how far outside the figure the ink reaches, in
 // stage units (a standing figure is 80 tall); INNER how far a surface has to
 // turn from the eye before it is line, which is what parts a forearm from
@@ -870,6 +913,7 @@ vec3 shade(vec2 px) {
     // Only the body takes the heavy inner line. A mat or a bench top lies
     // nearly edge-on to the eye all over, and went black with it.
     float inner = mat < 3.5 ? INNER : 0.30;
+    if (mat < 0.5) col = mix(col, ink, face(p));
     col = mix(ink, col, smoothstep(inner - 0.22, inner, turn));
   } else if (tFloor < 1e8) {
     vec3 p = ro + rd * tFloor;
@@ -923,6 +967,8 @@ export function renderer(canvas) {
     gl.uniform1f(U("uHalf"), cam.half); gl.uniform1f(U("uFloor"), cam.floor ? 1 : 0); gl.uniform1f(U("uWater"), cam.water)
     gl.uniform1f(U("uK"), FIELD.BLEND)
     gl.uniform4fv(U("uBound"), bound)
+    gl.uniform4fv(U("uHead"), [...shapes.head.at, shapes.head.r])
+    gl.uniform3fv(U("uHeadF"), shapes.head.face); gl.uniform3fv(U("uHeadU"), shapes.head.crown)
 
     const { cones, ells } = shapes
     if (cones.length > NC || ells.length > NE || things.length > NP) throw new Error(`too many shapes: ${cones.length}/${ells.length}/${things.length}`)
@@ -938,8 +984,25 @@ export function renderer(canvas) {
     things.forEach((t, i) => { pa.set([...t.a, 0], i * 4); pb.set([...t.b, 0], i * 4); pm.set([t.type, t.mat, t.r, 0], i * 4) })
     gl.uniform1i(U("uNP"), things.length); gl.uniform4fv(U("uPA"), pa); gl.uniform4fv(U("uPB"), pb); gl.uniform4fv(U("uPM"), pm)
 
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
-    gl.finish()
+    // A frame is drawn a band at a time, each band finished before the next.
+    // Drawn in one piece it is one job for the graphics card that cannot be
+    // interrupted, and this machine's driver (i915) resets any job that has
+    // not made way within 640 ms of something else asking for the card: the
+    // desktop redrawing, another render, its own heartbeat every 2.5 s. The
+    // page's context is then lost and every frame after it is black, with no
+    // error anywhere but the kernel's log ("Resetting rcs0 for preemption
+    // time out"). That was every black still and blank film this camera ever
+    // made, and why two renders at once never worked. A band is a few tens
+    // of milliseconds.
+    gl.enable(gl.SCISSOR_TEST)
+    for (let i = 0; i < BANDS; i++) {
+      const from = Math.floor((i * canvas.height) / BANDS), to = Math.floor(((i + 1) * canvas.height) / BANDS)
+      gl.scissor(0, from, canvas.width, to - from)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      gl.finish()
+    }
+    gl.disable(gl.SCISSOR_TEST)
+    if (gl.isContextLost()) throw new Error("the graphics card dropped the page while it drew (see the kernel's log for i915)")
   }
 }
 

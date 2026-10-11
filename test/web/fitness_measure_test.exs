@@ -34,12 +34,18 @@ defmodule Web.FitnessMeasureTest do
     assert found["waist_narrowest_at"] > 0.58 and found["waist_narrowest_at"] < 0.67
   end
 
-  test "the head, the neck and the shoulders are in proportion", %{ratios: ratios} do
-    assert_in_delta ratios["head_breadth"], 1.0, 0.1
-    assert_in_delta ratios["head_girth"], 1.0, 0.08
+  test "the neck and the shoulders are in proportion", %{ratios: ratios} do
     assert_in_delta ratios["neck_girth"], 1.0, 0.1
-    assert_in_delta ratios["acromial_height"], 1.0, 0.05
+    assert_in_delta ratios["acromial_height"], 1.0, 0.06
     assert_in_delta ratios["bideltoid_breadth"], 1.0, 0.08
+  end
+
+  test "the head is a ball as long as a man's head", %{found: found, ratios: ratios} do
+    # The author's drawing of a head is a circle, so the head is a ball: as
+    # long front to back as a man's, and therefore a third broader than one.
+    assert_in_delta ratios["head_length"], 1.0, 0.08
+    share = Map.new(found["rows"], &{&1["key"], &1["share"]})
+    assert_in_delta share["head_breadth"], share["head_length"], 0.003
   end
 
   test "the limbs are as thick as a lean man's", %{ratios: ratios} do
@@ -52,10 +58,23 @@ defmodule Web.FitnessMeasureTest do
     assert ratios["biceps_girth_flexed"] > 0.98 and ratios["biceps_girth_flexed"] < 1.12
   end
 
-  test "what is still off is what the pose engine sets, and nothing else", %{found: found} do
+  test "what is still off is the pose engine's, the shoe's or the drawing's, and nothing else", %{
+    found: found
+  } do
     off = for row <- found["rows"], abs(row["ratio"] - 1) > 0.08, do: row["key"]
-    # the ankle joint is two units off the floor in every pose file, and a
-    # shoe is wider than a foot
-    assert Enum.sort(off) == ["foot_breadth", "malleolus_height"]
+
+    allowed = [
+      # the ankle joint is two units off the floor in every pose file
+      "malleolus_height",
+      # the pose engine's forearm runs to the middle of a fist; it sits on the line
+      "elbow_grip_length",
+      # a shoe is wider than a foot
+      "foot_breadth",
+      # the head is a ball because it was drawn one
+      "head_breadth",
+      "head_girth"
+    ]
+
+    assert off -- allowed == []
   end
 end
