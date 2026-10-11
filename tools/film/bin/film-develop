@@ -361,6 +361,31 @@ def layer_rates(hist, kept, base):
     return [min(max(r, 0.5), 2.5) for r in rates]
 
 
+STUDIO_MARK = "scanner studio"
+
+
+def scan_software(path):
+    """What wrote a scan, as the note in its file says, or ''."""
+    try:
+        return _magick([path + "[0]", "-format", "%c", "info:"]).decode(
+            "utf-8", "replace").strip().lower()
+    except Exception:
+        return ""
+
+
+def strip_source(path, on_glass):
+    """Which instrument a strip came off: "glass" for the site's own scanner
+    (the whole slot with the glass in it, or a file it marked), "plain" for a
+    scan made by the scanner's own program and cropped to the film.
+
+    The two do not read alike. The scanner's program sets its own levels for
+    each scan; the site takes what the scanner gives. The same film base came
+    out at 224, 141, 107 from one and 177, 102, 75 from the other (roll 023),
+    so a roll with strips of both is two rolls as far as colour goes.
+    """
+    return "glass" if on_glass or STUDIO_MARK in scan_software(path) else "plain"
+
+
 def film_model(mode, frames, strips, dial=None):
     """The roll's colour, from everything on it.
 
@@ -1764,21 +1789,38 @@ def trim_to_pictures(bounds, rows, w, h, vertical):
     bare = 238
     n = len(rows)
 
+    # A stretch of rebate is bare right across with the odd line a shade
+    # less (dust, the film's own edge markings), so the run carries over a
+    # few such lines and ends at the last bare one: stopped at the first,
+    # the 4 mm of clear film before a strip's first picture stayed in it.
+    soft, skip = 200, int(round(0.4 / 25.4 * STRIP_DPI))
+
     def run(x, step, limit, level):
-        i, moved = int(x), 0
-        while 0 <= i + step < n and moved < limit and rows[i + step] >= level:
+        i, moved, last = int(x), 0, int(x)
+        while 0 <= i + step < n and moved < limit:
             i += step
             moved += 1
-        return i
+            if rows[i] >= soft:
+                last = i
+            elif abs(i - last) > skip:
+                break
+        return last
+
+    # The film's cut end is a dark line of its own; the rebate begins a
+    # little inside it.
+    edge = int(round(1.5 / 25.4 * STRIP_DPI))
+
+    def bare_near(x, step):
+        return any(0 <= x + step * j < n and rows[x + step * j] >= bare for j in range(edge))
 
     edges = []   # (end of the frame before, start of the frame after) per boundary
     for k, e in enumerate(bounds):
         e = min(max(int(e), 0), n - 1)
         if k == 0:
-            edges.append((None, run(e, 1, far_end, bare) + clear if rows[e] >= bare else e))
+            edges.append((None, run(e, 1, far_end + edge, bare) + clear if bare_near(e, 1) else e))
         elif k == len(bounds) - 1:
             e = min(e, n - 1)
-            edges.append((run(e - 1, -1, far_end, bare) - clear if rows[e - 1] >= bare else e, None))
+            edges.append((run(e - 1, -1, far_end + edge, bare) - clear if bare_near(e - 1, -1) else e, None))
         elif rows[e] >= bare:
             edges.append((run(e, -1, far_gap, bare) - clear, run(e, 1, far_gap, bare) + clear))
         else:
@@ -1847,14 +1889,16 @@ def cmd_strips(args):
         if split_ok and entry.get("settings"):
             whole = entry["settings"]
         elif film:
-            whole = frame_settings(film, *histograms(src))
+            mine = ((doc.get("films") or {}).get(entry.get("source")) if entry else None) or film
+            whole = frame_settings(mine, *histograms(src))
         else:
             whole, _, _ = measure(src, mode)
         base = apply_args(whole) if whole else ([] if mode == "slide" else ["-negate"])
 
         frames = [f for f in entry["frames"] if f.get("settings")] if split_ok else []
+        mask = holder_mask(src) if mode != "slide" else []
         if not frames or not whole:
-            _magick([src] + base + [dst])
+            _magick([src] + base + mask + [dst])
             continue
 
         # Strip first, so the rebate between frames still gets developed, then
@@ -1865,8 +1909,39 @@ def cmd_strips(args):
             mixed = blend(whole, f["settings"], args.frame_weight)
             cmd += ["("] + [src] + _crop_args((x, y, w, h)) + apply_args(mixed) + \
                    [")", "-geometry", f"+{x}+{y}", "-composite"]
-        _magick(cmd + [dst])
+        _magick(cmd + mask + [dst])
     return 0
+
+
+def holder_mask(path):
+    """What paints out the holder at a strip's ends in a developed negative.
+
+    A strip cut as the whole slot shows the holder's own plastic past the
+    glass, black in the scan and so a block of white on the sheet once the
+    negative is turned over. Glass turns black by itself; this does the same
+    for the holder: a stretch at either end that is black right across.
+    """
+    w, h = dimensions(path)
+    vertical = h >= w
+    black = middle_lines(path, vertical,
+                         ["-negate", "-threshold", f"{(255 - BLACK - 4) * 100.0 / 255.0:.2f}%"])
+    least = int(2.0 / 25.4 * STRIP_DPI)
+
+    def run(indices):
+        count = 0
+        for i in indices:
+            if black[i] < 200:
+                break
+            count += 1
+        return count if count >= least else 0
+
+    head, tail = run(range(len(black))), run(range(len(black) - 1, -1, -1))
+    ops = []
+    for a, b in ((0, head), (len(black) - tail, len(black))):
+        if b > a:
+            box = f"0,{a} {w - 1},{b - 1}" if vertical else f"{a},0 {b - 1},{h - 1}"
+            ops += ["-fill", "black", "-draw", f"rectangle {box}"]
+    return ops
 
 
 def cmd_analyze(args):
@@ -1987,15 +2062,33 @@ def cmd_analyze(args):
             frames.append({"region": region, "read": (hist, ghist, kept),
                            "contrast": contrast, "score": quality(contrast) if kept else 0.0})
         found.append({"scan": scan, "index": index, "size": (w, h), "vertical": vertical,
-                      "refined": refined, "whole": whole, "frames": frames})
+                      "refined": refined, "whole": whole, "frames": frames,
+                      "source": strip_source(scan, bool(held))})
 
-    film = film_model(
-        mode,
-        [f["read"] + (f["score"],) for s in found for f in s["frames"]],
-        [s["whole"] + (1.0,) for s in found],
-        roll_dial(roll_dir) if slide else None)
+    dial = roll_dial(roll_dir) if slide else None
+
+    def model(members):
+        return film_model(
+            mode,
+            [f["read"] + (f["score"],) for s in members for f in s["frames"]],
+            [s["whole"] + (1.0,) for s in members],
+            dial)
+
+    # The roll's colour, from everything on it, unless the roll was scanned on
+    # two instruments (a strip scanned again years later, on the site's
+    # scanner): then each kind is read by itself, since the film's base and
+    # its contrast are numbers of the scan as much as of the film. A single is
+    # always scanned on the glass, so the glass's reading is the roll's.
+    everything = model(found)
+    films = {}
+    if len({s["source"] for s in found}) > 1:
+        for source in sorted({s["source"] for s in found}):
+            films[source] = model([s for s in found if s["source"] == source]) or everything
+    film = films.get("glass") or everything
     if film:
         doc["film"] = film
+    if films:
+        doc["films"] = films
     if on_grid:
         doc["frames_per_strip"] = max([len(s["frames"]) for s in found] + [1])
         per_strip = doc["frames_per_strip"]
@@ -2007,8 +2100,10 @@ def cmd_analyze(args):
           (f"{frame_mm:g} mm frames on the {pitch_mm:g} mm grid" if on_grid
            else f"{per_strip} frames/strip"))
     number = 0
+    roll_film = film
     for s in found:
         scan, w, h = s["scan"], s["size"][0], s["size"][1]
+        film = films.get(s["source"]) or roll_film
         frames = []
         for f in s["frames"]:
             number += 1
@@ -2048,6 +2143,7 @@ def cmd_analyze(args):
             "index": s["index"],
             "width": w, "height": h,
             "axis": "y" if s["vertical"] else "x",
+            "source": s["source"],
             "refined": s["refined"],
             "well_exposed": well,
             "settings": strip_settings,
@@ -2145,6 +2241,18 @@ def remove_dust(path):
              "-compose", "Over", "-composite", path])
 
 
+def studio_single(roll_dir, number, raw):
+    """Whether a raw single came off the site's scanner: the file says so, or
+    the scanner page recorded choosing the frame."""
+    if STUDIO_MARK in scan_software(raw):
+        return True
+    try:
+        with open(os.path.join(roll_dir, "selects.json")) as fh:
+            return str(number) in (json.load(fh).get("frames") or {})
+    except (OSError, ValueError):
+        return False
+
+
 def cmd_develop(args):
     roll_dir = os.path.abspath(args.roll)
     doc = load_frames_json(roll_dir)
@@ -2158,7 +2266,22 @@ def cmd_develop(args):
         print(f"error: roll has no analysed frame {args.frame}", file=sys.stderr)
         return 1
 
-    if doc.get("film") and frame.get("settings"):
+    crossed = strip.get("source") == "plain" and studio_single(roll_dir, args.frame, args.raw)
+    if crossed:
+        # A single off the site's scanner, of a frame whose strip was scanned
+        # by the scanner's own program: the frame's recipe was read off the
+        # other instrument and tints this scan. The roll's reading off the
+        # glass is used when it has one (a strip scanned again there);
+        # otherwise the single is read by itself.
+        w, h = dimensions(args.raw)
+        inset = (int(w * 0.06), int(h * 0.06), int(w * 0.88), int(h * 0.88))
+        glass = (doc.get("films") or {}).get("glass")
+        if glass:
+            hist, ghist, kept = histograms(args.raw, inset)
+            settings = frame_settings(glass, hist, ghist, kept, frame.get("quality", 0.0))
+        else:
+            settings = measure(args.raw, doc["mode"], inset)[0] or strip["settings"]
+    elif doc.get("film") and frame.get("settings"):
         # The colour is the frame's, which is the roll's. The exposure is read
         # off this scan, which sees far more of the frame than the strip did,
         # away from its edges, and leans on the strip's by the weight given.
