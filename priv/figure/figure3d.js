@@ -303,6 +303,10 @@ function touching(H, things, track) {
 
 // ── What is held, stood on or pulled ─────────────────────────────────────
 
+// A kettlebell: the bell's radius, half the width of its grip, and how far
+// the middle of the bell hangs from the middle of the grip.
+const KB_BELL = 4.0, KB_GRIP = 2.9, KB_REACH = 7.4
+
 export function gear(track, i, J) {
   const out = []
   const m = mode(track)
@@ -352,12 +356,18 @@ export function gear(track, i, J) {
       const off = m === "side" ? drop : [0, drop[1], -drop[0]]
       const grip = hand, weight = v.add(hand, off)
       if (p.kind === "kettlebell") {
-        const a = v.add(grip, v.mul(across, -2.3)), b = v.add(grip, v.mul(across, 2.3))
-        capsule(a, b, 0.75)
-        const top = v.add(weight, v.mul(v.norm(v.sub(grip, weight), [0, 1, 0]), 3.4))
-        capsule(a, v.add(top, v.mul(across, -1.6)), 0.7)
-        capsule(b, v.add(top, v.mul(across, 1.6)), 0.7)
-        sphere(weight, 4.3)
+        // A bell with a handle a hand closes round: the grip a bar wider than
+        // the fist, a horn down from each end of it to the bell's shoulders,
+        // and a window between the bar and the bell for the fingers. The bell
+        // used to begin under the bar, so the hand was drawn sunk in the iron.
+        const down = v.norm(v.sub(weight, grip), [0, -1, 0])
+        const bell = v.add(grip, v.mul(down, KB_REACH))
+        const a = v.add(grip, v.mul(across, -KB_GRIP)), b = v.add(grip, v.mul(across, KB_GRIP))
+        capsule(a, b, 0.72)
+        const shoulder = v.add(bell, v.mul(down, -KB_BELL * 0.66))
+        capsule(a, v.add(shoulder, v.mul(across, -KB_BELL * 0.62)), 0.72)
+        capsule(b, v.add(shoulder, v.mul(across, KB_BELL * 0.62)), 0.72)
+        sphere(bell, KB_BELL)
       } else if (p.kind === "dumbbell") {
         // The handle lies across the palm, so it is square to the forearm: a
         // dumbbell curled to the shoulder turns with the hand, it does not
@@ -536,7 +546,7 @@ float occlusion(vec3 p, vec3 n) {
 // turn from the eye before it is line, which is what parts a forearm from
 // the chest it crosses; INK how dark the line is against the ground. They
 // were 0.52, 0.30 and 0.42: a thin line that a phone's screen lost.
-const float OUTLINE = 0.95, INNER = 0.44, INK = 0.22;
+const float OUTLINE = 0.80, INNER = 0.44, INK = 0.10;
 vec3 shade(vec2 px) {
   vec2 uv = (2.0 * px - uRes) / uRes.y;
   vec3 ro = uCenter + uR * (uv.x * uHalf) + uU * (uv.y * uHalf) + uC * 400.0;
@@ -557,7 +567,7 @@ vec3 shade(vec2 px) {
     t += d * 0.92;
     if (t > tMax) break;
   }
-  float line = hit ? 0.0 : 1.0 - smoothstep(OUTLINE - 0.18, OUTLINE, closest);
+  float line = hit ? 0.0 : 1.0 - smoothstep(OUTLINE - 0.07, OUTLINE, closest);
 
   vec3 col;
   vec3 ink = uBg * INK;

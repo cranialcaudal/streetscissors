@@ -447,3 +447,7 @@ And **never** do this:
 <!-- phoenix:liveview-end -->
 
 <!-- usage-rules-end -->
+
+## Exercise figures
+
+Work on the exercise wiki's 3D figures follows `docs/figures-handoff.md`: read it in full before running anything. It lists what may be edited, the three commands, the step-by-step procedure for one figure, and what must never be run on this machine.
