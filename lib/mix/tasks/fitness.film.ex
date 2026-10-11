@@ -16,6 +16,8 @@ defmodule Mix.Tasks.Fitness.Film do
                                           # checked with nothing drawn
       mix fitness.film --tiers plank      # which muscles its film lights, and
                                           # how strongly (Web.Fitness.Chain)
+      mix fitness.film --measure          # the body's own measurements beside
+                                          # a lean man's (ANSUR II), nothing drawn
 
   The live site keeps its uploads outside the checkout, so its films are made
   with `--to`, or with `UPLOADS_PATH` set as the service has it:
@@ -32,16 +34,31 @@ defmodule Mix.Tasks.Fitness.Film do
   def run(args) do
     {opts, slugs} =
       OptionParser.parse!(args,
-        strict: [all: :boolean, to: :string, stills: :string, check: :boolean, tiers: :boolean]
+        strict: [
+          all: :boolean,
+          to: :string,
+          stills: :string,
+          check: :boolean,
+          tiers: :boolean,
+          measure: :boolean
+        ]
       )
 
     Mix.Task.run("app.config")
 
     cond do
       opts[:check] -> check(slugs)
+      opts[:measure] -> measure()
       opts[:tiers] -> tiers(slugs)
       opts[:stills] -> stills(slugs, opts[:stills])
       true -> film(slugs, opts)
+    end
+  end
+
+  defp measure do
+    case Web.Fitness.Clip.measure() do
+      {:ok, table} -> Mix.shell().info(String.trim_trailing(table))
+      {:error, why} -> Mix.raise(why)
     end
   end
 

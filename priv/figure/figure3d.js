@@ -6,7 +6,7 @@
 // stage's plane, plus the width of a body), builds the body round the joints
 // out of rounded cones and ellipsoids, and draws it by marching rays through
 // their signed distance field. Nothing here is a mesh, and nothing is loaded:
-// the figure is the same forty-odd shapes in every clip, moved.
+// the figure is the same ninety-odd shapes in every clip, moved.
 //
 // World: x is the way the figure faces, y is up, z is toward its near side.
 // One unit is one stage unit; a standing figure is about 80 tall.
@@ -62,6 +62,11 @@ function handGap(track) {
 // otherwise be drawn too long. `hint` is the flat pose's elbow, which says
 // which way the arm bends.
 const UPPER = 14, FORE = 15
+// How far from the middle of the body each hip joint, knee and ankle is. They
+// were 4.8, 5.4 and 5.2, which set the hips a quarter wider than a man's
+// (measure.mjs): the joints are 4 apart from the middle, and the legs come
+// down from them all but straight.
+const HIPS = 4.0, KNEES = 4.2, FEET = 4.4
 function elbow(S, H, hint) {
   const reach = v.sub(H, S)
   const d = Math.min(Math.max(v.len(reach), 1.2), UPPER + FORE - 0.05)
@@ -85,11 +90,11 @@ export function lift(track, f) {
     J.pelvis = at(f.pelvis, 0); J.chest = at(f.chest, 0); J.neck = at(f.neck, 0)
     J.nape = at(f.nape, 0); J.head = at(f.head, 0)
     J.sh_a = at(f.sh_a, shz); J.sh_b = at(f.sh_b, -shz)
-    J.hip_a = at(f.hip_a, 4.8); J.hip_b = at(f.hip_b, -4.8)
+    J.hip_a = at(f.hip_a, HIPS); J.hip_b = at(f.hip_b, -HIPS)
     // a stance wider than the hips takes the knees out after the feet and
     // turns the toes out a little, as a squat's does
-    const wide = f.stance ?? 5.2, out = wide - 5.2
-    J.knee_a = at(f.knee_a, 5.4 + out * 0.6); J.knee_b = at(f.knee_b, -5.4 - out * 0.6)
+    const wide = f.stance ?? FEET, out = Math.max(wide - FEET, 0)
+    J.knee_a = at(f.knee_a, KNEES + out * 0.6); J.knee_b = at(f.knee_b, -KNEES - out * 0.6)
     J.foot_a = at(f.foot_a, wide); J.foot_b = at(f.foot_b, -wide)
     J.toe_a = at(f.toe_a, wide + 0.6 + out * 0.35); J.toe_b = at(f.toe_b, -wide - 0.6 - out * 0.35)
     J.hand_a = at(f.hand_a, gap + side); J.hand_b = at(f.hand_b, -gap + side)
@@ -98,7 +103,7 @@ export function lift(track, f) {
     // blade turning under it. A little of each, by how far the arm reaches.
     const girdle = (S, H) => {
       const to = v.sub(H, S), far = Math.min(v.len(to) / (UPPER + FORE), 1), d = v.norm(to, [0, -1, 0])
-      return v.add(S, [1.3 * Math.max(0, d[0]) * far, 1.9 * Math.max(0, d[1]) * far, 0])
+      return v.add(S, [1.3 * Math.max(0, d[0]) * far, 1.2 * Math.max(0, d[1]) * far, 0])
     }
     J.sh_a = girdle(J.sh_a, J.hand_a); J.sh_b = girdle(J.sh_b, J.hand_b)
     // flare swings the elbow out of the picture's plane, toward its own side
@@ -128,6 +133,17 @@ export function lift(track, f) {
     J.elbow_a = at(f.elbow_a, 6.4); J.elbow_b = at(f.elbow_b, 6.4)
     J.hand_a = at(f.hand_a, 7.0); J.hand_b = at(f.hand_b, 7.0)
   }
+  if (m !== "side") {
+    // a flat pose seen from the front has its hips 5 from the middle: bring
+    // them (and the knees after them) in to a man's
+    for (const k of ["a", "b"]) {
+      const off = v.sub(J["hip_" + k], J.pelvis), far = v.len(off)
+      if (far <= HIPS) continue
+      const shift = v.mul(off, 1 - HIPS / far)
+      J["hip_" + k] = v.sub(J["hip_" + k], shift)
+      J["knee_" + k] = v.sub(J["knee_" + k], v.mul(shift, 0.9))
+    }
+  }
   return J
 }
 
@@ -139,16 +155,19 @@ const HAND_PALM = 3.3, HAND_FOLD = 2.6
 
 export function body(J, hot, touch = {}) {
   const cones = [], ells = []
+  // which of the body a shape belongs to ("trunk", "arm", "leg"): nothing
+  // drawn reads it, but the tape takes the arms off to measure a chest
+  let part = "trunk"
   const h = (muscle) => (muscle && hot.get(muscle)) || 0
   const cone = (a, b, ra, rb, muscle = null, mat = SKIN) => {
     if (v.len(v.sub(a, b)) < 0.05) b = v.add(b, [0, 0.05, 0])
-    cones.push({ a, b, ra, rb, hot: h(muscle) + (muscle ? 2 : 0), mat })
+    cones.push({ a, b, ra, rb, hot: h(muscle) + (muscle ? 2 : 0), mat, part })
   }
   // ax is the first axis, ay roughly the second; radii are along ax, ay and ax × ay
   const ell = (c, ax, ay, radii, muscle = null, mat = SKIN) => {
     const x = v.norm(ax, [1, 0, 0])
     const y = v.norm(v.reject(ay, x), v.norm(v.cross(x, [0.3, 0.2, 0.9])))
-    ells.push({ c, x, y, radii, hot: h(muscle) + (muscle ? 2 : 0), mat })
+    ells.push({ c, x, y, radii, hot: h(muscle) + (muscle ? 2 : 0), mat, part })
   }
 
   const lat = v.norm(v.sub(J.sh_a, J.sh_b), [0, 0, 1])
@@ -180,25 +199,49 @@ export function body(J, hot, touch = {}) {
     ell(v.mix(o, i, at), span, v.cross(face, span), [v.len(span) * cover + 1.0, wide, thick], muscle, mat)
   }
 
-  // The trunk below the ribs. The pelvis is a bowl of bone, and between it
-  // and the rib cage there is no bone but the spine: the belly is held in by
-  // muscle alone. A wall down the front from the ribs to the pubic bone,
-  // which bends the trunk and so shortens and thickens as it curls; a sheet
-  // at each side from the ribs to the crest of the hip; and a column either
-  // side of the spine from the sacrum up the back. Each lies almost flush, or
-  // the belly reads as flaps.
-  const waist = v.mix(J.pelvis, J.chest, 0.55)
-  const rib = v.mix(J.chest, J.neck, 0.42)
-  ell(P(J.pelvis, [upLo, 1.0]), frLo, upLo, [4.4, 4.9, 6.6], null, SHORTS)
-  // the seat of the shorts, between the legs
-  ell(P(J.pelvis, [upLo, -3.3]), frLo, upLo, [3.9, 3.0, 3.8], null, SHORTS)
-  ell(waist, frLo, upLo, [4.0, 8.0, 5.5])
-  const ribsFront = P(rib, [upUp, -5.2], [frUp, 3.1]), pubis = P(J.pelvis, [frLo, 1.4], [upLo, 0.6])
-  const absRest = dist(J.chest, J.pelvis) + 0.42 * dist(J.neck, J.chest) - 5.8
-  belly(ribsFront, pubis, frLo, 3.8, 2.1 * swell(absRest, dist(ribsFront, pubis)), "abs")
+  // The trunk below the ribs, laid out by measurement (measure.mjs). The
+  // pelvis is a tall basin: the hip joints are near its floor, the crotch is
+  // only a little below them, and its crests are as high as the navel. So
+  // the hips are widest at the joints and narrow upward to the crests, and
+  // the waist is no more than the short gap between the crests and the
+  // lowest ribs. A pelvis drawn as a ball round the hip joints put the
+  // crotch a hand too low, the waist a hand too low, and a shelf between.
+  //
+  // Between the basin and the cage there is no bone but the spine: the belly
+  // is held in by muscle alone. A wall down the front from the ribs to the
+  // pubic bone, which bends the trunk and so shortens and thickens as it
+  // curls; a sheet at each side from the ribs to the crest of the hip; and a
+  // column either side of the spine from the sacrum up the back. Each lies
+  // almost flush, or the belly reads as flaps.
+  const waist = v.mix(J.pelvis, J.chest, 0.62)
+  const rib = v.mix(J.chest, J.neck, 0.4)
+  ell(P(J.pelvis, [upLo, 2.3]), frLo, upLo, [4.3, 4.6, 6.0], null, SHORTS)
+  // the crotch of the shorts, which hangs a little below the body's own
+  ell(P(J.pelvis, [upLo, -2.0]), frLo, upLo, [3.4, 1.6, 2.6], null, SHORTS)
+  ell(waist, frLo, upLo, [4.2, 7.6, 5.9])
+  const ribsFront = P(rib, [upUp, -4.6], [frUp, 3.3]), pubis = P(J.pelvis, [frLo, 1.6], [upLo, 1.6])
+  const absRest = dist(J.chest, J.pelvis) + 0.4 * dist(J.neck, J.chest) - 6.2
+  belly(ribsFront, pubis, frLo, 3.9, 2.2 * swell(absRest, dist(ribsFront, pubis)), "abs")
   for (const s of [1, -1]) {
-    belly(P(rib, [upUp, -5.4], [frUp, 0.4], [lat, 4.2 * s]), P(J.pelvis, [upLo, 3.0], [frLo, 0.3], [latH, 4.6 * s]), v.mul(latH, s), 2.7, 1.9, "obliques")
-    belly(P(J.pelvis, [frLo, -2.2], [upLo, 1.0], [latH, 1.7 * s]), P(rib, [upUp, -2.0], [frUp, -3.0], [lat, 1.8 * s]), v.mul(frLo, -1), 1.9, 1.9, "lowback")
+    // the crest of the hip, which the side of the waist comes down to
+    ell(P(J.pelvis, [latH, 4.9 * s], [upLo, 5.4], [frLo, -0.2]), frLo, upLo, [3.6, 2.6, 1.9])
+    belly(P(rib, [upUp, -4.6], [frUp, 0.4], [lat, 4.8 * s]), P(J.pelvis, [upLo, 6.4], [frLo, 0.3], [latH, 5.0 * s]), v.mul(latH, s), 2.8, 1.9, "obliques")
+    belly(P(J.pelvis, [frLo, -2.5], [upLo, 3.0], [latH, 1.7 * s]), P(rib, [upUp, -2.0], [frUp, -3.1], [lat, 1.8 * s]), v.mul(frLo, -1), 1.9, 2.0, "lowback")
+  }
+
+  // Where the arm hangs from. The pose engine puts the shoulder joint level
+  // with the root of the neck, which is three units higher than a man's is
+  // at rest (measure.mjs) and about right with the arm overhead. Drawn there
+  // the figure shrugged. So the arm is hung a little lower while it is down
+  // and from the pose's point once it is raised, as a shoulder blade carries
+  // a shoulder. It is a correction to the drawing only: the elbow stays
+  // where the pose has it, so the upper arm is drawn a tenth short while it
+  // hangs. Lowering the joint in the engine would mean reaching every pose
+  // again.
+  const socket = (S, E) => {
+    const up = v.dot(v.norm(v.sub(E, S), v.mul(upUp, -1)), upUp)
+    const raised = Math.min(Math.max((up + 0.3) / 1.2, 0), 1)
+    return P(S, [upUp, -1.4 * (1 - raised * raised * (3 - 2 * raised))])
   }
 
   // The chest, built the way a body is: bone, then muscle, then skin.
@@ -213,12 +256,15 @@ export function body(J, hot, touch = {}) {
   // folds of the armpit. A pectoral that stays put when the arm moves, on a
   // cage as wide as the shoulders, was what made this "the worst part".
   ell(rib, frUp, upUp, [5.0, 9.4, 6.5])
+  // the lower ribs, where a cage is widest
+  ell(P(J.chest, [upUp, 2.2]), frUp, upUp, [4.6, 5.2, 6.8])
   ell(P(J.neck, [upUp, -3.2], [frUp, -0.2]), frUp, upUp, [4.2, 3.6, 6.6])
   const notch = P(J.neck, [frUp, 2.6], [upUp, -1.8])
-  for (const [s, S, E] of [[1, J.sh_a, J.elbow_a], [-1, J.sh_b, J.elbow_b]]) {
+  for (const [s, at, E] of [[1, J.sh_a, J.elbow_a], [-1, J.sh_b, J.elbow_b]]) {
+    const S = socket(at, E)
     const arm = v.norm(v.sub(E, S), [0, -1, 0])
     // the collar bone, and the shoulder blade behind it
-    cone(notch, P(S, [upUp, 0.9], [frUp, 0.5]), 1.0, 0.95)
+    cone(notch, P(S, [upUp, 0.5], [frUp, 0.5]), 1.0, 0.95)
     ell(P(S, [lat, -3.4 * s], [frUp, -2.7], [upUp, -2.6]), frUp, upUp, [1.3, 3.9, 2.9])
     // the pectoral: breastbone and collar bone to the upper arm
     const from = P(rib, [upUp, 2.2], [frUp, 3.9], [lat, 2.3 * s]), to = P(S, [arm, 3.2], [frUp, 0.8])
@@ -228,7 +274,7 @@ export function body(J, hot, touch = {}) {
     cone(P(waist, [frLo, -2.3], [latH, 3.4 * s]), P(S, [arm, 2.6], [frUp, -1.6], [lat, -1.2 * s]), 2.9, 2.0, "lats")
     ell(P(rib, [upUp, -3.2], [frUp, 1.4], [lat, 5.4 * s]), frUp, upUp, [2.4, 3.6, 1.5], "serratus")
   }
-  ell(P(J.neck, [frUp, -2.0], [upUp, -2.2]), frUp, upUp, [2.5, 5.2, 5.2], "traps")
+  ell(P(J.neck, [frUp, -2.0], [upUp, -2.4]), frUp, upUp, [2.5, 4.8, 5.0], "traps")
   // between the shoulder blades
   ell(P(rib, [upUp, 1.4], [frUp, -3.6]), frUp, upUp, [1.5, 4.4, 4.0], "rhomboids")
 
@@ -239,16 +285,22 @@ export function body(J, hot, touch = {}) {
   // The neck is the column of the spine with the deep muscles round it, and
   // in front of it the two straps from behind each ear to the top of the
   // breastbone, which turn and nod the head and make the V of the throat.
-  cone(P(J.neck, [upUp, -1.2]), P(J.nape, [crown, 1.8]), 2.7, 2.4, "neck")
-  const skull = P(J.head, [crown, -0.4])
-  for (const s of [1, -1]) cone(P(skull, [ear, 3.0 * s], [crown, -2.6], [face, -0.9]), P(notch, [lat, 0.9 * s], [frUp, -0.5]), 0.95, 0.85, "neck")
-  ell(skull, face, crown, [4.4, 5.2, 4.0])
-  ell(P(skull, [face, 1.2], [crown, -2.9]), face, crown, [3.2, 2.9, 3.0])
-  ell(P(skull, [face, 3.9], [crown, -3.9]), face, crown, [1.3, 1.2, 1.6])
-  ell(P(skull, [face, 4.3], [crown, -1.0]), face, crown, [0.9, 1.3, 0.7])
-  ell(P(skull, [face, 3.6], [crown, 0.9]), face, crown, [1.2, 0.7, 3.0])
-  for (const s of [1, -1]) ell(P(skull, [ear, 3.9 * s], [crown, -0.8], [face, -0.4]), face, crown, [0.9, 1.3, 0.5])
-  ell(P(skull, [crown, 1.3], [face, -1.1]), face, crown, [4.5, 4.6, 4.3], null, HAIR)
+  cone(P(J.neck, [upUp, -1.2]), P(J.nape, [crown, 1.8]), 2.6, 2.3, "neck")
+  // The head, to a man's measure: it was a third too broad and a seventh too
+  // long, a doll's head on a man's body. Every part of it is placed and
+  // sized through `feature`, so the three numbers are the head's size.
+  const LONG = 0.9, TALL = 0.95, BROAD = 0.82
+  const skull = P(J.head, [crown, -0.8])
+  const feature = (fwd, up, side, radii, mat = SKIN) =>
+    ell(P(skull, [face, fwd * LONG], [crown, up * TALL], [ear, side * BROAD]), face, crown, [radii[0] * LONG, radii[1] * TALL, radii[2] * BROAD], null, mat)
+  for (const s of [1, -1]) cone(P(skull, [ear, 3.0 * BROAD * s], [crown, -2.6 * TALL], [face, -0.9 * LONG]), P(notch, [lat, 0.9 * s], [frUp, -0.5]), 0.85, 0.8, "neck")
+  feature(0, 0, 0, [4.4, 5.2, 4.0])
+  feature(1.2, -2.9, 0, [3.2, 2.9, 3.0])
+  feature(3.9, -3.9, 0, [1.3, 1.2, 1.6])
+  feature(4.3, -1.0, 0, [0.9, 1.3, 0.75])
+  feature(3.6, 0.9, 0, [1.2, 0.7, 3.0])
+  for (const s of [1, -1]) feature(-0.4, -0.8, 3.9 * s, [0.9, 1.3, 0.55])
+  feature(-1.1, 1.3, 0, [4.5, 4.6, 4.3], HAIR)
 
   // A hand without fingers: two plates, the palm and the fingers as one, hinged
   // at the knuckles, on a wrist that is a joint of its own. `dir` is the way
@@ -257,7 +309,7 @@ export function body(J, hot, touch = {}) {
   // flat, 1 a fist), `s` which hand, for the side the thumb is on.
   const hand = (W, dir, back, curl, s) => {
     const side = v.norm(v.cross(dir, back), [0, 0, 1])
-    ell(W, dir, back, [1.25, 1.1, 1.55])
+    ell(P(W, [dir, 0.6]), dir, back, [0.9, 0.85, 1.3])
     ell(P(W, [dir, HAND_PALM * 0.52]), dir, back, [HAND_PALM * 0.58, 0.85, 1.9])
     const knuckles = P(W, [dir, HAND_PALM])
     const fold = curl * HAND_FOLD
@@ -270,36 +322,46 @@ export function body(J, hot, touch = {}) {
   }
 
   // arms
-  for (const [s, S, E, H] of [[1, J.sh_a, J.elbow_a, J.hand_a], [-1, J.sh_b, J.elbow_b, J.hand_b]]) {
+  part = "arm"
+  for (const [s, at, E, H] of [[1, J.sh_a, J.elbow_a, J.hand_a], [-1, J.sh_b, J.elbow_b, J.hand_b]]) {
+    const S = socket(at, E)
     const along = v.norm(v.sub(E, S), [0, -1, 0])
     // the trapezius down to the point of the shoulder, and the deltoid, from
     // the point of the shoulder down the arm it lifts: with the arm raised it
     // has shortened, and stands up over the joint
     cone(v.mix(J.nape, J.neck, 0.5), P(S, [upUp, 0.6]), 2.1, 1.5, "traps")
     const delt = 1 + 0.4 * (swell(7.2, dist(P(S, [lat, 1.5 * s], [upUp, 1.5]), P(S, [along, 5.5]))) - 1)
-    ell(P(S, [along, 1.7], [lat, 0.5 * s]), along, lat, [4.3, 3.0 * delt, 3.1 * delt], "delts")
+    ell(P(S, [along, 2.4], [lat, 0.5 * s]), along, lat, [3.9, 3.0 * delt, 3.1 * delt], "delts")
     let fr = v.reject(v.sub(H, E), along)
     fr = v.len(fr) < 0.8 ? v.norm(v.reject(frUp, along), [1, 0, 0]) : v.norm(fr)
     // The arm bone is thin; the arm's shape is the two muscles on it. The one
     // in front bends the elbow, so it shortens and stands up as the elbow
     // bends. The one behind straightens it and runs round the back of the
     // joint to the point of the elbow, so a bent elbow draws it out.
-    cone(S, E, 2.0, 1.7)
-    ell(E, along, fr, [1.9, 1.8, 2.0])
+    cone(S, E, 2.0, 1.5)
+    ell(E, along, fr, [1.7, 1.5, 1.85])
     const reachDir = v.norm(v.sub(H, E), along)
     const biFrom = P(S, [fr, 1.2], [along, 1.0]), biTo = P(v.mix(E, H, 0.16), [fr, 0.4])
     const biceps = swell(dist(biFrom, E) + dist(E, biTo), dist(biFrom, biTo))
-    ell(P(v.mix(S, E, 0.56 - 0.1 * (biceps - 1)), [fr, 0.9]), along, fr, [5.2 / biceps, 2.0 * biceps, 2.05], "biceps")
+    ell(P(v.mix(S, E, 0.56 - 0.1 * (biceps - 1)), [fr, 0.7]), along, fr, [5.2 / biceps, 1.85 * biceps, 2.0], "biceps")
     const triFrom = P(S, [fr, -1.2], [along, 1.2]), triTo = P(v.mix(E, H, 0.08), [fr, -1.0])
     const triceps = swell(dist(triFrom, E) + dist(E, triTo), round(triFrom, P(E, [fr, -2.0]), triTo))
-    ell(P(v.mix(S, E, 0.5), [fr, -1.0]), along, fr, [5.8, 2.05 * triceps, 2.1], "triceps")
+    ell(P(v.mix(S, E, 0.5), [fr, -0.8]), along, fr, [5.8, 1.88 * triceps, 2.05], "triceps")
     // the forearm: two bones, the muscles that work the wrist and the grip
-    // thick below the elbow, and nothing but tendon at the wrist
-    cone(E, H, 1.75, 1.25, "forearms")
-    ell(v.mix(E, H, 0.28), reachDir, fr, [4.4, 2.25, 2.05], "forearms")
-    // the point of the elbow, behind the joint
-    ell(P(E, [fr, -1.1]), along, fr, [1.6, 1.4, 1.6])
+    // thick below the elbow, and nothing but tendon at the wrist (so the
+    // bones are not lit with the muscle, nor sunk with it: sunk, the wrist
+    // was three quarters of a man's)
+    // The pose's hand point is the middle of a fist, whether the fist holds
+    // a bar or nothing, so the wrist is short of it: a forearm is 12 or 13
+    // long and a fist's middle 2 or 3 beyond. Only a palm laid flat has its
+    // wrist at the point itself, and there the forearm is drawn a fifth too
+    // long.
     const did = touch[s === 1 ? "hand_a" : "hand_b"]
+    const wrist = did && did.flat ? H : P(H, [reachDir, did && did.grip ? -2.1 : -2.1])
+    cone(E, wrist, 1.5, 1.15)
+    ell(v.mix(E, H, 0.31), reachDir, fr, [5.2, 2.3, 2.1], "forearms")
+    // the point of the elbow, behind the joint
+    ell(P(E, [fr, -0.4]), along, fr, [1.5, 1.0, 1.5])
     if (did && did.grip) {
       // a fist: the fingers rolled round what is held, the thumb closing it
       const bar = did.grip
@@ -323,14 +385,15 @@ export function body(J, hot, touch = {}) {
       // held out level, the hand hangs a little from it.
       const slack = Math.max(0, 1 - Math.abs(reachDir[1])) * 0.24
       const dir = v.norm(v.add(reachDir, [0, -slack, 0]), reachDir)
-      hand(H, dir, v.norm(v.reject(v.mul(fr, -1), dir), v.mul(fr, -1)), 0.8, s)
+      hand(wrist, dir, v.norm(v.reject(v.mul(fr, -1), dir), v.mul(fr, -1)), 0.8, s)
     } else {
       // an open hand, for a swimmer: the fingers a little curled
-      hand(H, reachDir, v.mul(fr, -1), 0.1, s)
+      hand(wrist, reachDir, v.mul(fr, -1), 0.1, s)
     }
   }
 
   // legs
+  part = "leg"
   for (const [s, Hp, K, A, T] of [[1, J.hip_a, J.knee_a, J.foot_a, J.toe_a], [-1, J.hip_b, J.knee_b, J.foot_b, J.toe_b]]) {
     const along = v.norm(v.sub(K, Hp), [0, -1, 0])
     let fr = v.reject(v.sub(K, v.mix(Hp, A, 0.5)), v.norm(v.sub(A, Hp), along))
@@ -341,8 +404,12 @@ export function body(J, hot, touch = {}) {
     const toe = v.norm(v.sub(T, A), [1, 0, 0])
     // The thigh bone, the knee, the shin bone, the ankle. Then the muscles,
     // each from one bone to another.
-    cone(Hp, K, 3.2, 2.4)
-    cone(Hp, v.mix(Hp, K, 0.36), 4.4, 3.9, null, SHORTS)
+    cone(Hp, K, 3.1, 2.4)
+    // The leg of the shorts: two tubes, one before the other, so that it is
+    // deeper than it is wide as the top of a thigh is, stands clear of the
+    // other leg, and ends in a hem.
+    const hem = v.mix(Hp, K, 0.38)
+    for (const f of [1.5, -1.4]) cone(P(Hp, [fr, f], [inner, -0.2]), P(hem, [fr, f * 0.95], [inner, -0.2]), 3.25, 3.15, null, SHORTS)
     ell(K, along, fr, [2.3, 2.2, 2.4])
     ell(P(K, [fr, 1.3]), along, fr, [1.8, 1.2, 1.6])
     cone(K, A, 2.2, 1.5)
@@ -351,14 +418,14 @@ export function body(J, hot, touch = {}) {
     // The seat: from the back of the pelvis to the back of the thigh bone,
     // round the back of the hip. It straightens the hip, so a deep squat
     // draws it out under the joint.
-    const seat = P(J.pelvis, [latH, 2.6 * s], [frLo, -2.6], [upLo, 2.2])
-    const seatTo = P(v.mix(Hp, K, 0.22), [fr, -1.6], [inner, -1.2])
-    const glute = swell(dist(seat, Hp) + dist(Hp, seatTo), round(seat, P(Hp, [frLo, -3.4]), seatTo))
-    belly(seat, seatTo, v.mul(frLo, -1), 3.9, 3.3 * glute, "glutes", SHORTS, 0.5, 0.45)
+    const seat = P(J.pelvis, [latH, 2.8 * s], [frLo, -2.7], [upLo, 4.6])
+    const seatTo = P(v.mix(Hp, K, 0.2), [fr, -1.6], [inner, -0.8])
+    const glute = swell(dist(seat, Hp) + dist(Hp, seatTo), round(seat, P(Hp, [frLo, -3.6]), seatTo))
+    belly(seat, seatTo, v.mul(frLo, -1), 3.2, 3.7 * glute, "glutes", SHORTS, 0.5, 0.45)
     // the side of the hip, which holds the pelvis level on one leg, and the
     // crease in front, which lifts the thigh
-    belly(P(J.pelvis, [latH, 5.4 * s], [upLo, 3.0]), P(Hp, [latH, 2.2 * s], [along, 1.8]), v.mul(latH, s), 2.6, 1.8, "abductors", SHORTS)
-    const crease = P(J.pelvis, [latH, 2.6 * s], [frLo, 2.4], [upLo, 2.4]), creaseTo = P(v.mix(Hp, K, 0.14), [fr, 1.6])
+    belly(P(J.pelvis, [latH, 5.4 * s], [upLo, 4.4]), P(Hp, [latH, 2.2 * s], [along, 1.2]), v.mul(latH, s), 2.6, 1.3, "abductors", SHORTS)
+    const crease = P(J.pelvis, [latH, 3.2 * s], [frLo, 2.6], [upLo, 3.6]), creaseTo = P(v.mix(Hp, K, 0.14), [fr, 1.6])
     belly(crease, creaseTo, frLo, 2.2, 1.6 * swell(dist(crease, Hp) + dist(Hp, creaseTo), dist(crease, creaseTo)), "hipflexors", SHORTS)
 
     // The front of the thigh straightens the knee: it runs over the kneecap
@@ -367,11 +434,11 @@ export function body(J, hot, touch = {}) {
     // and is drawn out when the hips fold over straight legs.
     const quadFrom = P(Hp, [fr, 1.4], [along, 1.0]), quadTo = P(v.mix(K, A, 0.12), [frS, 1.3])
     const quads = swell(dist(quadFrom, K) + dist(K, quadTo), round(quadFrom, P(K, [fr, 2.4]), quadTo))
-    ell(P(v.mix(Hp, K, 0.46), [fr, 1.5]), along, fr, [8.4, 3.0 * quads, 3.6], "quads")
+    ell(P(v.mix(Hp, K, 0.46), [fr, 1.5]), along, fr, [8.4, 3.0 * quads, 3.4], "quads")
     const sit = P(Hp, [frLo, -2.2], [upLo, -1.4]), hamTo = P(v.mix(K, A, 0.1), [frS, -1.3])
     const hams = swell(dist(sit, K) + dist(K, hamTo), dist(sit, hamTo))
-    ell(P(v.mix(Hp, K, 0.48), [fr, -1.5]), along, fr, [8.0, 2.8 * hams, 3.4], "hamstrings")
-    belly(P(J.pelvis, [latH, 1.4 * s], [frLo, 1.0], [upLo, -2.6]), P(v.mix(Hp, K, 0.62), [inner, 1.6]), inner, 2.4, 2.6, "adductors")
+    ell(P(v.mix(Hp, K, 0.48), [fr, -1.5]), along, fr, [8.0, 2.8 * hams, 3.3], "hamstrings")
+    belly(P(Hp, [inner, 2.0], [frLo, 0.6], [upLo, -1.4]), P(v.mix(Hp, K, 0.58), [inner, 0.7]), inner, 2.4, 1.6, "adductors")
 
     // The calf runs from above the knee to the heel, and points the foot: up
     // on the toes it shortens and stands out. The muscle down the front of
@@ -401,6 +468,49 @@ export function body(J, hot, touch = {}) {
     }
   }
   return { cones, ells }
+}
+
+// ── The same solid, without a picture ────────────────────────────────────
+
+// How the shapes are joined into one surface: a muscle is sunk SINK under the
+// skin and melted into it over MELT, and every other shape melts into its
+// neighbour over BLEND. The shader is given these same three numbers.
+export const FIELD = { SINK: 0.4, MELT: 1.9, BLEND: 1.2 }
+
+// The distance from a point to the body's surface (negative inside), worked
+// out as the shader's body() works it out. Nothing that draws uses this: it
+// is for tools that put a tape round the figure (measure.mjs). Keep the two
+// in step.
+export function solid({ cones, ells }) {
+  const smin = (a, b, k) => {
+    const h = Math.max(k - Math.abs(a - b), 0) / k
+    return Math.min(a, b) - h * h * k * 0.25
+  }
+  const roundCone = (p, { a, b, ra, rb }) => {
+    const ba = v.sub(b, a), l2 = v.dot(ba, ba), rr = ra - rb, a2 = l2 - rr * rr, il2 = 1 / l2
+    const pa = v.sub(p, a), y = v.dot(pa, ba), z = y - l2
+    const w = v.sub(v.mul(pa, l2), v.mul(ba, y)), x2 = v.dot(w, w), y2 = y * y * l2, z2 = z * z * l2
+    const k = Math.sign(rr) * rr * rr * x2
+    if (Math.sign(z) * a2 * z2 > k) return Math.sqrt(x2 + z2) * il2 - rb
+    if (Math.sign(y) * a2 * y2 < k) return Math.sqrt(x2 + y2) * il2 - ra
+    return (Math.sqrt(x2 * a2 * il2) + y * rr) * il2 - ra
+  }
+  const third = new Map(ells.map((e) => [e, v.cross(e.x, e.y)]))
+  const ellipsoid = (p, e) => {
+    const { c, x, y, radii } = e, z = third.get(e)
+    const qx = p[0] - c[0], qy = p[1] - c[1], qz = p[2] - c[2]
+    const a = (qx * x[0] + qy * x[1] + qz * x[2]) / radii[0], b = (qx * y[0] + qy * y[1] + qz * y[2]) / radii[1]
+    const g = (qx * z[0] + qy * z[1] + qz * z[2]) / radii[2]
+    const k0 = Math.hypot(a, b, g), k1 = Math.hypot(a / radii[0], b / radii[1], g / radii[2])
+    return (k0 * (k0 - 1)) / Math.max(k1, 1e-4)
+  }
+  const join = (d, di, muscle) => smin(d, muscle ? di + FIELD.SINK : di, muscle ? FIELD.MELT : FIELD.BLEND)
+  return (p) => {
+    let d = 1e9
+    for (const c of cones) d = join(d, roundCone(p, c), c.hot > 1.5)
+    for (const e of ells) d = join(d, ellipsoid(p, e), e.hot > 1.5)
+    return d
+  }
 }
 
 // ── What a hand is doing ─────────────────────────────────────────────────
@@ -619,7 +729,7 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 // each form reads as a round thing of its own, with an edge where it meets
 // its neighbour. The lit area's edge is as hard as the tones' for the same
 // reason.
-const float SINK = 0.4, MELT = 1.9;
+const float SINK = ${FIELD.SINK.toFixed(2)}, MELT = ${FIELD.MELT.toFixed(2)};
 vec3 tier(vec3 lit, float level, float di) {
   if (level > 0.75) lit.x = min(lit.x, di);
   else if (level > 0.35) lit.y = min(lit.y, di);
@@ -811,7 +921,7 @@ export function renderer(canvas) {
     gl.uniform3fv(U("uC"), cam.c); gl.uniform3fv(U("uR"), cam.right); gl.uniform3fv(U("uU"), cam.up)
     gl.uniform3fv(U("uCenter"), cam.center); gl.uniform3fv(U("uBg"), bg.map((c) => Math.pow(c, 2.2)))
     gl.uniform1f(U("uHalf"), cam.half); gl.uniform1f(U("uFloor"), cam.floor ? 1 : 0); gl.uniform1f(U("uWater"), cam.water)
-    gl.uniform1f(U("uK"), 1.2)
+    gl.uniform1f(U("uK"), FIELD.BLEND)
     gl.uniform4fv(U("uBound"), bound)
 
     const { cones, ells } = shapes

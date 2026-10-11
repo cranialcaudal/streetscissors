@@ -307,6 +307,71 @@ defmodule Web.Fitness.Clip do
     end
   end
 
+  # A figure standing upright with its feet flat, for the tape.
+  @standing %{
+    "view" => "side",
+    "planted" => ["foot_a", "foot_b"],
+    "props" => [],
+    "poses" => [
+      %{
+        "name" => "stand",
+        "hold" => 1.0,
+        "move" => 1.0,
+        "pelvis" => [80, 60],
+        "lean" => 0,
+        "feet" => [80, 99],
+        "hands" => [81, 63],
+        "elbows" => "down",
+        "knees" => "front"
+      }
+    ]
+  }
+
+  @doc """
+  The body's own measurements beside a man's (`priv/figure/measure.mjs`): the
+  table as text, or `{:error, text}`. Nothing is drawn and no figure file is
+  read: the figure stands upright and is measured as a survey measures people.
+  """
+  def measure, do: tape([])
+
+  @doc """
+  The same measurements as data: `{:ok, %{"stature" => _, "rows" => [%{"key" =>
+  _, "ratio" => _, ...}], "waist_to_hips" => _, ...}}`, a ratio being the
+  figure's measure over the men's. For the test that holds the body to them.
+  """
+  def measurements do
+    with {:ok, json} <- tape(["--json"]), {:ok, %{} = found} <- Jason.decode(json) do
+      {:ok, found}
+    else
+      {:error, %Jason.DecodeError{}} -> {:error, "the tape did not answer in JSON"}
+      other -> other
+    end
+  end
+
+  defp tape(flags) do
+    with {:ok, track} <- Figure.track(@standing, @fps) do
+      list =
+        Path.join(System.tmp_dir!(), "figure-measure-#{System.unique_integer([:positive])}.json")
+
+      File.write!(list, Jason.encode!([%{slug: "standing", track: track}]))
+
+      try do
+        script = Application.app_dir(:web, "priv/figure/measure.mjs")
+
+        case System.cmd("node", [script, list | flags], stderr_to_stdout: true) do
+          {output, 0} -> {:ok, output}
+          {output, status} -> {:error, "the tape exited #{status}: #{String.trim(output)}"}
+        end
+      rescue
+        error in ErlangError -> {:error, "could not run node: #{inspect(error.original)}"}
+      after
+        File.rm(list)
+      end
+    else
+      {:error, problems} when is_list(problems) -> {:error, Enum.join(problems, "; ")}
+    end
+  end
+
   defp all_slugs, do: for({slug, _figure} <- Figure.all(), do: slug)
 
   defp anatomy(slug) do

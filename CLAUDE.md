@@ -318,7 +318,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       decodes it and builds nothing. `mix fitness.film` hands each figure's joints
       (`Figure.track/2`, 24 fps) to the camera in `priv/figure/`: `render.mjs` (node, no
       packages) drives headless Chrome over its debugging port through `render.html`, where
-      `figure3d.js` lifts the flat joints into 3D, builds the body from about ninety rounded
+      `figure3d.js` lifts the flat joints into 3D, builds the body from about a hundred rounded
       cones and ellipsoids (each muscle its own volume, set flush) and marches rays through
       their distance field, in three flat tones with an ink line; the frames are piped to
       ffmpeg. About 85 seconds a figure on this machine's Intel GPU (`--use-angle=gl-egl`;
@@ -349,6 +349,34 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       its edge, which on the belly read as flaps. The shorts need their own seat between the
       legs now that the thighs are not thick enough to meet. More shapes cost time: a film
       went from about 55 seconds to 85.
+    - **The body is held to a man's measurements, not to the eye** (2026-10-11, "the waist is
+      off"). `mix fitness.film --measure` (`priv/figure/measure.mjs`, node, no GPU, 7 s)
+      stands the figure upright and puts a tape round the solid the camera draws (`solid/1`,
+      the shader's distance field again in JavaScript; **keep the two in step**, they share
+      `FIELD`). Thirty-one heights, breadths, depths and girths are printed beside the mean
+      of the 609 lean men (body-mass index 21 to 24) of ANSUR II, the US Army's public survey
+      of 2012, each as a share of stature. What the first reading found: hips a quarter too
+      wide (the hip joints were 4.8 from the middle; a man's are 4), a crotch a fifth too low
+      (the pelvis was a ball round the hip joints, and the thighs ran together under it), a
+      waist that was a long tube from the hips up, a head a third too broad, a neck and upper
+      arm a sixth too thick, a wrist a quarter too thin, shoulders a hand too high. Thirteen
+      measures were more than 8% out; two are now, and both belong to the pose engine or the
+      shoe. `test/web/fitness_measure_test.exs` holds the proportions (skipped without node).
+      What to know before touching `body/3` again:
+      - `HIPS`, `KNEES`, `FEET` in `lift/2` are how far the leg's joints are from the middle;
+        a front view's pose has its hips at 5 and they are brought in to `HIPS`.
+      - **The pelvis is tall**: joints near its floor, crotch 2.4 below them, crests at the
+        navel. The waist is only the gap between crest and lowest rib.
+      - **Two shapes near the midline, one from each leg, run together** (each smooth join
+        adds a little, and six in a row add a bridge). Keep a leg's shapes 0.9 clear of it.
+        The shorts' legs are two tubes each for that reason, and for a clean hem.
+      - `socket/2` hangs a resting arm 1.4 below the pose's shoulder, which is 3 too high;
+        the upper arm is drawn a tenth short while it hangs. The real cure is in the engine
+        and means reaching every pose again.
+      - The pose's hand point is the middle of a fist, so the wrist is drawn 2.1 short of
+        it; under a flat palm it is at the point, and that forearm is a fifth too long.
+      - With the hips a man's width `kb-swings` fails the rule check (the bell does not fit
+        between knees a hip's width apart): its wide-stance file waits on the deploy.
     - **Films are content, not code.** They live in `figures/` under the uploads root (which
       the proxy serves), each named by a hash of its own bytes, with `clips.json` saying which
       film is whose, what it was filmed from, and where each pose begins. The live site's

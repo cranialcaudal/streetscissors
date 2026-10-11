@@ -55,6 +55,26 @@ and do not edit the code that does them:
   What **is** a fault, and worth reporting (not fixing): a flap or slit where the belly should
   be smooth, skin showing through the shorts, a limb that looks broken at a joint, a ball
   stuck on a knee or an elbow. Say which slug and which pose.
+- **The body's proportions are measured, not judged by eye** (since 2026-10-11). The command
+  `mix fitness.film --measure` stands the figure upright and compares 31 of its measurements
+  with those of lean men from a public survey of 4,082 soldiers (ANSUR II). You may run it;
+  it takes 7 seconds, draws nothing and changes nothing. It must end with
+  `2 of 31 measures are more than 8% from the men's`. If it says anything else, stop and
+  report: someone has changed the body. Because of it these are also **correct, not
+  faults**:
+  - The hips are much narrower than the shoulders and only a little wider than the waist.
+  - The head looks small beside older stills. It is a man's size now.
+  - The shoulders slope down from the neck when the arms hang.
+  - The crotch is high and the legs look long.
+
+  And these are **known and wrong; do not report them, do not try to fix them**:
+  - Where a hand lies flat (a push-up, a plank) the forearm is a fifth too long and the
+    hand short.
+  - The ankle is low: the foot looks flat.
+  - The upper arm is a little short while the arm hangs.
+  - The thighs never touch each other, even at the top.
+  - Where a limb folds on itself (a deep squat, the top of a curl) the two parts run
+    together; there is no crease.
 
 ## Rules you must not break
 
@@ -207,8 +227,12 @@ step 8's "undo" is a copy back.
 
 ## Known limits: do not try to fix these with pose edits
 
-- **Hex-bar figures** (`hexbar-carries`, `hexbar-jumps`, `hexbar-rdl`, `hex-flat-side-deadlift`)
-  and `farmers-walk`: there is no hex-bar prop, so the bar is drawn through the hips. Leave.
+- **Hex-bar figures** (`hexbar-carries`, `hexbar-jumps`, `hexbar-rdl`, `hex-flat-side-deadlift`):
+  there is no hex-bar prop, so the bar is drawn through the hips. Leave.
+- **`kb-swings`**: the check says "a bar passes through the thigh". The bell does not fit
+  between knees that are a hip's width apart, and the fix is a wide stance, which is the
+  `stance` key you may not use yet (rule 4). Leave it until the owner says the site is
+  deployed.
 - **An arm that wraps across the body** (`kb-russian-twist`, `kb-side-plank-reach`): drawn
   straight through the trunk. The check will go on flagging it. Leave.
 - **No such prop**: a jump rope, a speed ladder, a kickboard, a parachute canopy, a rope or
