@@ -213,8 +213,15 @@ export function body(J, hot, touch = {}) {
       ell(P(did.at, [ahead, 3.7], [n, 0.55]), ahead, n, [1.9, 0.55, 1.8])
       ell(P(did.at, [ahead, 1.2], [n, 0.6], [wide, 2.0 * s]), v.norm(v.add(ahead, v.mul(wide, 0.7 * s))), n, [1.5, 0.55, 0.7])
       ell(P(did.at, [ahead, -0.6], [n, 1.1]), ahead, n, [1.6, 1.1, 1.7])
+    } else if (!touch.open) {
+      // a hand with nothing in it is a loose fist: a runner's, a boxer's.
+      // Laid open it read as a blade, and a punch as a slap.
+      ell(P(H, [reachDir, 1.5]), reachDir, fr, [2.0, 1.3, 1.85])
+      ell(P(H, [reachDir, 2.5], [fr, 0.75]), fr, reachDir, [1.25, 1.0, 1.75])
+      ell(P(H, [reachDir, 1.4], [fr, 1.25]), reachDir, fr, [1.4, 0.7, 0.8])
+      ell(H, reachDir, fr, [1.3, 1.15, 1.6])
     } else {
-      // an open hand: the palm, the fingers a little curled, the thumb
+      // an open hand, for a swimmer: the palm, the fingers a little curled, the thumb
       ell(P(H, [reachDir, 1.6]), reachDir, fr, [2.3, 0.95, 1.9])
       ell(P(H, [reachDir, 3.6], [fr, 0.45]), v.norm(v.add(reachDir, v.mul(fr, 0.35))), fr, [1.8, 0.7, 1.7])
       ell(P(H, [reachDir, 0.9], [fr, 1.0]), reachDir, fr, [1.6, 0.7, 0.75])
@@ -275,10 +282,16 @@ function touching(H, things, track) {
         const at = H.slice(); at[axis] = t.a[axis] + n[axis] * half[axis]
         take(Math.abs(out[axis]) - 0.6, { flat: n, at })
       }
-    } else {
-      const r = t.type === 2 ? t.r : Math.min(...t.b)
+    } else if (t.type === 2) {
       const n = v.norm(v.sub(H, t.a), [0, 1, 0])
-      take(Math.abs(v.len(v.sub(H, t.a)) - r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, r)) })
+      take(Math.abs(v.len(v.sub(H, t.a)) - t.r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, t.r)) })
+    } else {
+      // a dome: the point of it under the hand, and the way its surface faces there
+      const q = v.sub(H, t.a)
+      const k = 1 / Math.max(Math.hypot(q[0] / t.b[0], q[1] / t.b[1], q[2] / t.b[2]), 1e-6)
+      const at = v.add(t.a, v.mul(q, k))
+      const n = v.norm([q[0] / (t.b[0] * t.b[0]), q[1] / (t.b[1] * t.b[1]), q[2] / (t.b[2] * t.b[2])], [0, 1, 0])
+      take(Math.abs(v.len(q) * (1 - k)) - 0.8, { flat: n, at })
     }
   }
   if (!best && (track.floor || mode(track) === "plan") && H[1] < 2.6 && mode(track) !== "plan") best = { flat: [0, 1, 0], at: [H[0], 0, H[2]] }
@@ -657,7 +670,7 @@ export function prepare(track, muscles) {
   const frames = track.frames.map((f, i) => {
     const J = lift(track, f)
     const things = gear(track, i, J)
-    return { J, shapes: body(J, hot, { hand_a: touching(J.hand_a, things, track), hand_b: touching(J.hand_b, things, track) }), things, bound: bound(J, things) }
+    return { J, shapes: body(J, hot, { hand_a: touching(J.hand_a, things, track), hand_b: touching(J.hand_b, things, track), open: mode(track) === "plan" }), things, bound: bound(J, things) }
   })
   return { frames, cam: camera(track, frames) }
 }
