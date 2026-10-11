@@ -450,4 +450,6 @@ And **never** do this:
 
 ## Exercise figures
 
+An agent new to this repository starts with `docs/agent-handoff.md`: its rules, where things are, the loop for one task, and the list of tasks.
+
 Work on the exercise wiki's 3D figures follows `docs/figures-handoff.md`: read it in full before running anything. It lists what may be edited, the three commands, the step-by-step procedure for one figure, and what must never be run on this machine.
