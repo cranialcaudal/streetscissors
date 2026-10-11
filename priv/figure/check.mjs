@@ -149,7 +149,7 @@ function frameProblems(track, J, things) {
 
 const jobs = JSON.parse(readFileSync(process.argv[2], "utf8"))
 for (const job of jobs) {
-  const { frames } = prepare(job.track, job.muscles)
+  const { frames } = prepare(job.track, job.tiers || job.muscles)
   const tally = new Map()
   let floats = Infinity, off = [], standing = 0
   for (const f of frames) {

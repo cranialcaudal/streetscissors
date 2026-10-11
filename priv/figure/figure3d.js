@@ -93,6 +93,14 @@ export function lift(track, f) {
     J.foot_a = at(f.foot_a, wide); J.foot_b = at(f.foot_b, -wide)
     J.toe_a = at(f.toe_a, wide + 0.6 + out * 0.35); J.toe_b = at(f.toe_b, -wide - 0.6 - out * 0.35)
     J.hand_a = at(f.hand_a, gap + side); J.hand_b = at(f.hand_b, -gap + side)
+    // The shoulder is not a fixed point on the trunk: it rises with an arm
+    // reaching overhead and comes forward with one reaching out, the shoulder
+    // blade turning under it. A little of each, by how far the arm reaches.
+    const girdle = (S, H) => {
+      const to = v.sub(H, S), far = Math.min(v.len(to) / (UPPER + FORE), 1), d = v.norm(to, [0, -1, 0])
+      return v.add(S, [1.3 * Math.max(0, d[0]) * far, 1.9 * Math.max(0, d[1]) * far, 0])
+    }
+    J.sh_a = girdle(J.sh_a, J.hand_a); J.sh_b = girdle(J.sh_b, J.hand_b)
     // flare swings the elbow out of the picture's plane, toward its own side
     const flare = f.flare || 0
     const hint = (S, flat, out) => v.add(S, v.mix(v.sub(flat, S), [0, 0, out], flare))
@@ -127,7 +135,7 @@ export function lift(track, f) {
 
 export function body(J, hot, touch = {}) {
   const cones = [], ells = []
-  const h = (muscle) => (muscle && hot.has(muscle) ? 1 : 0)
+  const h = (muscle) => (muscle && hot.get(muscle)) || 0
   const cone = (a, b, ra, rb, muscle = null, mat = SKIN) => {
     if (v.len(v.sub(a, b)) < 0.05) b = v.add(b, [0, 0.05, 0])
     cones.push({ a, b, ra, rb, hot: h(muscle) + (muscle ? 2 : 0), mat })
@@ -165,6 +173,8 @@ export function body(J, hot, touch = {}) {
     ell(P(rib, [upUp, -3.2], [frUp, 1.2], [lat, 6.9 * s]), frUp, upUp, [2.6, 3.8, 1.6], "serratus")
   }
   ell(P(J.neck, [frUp, -2.0], [upUp, -2.2]), frUp, upUp, [2.6, 5.4, 6.0], "traps")
+  // between the shoulder blades
+  ell(P(rib, [upUp, 1.4], [frUp, -3.9]), frUp, upUp, [1.5, 4.4, 4.4], "rhomboids")
   // the shoulder girdle: one bar from shoulder to shoulder, not two balls
   cone(J.sh_a, J.sh_b, 3.0, 3.0)
 
@@ -243,6 +253,9 @@ export function body(J, hot, touch = {}) {
     ell(P(v.mix(Hp, K, 0.48), [fr, 1.3]), along, fr, [8.6, 3.0, 3.5], "quads")
     ell(P(v.mix(Hp, K, 0.46), [fr, -1.3]), along, fr, [8.4, 2.9, 3.4], "hamstrings")
     ell(P(v.mix(Hp, K, 0.34), [inner, 1.6]), along, fr, [6.4, 2.5, 2.3], "adductors")
+    // the crease of the hip in front, and the side of the hip that holds the pelvis level
+    ell(P(v.mix(Hp, K, 0.1), [fr, 2.5]), along, fr, [3.4, 1.7, 2.4], "hipflexors", SHORTS)
+    ell(P(v.mix(Hp, K, 0.06), [inner, -2.6], [fr, -0.4]), along, fr, [4.2, 2.3, 1.9], "abductors", SHORTS)
     const shin = v.norm(v.sub(A, K), along)
     const frS = v.norm(v.reject(fr, shin), fr)
     cone(K, A, 2.6, 1.7)
@@ -250,11 +263,25 @@ export function body(J, hot, touch = {}) {
     ell(P(K, [fr, 1.5]), along, fr, [2.1, 1.6, 2.0])
     ell(A, shin, frS, [1.9, 1.7, 2.2])
     ell(P(v.mix(K, A, 0.3), [frS, -0.9]), shin, frS, [5.6, 2.4, 2.5], "calves")
+    ell(P(v.mix(K, A, 0.36), [frS, 0.9]), shin, frS, [5.0, 1.5, 1.6], "tibialis")
     // a shoe: a long low toe box and a heel, flat underneath
     const toe = v.norm(v.sub(T, A), [1, 0, 0])
     const sole = v.norm(v.reject(shin, toe), [0, -1, 0])
-    ell(P(v.mix(A, T, 0.55), [sole, 0.5]), toe, sole, [4.8, 1.7, 2.3], null, SHOES)
-    ell(P(A, [toe, -0.8], [sole, 0.2]), toe, sole, [2.5, 2.1, 2.1], null, SHOES)
+    if (T[1] < 3.6 && A[1] - T[1] > 1.4) {
+      // Up on the ball of the foot (a push-up, the back foot of a lunge, the
+      // top of a calf raise): the toes stay flat on the floor and the rest of
+      // the foot rises from where they begin. A rigid shoe stood on its tip.
+      const flat = v.norm([toe[0], 0, toe[2]], [1, 0, 0])
+      const ball = v.add(T, v.mul(flat, -2.6))
+      const rear = v.norm(v.sub(ball, A), toe)
+      const under = v.norm(v.reject([0, -1, 0], rear), sole)
+      ell(P(v.mix(ball, T, 0.5), [[0, 1, 0], 0.5]), flat, [0, 1, 0], [2.3, 1.25, 2.3], null, SHOES)
+      ell(P(v.mix(A, ball, 0.55), [under, 0.4]), rear, under, [v.len(v.sub(ball, A)) * 0.5 + 1.3, 1.7, 2.25], null, SHOES)
+      ell(P(A, [rear, -0.8], [under, 0.2]), rear, under, [2.4, 2.0, 2.1], null, SHOES)
+    } else {
+      ell(P(v.mix(A, T, 0.55), [sole, 0.5]), toe, sole, [4.8, 1.7, 2.3], null, SHOES)
+      ell(P(A, [toe, -0.8], [sole, 0.2]), toe, sole, [2.5, 2.1, 2.1], null, SHOES)
+    }
   }
   return { cones, ells }
 }
@@ -433,7 +460,7 @@ function waterLevel(track) {
 
 // ── Drawing ──────────────────────────────────────────────────────────────
 
-const NC = 28, NE = 60, NP = 28
+const NC = 28, NE = 72, NP = 28
 
 const FRAG = `#version 300 es
 precision highp float;
@@ -471,13 +498,21 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 // melted in widely, so it rounds the form it belongs to without standing off
 // it as a lump of its own. It still says where the surface is lit.
 const float SINK = 0.7, MELT = 3.2;
+vec3 tier(vec3 lit, float level, float di) {
+  if (level > 0.75) lit.x = min(lit.x, di);
+  else if (level > 0.35) lit.y = min(lit.y, di);
+  else if (level > 0.1) lit.z = min(lit.z, di);
+  return lit;
+}
 float body(vec3 p, out float hot, out float mat) {
-  float d = 1e9, near = 1e9, hotNear = 1e9; mat = 0.0;
+  float d = 1e9, near = 1e9; mat = 0.0;
+  // how near the surface a worked muscle lies, for each of the three tiers
+  vec3 lit = vec3(1e9);
   for (int i = 0; i < uNC; i++) {
     float di = sdRoundCone(p, uCA[i].xyz, uCB[i].xyz, uCA[i].w, uCB[i].w);
     bool mus = uCM[i].x > 1.5;
     d = smin(d, mus ? di + SINK : di, mus ? MELT : uK);
-    if (mod(uCM[i].x, 2.0) > 0.5) hotNear = min(hotNear, di);
+    lit = tier(lit, mus ? uCM[i].x - 2.0 : uCM[i].x, di);
     if (di < near) { near = di; mat = uCM[i].y; }
   }
   for (int i = 0; i < uNE; i++) {
@@ -485,11 +520,14 @@ float body(vec3 p, out float hot, out float mat) {
     float di = sdEllipsoid(vec3(dot(q, uEX[i]), dot(q, uEY[i]), dot(q, ez)), uER[i].xyz);
     bool mus = uEC[i].w > 1.5;
     d = smin(d, mus ? di + SINK : di, mus ? MELT : uK);
-    if (mod(uEC[i].w, 2.0) > 0.5) hotNear = min(hotNear, di);
+    lit = tier(lit, mus ? uEC[i].w - 2.0 : uEC[i].w, di);
     if (di < near) { near = di; mat = uER[i].w; }
   }
   // How far under the skin the nearest worked muscle lies at this point.
-  hot = 1.0 - smoothstep(0.25 + SINK, 1.2 + SINK, hotNear - d);
+  vec3 glow = 1.0 - smoothstep(0.25 + SINK, 1.2 + SINK, lit - d);
+  // the mover at full strength, the chain that steadies it at half, the
+  // bracing of the rest of the body as a trace
+  hot = max(glow.x, max(glow.y * 0.5, glow.z * 0.22));
   return d;
 }
 
@@ -687,8 +725,14 @@ function bound(J, things) {
   return [...c, r]
 }
 
+// `muscles` is the page's list, or the three tiers of Web.Fitness.Chain:
+// {primary, chain, brace}. Each is lit at its own strength.
 export function prepare(track, muscles) {
-  const hot = new Set(muscles)
+  const tiers = Array.isArray(muscles) ? { primary: muscles } : muscles || {}
+  const hot = new Map()
+  for (const m of tiers.brace || []) hot.set(m, 0.25)
+  for (const m of tiers.chain || []) hot.set(m, 0.5)
+  for (const m of tiers.primary || []) hot.set(m, 1)
   const frames = track.frames.map((f, i) => {
     const J = lift(track, f)
     const things = gear(track, i, J)

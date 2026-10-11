@@ -208,7 +208,7 @@ defmodule Web.Fitness.Clip do
 
     File.write!(
       list,
-      Jason.encode!(for(job <- jobs, do: Map.take(job, [:slug, :track, :muscles])))
+      Jason.encode!(for(job <- jobs, do: Map.take(job, [:slug, :track, :muscles, :tiers])))
     )
 
     {command, args} = camera()
@@ -240,7 +240,17 @@ defmodule Web.Fitness.Clip do
     with {:ok, json} <- File.read(Figure.path(slug)),
          {:ok, %{} = raw} <- Jason.decode(json),
          {:ok, track} <- Figure.track(raw, @fps) do
-      {:ok, %{slug: slug, source: source(slug, anatomy), track: track, muscles: muscles(anatomy)}}
+      primary = Enum.uniq(muscles(anatomy) ++ Web.Fitness.Chain.detail(anatomy))
+
+      {:ok,
+       %{
+         slug: slug,
+         source: source(slug, anatomy),
+         track: track,
+         muscles: muscles(anatomy),
+         # what the film lights, in three strengths; never part of `source`
+         tiers: Web.Fitness.Chain.tiers(raw, track, primary)
+       }}
     else
       {:error, problems} when is_list(problems) -> {:error, Enum.join(problems, "; ")}
       {:error, :enoent} -> {:error, "it has no figure file"}
@@ -267,7 +277,7 @@ defmodule Web.Fitness.Clip do
     File.write!(
       list,
       Jason.encode!(
-        for({_slug, {:ok, job}} <- jobs, do: Map.take(job, [:slug, :track, :muscles]))
+        for({_slug, {:ok, job}} <- jobs, do: Map.take(job, [:slug, :track, :muscles, :tiers]))
       )
     )
 
@@ -323,7 +333,7 @@ defmodule Web.Fitness.Clip do
 
     File.write!(
       jobs,
-      Jason.encode!(for(job <- batch, do: Map.take(job, [:slug, :track, :muscles])))
+      Jason.encode!(for(job <- batch, do: Map.take(job, [:slug, :track, :muscles, :tiers])))
     )
 
     {command, args} = camera()

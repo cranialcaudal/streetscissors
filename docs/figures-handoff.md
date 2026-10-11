@@ -12,6 +12,22 @@ job is to make the figures correct, one at a time, by editing pose files and re-
 
 You are **not** redesigning the body, the renderer, or the website.
 
+Three things about the film are worked out for you. Do not try to set them in a pose file,
+and do not edit the code that does them:
+
+- **Which muscles are lit, and how strongly.** Three strengths. Full: the muscles the
+  exercise's page names (**primary**). Half: the links that steady the load, such as the grip
+  under a weight and the trunk between the hands and the floor (**chain**). Faint: the rest of
+  the body holding still, such as the legs under a standing lift (**brace**). The page gives
+  the first; rules read the other two off the figure (`lib/web/fitness/chain.ex`): where the
+  load is, and what the body rests on.
+- **Hands, shoulders and feet.** A hand closes into a fist round whatever bar or handle
+  passes through it and lies flat on whatever it rests on. The shoulder rises with an arm
+  reaching overhead and comes forward with one reaching out. A foot up on its toes bends
+  where the toes begin.
+- **The kettlebell** has a handle. Put the hand where the handle should be; the bell hangs
+  from it.
+
 ## Rules you must not break
 
 1. **Never deploy, restart or stop anything.** Do not run `./redeploy.sh`, `./rollback.sh`,
@@ -40,6 +56,7 @@ You are **not** redesigning the body, the renderer, or the website.
 | `lib/web/fitness/figure.ex` | The pose engine. Its `@moduledoc` documents every pose key | No (read it) |
 | `priv/figure/figure3d.js` | The 3D body and renderer | No |
 | `priv/figure/check.mjs` | The rule checker | No |
+| `lib/web/fitness/chain.ex` | The rules for which muscles are lit at half and faint strength | No |
 
 All commands are run from the repository root, `~/streetscissors`.
 
@@ -86,7 +103,7 @@ pelvis at y = 95. The figure faces right (+x).
 The full list is the `@moduledoc` of `lib/web/fitness/figure.ex`. If a key is not there and
 not here, it does not exist.
 
-## The three commands
+## The four commands
 
 ```bash
 # 1. The rules. Fast (2 seconds for everything), draws nothing. Also reports a file the
@@ -98,6 +115,11 @@ timeout -k 5 150 mix fitness.film --stills /tmp/figure-stills <slug> < /dev/null
 
 # 3. The film, onto the live site. About 60 seconds. Must print "1 filmed".
 UPLOADS_PATH=$HOME/streetscissors-data/uploads timeout -k 5 300 mix fitness.film --all <slug> < /dev/null
+```
+
+```bash
+# 4. Which muscles the film will light, in three strengths. Instant.
+mix fitness.film --tiers <slug>
 ```
 
 Always keep the `timeout` and the `< /dev/null`. A render can hang, and inside a loop the
@@ -119,6 +141,13 @@ Do these steps in order. Do not skip a step. Do not batch several figures into o
    - Are the hands on what they should hold, and the feet on the floor or the box?
    - Is the equipment there, in the right place, and not through the body?
    - Does the pose match the reference photograph?
+   - Are the lit muscles sensible? Run command 4. Strongest orange should be on the muscles
+     the page names, paler on the grip and trunk carrying the load, faintest on what only
+     holds the body up. If a tier looks wrong (for example legs lit on a seated exercise),
+     **write it in your log and change nothing**: the fix is in the rules, not the pose file,
+     and the rules are not yours to edit. One exception: if the tiers are wrong because the
+     *pose* is wrong (a figure meant to be seated whose hips float above its bench, a hand
+     meant to be on the floor that hovers above it), fix the pose.
 5. If steps 3 and 4 found **nothing wrong**: go to step 9.
 6. **Change one thing** in the pose file: the smallest edit that fixes the worst problem.
    Typical edits: move `hands`, move `pelvis`, change `lean`, move a prop. Keep `planted`
@@ -159,8 +188,9 @@ Record these as "known limit" and move on.
 
 ## The work, in order
 
-**Task 1. Re-film everything with the current look.** The body's outline and the kettlebell
-changed on 2026-10-10 and most films predate that. One at a time:
+**Task 1. Re-film everything with the current look.** On 2026-10-10 the body's outline, the
+kettlebell, the hands, feet and shoulders and the three strengths of lit muscle all changed,
+and nearly every film predates them. One at a time:
 
 ```bash
 for f in content/fitness/figures/*.json; do
@@ -178,6 +208,13 @@ slug. Apply the algorithm to each figure it lists that is not a known limit. Exp
 `zercher-hold`, `kb-halos`, `medicine-ball-rotational-throws`, `hip-thrusts`,
 `couch-stretch`, `decline-leg-raises`, `lat-smashes`, `thoracic-roller-extension`.
 
+**Task 2b. A pass over the lit muscles.** Run command 4 for every slug and read the three
+lists against the exercise. You are looking for the rules guessing the body's situation
+wrong: a seated exercise treated as standing (legs in `brace`), an exercise with a band that
+shows no `chain`, a hanging exercise with no `forearms`. Do not fix anything. Make a table:
+slug, what the tiers say, what looks wrong and why. That table is the most useful thing you
+can hand back, because it is how the rules get better.
+
 **Task 3. The audit's leftovers.** `push-up-plus` (elbows should stay straight; only the
 upper back rounds), `banded-ankle-dorsiflexion` (the front knee should travel forward over the
 toes), `sub-maximal-holds` (hands should grip the edge, not pass through the slab),
@@ -194,5 +231,5 @@ Stop after any task if you are unsure, and report.
 ## When you finish, or stop
 
 Write a report with: the figures you changed and what you changed in each; the figures you
-could not fix and why; the last output of `mix fitness.film --check`; and anything in this
-document that turned out to be wrong.
+could not fix and why; the last output of `mix fitness.film --check`; the table from Task 2b;
+and anything in this document that turned out to be wrong.

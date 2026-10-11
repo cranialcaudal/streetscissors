@@ -105,7 +105,7 @@ try {
 
   for (const job of jobs) {
     const started = Date.now()
-    const info = await run(`F3D.load(${JSON.stringify(job.track)}, ${JSON.stringify(job.muscles)}, ${HEIGHT})`)
+    const info = await run(`F3D.load(${JSON.stringify(job.track)}, ${JSON.stringify(job.tiers || job.muscles)}, ${HEIGHT})`)
     if (stills) {
       const count = info.frames
       const at = job.track.stops.map((s) => Math.min(Math.round((s.at / job.track.seconds) * count), count - 1))

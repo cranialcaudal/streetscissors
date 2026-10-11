@@ -14,6 +14,8 @@ defmodule Mix.Tasks.Fitness.Film do
                                           # at before filming
       mix fitness.film --check            # the rules every figure has to keep,
                                           # checked with nothing drawn
+      mix fitness.film --tiers plank      # which muscles its film lights, and
+                                          # how strongly (Web.Fitness.Chain)
 
   The live site keeps its uploads outside the checkout, so its films are made
   with `--to`, or with `UPLOADS_PATH` set as the service has it:
@@ -30,15 +32,30 @@ defmodule Mix.Tasks.Fitness.Film do
   def run(args) do
     {opts, slugs} =
       OptionParser.parse!(args,
-        strict: [all: :boolean, to: :string, stills: :string, check: :boolean]
+        strict: [all: :boolean, to: :string, stills: :string, check: :boolean, tiers: :boolean]
       )
 
     Mix.Task.run("app.config")
 
     cond do
       opts[:check] -> check(slugs)
+      opts[:tiers] -> tiers(slugs)
       opts[:stills] -> stills(slugs, opts[:stills])
       true -> film(slugs, opts)
+    end
+  end
+
+  defp tiers(slugs) do
+    for slug <- slugs do
+      case Web.Fitness.Clip.job(slug) do
+        {:ok, %{tiers: tiers}} ->
+          Mix.shell().info(
+            "#{slug}: primary #{Enum.join(tiers.primary, ", ")} | chain #{Enum.join(tiers.chain, ", ")} | brace #{Enum.join(tiers.brace, ", ")}"
+          )
+
+        {:error, why} ->
+          Mix.shell().error("#{slug}: #{why}")
+      end
     end
   end
 
