@@ -334,8 +334,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       to the forearm**, and a held prop's `"grip": "across"` (a curl, a press) or `"neutral"`
       (a hammer curl, a row, a carry; the default) says which way it runs. **A figure file
       with a key the running release does not know shows nothing on the live site**, so a
-      new key waits for a deploy (`grip` is live; `stance` is not, and three wide-stance
-      files wait in `tmp/figures-with-stance/`).
+      new key waits for a deploy (`grip` and `stance` are both live).
     - **The body is built bone first** (`body/3`; the chest 2026-10-10, "the worst part",
       and the rest 2026-10-11). Bone is thin and comes first: a rib cage narrower than the
       shoulders, collar bones, shoulder blades, a pelvis, a bone and its joints in each
@@ -376,8 +375,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
         and means reaching every pose again.
       - The pose's hand point is the middle of a fist, so the wrist is drawn 2.1 short of
         it; under a flat palm it is at the point, and that forearm is a fifth too long.
-      - With the hips a man's width `kb-swings` fails the rule check (the bell does not fit
-        between knees a hip's width apart): its wide-stance file waits on the deploy.
+      - With the hips a man's width a bell does not fit between knees a hip's width apart:
+        `kb-swings` and the goblet squats carry the `stance` key (live since the deploy of
+        2026-10-11).
+    - **The weights are iron on steel, and a lit muscle is set into the body** (2026-10-11).
+      `gear/3` has a fourth prop shape, the disc (flat-faced, between two points; type 4 in
+      the shader and in `check.mjs`), and a material `IRON`: dumbbell heads, barbell plates
+      and a kettlebell's foot are discs. A worked muscle's colour stops at the muscle's own
+      footprint (`LIT_EDGE`) with a dark seam round it (`SEAM`, carried out of `body()` in
+      `gSeam`); it used to reach a unit further with a soft edge and read as a patch of
+      light. `tmp/film-all.sh` films every figure for the live site and can be run again.
     - **The head is a ball with the author's drawing traced on it** (2026-10-11: "Draw the
       face with this style. Round out the head and just trace the image. It's my abstract
       drawing"). His drawing is a circle with four strokes: a line down the middle of the

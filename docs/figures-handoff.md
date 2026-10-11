@@ -12,7 +12,7 @@ job is to make the figures correct, one at a time, by editing pose files and re-
 
 You are **not** redesigning the body, the renderer, or the website.
 
-Four things about the film are worked out for you. Do not try to set them in a pose file,
+Six things about the film are worked out for you. Do not try to set them in a pose file,
 and do not edit the code that does them:
 
 - **Which muscles are lit, and how strongly.** Three strengths. Full: the muscles the
@@ -31,8 +31,15 @@ and do not edit the code that does them:
   **The only way you change a hand is by where you put it**: a hand "on the floor" at y = 95
   is four units above the floor, so it is drawn as a fist hovering in the air. Put it at
   y = 99 (or on the top of the box, or on the bar) and the hand changes by itself.
-- **The kettlebell** has a handle. Put the hand where the handle should be; the bell hangs
-  from it.
+- **The weights** (redrawn 2026-10-11) are dark iron on bright steel. A dumbbell is a steel
+  handle through two flat-faced iron heads. A barbell has a big plate, a smaller plate and a
+  collar on each end. A kettlebell has a handle, a flat foot and a steel band round it. You
+  place a weight only by placing the hand: put the hand where the handle should be and the
+  weight follows. A dumbbell's handle always lies across the palm.
+- **A lit muscle is a hard-edged orange area with a dark seam round it**, set into the body
+  like an inlaid panel. Full orange is `primary`, paler is `chain`, faint is `brace`. It is
+  exactly the muscle's own shape, so it is smaller than in older stills. An orange area with
+  no seam, or a seam with no orange inside it, is a fault to report.
 - **The whole body is built from bone outward** (the chest since 2026-10-10, everything else
   since 2026-10-11). Thin bones and joints come first: a rib cage narrower than the
   shoulders, collar bones, shoulder blades, a pelvis, and a bone in each limb. Each muscle is
@@ -91,9 +98,9 @@ and do not edit the code that does them:
    are still slower than one after the other, and the fix has been tried only a few times.
 3. **Do not add a key to a pose file that this document does not list.** The live site refuses
    a pose file with a key it does not know and the page then shows no figure at all.
-4. **Do not use the keys `stance` or `grip` in `content/fitness/figures/`** until the owner says
-   the site has been deployed. They are in the engine but not yet on the live site. (`grip` is
-   already live and in six files: leave those as they are; add it nowhere new without asking.)
+4. **`stance` and `grip` may be used** (the site was deployed on 2026-10-11 and knows both).
+   Use `stance` only where the exercise needs the feet apart (a kettlebell swing, a goblet
+   squat, a sumo deadlift): a number from 6 to 11, the same in every pose of the file.
 5. **Do not delete files.** Do not edit anything outside the paths in "Files you may edit".
 6. **Do not commit or push** unless the owner asks. The pose files are not in git at all.
 7. **Never say a figure is right because it validates.** A file that passes every check can
@@ -236,37 +243,26 @@ step 8's "undo" is a copy back.
 
 - **Hex-bar figures** (`hexbar-carries`, `hexbar-jumps`, `hexbar-rdl`, `hex-flat-side-deadlift`):
   there is no hex-bar prop, so the bar is drawn through the hips. Leave.
-- **`kb-swings`**: the check says "a bar passes through the thigh". The bell does not fit
-  between knees that are a hip's width apart, and the fix is a wide stance, which is the
-  `stance` key you may not use yet (rule 4). Leave it until the owner says the site is
-  deployed.
-- **An arm that wraps across the body** (`kb-russian-twist`, `kb-side-plank-reach`): drawn
-  straight through the trunk. The check will go on flagging it. Leave.
-- **No such prop**: a jump rope, a speed ladder, a kickboard, a parachute canopy, a rope or
-  bar on a cable. Do not fake them with other props.
-- **Lying on the side** (`sleeper-stretch`): the engine cannot pose it.
-- Swimming figures are drawn from above with no floor. The check skips most rules for them.
 
 Record these as "known limit" and move on.
 
 ## The work, in order
 
-**Task 1. Re-film everything with the current look.** On 2026-10-10 the body's outline, the
-kettlebell, the hands, feet and shoulders, the three strengths of lit muscle and how sharply
-the body's forms and lit areas are edged all changed, and on 2026-10-11 the body itself was
-rebuilt from bone outward. Every film predates that. One at a time:
+**Task 1. Make sure every film is of the current look.** The owner's assistant began
+re-filming all 113 on 2026-10-11 with this script, which films one figure at a time, writes a
+line per figure to `tmp/film-all.log`, and skips what is already done when run again:
 
 ```bash
-for f in content/fitness/figures/*.json; do
-  s=$(basename "$f" .json)
-  out=$(UPLOADS_PATH=$HOME/streetscissors-data/uploads timeout -k 5 300 mix fitness.film --all "$s" < /dev/null 2>&1 | tail -1)
-  echo "$s: $out"
-done
+./tmp/film-all.sh >> tmp/film-all.log 2>&1
+tail -3 tmp/film-all.log
 ```
 
-About 2 hours 40 minutes (the new body has more parts: a film that took 55 seconds takes
-about 85). Every line must end `1 filmed, 0 already current, 0 not filmed.` Re-run
-any slug that did not. Do nothing else on the machine's graphics card meanwhile.
+Run it. It must end `pass finished: 113 of 113 filmed`. If it says fewer, run it again; if a
+slug fails twice, write it down and go on. A whole pass is about three hours (95 seconds a
+film), but only the missing ones are filmed.
+
+**Whenever you change a pose file, film that figure again** (command 3), or its page falls
+back to a flat drawing.
 
 Then look for black frames. Until 2026-10-11 the renderer could give black pictures (the
 graphics driver reset a draw that ran too long). That is fixed, and a render that loses the
@@ -287,8 +283,9 @@ draw it again before judging the pose.
 
 **Task 2. The figures the rule check still flags.** Run `mix fitness.film --check` with no
 slug. Apply the algorithm to each figure it lists that is not a known limit. Expected:
-`zercher-hold`, `medicine-ball-rotational-throws`, `hip-thrusts`,
-`couch-stretch`, `decline-leg-raises`, `lat-smashes`, `thoracic-roller-extension`.
+`medicine-ball-rotational-throws`, `couch-stretch`, `decline-leg-raises`, `lat-smashes`,
+`thoracic-roller-extension`. With the known limits that is eleven figures in all; a twelfth
+means something new has broken.
 
 **Task 2b. A pass over the lit muscles.** Run command 4 for every slug and read the three
 lists against the exercise. You are looking for the rules guessing the body's situation
