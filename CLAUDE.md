@@ -736,6 +736,19 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       black as the holder; film that dark is taken for reversal film, in colour.
  Written against a slide made by inverting a
       negative strip, not yet against real E100.
+  - **Two pieces in one slot, and a camera that winds unevenly** (2026-10-11, roll 055; the
+    copy replaced is in `~/film-pipeline-backups/2026-10-11/`). Two short pieces of film
+    laid end to end in one slot are two strips: `film_on_glass` now keeps each stretch of
+    film parted by 2.5 mm of glass (`PIECE_GAP_MM`) and each is laid out by itself; one grid
+    across both cut the second piece at the first's spacing. **A studio strip that fills
+    its slot shows no glass**, so it was read by the oldest rule (a fixed 38 mm grid from
+    the film's start, "unaligned"): it is now read line by line like a strip on glass
+    (`strip_source` knows it by the studio's mark; scans from Epson's program are left as
+    they were). And where the clear film between pictures is plain to see,
+    **`frames_by_gaps/4` reads the pictures straight off it**, believed only when every
+    stretch is one frame long: strip 4 had a blank stretch after its first frame, and
+    every grid and the walk put the rest half a frame out. Thin film falls through to the
+    template as before.
   - **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
     things went wrong at once when one strip of an August roll was scanned again on the site.
     **The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`
