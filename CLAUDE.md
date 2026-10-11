@@ -318,10 +318,10 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       decodes it and builds nothing. `mix fitness.film` hands each figure's joints
       (`Figure.track/2`, 24 fps) to the camera in `priv/figure/`: `render.mjs` (node, no
       packages) drives headless Chrome over its debugging port through `render.html`, where
-      `figure3d.js` lifts the flat joints into 3D, builds the body from about forty rounded
+      `figure3d.js` lifts the flat joints into 3D, builds the body from about ninety rounded
       cones and ellipsoids (each muscle its own volume, set flush) and marches rays through
       their distance field, in three flat tones with an ink line; the frames are piped to
-      ffmpeg. About 50 seconds a figure on this machine's Intel GPU (`--use-angle=gl-egl`;
+      ffmpeg. About 85 seconds a figure on this machine's Intel GPU (`--use-angle=gl-egl`;
       without it Chrome marches on the CPU). **The film's ground is steel's `--paper-sunk`
       written as a number in `render.html`**, so the picture has no edge on the page: change
       one, change the other, and film again.
@@ -334,8 +334,21 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       to the forearm**, and a held prop's `"grip": "across"` (a curl, a press) or `"neutral"`
       (a hammer curl, a row, a carry; the default) says which way it runs. **A figure file
       with a key the running release does not know shows nothing on the live site**, so a
-      new key waits for a deploy: six figures' `grip` versions are in
-      `tmp/figures-with-grip/` until then.
+      new key waits for a deploy (`grip` is live; `stance` is not, and three wide-stance
+      files wait in `tmp/figures-with-stance/`).
+    - **The body is built bone first** (`body/3`; the chest 2026-10-10, "the worst part",
+      and the rest 2026-10-11). Bone is thin and comes first: a rib cage narrower than the
+      shoulders, collar bones, shoulder blades, a pelvis, a bone and its joints in each
+      limb. A muscle is then laid from the bone it starts on to the bone it ends on
+      (`belly/9`), so it follows the joint between them: the pectoral and the lat go with
+      the upper arm, the buttock with the thigh, the belly's wall with the ribs and the
+      pelvis. And it keeps its volume (`swell/2`): a muscle that bends a joint is measured
+      straight, so it thickens as the joint bends; one that straightens a joint is measured
+      round the outside of it (`round/3`), so a bent joint draws it thin. **Muscles lie
+      nearly flush**: one that stands a unit proud of its neighbour draws an ink line down
+      its edge, which on the belly read as flaps. The shorts need their own seat between the
+      legs now that the thighs are not thick enough to meet. More shapes cost time: a film
+      went from about 55 seconds to 85.
     - **Films are content, not code.** They live in `figures/` under the uploads root (which
       the proxy serves), each named by a hash of its own bytes, with `clips.json` saying which
       film is whose, what it was filmed from, and where each pose begins. The live site's
@@ -345,7 +358,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       a hash of the figure file and the muscles lit): edit a figure or a page's `anatomy:` and
       that page goes back to the flat drawing until it is filmed again, and `/admin/health`
       lists it (`Clip.unfilmed/0`). A new look does not retire a film; `--all` films everything
-      again (about 100 minutes).
+      again (about 2 hours 40 minutes).
     - **`Clip.muscles/1` is where the wiki's free text meets the camera's seventeen muscles.**
       The page names what is lit under the film ("Working: Quads, Glutes"), since the colour
       says where and not what. A page whose anatomy names no muscle (the cardio pages) lights

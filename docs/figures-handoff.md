@@ -12,7 +12,7 @@ job is to make the figures correct, one at a time, by editing pose files and re-
 
 You are **not** redesigning the body, the renderer, or the website.
 
-Three things about the film are worked out for you. Do not try to set them in a pose file,
+Four things about the film are worked out for you. Do not try to set them in a pose file,
 and do not edit the code that does them:
 
 - **Which muscles are lit, and how strongly.** Three strengths. Full: the muscles the
@@ -33,10 +33,28 @@ and do not edit the code that does them:
   y = 99 (or on the top of the box, or on the bar) and the hand changes by itself.
 - **The kettlebell** has a handle. Put the hand where the handle should be; the bell hangs
   from it.
-- **The chest** is built from bone outward: a rib cage narrower than the shoulders, collar
-  bones, shoulder blades, and a pectoral and a lat on each side that run from the trunk to
-  the upper arm, so they follow the arm when it is raised. You cannot pose any of this and
-  need not: it follows from where the hands and elbows are.
+- **The whole body is built from bone outward** (the chest since 2026-10-10, everything else
+  since 2026-10-11). Thin bones and joints come first: a rib cage narrower than the
+  shoulders, collar bones, shoulder blades, a pelvis, and a bone in each limb. Each muscle is
+  then laid from the bone it starts on to the bone it ends on, so it follows the joint
+  between them, and it keeps its volume. You cannot pose any of this and need not: it
+  follows from where the pelvis, hands, elbows, knees and feet are. When you look at a still,
+  these are **correct, not faults**:
+  - The pectoral and the lat are drawn out toward a raised arm and make the two folds of the
+    armpit.
+  - The biceps stands up when the elbow is bent and lies long when the arm is straight. The
+    triceps does the opposite. The deltoid stands up over a raised arm.
+  - The front of the thigh is thinner in a deep squat than standing; the back of the thigh
+    is thicker with the knee bent. The buttock is drawn down under the hip in a squat or a
+    lunge.
+  - The calf stands out when the figure is up on its toes.
+  - The belly is shorter and thicker when the trunk curls forward (a crunch, a hollow hold).
+  - The waist is narrower than the ribs and the hips, the legs taper to the knee and the
+    ankle, and there is a furrow down the middle of the back.
+
+  What **is** a fault, and worth reporting (not fixing): a flap or slit where the belly should
+  be smooth, skin showing through the shorts, a limb that looks broken at a joint, a ball
+  stuck on a knee or an elbow. Say which slug and which pose.
 
 ## Rules you must not break
 
@@ -120,10 +138,10 @@ not here, it does not exist.
 #    pose engine refuses, and why.
 mix fitness.film --check <slug>
 
-# 2. A picture of every pose, to look at. About 10 seconds. Writes <slug>-0.png, -1.png …
+# 2. A picture of every pose, to look at. About 12 seconds. Writes <slug>-0.png, -1.png …
 timeout -k 5 150 mix fitness.film --stills /tmp/figure-stills <slug> < /dev/null
 
-# 3. The film, onto the live site. About 60 seconds. Must print "1 filmed".
+# 3. The film, onto the live site. About 90 seconds. Must print "1 filmed".
 UPLOADS_PATH=$HOME/streetscissors-data/uploads timeout -k 5 300 mix fitness.film --all <slug> < /dev/null
 ```
 
@@ -204,8 +222,8 @@ Record these as "known limit" and move on.
 
 **Task 1. Re-film everything with the current look.** On 2026-10-10 the body's outline, the
 kettlebell, the hands, feet and shoulders, the three strengths of lit muscle and how sharply
-the body's forms and lit areas are edged all changed,
-and nearly every film predates them. One at a time:
+the body's forms and lit areas are edged all changed, and on 2026-10-11 the body itself was
+rebuilt from bone outward. Every film predates that. One at a time:
 
 ```bash
 for f in content/fitness/figures/*.json; do
@@ -215,7 +233,8 @@ for f in content/fitness/figures/*.json; do
 done
 ```
 
-About 100 minutes. Every line must end `1 filmed, 0 already current, 0 not filmed.` Re-run
+About 2 hours 40 minutes (the new body has more parts: a film that took 55 seconds takes
+about 85). Every line must end `1 filmed, 0 already current, 0 not filmed.` Re-run
 any slug that did not. Do nothing else on the machine's graphics card meanwhile.
 
 Then look for black frames. The renderer has been seen to give one black picture with
@@ -235,7 +254,7 @@ draw it again before judging the pose.
 
 **Task 2. The figures the rule check still flags.** Run `mix fitness.film --check` with no
 slug. Apply the algorithm to each figure it lists that is not a known limit. Expected:
-`zercher-hold`, `kb-halos`, `medicine-ball-rotational-throws`, `hip-thrusts`,
+`zercher-hold`, `medicine-ball-rotational-throws`, `hip-thrusts`,
 `couch-stretch`, `decline-leg-raises`, `lat-smashes`, `thoracic-roller-extension`.
 
 **Task 2b. A pass over the lit muscles.** Run command 4 for every slug and read the three
@@ -262,4 +281,5 @@ Stop after any task if you are unsure, and report.
 
 Write a report with: the figures you changed and what you changed in each; the figures you
 could not fix and why; the last output of `mix fitness.film --check`; the table from Task 2b;
-and anything in this document that turned out to be wrong.
+any fault in the body itself (slug and pose; see "correct, not faults" above for what is not
+one); and anything in this document that turned out to be wrong.
