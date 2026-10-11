@@ -35,7 +35,7 @@ export const MUSCLES = [
 ]
 
 const SKIN = 0, SHORTS = 1, SHOES = 2, HAIR = 3
-const MAT = 10, GEAR = 11, BAND = 12
+const MAT = 10, GEAR = 11, BAND = 12, IRON = 13
 
 // How a track is seen: from the side, from the front, or (a front view with
 // no floor) from above, the figure lying face down.
@@ -563,6 +563,8 @@ export function gear(track, i, J) {
   const box = (c, half, mat = GEAR, round = 0.4) => out.push({ type: 1, a: c, b: half, r: round, mat })
   const sphere = (c, r, mat = GEAR) => out.push({ type: 2, a: c, b: [0, 0, 0], r, mat })
   const blob = (c, radii, mat = GEAR) => out.push({ type: 3, a: c, b: radii, r: 0, mat })
+  // a flat-faced disc from a to b: a plate, the head of a dumbbell, a bell's foot
+  const disc = (a, b, r, mat = IRON) => out.push({ type: 4, a, b, r, mat })
   // a point on the stage, at a depth
   const at = (p, z = 0) => (m === "side" ? [p[0], G - p[1], z] : m === "front" ? [z, G - p[1], -(p[0] - 80)] : [60 - p[1], 3, -(p[0] - 80)])
   const depthOf = (hold) => (hold === "hand_a" ? J.hand_a : hold === "hand_b" ? J.hand_b : hold === "foot_a" ? J.foot_a : hold === "foot_b" ? J.foot_b : null)
@@ -612,11 +614,14 @@ export function gear(track, i, J) {
         const down = v.norm(v.sub(weight, grip), [0, -1, 0])
         const bell = v.add(grip, v.mul(down, KB_REACH))
         const a = v.add(grip, v.mul(across, -KB_GRIP)), b = v.add(grip, v.mul(across, KB_GRIP))
-        capsule(a, b, 0.72)
+        capsule(a, b, 0.72, IRON)
         const shoulder = v.add(bell, v.mul(down, -KB_BELL * 0.66))
-        capsule(a, v.add(shoulder, v.mul(across, -KB_BELL * 0.62)), 0.72)
-        capsule(b, v.add(shoulder, v.mul(across, KB_BELL * 0.62)), 0.72)
-        sphere(bell, KB_BELL)
+        capsule(a, v.add(shoulder, v.mul(across, -KB_BELL * 0.62)), 0.72, IRON)
+        capsule(b, v.add(shoulder, v.mul(across, KB_BELL * 0.62)), 0.72, IRON)
+        sphere(bell, KB_BELL, IRON)
+        // cast iron stands on a flat foot, and carries a band of bare steel
+        disc(v.add(bell, v.mul(down, KB_BELL * 0.62)), v.add(bell, v.mul(down, KB_BELL * 0.99)), KB_BELL * 0.66)
+        disc(v.add(bell, v.mul(down, -0.45)), v.add(bell, v.mul(down, 0.45)), KB_BELL * 1.015, GEAR)
       } else if (p.kind === "dumbbell") {
         // The handle lies across the palm, so it is square to the forearm: a
         // dumbbell curled to the shoulder turns with the hand, it does not
@@ -626,13 +631,26 @@ export function gear(track, i, J) {
         const fore = E ? v.norm(v.sub(hand, E), [0, -1, 0]) : [0, -1, 0]
         const flat = m === "side" ? [1, 0, 0] : [0, 0, 1]
         const axis = p.grip === "across" ? v.norm(v.reject(across, fore), across) : v.norm(v.cross(fore, across), flat)
-        capsule(v.add(grip, v.mul(axis, -3.2)), v.add(grip, v.mul(axis, 3.2)), 0.8)
-        sphere(v.add(grip, v.mul(axis, -3.6)), 2.5); sphere(v.add(grip, v.mul(axis, 3.6)), 2.5)
-      } else if (p.kind === "bar") {
-        capsule(v.add(grip, v.mul(across, -19)), v.add(grip, v.mul(across, 19)), 0.9)
+        // A steel handle through two iron heads: each a thick flat-faced
+        // disc with a smaller one outside it, as plates are stacked. They
+        // were two balls on a stick.
+        const on = (k) => v.add(grip, v.mul(axis, k))
+        capsule(on(-4.9), on(4.9), 0.62)
         for (const s of [-1, 1]) {
-          const c = v.add(grip, v.mul(across, 16 * s))
-          blob(c, m === "side" ? [6.2, 6.2, 1.1] : [1.1, 6.2, 6.2])
+          disc(on(2.3 * s), on(4.1 * s), 2.7)
+          disc(on(4.1 * s), on(4.9 * s), 2.0)
+          disc(on(1.95 * s), on(2.3 * s), 1.15, GEAR)
+        }
+      } else if (p.kind === "bar") {
+        // A barbell: the bar, and on each sleeve a big plate, a smaller one
+        // outside it and a collar, all square to the bar whichever way it lies.
+        const on = (k) => v.add(grip, v.mul(across, k))
+        capsule(on(-21), on(21), 0.7)
+        for (const s of [-1, 1]) {
+          capsule(on(14.2 * s), on(21 * s), 1.0)
+          disc(on(15 * s), on(16.3 * s), 6.2)
+          disc(on(16.3 * s), on(17.3 * s), 4.4)
+          disc(on(17.3 * s), on(18.0 * s), 1.6, GEAR)
         }
       } else if (p.kind === "ball") {
         sphere(weight, 4.8)
@@ -714,6 +732,12 @@ float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2) {
 float sdEllipsoid(vec3 p, vec3 r) { float k0 = length(p / r); float k1 = length(p / (r * r)); return k0 * (k0 - 1.0) / max(k1, 1e-4); }
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r) { vec3 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h) - r; }
 float sdBox(vec3 p, vec3 b, float r) { vec3 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r; }
+// a flat-faced disc between a and b, its edges a little rounded
+float sdDisc(vec3 p, vec3 a, vec3 b, float r) {
+  vec3 ba = b - a; float l = length(ba); vec3 n = ba / l; vec3 pa = p - (a + b) * 0.5;
+  float y = dot(pa, n); vec2 d = abs(vec2(length(pa - n * y), y)) - vec2(r, l * 0.5) + 0.22;
+  return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - 0.22;
+}
 float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
 
 // The body: every shape melted into its neighbours. hot is how much of the
@@ -728,6 +752,10 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 // its neighbour. The lit area's edge is as hard as the tones' for the same
 // reason.
 const float SINK = ${FIELD.SINK.toFixed(2)}, MELT = ${FIELD.MELT.toFixed(2)};
+// LIT_EDGE is how far past a worked muscle's own surface its colour reaches;
+// SEAM is how wide the line round it is.
+const float LIT_EDGE = 0.72, SEAM = 0.30;
+float gSeam = 0.0;
 vec3 tier(vec3 lit, float level, float di) {
   if (level > 0.75) lit.x = min(lit.x, di);
   else if (level > 0.35) lit.y = min(lit.y, di);
@@ -753,8 +781,16 @@ float body(vec3 p, out float hot, out float mat) {
     lit = tier(lit, mus ? uEC[i].w - 2.0 : uEC[i].w, di);
     if (di < near) { near = di; mat = uER[i].w; }
   }
-  // How far under the skin the nearest worked muscle lies at this point.
-  vec3 glow = 1.0 - smoothstep(0.45 + SINK, 0.85 + SINK, lit - d);
+  // How far under the skin the nearest worked muscle lies at this point. The
+  // lit area is the muscle's own footprint and no more, hard-edged, and it is
+  // set into the body with a seam round it (gSeam): it used to reach a unit
+  // past the muscle with a soft edge, and lay on the body like a patch of
+  // light instead of being part of it.
+  vec3 under = lit - d;
+  vec3 glow = 1.0 - smoothstep(LIT_EDGE - 0.05, LIT_EDGE + 0.05, under);
+  vec3 seam = smoothstep(LIT_EDGE - 0.02, LIT_EDGE + 0.06, under) * (1.0 - smoothstep(LIT_EDGE + SEAM - 0.06, LIT_EDGE + SEAM + 0.02, under));
+  // a weaker tier's seam is not drawn across a stronger tier's muscle
+  gSeam = max(seam.x, max(seam.y * 0.7 * (1.0 - glow.x), seam.z * 0.4 * (1.0 - max(glow.x, glow.y))));
   // the mover at full strength, the chain that steadies it at half, the
   // bracing of the rest of the body as a trace
   hot = max(glow.x, max(glow.y * 0.5, glow.z * 0.22));
@@ -768,6 +804,7 @@ float things(vec3 p, out float mat) {
     if (t == 0) di = sdCapsule(p, uPA[i].xyz, uPB[i].xyz, uPM[i].z);
     else if (t == 1) di = sdBox(p - uPA[i].xyz, uPB[i].xyz, uPM[i].z);
     else if (t == 2) di = length(p - uPA[i].xyz) - uPM[i].z;
+    else if (t == 4) di = sdDisc(p, uPA[i].xyz, uPB[i].xyz, uPM[i].z);
     else di = sdEllipsoid(p - uPA[i].xyz, uPB[i].xyz);
     if (di < d) { d = di; mat = uPM[i].y; }
   }
@@ -881,6 +918,7 @@ vec3 shade(vec2 px) {
     if (t > tMax) break;
   }
   float line = hit ? 0.0 : 1.0 - smoothstep(OUTLINE - 0.07, OUTLINE, closest);
+  float seam = hit && mat < 1.5 ? gSeam : 0.0; // as it was at the point that was hit
 
   vec3 col;
   vec3 ink = uBg * INK;
@@ -893,7 +931,8 @@ vec3 shade(vec2 px) {
     else if (mat < 3.5) base = vec3(0.10, 0.11, 0.13);     // hair
     else if (mat < 10.5) base = vec3(0.17, 0.22, 0.27);    // the mat
     else if (mat < 11.5) base = vec3(0.36, 0.41, 0.47);    // equipment
-    else base = vec3(0.93, 0.70, 0.22);                    // a band or cable
+    else if (mat < 12.5) base = vec3(0.93, 0.70, 0.22);    // a band or cable
+    else base = vec3(0.115, 0.125, 0.14);                  // cast iron
     float glow = hot;
     vec3 warm = vec3(1.0, 0.38, 0.13);
     base = mix(base, warm, glow * (mat < 0.5 ? 0.95 : 0.82));
@@ -913,6 +952,7 @@ vec3 shade(vec2 px) {
     // Only the body takes the heavy inner line. A mat or a bench top lies
     // nearly edge-on to the eye all over, and went black with it.
     float inner = mat < 3.5 ? INNER : 0.30;
+    col = mix(col, vec3(0.36, 0.10, 0.03) * tone, seam * 0.85);
     if (mat < 0.5) col = mix(col, ink, face(p));
     col = mix(ink, col, smoothstep(inner - 0.22, inner, turn));
   } else if (tFloor < 1e8) {

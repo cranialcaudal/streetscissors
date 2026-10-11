@@ -81,12 +81,13 @@ function frameProblems(track, J, things) {
         const depth = t.r + p.r - apart(a, b, p.a, p.b)
         if (depth > (t.mat === BAND ? 2.2 : 1.8)) say("through", `${t.mat === BAND ? "a band or cable" : "a bar"} passes through the ${p.name}`)
       }
-    } else if (t.type === 2) {
-      // a ball, a bell, the head of a dumbbell
-      const held = hands.some((h) => len(sub(h, t.a)) < t.r + 4.5)
+    } else if (t.type === 2 || t.type === 4) {
+      // a ball, a bell, the head of a dumbbell, a plate (a disc from a to b)
+      const at = t.type === 4 ? mul(add(t.a, t.b), 0.5) : t.a
+      const held = hands.some((h) => len(sub(h, at)) < t.r + 4.5)
       for (const p of body) {
         if (p.arm && held) continue
-        const depth = t.r + p.r - apart(t.a, t.a, p.a, p.b)
+        const depth = t.r + p.r - apart(at, at, p.a, p.b)
         if (depth > Math.max(2.4, t.r * 0.55)) say("through", `a weight is inside the ${p.name}`)
       }
     } else if (t.type === 1) {
@@ -137,7 +138,7 @@ function frameProblems(track, J, things) {
       const trunk = mul(add(J.pelvis, J.neck), 0.5)
       let mass = 0.5, x = trunk[0] * 0.5
       for (const [w, q] of [[0.08, J.head], [0.05, J.elbow_a], [0.05, J.elbow_b], [0.16, J.knee_a], [0.16, J.knee_b]]) { mass += w; x += q[0] * w }
-      for (const t of gear) if ((t.type === 2 || t.type === 3) && hands.some((h) => len(sub(h, t.a)) < 12)) { mass += 0.06; x += t.a[0] * 0.06 }
+      for (const t of gear) if ((t.type === 2 || t.type === 3 || t.type === 4) && hands.some((h) => len(sub(h, t.a)) < 12)) { mass += 0.06; x += t.a[0] * 0.06 }
       x /= mass
       const xs = grounded.flatMap((f) => [f[0] - 3, f[0] + 7])
       const off = x < Math.min(...xs) ? x - Math.min(...xs) : x > Math.max(...xs) ? x - Math.max(...xs) : 0
