@@ -514,9 +514,14 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 // surface here belongs to a muscle that is being worked; mat is what the
 // nearest shape is made of.
 // A muscle lies under the skin, not on it: its shape is sunk a little and
-// melted in widely, so it rounds the form it belongs to without standing off
-// it as a lump of its own. It still says where the surface is lit.
-const float SINK = 0.7, MELT = 3.2;
+// melted into the form it belongs to, so it shapes the surface without
+// standing off it as a lump of its own. How far is a matter of taste that
+// has gone both ways: at 0 and 1.6 (the body's own blend) he was "too lumpy";
+// at 0.7 and 3.2 every form ran into the next. "No more smooth than round":
+// each form reads as a round thing of its own, with an edge where it meets
+// its neighbour. The lit area's edge is as hard as the tones' for the same
+// reason.
+const float SINK = 0.4, MELT = 1.9;
 vec3 tier(vec3 lit, float level, float di) {
   if (level > 0.75) lit.x = min(lit.x, di);
   else if (level > 0.35) lit.y = min(lit.y, di);
@@ -543,7 +548,7 @@ float body(vec3 p, out float hot, out float mat) {
     if (di < near) { near = di; mat = uER[i].w; }
   }
   // How far under the skin the nearest worked muscle lies at this point.
-  vec3 glow = 1.0 - smoothstep(0.25 + SINK, 1.2 + SINK, lit - d);
+  vec3 glow = 1.0 - smoothstep(0.45 + SINK, 0.85 + SINK, lit - d);
   // the mover at full strength, the chain that steadies it at half, the
   // bracing of the rest of the body as a trace
   hot = max(glow.x, max(glow.y * 0.5, glow.z * 0.22));
@@ -647,7 +652,7 @@ vec3 shade(vec2 px) {
     // Three flat tones, as a figure is painted rather than lit: full light,
     // half tone, shadow, with a soft step between them.
     float lit = clamp(dot(n, key), 0.0, 1.0) * sh;
-    float tone = 0.60 + 0.22 * smoothstep(0.02, 0.30, lit) + 0.18 * smoothstep(0.35, 0.85, lit);
+    float tone = 0.58 + 0.24 * smoothstep(0.05, 0.14, lit) + 0.18 * smoothstep(0.50, 0.60, lit);
     float fil = 0.5 + 0.5 * dot(n, fill);
     col = base * tone * mix(0.80, 1.0, occ);
     col += base * vec3(0.30, 0.42, 0.58) * 0.10 * fil * (1.0 - smoothstep(0.03, 0.10, lit));
@@ -708,7 +713,7 @@ export function renderer(canvas) {
     gl.uniform3fv(U("uC"), cam.c); gl.uniform3fv(U("uR"), cam.right); gl.uniform3fv(U("uU"), cam.up)
     gl.uniform3fv(U("uCenter"), cam.center); gl.uniform3fv(U("uBg"), bg.map((c) => Math.pow(c, 2.2)))
     gl.uniform1f(U("uHalf"), cam.half); gl.uniform1f(U("uFloor"), cam.floor ? 1 : 0); gl.uniform1f(U("uWater"), cam.water)
-    gl.uniform1f(U("uK"), 1.6)
+    gl.uniform1f(U("uK"), 1.2)
     gl.uniform4fv(U("uBound"), bound)
 
     const { cones, ells } = shapes

@@ -199,7 +199,8 @@ Record these as "known limit" and move on.
 ## The work, in order
 
 **Task 1. Re-film everything with the current look.** On 2026-10-10 the body's outline, the
-kettlebell, the hands, feet and shoulders and the three strengths of lit muscle all changed,
+kettlebell, the hands, feet and shoulders, the three strengths of lit muscle and how sharply
+the body's forms and lit areas are edged all changed,
 and nearly every film predates them. One at a time:
 
 ```bash
