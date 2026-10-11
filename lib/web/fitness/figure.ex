@@ -49,6 +49,10 @@ defmodule Web.Fitness.Figure do
       units, for the 3D clip: from the side, hands a shoulder's width apart
       and hands wide open look the same. Given in every pose of a figure or
       in none;
+    * `stance`: how far each foot is from the middle of the body, in stage
+      units, for the 3D clip: a squat's wide stance and feet together look
+      the same from the side. Hip width (5.2) when not given; in every pose
+      of a figure or in none;
     * `flare`: how far the elbows are out to the sides, from 0 (in the
       plane of the picture) to 1 (straight out), for the 3D clip. A face pull
       drawn flat has to put the elbows above the head or below the chest;
@@ -116,7 +120,7 @@ defmodule Web.Fitness.Figure do
   @line_ends ~w(hands hand_a hand_b foot_a foot_b)
   @pose_keys ~w(name hold move pelvis lean curl head turn hands hand_a hand_b arms arm_a arm_b
                 feet foot_a foot_b legs leg_a leg_b toes toe_a toe_b elbows elbow_a elbow_b
-                knees knee_a knee_b weight side spread flare)
+                knees knee_a knee_b weight side spread stance flare)
   @top_keys ~w(view mirror floor planted props poses note targets model)
 
   @muscle_map [
@@ -259,6 +263,7 @@ defmodule Web.Fitness.Figure do
       turn: Float.round(joints.turn * 1.0, 2),
       side: Float.round(joints.lateral * 1.0, 3),
       spread: joints.spread && Float.round(joints.spread * 1.0, 2),
+      stance: joints.stance && Float.round(joints.stance * 1.0, 2),
       flare: Float.round(joints.flare * 1.0, 3)
     })
   end
@@ -385,7 +390,7 @@ defmodule Web.Fitness.Figure do
     {toe_b, p11} = point(pose["toe_b"] || pose["toes"], where, "toe_b", :optional)
 
     numbers =
-      for key <- ~w(lean curl head turn side spread flare hold move),
+      for key <- ~w(lean curl head turn side spread stance flare hold move),
           not is_nil(pose[key]),
           not is_number(pose[key]) do
         "#{where}: #{key} must be a number"
@@ -418,6 +423,7 @@ defmodule Web.Fitness.Figure do
       turn: num(pose["turn"], 0.0),
       side: num(pose["side"], 0.0),
       spread: if(is_number(pose["spread"]), do: pose["spread"] * 1.0),
+      stance: if(is_number(pose["stance"]), do: pose["stance"] * 1.0),
       flare: num(pose["flare"], 0.0),
       arm_a: arm_a,
       arm_b: arm_b,
@@ -825,6 +831,7 @@ defmodule Web.Fitness.Figure do
       turn: pose.turn,
       lateral: pose[:side] || 0.0,
       spread: pose[:spread],
+      stance: pose[:stance],
       flare: pose[:flare] || 0.0,
       sh_a: sh_a,
       sh_b: sh_b,
@@ -1045,6 +1052,7 @@ defmodule Web.Fitness.Figure do
         turn: mix.(from.turn, to.turn),
         side: mix.(from.side, to.side),
         spread: if(from.spread && to.spread, do: mix.(from.spread, to.spread)),
+        stance: if(from.stance && to.stance, do: mix.(from.stance, to.stance)),
         flare: mix.(from.flare, to.flare),
         bend: from.bend,
         weight: if(share < 0.5, do: from.weight, else: to.weight),

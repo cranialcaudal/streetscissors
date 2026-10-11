@@ -86,9 +86,12 @@ export function lift(track, f) {
     J.nape = at(f.nape, 0); J.head = at(f.head, 0)
     J.sh_a = at(f.sh_a, shz); J.sh_b = at(f.sh_b, -shz)
     J.hip_a = at(f.hip_a, 4.8); J.hip_b = at(f.hip_b, -4.8)
-    J.knee_a = at(f.knee_a, 5.4); J.knee_b = at(f.knee_b, -5.4)
-    J.foot_a = at(f.foot_a, 5.2); J.foot_b = at(f.foot_b, -5.2)
-    J.toe_a = at(f.toe_a, 5.8); J.toe_b = at(f.toe_b, -5.8)
+    // a stance wider than the hips takes the knees out after the feet and
+    // turns the toes out a little, as a squat's does
+    const wide = f.stance ?? 5.2, out = wide - 5.2
+    J.knee_a = at(f.knee_a, 5.4 + out * 0.6); J.knee_b = at(f.knee_b, -5.4 - out * 0.6)
+    J.foot_a = at(f.foot_a, wide); J.foot_b = at(f.foot_b, -wide)
+    J.toe_a = at(f.toe_a, wide + 0.6 + out * 0.35); J.toe_b = at(f.toe_b, -wide - 0.6 - out * 0.35)
     J.hand_a = at(f.hand_a, gap + side); J.hand_b = at(f.hand_b, -gap + side)
     // flare swings the elbow out of the picture's plane, toward its own side
     const flare = f.flare || 0
