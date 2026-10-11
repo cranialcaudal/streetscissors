@@ -12,6 +12,8 @@ defmodule Mix.Tasks.Fitness.Film do
                                           # environment's uploads/figures
       mix fitness.film --stills DIR plank # a picture of each pose, to look
                                           # at before filming
+      mix fitness.film --check            # the rules every figure has to keep,
+                                          # checked with nothing drawn
 
   The live site keeps its uploads outside the checkout, so its films are made
   with `--to`, or with `UPLOADS_PATH` set as the service has it:
@@ -27,10 +29,35 @@ defmodule Mix.Tasks.Fitness.Film do
   @impl true
   def run(args) do
     {opts, slugs} =
-      OptionParser.parse!(args, strict: [all: :boolean, to: :string, stills: :string])
+      OptionParser.parse!(args,
+        strict: [all: :boolean, to: :string, stills: :string, check: :boolean]
+      )
 
     Mix.Task.run("app.config")
-    if opts[:stills], do: stills(slugs, opts[:stills]), else: film(slugs, opts)
+
+    cond do
+      opts[:check] -> check(slugs)
+      opts[:stills] -> stills(slugs, opts[:stills])
+      true -> film(slugs, opts)
+    end
+  end
+
+  defp check(slugs) do
+    case Web.Fitness.Clip.check(slugs) do
+      {:ok, []} ->
+        Mix.shell().info("Every rule is kept.")
+
+      {:ok, found} ->
+        for {slug, problems} <- found, problem <- problems do
+          share = round(problem["frames"] * 100)
+          Mix.shell().info("#{slug}: #{problem["text"]} (#{share}% of the loop)")
+        end
+
+        Mix.shell().info("#{length(found)} figure(s) break a rule.")
+
+      {:error, why} ->
+        Mix.raise(why)
+    end
   end
 
   defp stills([], _to),

@@ -531,6 +531,12 @@ float occlusion(vec3 p, vec3 n) {
   return clamp(1.0 - 0.28 * occ, 0.0, 1.0);
 }
 
+// The drawn line. OUTLINE is how far outside the figure the ink reaches, in
+// stage units (a standing figure is 80 tall); INNER how far a surface has to
+// turn from the eye before it is line, which is what parts a forearm from
+// the chest it crosses; INK how dark the line is against the ground. They
+// were 0.52, 0.30 and 0.42: a thin line that a phone's screen lost.
+const float OUTLINE = 0.95, INNER = 0.44, INK = 0.22;
 vec3 shade(vec2 px) {
   vec2 uv = (2.0 * px - uRes) / uRes.y;
   vec3 ro = uCenter + uR * (uv.x * uHalf) + uU * (uv.y * uHalf) + uC * 400.0;
@@ -551,10 +557,10 @@ vec3 shade(vec2 px) {
     t += d * 0.92;
     if (t > tMax) break;
   }
-  float line = hit ? 0.0 : 1.0 - smoothstep(0.30, 0.52, closest);
+  float line = hit ? 0.0 : 1.0 - smoothstep(OUTLINE - 0.18, OUTLINE, closest);
 
   vec3 col;
-  vec3 ink = uBg * 0.42;
+  vec3 ink = uBg * INK;
   if (hit) {
     vec3 p = ro + rd * t; vec3 n = normal(p);
     vec3 base;
@@ -581,7 +587,10 @@ vec3 shade(vec2 px) {
     col += warm * glow * 0.10;
     // The line inside the figure: where a surface turns away from the eye.
     float turn = clamp(dot(n, -rd), 0.0, 1.0);
-    col = mix(ink, col, smoothstep(0.10, 0.30, turn));
+    // Only the body takes the heavy inner line. A mat or a bench top lies
+    // nearly edge-on to the eye all over, and went black with it.
+    float inner = mat < 3.5 ? INNER : 0.30;
+    col = mix(ink, col, smoothstep(inner - 0.22, inner, turn));
   } else if (tFloor < 1e8) {
     vec3 p = ro + rd * tFloor;
     float sh = shadow(p + vec3(0.0, 0.05, 0.0), key, 7.0);

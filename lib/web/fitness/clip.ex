@@ -248,6 +248,55 @@ defmodule Web.Fitness.Clip do
     end
   end
 
+  @doc """
+  What the rules in `priv/figure/check.mjs` find wrong with the figures named
+  (all of them when none is): a bar through the body, a weight inside it, a
+  limb through the trunk, a part below the floor, a body nothing holds up,
+  a stance its own weight would topple. Read off the joints and the
+  equipment, so nothing is drawn and it takes a second or two for the lot.
+
+  `{:ok, [{slug, [%{"rule" => _, "text" => _, "frames" => share}]}]}`, only
+  the figures with something to say; `{:error, text}` when node cannot run.
+  A figure the pose engine refuses is listed with that as its one problem.
+  """
+  def check(slugs \\ []) do
+    slugs = if slugs == [], do: all_slugs(), else: slugs
+    jobs = for slug <- slugs, do: {slug, job(slug)}
+    list = Path.join(System.tmp_dir!(), "figure-check-#{System.unique_integer([:positive])}.json")
+
+    File.write!(
+      list,
+      Jason.encode!(
+        for({_slug, {:ok, job}} <- jobs, do: Map.take(job, [:slug, :track, :muscles]))
+      )
+    )
+
+    refused =
+      for {slug, {:error, why}} <- jobs,
+          do: {slug, [%{"rule" => "pose", "text" => why, "frames" => 1.0}]}
+
+    try do
+      script = Application.app_dir(:web, "priv/figure/check.mjs")
+
+      case System.cmd("node", [script, list], stderr_to_stdout: true) do
+        {output, 0} ->
+          found =
+            for line <- String.split(output, "\n", trim: true),
+                {:ok, %{"slug" => slug, "problems" => [_ | _] = problems}} <- [Jason.decode(line)],
+                do: {slug, problems}
+
+          {:ok, Enum.sort(refused ++ found)}
+
+        {output, status} ->
+          {:error, "the checker exited #{status}: #{String.trim(output)}"}
+      end
+    rescue
+      error in ErlangError -> {:error, "could not run node: #{inspect(error.original)}"}
+    after
+      File.rm(list)
+    end
+  end
+
   defp all_slugs, do: for({slug, _figure} <- Figure.all(), do: slug)
 
   defp anatomy(slug) do
