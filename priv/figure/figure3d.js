@@ -164,23 +164,42 @@ export function body(J, hot, touch = {}) {
   const waist = v.mix(J.pelvis, J.chest, 0.55)
   ell(P(J.pelvis, [upLo, 1.2]), frLo, upLo, [4.8, 5.3, 7.0], null, SHORTS)
   for (const s of [1, -1]) ell(P(J.pelvis, [latH, 3.0 * s], [frLo, -2.3], [upLo, -0.5]), frLo, upLo, [3.6, 4.5, 3.7], "glutes", SHORTS)
-  ell(waist, frLo, upLo, [4.4, 8.2, 6.3])
+  ell(waist, frLo, upLo, [4.2, 8.2, 5.7])
   ell(P(waist, [frLo, 2.2]), frLo, upLo, [2.4, 7.2, 3.9], "abs")
   for (const s of [1, -1]) ell(P(waist, [latH, 4.3 * s], [frLo, 0.3]), frLo, upLo, [3.0, 6.0, 2.2], "obliques")
   ell(P(v.mix(J.pelvis, J.chest, 0.5), [frLo, -2.4]), frLo, upLo, [2.2, 7.0, 4.0], "lowback")
 
-  const rib = v.mix(J.chest, J.neck, 0.45)
-  ell(rib, frUp, upUp, [5.6, 9.6, 8.2])
-  for (const s of [1, -1]) {
-    ell(P(rib, [upUp, 2.7], [frUp, 3.2], [lat, 3.7 * s]), frUp, upUp, [2.5, 3.5, 4.2], "chest")
-    ell(P(rib, [upUp, -1.2], [frUp, -2.0], [lat, 5.9 * s]), frUp, upUp, [3.0, 7.4, 2.7], "lats")
-    ell(P(rib, [upUp, -3.2], [frUp, 1.2], [lat, 6.9 * s]), frUp, upUp, [2.6, 3.8, 1.6], "serratus")
+  // The chest, built the way a body is: bone, then muscle, then skin.
+  //
+  // The rib cage is an egg, narrower than the shoulders and deeper below than
+  // above, and nothing on it moves. The shoulders hang off it on the collar
+  // bones, struts from the top of the breastbone, and the shoulder blades ride
+  // on its back. The muscles that give a chest its shape do not belong to the
+  // cage at all: the pectoral in front and the lat behind each run from the
+  // trunk to the upper arm. So with the arm down they lie across the chest,
+  // and with the arm raised they are drawn out toward it and make the two
+  // folds of the armpit. A pectoral that stays put when the arm moves, on a
+  // cage as wide as the shoulders, was what made this "the worst part".
+  const rib = v.mix(J.chest, J.neck, 0.42)
+  ell(rib, frUp, upUp, [5.0, 9.4, 6.5])
+  ell(P(J.neck, [upUp, -3.2], [frUp, -0.2]), frUp, upUp, [4.2, 3.6, 6.6])
+  const notch = P(J.neck, [frUp, 2.6], [upUp, -1.8])
+  for (const [s, S, E] of [[1, J.sh_a, J.elbow_a], [-1, J.sh_b, J.elbow_b]]) {
+    const arm = v.norm(v.sub(E, S), [0, -1, 0])
+    // the collar bone, and the shoulder blade behind it
+    cone(notch, P(S, [upUp, 0.9], [frUp, 0.5]), 1.0, 0.95)
+    ell(P(S, [lat, -3.4 * s], [frUp, -2.7], [upUp, -2.6]), frUp, upUp, [1.3, 3.9, 2.9])
+    // the pectoral: breastbone and collar bone to the upper arm
+    const from = P(rib, [upUp, 2.2], [frUp, 3.9], [lat, 2.3 * s]), to = P(S, [arm, 3.2], [frUp, 0.8])
+    const span = v.sub(to, from)
+    ell(v.mix(from, to, 0.44), span, v.cross(frUp, span), [v.len(span) * 0.5 + 1.3, 3.4, 1.8], "chest")
+    // the lat: the small of the back to the upper arm, behind the armpit
+    cone(P(waist, [frLo, -2.3], [latH, 3.4 * s]), P(S, [arm, 2.6], [frUp, -1.6], [lat, -1.2 * s]), 2.9, 2.0, "lats")
+    ell(P(rib, [upUp, -3.2], [frUp, 1.4], [lat, 5.4 * s]), frUp, upUp, [2.4, 3.6, 1.5], "serratus")
   }
-  ell(P(J.neck, [frUp, -2.0], [upUp, -2.2]), frUp, upUp, [2.6, 5.4, 6.0], "traps")
+  ell(P(J.neck, [frUp, -2.0], [upUp, -2.2]), frUp, upUp, [2.5, 5.2, 5.2], "traps")
   // between the shoulder blades
-  ell(P(rib, [upUp, 1.4], [frUp, -3.9]), frUp, upUp, [1.5, 4.4, 4.4], "rhomboids")
-  // the shoulder girdle: one bar from shoulder to shoulder, not two balls
-  cone(J.sh_a, J.sh_b, 3.0, 3.0)
+  ell(P(rib, [upUp, 1.4], [frUp, -3.6]), frUp, upUp, [1.5, 4.4, 4.0], "rhomboids")
 
   // neck and head
   const crown = v.norm(v.sub(J.head, J.nape), upUp)
@@ -217,9 +236,11 @@ export function body(J, hot, touch = {}) {
 
   // arms
   for (const [s, S, E, H] of [[1, J.sh_a, J.elbow_a, J.hand_a], [-1, J.sh_b, J.elbow_b, J.hand_b]]) {
-    cone(v.mix(J.nape, J.neck, 0.5), S, 2.4, 2.1, "traps")
-    ell(P(S, [lat, 0.3 * s], [upUp, -0.7]), frUp, upUp, [3.1, 3.8, 3.0], "delts")
     const along = v.norm(v.sub(E, S), [0, -1, 0])
+    // the trapezius down to the point of the shoulder, and the deltoid capping
+    // the joint and running down the arm it lifts
+    cone(v.mix(J.nape, J.neck, 0.5), P(S, [upUp, 0.6]), 2.1, 1.5, "traps")
+    ell(P(S, [along, 1.7], [lat, 0.5 * s]), along, lat, [4.3, 3.0, 3.1], "delts")
     let fr = v.reject(v.sub(H, E), along)
     fr = v.len(fr) < 0.8 ? v.norm(v.reject(frUp, along), [1, 0, 0]) : v.norm(fr)
     cone(S, E, 2.6, 2.2)

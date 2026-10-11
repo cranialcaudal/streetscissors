@@ -33,6 +33,10 @@ and do not edit the code that does them:
   y = 99 (or on the top of the box, or on the bar) and the hand changes by itself.
 - **The kettlebell** has a handle. Put the hand where the handle should be; the bell hangs
   from it.
+- **The chest** is built from bone outward: a rib cage narrower than the shoulders, collar
+  bones, shoulder blades, and a pectoral and a lat on each side that run from the trunk to
+  the upper arm, so they follow the arm when it is raised. You cannot pose any of this and
+  need not: it follows from where the hands and elbows are.
 
 ## Rules you must not break
 
@@ -213,6 +217,21 @@ done
 
 About 100 minutes. Every line must end `1 filmed, 0 already current, 0 not filmed.` Re-run
 any slug that did not. Do nothing else on the machine's graphics card meanwhile.
+
+Then look for black frames. The renderer has been seen to give one black picture with
+nothing else running, and a film with a black frame in it flashes. For every film:
+
+```bash
+cd ~/streetscissors-data/uploads/figures
+for f in *.mp4; do
+  n=$(ffmpeg -nostdin -i "$f" -vf blackframe=amount=98:threshold=20 -an -f null - 2>&1 | grep -c Parsed_blackframe)
+  [ "$n" -gt 0 ] && echo "$f: $n black frame(s)"
+done
+```
+
+It should print nothing. Film again any slug it names (the slug is the file's name without
+the last `-xxxxxxxxxxxx`). A still that comes out all black or all white is the same fault:
+draw it again before judging the pose.
 
 **Task 2. The figures the rule check still flags.** Run `mix fitness.film --check` with no
 slug. Apply the algorithm to each figure it lists that is not a known limit. Expected:
