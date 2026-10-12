@@ -749,6 +749,16 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     stretch is one frame long: strip 4 had a blank stretch after its first frame, and
     every grid and the walk put the rest half a frame out. Thin film falls through to the
     template as before.
+  - **The tool looks at its own answer** (2026-10-11, roll 060, his ask: "a feature that
+    retries the frame selection… so I'm not always prompting for the fix"). After a 35mm
+    strip on glass is laid out, `frames_miss/4` measures how much picture was left outside
+    every frame; 12 mm or more and `retry_frames/10` lays the strip every other way (the
+    plain grid, the template, the gaps, and `frames_by_runs/5`, which sets frames on each
+    stretch of picture and knows nothing of spacing) and keeps the one that leaves least
+    out. `frames.json` records it under `relaid` and the run prints "laid again by …".
+    **Only pictures left out count as wrong**: thin film reads as bare through its
+    pictures, so bare film inside a frame proves nothing. The page does not show `relaid`
+    yet, and has no button to ask for another cut.
   - **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
     things went wrong at once when one strip of an August roll was scanned again on the site.
     **The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`
