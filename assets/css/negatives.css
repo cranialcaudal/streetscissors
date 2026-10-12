@@ -1459,3 +1459,12 @@ img[data-fade].is-loading {
     transition: none;
   }
 }
+
+/* A pull down on a photograph goes back to its sheet, and on a phone the
+   browser has a pull down of its own: reload the page. Over the archive the
+   page's edge is the end of the gesture, so a swipe that runs past it neither
+   drags the page after it nor reloads it. */
+html:has(.darkroom),
+html:has(.darkroom) body {
+  overscroll-behavior-y: contain;
+}

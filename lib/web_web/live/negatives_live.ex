@@ -900,13 +900,24 @@ defmodule WebWeb.NegativesLive do
             const dy = t.clientY - g.y
 
             if (!g.axis) {
+              // A pull down from the top of the page is claimed at its first
+              // movement: wait for it to declare itself and the browser has
+              // already started its pull-to-refresh, which cannot be taken back.
+              if (dy > 2 && dy > Math.abs(dx) && this.link("up") && window.scrollY <= 0 && e.cancelable) {
+                e.preventDefault()
+              }
               if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
               if (Math.abs(dx) > Math.abs(dy) * 1.2) g.axis = "x"
               else if (dy > 0 && this.link("up") && window.scrollY <= 0) g.axis = "down"
               else { this.gesture = null; return }
             }
 
-            if (e.cancelable) e.preventDefault()
+            // Once the browser has begun a scroll of its own it will not be
+            // stopped, and the event says so. Following the finger as well
+            // would move the picture and the page together, so the gesture
+            // is given up and the picture put back.
+            if (!e.cancelable) { this.settle(); this.gesture = null; return }
+            e.preventDefault()
             g.dx = dx
             g.dy = dy
             this.follow(g)
