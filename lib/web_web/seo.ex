@@ -192,7 +192,9 @@ defmodule WebWeb.SEO do
 
     if log.media_dir do
       media_file = if log.kind == "video", do: "video.mp4", else: "audio.m4a"
-      Map.put(data, "contentUrl", absolute("/uploads/#{log.media_dir}/#{media_file}"))
+      # the file's real address: it was written without the `logs` folder, and
+      # every crawler that followed it met a 404
+      Map.put(data, "contentUrl", absolute(Web.Uploads.entry_web_path(log.media_dir, media_file)))
     else
       data
     end

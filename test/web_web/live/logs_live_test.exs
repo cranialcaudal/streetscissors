@@ -57,6 +57,27 @@ defmodule WebWeb.LogsLiveTest do
       assert has_element?(view, ".log-feed-count", "3")
     end
 
+    test "an entry leads to the one before it and the one after, and says which of a day's it is",
+         %{conn: conn} do
+      older = log_fixture(recorded_on: ~D[2026-09-16])
+      middle = log_fixture(recorded_on: ~D[2026-09-17])
+      newer = log_fixture(recorded_on: ~D[2026-09-18])
+
+      {:ok, view, _html} = live(conn, "/logs/#{middle.slug}")
+      assert has_element?(view, ~s(.log-back a[rel="prev"][href="/logs/#{older.slug}"]))
+      assert has_element?(view, ~s(.log-back a[rel="next"][href="/logs/#{newer.slug}"]))
+
+      {:ok, view, _html} = live(conn, "/logs/#{newer.slug}")
+      refute has_element?(view, ~s(.log-back a[rel="next"]))
+    end
+
+    test "the video's address in the page's structured data is the file's real one", %{conn: conn} do
+      log = log_fixture(recorded_on: ~D[2026-09-18])
+      html = conn |> get("/logs/#{log.slug}") |> html_response(200)
+      assert html =~ "/uploads/logs/#{log.media_dir}/"
+      refute html =~ ~s(/uploads/#{log.media_dir}/)
+    end
+
     test "no card mounts a player — the index costs posters and nothing else", %{conn: conn} do
       log_fixture(recorded_on: ~D[2026-09-16])
       log_fixture(recorded_on: ~D[2026-09-17])

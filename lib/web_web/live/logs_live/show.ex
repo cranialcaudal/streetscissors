@@ -36,7 +36,15 @@ defmodule WebWeb.LogsLive.Show do
 
     {:ok,
      socket
-     |> assign(:page_title, Log.title(log))
+     # two recordings of one day share a title: the tab says which this is
+     |> assign(
+       :page_title,
+       if(Log.ordinal(log),
+         do: "#{Log.title(log)} · Entry #{Log.ordinal(log)}",
+         else: Log.title(log)
+       )
+     )
+     |> assign(:neighbours, neighbours(log))
      # Its own social card and canonical URL, so a shared log link is not
      # indistinguishable from every other page on the site.
      |> assign(:og_title, Log.title(log))
@@ -112,8 +120,26 @@ defmodule WebWeb.LogsLive.Show do
           </.link>
         </footer>
 
+        <%!-- The entry recorded before this one, the one after, and the way
+              back to them all. --%>
         <nav class="log-back">
+          <.link
+            :if={@neighbours.older}
+            navigate={~p"/logs/#{@neighbours.older.slug}"}
+            class="console-btn"
+            rel="prev"
+          >
+            ‹ Earlier entry
+          </.link>
           <.link navigate={~p"/logs"} class="console-btn">All logs</.link>
+          <.link
+            :if={@neighbours.newer}
+            navigate={~p"/logs/#{@neighbours.newer.slug}"}
+            class="console-btn"
+            rel="next"
+          >
+            Later entry ›
+          </.link>
         </nav>
       </article>
 
@@ -124,5 +150,19 @@ defmodule WebWeb.LogsLive.Show do
       )}
     </div>
     """
+  end
+
+  # The public entries either side of this one, by when they were recorded.
+  defp neighbours(log) do
+    all = Web.Audio.list_ready_logs()
+    at = Enum.find_index(all, &(&1.id == log.id))
+
+    if at do
+      # the list runs newest first
+      %{newer: at > 0 && Enum.at(all, at - 1), older: Enum.at(all, at + 1)}
+      |> Map.new(fn {k, v} -> {k, v || nil} end)
+    else
+      %{newer: nil, older: nil}
+    end
   end
 end
