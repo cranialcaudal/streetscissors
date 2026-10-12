@@ -46,13 +46,6 @@ defmodule WebWeb.PageControllerTest do
     refute bar =~ "#1DB954"
   end
 
-  test "the homepage wears its beta number beside the wordmark", %{conn: conn} do
-    html = conn |> get(~p"/") |> html_response(200)
-    assert html =~ ~s(class="site-beta")
-    assert html =~ ~s(aria-label="Beta!!!")
-    assert html =~ "<title>Beta #{WebWeb.PageHTML.beta()}</title>"
-  end
-
   test "the about page shows the author's picture when there is one", %{conn: conn} do
     dir = Path.join(Web.Uploads.root(), "about")
     File.mkdir_p!(dir)

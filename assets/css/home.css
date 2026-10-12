@@ -236,52 +236,6 @@
   position: relative;
   display: inline-block;
 }
-/* The beta splash, placed as the block game's title screen placed it: lying
-   over the end of the title itself, its middle five sixths of the way along
-   and nine tenths of the way down, turned up 20 degrees, a third as tall as
-   the lettering, swelling and shrinking. Yellow pixels over their own dark
-   shadow (--splash, --splash-shadow). The container ignores the pointer, so
-   it never takes a click from the cards. */
-.site-beta {
-  position: absolute;
-  left: 83%;
-  top: 88%;
-  height: 2.1rem;
-  width: auto;
-  overflow: visible;
-  transform: translate(-50%, -50%) rotate(-20deg);
-  animation: zoom-squish 0.5s ease-in-out infinite alternate;
-}
-/* each is stroked in its own colour by a hair, which closes the seams a
-   turned and scaled grid of squares would otherwise show */
-.site-beta-face {
-  fill: var(--splash);
-  stroke: var(--splash);
-  stroke-width: 0.12;
-}
-.site-beta-shadow {
-  fill: var(--splash-shadow);
-  stroke: var(--splash-shadow);
-  stroke-width: 0.12;
-}
-@keyframes zoom-squish {
-  0% {
-    transform: translate(-50%, -50%) rotate(-20deg) scale(0.94);
-  }
-  100% {
-    transform: translate(-50%, -50%) rotate(-20deg) scale(1.06);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .site-beta {
-    animation: none;
-  }
-}
-@media (max-width: 700px) {
-  .site-beta {
-    height: 3.8vw;
-  }
-}
 .bento-row {
   display: grid !important;
   grid-template-columns: 1fr 1fr;
