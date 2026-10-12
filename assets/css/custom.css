@@ -52,6 +52,38 @@ a {
     position: relative;
 }
 
+/* The author's picture, a different one every four hours: set to the right of
+   the text on a wide screen, above it on a phone. */
+.about-portrait {
+    float: right;
+    width: min(42%, 22rem);
+    margin: 0 0 1.5rem 2rem;
+}
+.about-portrait img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-sunk);
+}
+.about-portrait figcaption {
+    margin-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+@media (max-width: 700px) {
+    .about-portrait {
+        float: none;
+        width: 100%;
+        margin: 0 0 1.5rem;
+    }
+}
+
 /* Tuned against the paper ground, not the black one it was born on.
    The old `#4af626` at 0.12 was a terminal-green glow on near-black: 1.23:1 at
    rest, 9.95:1 on hover — hidden, then a clear reveal. The UC Press flip left

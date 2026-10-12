@@ -31,6 +31,50 @@ defmodule Web.Author do
     end
   end
 
+  @portraits "about"
+  @every 4 * 60 * 60
+
+  @doc """
+  The pictures of the author the About page turns through: the image files in
+  the `about` folder under the uploads root (`/uploads/about/…`, which the
+  proxy serves), as web paths in order of name. Dropping a file in the folder
+  adds it and taking one out removes it; nothing is deployed. Empty when the
+  folder is absent, and the page then shows no picture.
+  """
+  def portraits do
+    dir = Path.join(Web.Uploads.root(), @portraits)
+
+    case File.ls(dir) do
+      {:ok, names} ->
+        names
+        |> Enum.filter(&(String.downcase(Path.extname(&1)) in ~w(.jpg .jpeg .png .webp)))
+        |> Enum.reject(&String.starts_with?(&1, "."))
+        |> Enum.sort()
+        |> Enum.map(&Web.Uploads.web_path(@portraits, &1))
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  The one shown now: the pictures take turns of four hours each, in order,
+  the same for every visitor (the turn is counted from the clock, not from
+  the visit). `{path, place, count}` or nil when there are none.
+  """
+  def portrait(now \\ System.os_time(:second)) do
+    case portraits() do
+      [] -> nil
+      all -> turn(all, now)
+    end
+  end
+
+  @doc false
+  def turn(all, now) do
+    at = rem(div(now, @every), length(all))
+    {Enum.at(all, at), at + 1, length(all)}
+  end
+
   @doc "One key of it, as trimmed text, or nil."
   def get(key) do
     case profile()[key] do

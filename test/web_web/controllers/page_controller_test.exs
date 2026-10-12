@@ -46,6 +46,24 @@ defmodule WebWeb.PageControllerTest do
     refute bar =~ "#1DB954"
   end
 
+  test "the homepage wears its beta number beside the wordmark", %{conn: conn} do
+    html = conn |> get(~p"/") |> html_response(200)
+    assert html =~ ~s(class="site-beta")
+    assert html =~ "Beta " <> WebWeb.PageHTML.beta()
+  end
+
+  test "the about page shows the author's picture when there is one", %{conn: conn} do
+    dir = Path.join(Web.Uploads.root(), "about")
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, "one.jpg"), "x")
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    html = conn |> get(~p"/about") |> html_response(200)
+    assert html =~ ~s(src="/uploads/about/one.jpg")
+    # one picture has no turns to speak of
+    refute html =~ "changes every four hours"
+  end
+
   describe "GET /search" do
     test "the page is a form, reachable from the homepage and every header", %{conn: conn} do
       html = conn |> get(~p"/search") |> html_response(200)

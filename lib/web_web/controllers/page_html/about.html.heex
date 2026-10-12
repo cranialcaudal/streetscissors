@@ -1,5 +1,18 @@
 <div class="container">
   <div class="glass-panel about-panel" style="padding: 3rem; min-height: 80vh;">
+    <%!-- One picture of the author, a different one every four hours
+          (Web.Author.portrait/1). --%>
+    <figure :if={@portrait} class="about-portrait">
+      <img
+        src={elem(@portrait, 0)}
+        alt="A photograph of the author"
+        decoding="async"
+        fetchpriority="high"
+      />
+      <figcaption :if={elem(@portrait, 2) > 1}>
+        {elem(@portrait, 1)} of {elem(@portrait, 2)} · changes every four hours
+      </figcaption>
+    </figure>
     <div class="prose">
       {raw(@html_content)}
     </div>

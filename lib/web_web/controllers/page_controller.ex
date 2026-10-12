@@ -87,7 +87,8 @@ defmodule WebWeb.PageController do
     |> render(:about,
       return_to: return_to,
       return_label: return_label,
-      html_content: html_content
+      html_content: html_content,
+      portrait: Web.Author.portrait()
     )
   end
 

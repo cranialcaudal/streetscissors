@@ -7,4 +7,11 @@ defmodule WebWeb.PageHTML do
   use WebWeb, :html
 
   embed_templates "page_html/*"
+
+  @doc """
+  The site's beta number, shown beside the homepage's wordmark. 1.0 was the
+  deploy of 2026-10-11, the first with the whole revamp live; the second
+  number goes up with each deploy that changes what a visitor sees.
+  """
+  def beta, do: "1.0"
 end

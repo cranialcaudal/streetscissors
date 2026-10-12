@@ -230,12 +230,35 @@
   line-height: 1;
   display: inline-block;
 }
+/* The beta splash: set askew off the end of the wordmark and breathing, the
+   way a certain block game's title screen had it. The container ignores the
+   pointer, so it never takes a click meant for the cards under it. */
+.site-beta {
+  position: absolute;
+  right: -0.5rem;
+  bottom: -1.1rem;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent-ink);
+  transform: rotate(-15deg);
+  transform-origin: center;
+  animation: zoom-squish 0.9s ease-in-out infinite alternate;
+}
 @keyframes zoom-squish {
   0% {
-    transform: rotate(-15deg) translate(80px, -20px) scale(0.9);
+    transform: rotate(-15deg) scale(0.92);
   }
   100% {
-    transform: rotate(-15deg) translate(80px, -20px) scale(1.05);
+    transform: rotate(-15deg) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-beta {
+    animation: none;
   }
 }
 .bento-row {
