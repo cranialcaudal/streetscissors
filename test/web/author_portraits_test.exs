@@ -31,6 +31,36 @@ defmodule Web.AuthorPortraitsTest do
     assert {"/uploads/about/a.png", 1, 3} = Author.portrait(12 * hour)
   end
 
+  test "a picture taken in is shrunk, kept as a JPEG and joins the turn" do
+    source = Path.join(System.tmp_dir!(), "portrait-#{System.unique_integer([:positive])}.png")
+    {_, 0} = System.cmd("magick", ["-size", "3000x2000", "xc:gray", source])
+    on_exit(fn -> File.rm(source) end)
+
+    assert {:ok, "/uploads/about/" <> name = path} = Author.add_portrait(source)
+    assert path in Author.portraits()
+    kept = Path.join([Web.Uploads.root(), "about", name])
+    {size, 0} = System.cmd("magick", ["identify", "-format", "%wx%h", kept])
+    assert size == "1600x1067"
+  end
+
+  test "what is not a picture is refused, and nothing is kept" do
+    source =
+      Path.join(System.tmp_dir!(), "not-a-picture-#{System.unique_integer([:positive])}.jpg")
+
+    File.write!(source, "words")
+    on_exit(fn -> File.rm(source) end)
+    before = Author.portraits()
+    assert {:error, _} = Author.add_portrait(source)
+    assert Author.portraits() == before
+  end
+
+  test "a picture removed is set aside, not destroyed" do
+    assert :ok = Author.remove_portrait("/uploads/about/b.jpg")
+    refute "/uploads/about/b.jpg" in Author.portraits()
+    assert File.exists?(Path.join([Web.Uploads.root(), "about", "removed", "b.jpg"]))
+    assert {:error, :not_found} = Author.remove_portrait("/uploads/about/../../etc/passwd")
+  end
+
   test "with no pictures there is none" do
     File.rm_rf!(Path.join(Web.Uploads.root(), "about"))
     assert Author.portrait() == nil

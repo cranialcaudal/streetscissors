@@ -24,7 +24,19 @@ defmodule WebWeb.AdminLive.Settings do
          page_title: "Settings | Admin",
          spotify_playlist_id: SiteSettings.get_setting("spotify_playlist_id", @default_playlist),
          newsletter_test_email: SiteSettings.get_setting("newsletter_test_email", ""),
-         notify_email: Notify.address() || ""
+         notify_email: Notify.address() || "",
+         portraits: Web.Author.portraits()
+       )
+       # No limit to how many pictures are kept; a hundred is only how many
+       # may be sent in one go. HEIC is left out on purpose: this machine's
+       # ImageMagick cannot read it, and a phone asked for JPEG converts its
+       # own pictures before sending them.
+       |> allow_upload(:portrait,
+         accept: ~w(.jpg .jpeg .png .webp),
+         max_entries: 100,
+         max_file_size: 80_000_000,
+         auto_upload: true,
+         progress: &portrait_progress/3
        )}
     else
       {:ok, push_navigate(socket, to: "/")}
@@ -87,6 +99,17 @@ defmodule WebWeb.AdminLive.Settings do
     end
   end
 
+  def handle_event("portrait_change", _params, socket), do: {:noreply, socket}
+
+  def handle_event("remove_portrait", %{"path" => path}, socket) do
+    Web.Author.remove_portrait(path)
+
+    {:noreply,
+     socket
+     |> assign(portraits: Web.Author.portraits())
+     |> put_flash(:info, "Picture taken out of the turn.")}
+  end
+
   def handle_event("test_notify", _params, socket) do
     result =
       Notify.deliver(
@@ -99,6 +122,29 @@ defmodule WebWeb.AdminLive.Settings do
       _ -> {:noreply, put_flash(socket, :error, "Set an address first.")}
     end
   end
+
+  defp portrait_progress(:portrait, entry, socket) do
+    if entry.done? do
+      result =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          {:ok, Web.Author.add_portrait(path)}
+        end)
+
+      socket = assign(socket, portraits: Web.Author.portraits())
+
+      case result do
+        {:ok, _path} -> {:noreply, socket}
+        {:error, why} -> {:noreply, put_flash(socket, :error, "#{entry.client_name}: #{why}")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp portrait_error(:too_large), do: "That file is over 80 MB."
+  defp portrait_error(:not_accepted), do: "Pictures only: JPEG, PNG or WebP."
+  defp portrait_error(:too_many_files), do: "A hundred at a time; send the rest in a second go."
+  defp portrait_error(other), do: "Upload failed (#{inspect(other)})."
 
   # A pasted share link (open.spotify.com/playlist/<id>?si=…) or the bare id.
   defp playlist_id(input) do
@@ -137,6 +183,39 @@ defmodule WebWeb.AdminLive.Settings do
           The player in the homepage's corner. A full share link works; the ID is taken out of it.
         </p>
       </form>
+    </.panel>
+
+    <.panel title="About page pictures">
+      <form id="settings-portraits" phx-change="portrait_change" class="adm-sheet">
+        <.drop_zone
+          upload={@uploads.portrait}
+          title="Add pictures of yourself"
+          hint="As many as you like. The About page shows one at a time and changes it every four hours, in the order they were added."
+          browse="Choose pictures"
+          error_message={&portrait_error/1}
+        />
+      </form>
+      <p :if={@portraits == []} class="adm-help">None yet: the About page shows no picture.</p>
+      <div :if={@portraits != []} class="adm-images" id="settings-portrait-list">
+        <div
+          :for={path <- @portraits}
+          class="adm-image"
+          id={"portrait-" <> Path.basename(path, ".jpg")}
+        >
+          <img src={path} alt="" loading="lazy" />
+          <div class="adm-image-body">
+            <button
+              type="button"
+              class="adm-btn adm-btn--quiet adm-btn--small"
+              phx-click="remove_portrait"
+              phx-value-path={path}
+              data-confirm="Take this picture out of the turn?"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
     </.panel>
 
     <.panel title="Newsletter">

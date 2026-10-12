@@ -58,6 +58,58 @@ defmodule Web.Author do
   end
 
   @doc """
+  Take in a picture from wherever it was uploaded to: turned the way the
+  camera held it, brought down to 1600 pixels on its longer side and kept as
+  a JPEG, so a phone's ten-megabyte photograph does not go out to every
+  reader. Named by the moment it came in, which keeps the pictures in the
+  order they were added. `{:ok, web_path}` or `{:error, text}`. There is no
+  limit to how many are kept.
+  """
+  def add_portrait(source) do
+    dir = Path.join(Web.Uploads.root(), @portraits)
+    File.mkdir_p!(dir)
+    name = "#{System.os_time(:millisecond)}-#{:erlang.unique_integer([:positive])}.jpg"
+    target = Path.join(dir, name)
+
+    args = [
+      source <> "[0]",
+      "-auto-orient",
+      "-resize",
+      "1600x1600>",
+      "-strip",
+      "-quality",
+      "84",
+      target
+    ]
+
+    case System.cmd(Web.Negatives.magick_bin(), args, stderr_to_stdout: true) do
+      {_, 0} ->
+        {:ok, Web.Uploads.web_path(@portraits, name)}
+
+      {said, _} ->
+        {:error, "could not read that picture: #{String.slice(String.trim(said), 0, 160)}"}
+    end
+  rescue
+    error in ErlangError -> {:error, "could not run ImageMagick: #{inspect(error.original)}"}
+  end
+
+  @doc """
+  Take a picture out of the turn. It is set aside in the folder's `removed`
+  subfolder, not destroyed. `web_path` is one of `portraits/0`.
+  """
+  def remove_portrait(web_path) do
+    if web_path in portraits() do
+      dir = Path.join(Web.Uploads.root(), @portraits)
+      aside = Path.join(dir, "removed")
+      File.mkdir_p!(aside)
+      name = Path.basename(web_path)
+      File.rename(Path.join(dir, name), Path.join(aside, name))
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc """
   The one shown now: the pictures take turns of four hours each, in order,
   the same for every visitor (the turn is counted from the clock, not from
   the visit). `{path, place, count}` or nil when there are none.

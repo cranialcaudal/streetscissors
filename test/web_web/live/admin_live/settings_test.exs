@@ -90,4 +90,60 @@ defmodule WebWeb.AdminLive.SettingsTest do
       assert SiteSettings.get_setting("newsletter_test_email") == nil
     end
   end
+
+  describe "the About page's pictures" do
+    setup do
+      dir = Path.join(Web.Uploads.root(), "about")
+      File.rm_rf!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      png =
+        Path.join(
+          System.tmp_dir!(),
+          "settings-portrait-#{System.unique_integer([:positive])}.png"
+        )
+
+      {_, 0} = System.cmd("magick", ["-size", "40x50", "xc:gray", png])
+      on_exit(fn -> File.rm(png) end)
+      %{png: File.read!(png)}
+    end
+
+    test "a picture sent from the page is kept, listed, and shown on /about", %{
+      conn: conn,
+      png: png
+    } do
+      {:ok, view, html} = live(admin_conn(conn), "/admin/settings")
+      assert html =~ "None yet"
+
+      view
+      |> file_input("#settings-portraits", :portrait, [
+        %{name: "me.png", content: png, type: "image/png"}
+      ])
+      |> render_upload("me.png")
+
+      assert [path] = Web.Author.portraits()
+      assert has_element?(view, ~s(#settings-portrait-list img[src="#{path}"]))
+      assert conn |> get(~p"/about") |> html_response(200) =~ path
+    end
+
+    test "any number may be sent, and one can be removed", %{conn: conn, png: png} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/settings")
+
+      for n <- 1..12 do
+        name = "p#{n}.png"
+
+        view
+        |> file_input("#settings-portraits", :portrait, [
+          %{name: name, content: png, type: "image/png"}
+        ])
+        |> render_upload(name)
+      end
+
+      assert length(Web.Author.portraits()) == 12
+      [first | _] = Web.Author.portraits()
+      view |> element(~s(button[phx-value-path="#{first}"])) |> render_click()
+      assert length(Web.Author.portraits()) == 11
+      refute has_element?(view, ~s(img[src="#{first}"]))
+    end
+  end
 end
