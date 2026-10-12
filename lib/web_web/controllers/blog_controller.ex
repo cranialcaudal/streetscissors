@@ -110,11 +110,27 @@ defmodule WebWeb.BlogController do
         |> assign(:canonical_path, ~p"/blog/#{post.slug}")
         |> assign(:json_ld, json_ld)
         |> assign(:robots, if(post.draft, do: "noindex, nofollow"))
-        |> render(:show, post: post, return_to: return_to, return_label: return_label)
+        |> render(:show,
+          post: post,
+          return_to: return_to,
+          return_label: return_label,
+          neighbours: neighbours(post)
+        )
 
       {:error, _} ->
         WebWeb.NotFound.render(conn)
     end
+  end
+
+  # The posts written just before and just after this one. Drafts are in
+  # neither place: `list_posts/0` does not see them.
+  defp neighbours(post) do
+    all = Blog.list_posts() |> Enum.sort_by(& &1.date, {:desc, Date})
+    at = Enum.find_index(all, &(&1.slug == post.slug))
+
+    if at,
+      do: %{newer: if(at > 0, do: Enum.at(all, at - 1)), older: Enum.at(all, at + 1)},
+      else: %{newer: nil, older: nil}
   end
 
   defp parse_sort("witnessed"), do: "witnessed"

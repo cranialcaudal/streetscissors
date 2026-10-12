@@ -495,6 +495,26 @@ defmodule WebWeb.CoreComponents do
   end
 
   @doc """
+  The site's sections, as one quiet row under the header of every inner page.
+  Before it a reader who landed deep (a search result, a shared photograph, a
+  day) could move sideways only by going home first; the 404 page was the one
+  page that said what the site held. The unlisted pages are not in it, and the
+  prayer pages are the author's to link.
+  """
+  def site_sections(assigns) do
+    ~H"""
+    <nav class="site-sections" aria-label="Sections">
+      <a href="/blog">Written work</a>
+      <a href="/logs">Captain's logs</a>
+      <a href="/negatives">Photographs</a>
+      <a href="/fitness">Fitness</a>
+      <a href="/daybook">Daybook</a>
+      <a href="/about">About</a>
+    </nav>
+    """
+  end
+
+  @doc """
   Universal header for blog portals and manuscript pages.
 
   The back link lives here and only here. Blog posts used to carry a second
@@ -545,6 +565,7 @@ defmodule WebWeb.CoreComponents do
         </button>
       </div>
     </header>
+    <.site_sections />
     """
   end
 

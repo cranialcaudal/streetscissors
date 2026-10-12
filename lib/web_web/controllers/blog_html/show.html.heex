@@ -19,6 +19,22 @@
       <.keyword_links keywords={@post.keywords} variant={:chips} />
     </footer>
 
+    <%!-- Where to go when the reading is done: the post before, the post after. --%>
+    <nav
+      :if={@neighbours.older || @neighbours.newer}
+      class="blog-post-neighbours"
+      aria-label="Other posts"
+    >
+      <a :if={@neighbours.older} href={~p"/blog/#{@neighbours.older.slug}"} rel="prev">
+        <span>Earlier</span>
+        {@neighbours.older.title}
+      </a>
+      <a :if={@neighbours.newer} href={~p"/blog/#{@neighbours.newer.slug}"} rel="next">
+        <span>Later</span>
+        {@neighbours.newer.title}
+      </a>
+    </nav>
+
     <%!-- Shown only in print (writing.css): a sheet of paper has no address bar. --%>
     <p class="blog-post-colophon">
       streetscissors · {WebWeb.SEO.absolute(~p"/blog/#{@post.slug}")}

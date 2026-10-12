@@ -485,6 +485,35 @@
    header's controls, the letter form, an embed's sliders — and a link, which
    cannot be followed from a page, says where it goes instead. Scoped to the
    post page; the year's printed edition has rules of its own in almanac.css. */
+/* The post before and the post after, at the foot of a post. */
+.blog-post-neighbours {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+.blog-post-neighbours a {
+  flex: 1 1 14rem;
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+}
+.blog-post-neighbours a[rel="next"] {
+  text-align: right;
+}
+.blog-post-neighbours a span {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
 @media print {
   @page {
     margin: 22mm 20mm 24mm;

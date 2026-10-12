@@ -76,6 +76,15 @@ defmodule WebWeb.PageControllerTest do
     assert conn |> get(~p"/") |> html_response(200) =~ "A workshop kept in public."
   end
 
+  test "every inner page carries the sections, and never the unlisted ones", %{conn: conn} do
+    for path <- ["/blog", "/about", "/daybook", "/guestbook"] do
+      html = conn |> get(path) |> html_response(200)
+      assert html =~ ~s(class="site-sections"), path
+      [_, bar] = Regex.run(~r|<nav class="site-sections".*?</nav>|s, html) |> then(&[nil | &1])
+      for hidden <- ["/Christ", "/food", "/england2026"], do: refute(bar =~ hidden)
+    end
+  end
+
   describe "GET /search" do
     test "the page is a form, reachable from the homepage and every header", %{conn: conn} do
       html = conn |> get(~p"/search") |> html_response(200)

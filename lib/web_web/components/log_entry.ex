@@ -120,7 +120,9 @@ defmodule WebWeb.LogEntry do
 
       <audio :if={@log.kind == "audio"} class="log-audio" preload="none" controls></audio>
 
-      <img :if={@poster} class="log-poster" src={@poster} alt="" loading="lazy" />
+      <%!-- Not lazy: the plate is the first thing on its page, and a lazy
+            poster left a bare panel until the browser got round to it. --%>
+      <img :if={@poster} class="log-poster" src={@poster} alt="" decoding="async" />
       <div :if={is_nil(@poster)} class="log-poster log-poster--none" aria-hidden="true">
         {kind_label(@log)}
       </div>
