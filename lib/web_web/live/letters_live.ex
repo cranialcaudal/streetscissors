@@ -164,7 +164,7 @@ defmodule WebWeb.LettersLive do
           <.input
             field={@form[:may_publish]}
             type="checkbox"
-            label="You may publish this beneath the piece"
+            label="This letter may be published beneath the piece"
           />
           <label class="letters-captcha">
             <span class="label">{@captcha_question}</span>
