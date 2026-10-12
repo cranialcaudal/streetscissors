@@ -252,11 +252,17 @@
   transform: translate(-50%, -50%) rotate(-20deg);
   animation: zoom-squish 0.5s ease-in-out infinite alternate;
 }
+/* each is stroked in its own colour by a hair, which closes the seams a
+   turned and scaled grid of squares would otherwise show */
 .site-beta-face {
   fill: var(--splash);
+  stroke: var(--splash);
+  stroke-width: 0.12;
 }
 .site-beta-shadow {
   fill: var(--splash-shadow);
+  stroke: var(--splash-shadow);
+  stroke-width: 0.12;
 }
 @keyframes zoom-squish {
   0% {

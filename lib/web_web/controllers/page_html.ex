@@ -80,7 +80,6 @@ defmodule WebWeb.PageHTML do
       viewBox={"0 0 #{@width} 8"}
       role="img"
       aria-label={@text}
-      shape-rendering="crispEdges"
     >
       <title :if={@title}>{@title}</title>
       <path class="site-beta-shadow" transform="translate(1 1)" d={@path} />
@@ -89,5 +88,30 @@ defmodule WebWeb.PageHTML do
     """
   end
 
-  defp path(pixels), do: Enum.map_join(pixels, " ", fn {x, y} -> "M#{x} #{y}h1v1h-1z" end)
+  # One rectangle for each unbroken run of pixels along a row. Drawn a square
+  # at a time, turned and scaled, the squares showed hairline gaps between
+  # them and the lettering looked torn; a run has no joins to show, and the
+  # stroke in the stylesheet closes the joins between rows.
+  defp path(pixels) do
+    pixels
+    |> Enum.group_by(fn {_x, y} -> y end, fn {x, _y} -> x end)
+    |> Enum.flat_map(fn {y, xs} ->
+      xs
+      |> Enum.sort()
+      |> Enum.chunk_while(
+        nil,
+        fn
+          x, nil -> {:cont, {x, x}}
+          x, {from, to} when x == to + 1 -> {:cont, {from, x}}
+          x, run -> {:cont, run, {x, x}}
+        end,
+        fn
+          nil -> {:cont, nil}
+          run -> {:cont, run, nil}
+        end
+      )
+      |> Enum.map(fn {from, to} -> "M#{from} #{y}h#{to - from + 1}v1h-#{to - from + 1}z" end)
+    end)
+    |> Enum.join(" ")
+  end
 end
