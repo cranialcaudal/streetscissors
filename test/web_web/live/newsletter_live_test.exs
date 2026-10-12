@@ -78,6 +78,30 @@ defmodule WebWeb.NewsletterLiveTest do
            )
   end
 
+  # The overlay is sticky in every page's frame, and a sticky view's title is
+  # the tab's: while it assigned one, every tab on the site read "Dispatch"
+  # as soon as its socket connected.
+  test "the site-wide overlay leaves the tab's title to the page it sits on", %{conn: conn} do
+    {:ok, view, _html} = live_isolated(conn, WebWeb.NewsletterOverlayLive)
+
+    refute Map.has_key?(:sys.get_state(view.pid).socket.assigns, :page_title)
+    assert page_title(view) in [nil, ""]
+
+    render_click(view, "open_dispatch")
+    assert page_title(view) in [nil, ""]
+  end
+
+  test "the newsletter's own page is still titled Dispatch, and no other page is", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/newsletter")
+    assert page_title(view) == "Dispatch"
+
+    for path <- ["/blog", "/guestbook", "/about"] do
+      html = conn |> get(path) |> html_response(200)
+      [_, title] = Regex.run(~r|<title[^>]*>(.*?)</title>|s, html)
+      refute String.trim(title) == "Dispatch", "#{path} is titled Dispatch"
+    end
+  end
+
   test "the captcha is regenerated after a failed attempt, so an answer cannot be replayed",
        %{conn: conn} do
     {:ok, view, _html} = live(conn, "/newsletter")

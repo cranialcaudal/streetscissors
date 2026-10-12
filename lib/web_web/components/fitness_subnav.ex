@@ -1,8 +1,10 @@
 defmodule WebWeb.FitnessSubnav do
   @moduledoc """
   The fitness section's tab row (Regimen / Wiki / Activities),
-  shared by every fitness LiveView. The current page's own tab is omitted,
-  matching the section's original navigation convention.
+  shared by every fitness LiveView. All three are always shown, in this order,
+  with the page being looked at marked: while the current page's own tab was
+  left out, each page showed a different pair and a first visitor could not
+  tell what the section held.
 
   The Kitchen is **not** in this list. It moved to an unlisted /food and is the
   one fitness page nothing is allowed to link to — putting it back here is all
@@ -26,10 +28,11 @@ defmodule WebWeb.FitnessSubnav do
       class="bento-fitness-sub-row"
       style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;"
     >
-      <%= for {key, href, label} <- @tabs, key != @active do %>
+      <%= for {key, href, label} <- @tabs do %>
         <a
           href={href}
-          class="bento-card bento-card-skinny"
+          class={["bento-card bento-card-skinny", key == @active && "is-current"]}
+          aria-current={key == @active && "page"}
           style="flex: 1; min-width: 130px; text-align: center; padding: 1rem; background: rgba(23, 20, 15, 0.05); border: 1px solid rgba(23, 20, 15, 0.1); border-radius: 12px; text-decoration: none;"
         >
           <span

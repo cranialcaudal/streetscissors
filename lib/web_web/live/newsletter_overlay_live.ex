@@ -10,7 +10,6 @@ defmodule WebWeb.NewsletterOverlayLive do
 
     {:ok,
      assign(socket,
-       page_title: "Dispatch",
        newsletter_form: to_form(%{"email" => ""}),
        contact_form: to_form(changeset),
        # connect_info is readable only during mount, so the rate limiter's key

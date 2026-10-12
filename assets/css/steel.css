@@ -562,3 +562,12 @@
     border-top: 1px solid var(--rule);
   }
 }
+
+/* The fitness tabs: the page being looked at is the one in solid ink. */
+.steel .bento-fitness-sub-row .bento-card-skinny.is-current {
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+}
+.steel .bento-fitness-sub-row .bento-card-skinny.is-current .bento-label-small {
+  color: var(--paper) !important;
+}
