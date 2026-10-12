@@ -180,11 +180,18 @@ defmodule WebWeb.FaithHTML do
   attr :lines, :boolean, default: false, doc: "one verse to a line, for psalms and canticles"
 
   def passage(assigns) do
+    assigns =
+      assign(assigns, :cite, (assigns.passage && assigns.passage.citation) || assigns.citation)
+
     ~H"""
     <section class="faith-passage">
       <h3 class="faith-passage-head">
-        <span :if={@label} class="faith-passage-label">{@label}</span>
-        <span class="faith-passage-cite">{(@passage && @passage.citation) || @citation}</span>
+        <%!-- "Psalm" over "Psalm 117" said the word twice: the label is kept
+              for what the citation does not already name. --%>
+        <span :if={@label && !String.starts_with?(@cite, @label)} class="faith-passage-label">
+          {@label}
+        </span>
+        <span class="faith-passage-cite">{@cite}</span>
       </h3>
       <%= if @passage do %>
         <p class={["faith-verses", @lines && "faith-verses--lines"]}>
