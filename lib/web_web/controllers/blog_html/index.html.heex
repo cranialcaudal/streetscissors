@@ -1,6 +1,6 @@
 <div class="blog-bento-wrapper writing">
   <header class="writing-masthead">
-    <h1 class="writing-title">Written Work</h1>
+    <h1 class="writing-title">Blog</h1>
     <p class="writing-bio">
       Notes, essays, and photographs from the streetscissors darkroom.
       Spoken pieces live in the <a href={~p"/logs"}>captain's logs</a>.
@@ -25,7 +25,7 @@
           class={["writing-chip", @sort == "witnessed" && "is-active"]}
           aria-current={@sort == "witnessed" && "true"}
         >
-          Most Witnessed
+          Most viewed
         </a>
       </div>
     </div>
@@ -78,7 +78,7 @@
       </div>
     <% [lead | rest] -> %>
       <%!-- The first post in the current sort and filter is set like a lead
-            article — under Most Witnessed that is the most-read piece. --%>
+            article — under Most viewed that is the most-read piece. --%>
       <article class="writing-lead">
         <.post_meta post={lead} />
         <h2 class="writing-lead-title">

@@ -6,9 +6,9 @@ defmodule WebWeb.NavigationTest do
   describe "return_context/1" do
     # The blog's masthead is "Written Work"; its back link used to say the
     # site's name instead, which the logo beside it already says.
-    test "every blog-family token returns to written work" do
+    test "every blog-family token returns to the blog" do
       for from <- ~w[blog latent-sensus sensus another-blog reflections sports-blog] do
-        assert Navigation.return_context(from) == {"/blog", "return to written work"}
+        assert Navigation.return_context(from) == {"/blog", "return to blog"}
       end
     end
 
@@ -18,10 +18,10 @@ defmodule WebWeb.NavigationTest do
     end
   end
 
-  test "a post's back control names written work", %{conn: conn} do
+  test "a post's back control names the blog", %{conn: conn} do
     html = conn |> get(~p"/blog/frontmatter-and-embeds") |> html_response(200)
 
-    assert html =~ ~s(aria-label="Back to written work")
+    assert html =~ ~s(aria-label="Back to blog")
     refute html =~ "return to streetscissors"
   end
 end

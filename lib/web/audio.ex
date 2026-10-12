@@ -23,6 +23,27 @@ defmodule Web.Audio do
   end
 
   @doc """
+  An entry's number among its day's, as it is shown: "02" for a day's second
+  recording as `Log.ordinal/1` gives it, and "01" for the first **when the
+  day has a second**, so the two can be told apart. nil for a day's only one.
+  """
+  def entry_number(%Log{} = log) do
+    case Log.ordinal(log) do
+      nil ->
+        others =
+          Repo.aggregate(
+            from(l in Log, where: l.recorded_on == ^log.recorded_on and l.id != ^log.id),
+            :count
+          )
+
+        if others > 0, do: "01"
+
+      said ->
+        said
+    end
+  end
+
+  @doc """
   How many logs sit at each transcode status, plus `"draft"` for the
   unpublished ones — the admin's overview reads its queue off this.
   Statuses with no logs are absent rather than zero.

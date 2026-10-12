@@ -157,16 +157,13 @@ defmodule WebWeb.LogsLive.Index do
     <div class="logs-wrapper nx01">
       <article class="console-frame">
         <div class="console-rail">
-          <span class="rail-tag">NX-01</span>
+          <span class="rail-tag" title="The section's console is styled after a ship's">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
-          <span :if={@visible_logs != []} class="rail-readout">
-            {length(@visible_logs)} on file
-          </span>
         </div>
 
         <header class="console-head">
           <h1 class="logs-title">Captain's Logs</h1>
-          <p class="logs-bio">Recorded under way</p>
+          <p class="logs-bio" title="Recorded as things happen, not afterwards">Recorded under way</p>
         </header>
 
         <dl class="status-strip">
@@ -240,7 +237,9 @@ defmodule WebWeb.LogsLive.Index do
 
         <section :if={length(@visible_logs) > 1} class="log-feed" aria-label="The archive">
           <h2 class="log-feed-head">
-            The archive <span class="log-feed-count">{length(@visible_logs)}</span>
+            <%!-- the count is of the cards below; the entry in the theater is
+                  counted with the rest under "Entries" above --%>
+            The archive <span class="log-feed-count">{length(@visible_logs) - 1}</span>
           </h2>
           <LogEntry.card
             :for={log <- Enum.drop(@visible_logs, 1)}

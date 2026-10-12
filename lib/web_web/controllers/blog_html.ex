@@ -10,7 +10,7 @@ defmodule WebWeb.BlogHTML do
   """
   def blog_query(sort, keyword) do
     params =
-      [{"sort", if(sort == "witnessed", do: "witnessed")}, {"keyword", keyword}]
+      [{"sort", if(sort == "witnessed", do: "viewed")}, {"keyword", keyword}]
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
     if params == [], do: "/blog", else: "/blog?" <> URI.encode_query(params)
@@ -88,7 +88,7 @@ defmodule WebWeb.BlogHTML do
   defp result_text(count, keyword, sort) do
     noun = if count == 1, do: "1 post", else: "#{count} posts"
     filter = if keyword, do: " filed under #{keyword}", else: ""
-    order = if sort == "witnessed", do: "most witnessed first", else: "newest first"
+    order = if sort == "witnessed", do: "most viewed first", else: "newest first"
 
     "Showing #{noun}#{filter}, #{order}"
   end
@@ -98,5 +98,7 @@ defmodule WebWeb.BlogHTML do
   def contents_figure(post, _sort), do: "#{post.read_min} min"
 
   # Witnesses, not page loads — the same word, and the same count, as the logs.
-  defp witnessed(count), do: "#{count} witnessed"
+  # A reader sees "views", as on the logs; what is counted is still people.
+  defp witnessed(1), do: "1 view"
+  defp witnessed(count), do: "#{count} views"
 end

@@ -80,8 +80,9 @@
 /* Every post, log and activity carries its date in a meta line styled by
    its own section; wrapped in this, the date links to /day/:date and keeps
    the meta line's ink, with a dotted rule to say it can be pressed. */
+/* A date that leads to its day wears the link colour, or nobody finds it. */
 .day-link {
-  color: inherit;
+  color: var(--accent-ink);
   text-decoration: underline dotted;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;

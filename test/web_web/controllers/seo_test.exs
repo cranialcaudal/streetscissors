@@ -215,14 +215,14 @@ defmodule WebWeb.SEOTest do
       assert html =~ ~s("@type":"BlogPosting")
       assert html =~ ~s("headline":"Fixture Post With Frontmatter")
       assert html =~ ~s("@type":"BreadcrumbList")
-      assert html =~ ~s("name":"Writing")
+      assert html =~ ~s("name":"Blog")
     end
 
     test "blog index includes BreadcrumbList", %{conn: conn} do
       html = conn |> get(~p"/blog") |> html_response(200)
 
       assert html =~ ~s("@type":"BreadcrumbList")
-      assert html =~ ~s("name":"Writing")
+      assert html =~ ~s("name":"Blog")
     end
   end
 

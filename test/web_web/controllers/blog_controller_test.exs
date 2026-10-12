@@ -85,11 +85,11 @@ defmodule WebWeb.BlogControllerTest do
 
       assert [lead_html] = Regex.run(~r{<article class="writing-lead">.*?</article>}s, html)
       assert lead_html =~ "Fixture Post With Frontmatter"
-      assert lead_html =~ "3 witnessed"
+      assert lead_html =~ "3 views"
 
       # The contents column follows the sort: witnesses, not read time.
       assert html =~ "More"
-      assert html =~ "0 witnessed"
+      assert html =~ "0 views"
     end
   end
 
@@ -111,8 +111,8 @@ defmodule WebWeb.BlogControllerTest do
     test "clearing a filter keeps the sort", %{conn: conn} do
       html = conn |> get(~p"/blog?sort=witnessed&keyword=film") |> html_response(200)
 
-      assert html =~ "most witnessed first"
-      assert html =~ ~s(<a href="/blog?sort=witnessed" class="writing-clear">)
+      assert html =~ "most viewed first"
+      assert html =~ ~s(<a href="/blog?sort=viewed" class="writing-clear">)
     end
   end
 
@@ -166,17 +166,17 @@ defmodule WebWeb.BlogControllerTest do
 
       assert html =~ "Sort by"
       assert html =~ "Most Recent"
-      assert html =~ "Most Witnessed"
+      assert html =~ "Most viewed"
       refute html =~ "Least Read"
     end
 
     test "the sort keeps an active keyword filter", %{conn: conn} do
       html = conn |> get(~p"/blog?keyword=film") |> html_response(200)
-      assert html =~ "sort=witnessed&amp;keyword=film"
+      assert html =~ "sort=viewed&amp;keyword=film"
     end
 
     test "?sort=witnessed renders without error", %{conn: conn} do
-      assert conn |> get(~p"/blog?sort=witnessed") |> html_response(200) =~ "Most Witnessed"
+      assert conn |> get(~p"/blog?sort=witnessed") |> html_response(200) =~ "Most viewed"
     end
   end
 

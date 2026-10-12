@@ -22,10 +22,10 @@ defmodule WebWeb.BlogController do
       |> sort_posts(sort)
 
     {return_to, return_label} = return_context(params["from"])
-    crumbs = [{"Home", ~p"/"}, {"Writing", ~p"/blog"}]
+    crumbs = [{"Home", ~p"/"}, {"Blog", ~p"/blog"}]
 
     conn
-    |> assign(:page_title, "Writing")
+    |> assign(:page_title, "Blog")
     |> assign(:og_description, "Notes, essays and photographs from the streetscissors darkroom.")
     |> assign(:canonical_path, ~p"/blog")
     |> assign(:keyword_feed, keyword && ~p"/feed?keyword=#{keyword}")
@@ -90,7 +90,7 @@ defmodule WebWeb.BlogController do
           |> Map.put(:hit_count, Map.get(hit_counts(), Keywords.slugify(slug), 0))
 
         {return_to, return_label} = return_context(params["from"] || "blog")
-        crumbs = [{"Home", ~p"/"}, {"Writing", ~p"/blog"}, {post.title, ~p"/blog/#{post.slug}"}]
+        crumbs = [{"Home", ~p"/"}, {"Blog", ~p"/blog"}, {post.title, ~p"/blog/#{post.slug}"}]
 
         json_ld = [
           SEO.article_json_ld(post),
@@ -134,6 +134,8 @@ defmodule WebWeb.BlogController do
   end
 
   defp parse_sort("witnessed"), do: "witnessed"
+  # the word a reader sees; the older address still answers
+  defp parse_sort("viewed"), do: "witnessed"
   defp parse_sort(_), do: "recent"
 
   # list_posts/0 already returns newest first, so "recent" is the identity.

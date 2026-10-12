@@ -504,7 +504,7 @@ defmodule WebWeb.CoreComponents do
   def site_sections(assigns) do
     ~H"""
     <nav class="site-sections" aria-label="Sections">
-      <a href="/blog">Written work</a>
+      <a href="/blog">Blog</a>
       <a href="/logs">Captain's logs</a>
       <a href="/negatives">Photographs</a>
       <a href="/fitness">Fitness</a>

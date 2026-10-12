@@ -53,8 +53,9 @@ defmodule WebWeb.LogsLiveTest do
 
       # Featured: the only plate on the page.
       assert html =~ ~s(id="log-plate-#{newest.id}")
-      # The count in the readout accounts for every entry, featured included.
-      assert has_element?(view, ".log-feed-count", "3")
+      # The count is of the cards listed under it: the featured entry is in
+      # the theater, not among them. (It counted all three until 2026-10-12.)
+      assert has_element?(view, ".log-feed-count", "2")
     end
 
     test "an entry leads to the one before it and the one after, and says which of a day's it is",

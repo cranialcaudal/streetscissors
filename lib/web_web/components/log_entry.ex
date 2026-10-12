@@ -35,9 +35,9 @@ defmodule WebWeb.LogEntry do
           {Calendar.strftime(@log.recorded_on, "%a %-d %b %Y")}
         </time>
       </.link>
-      <span :if={Log.ordinal(@log)} class="log-meta-dot" aria-hidden="true">•</span>
-      <span :if={Log.ordinal(@log)} class="log-ordinal">
-        Entry {Log.ordinal(@log)}
+      <span :if={Web.Audio.entry_number(@log)} class="log-meta-dot" aria-hidden="true">•</span>
+      <span :if={Web.Audio.entry_number(@log)} class="log-ordinal">
+        Entry {Web.Audio.entry_number(@log)}
       </span>
     </p>
     """
@@ -321,7 +321,9 @@ defmodule WebWeb.LogEntry do
       </span>
       <span class="log-card-body">
         <span class="log-card-title">{title(@log)}</span>
-        <span :if={Log.ordinal(@log)} class="log-card-ordinal">Entry {Log.ordinal(@log)}</span>
+        <span :if={Web.Audio.entry_number(@log)} class="log-card-ordinal">
+          Entry {Web.Audio.entry_number(@log)}
+        </span>
         <span :if={presence(@log.caption)} class="log-card-caption">{@log.caption}</span>
         <span class="log-card-stats">{kind_label(@log)} · {views_label(@plays)}</span>
       </span>

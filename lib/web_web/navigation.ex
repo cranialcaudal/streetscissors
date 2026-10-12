@@ -17,17 +17,17 @@ defmodule WebWeb.Navigation do
   @spec return_context(String.t() | nil) :: {String.t(), String.t()}
   def return_context(from) do
     case from do
-      # The blog's masthead is "Written Work", so its back link says so — not
-      # the site's name, which is already the logo beside it.
-      "blog" -> {"/blog", "return to written work"}
+      # The blog is called "Blog" wherever a reader meets it (the homepage
+      # tile, its heading, the section bar), so its back link says so too.
+      "blog" -> {"/blog", "return to blog"}
       "logs" -> {"/logs", "return to captain's logs"}
-      "latent-sensus" -> {"/blog", "return to written work"}
-      "sensus" -> {"/blog", "return to written work"}
-      "another-blog" -> {"/blog", "return to written work"}
-      "reflections" -> {"/blog", "return to written work"}
+      "latent-sensus" -> {"/blog", "return to blog"}
+      "sensus" -> {"/blog", "return to blog"}
+      "another-blog" -> {"/blog", "return to blog"}
+      "reflections" -> {"/blog", "return to blog"}
       "fitness" -> {"/fitness", "return to fitness"}
       "fitness-blog" -> {"/fitness", "return to fitness"}
-      "sports-blog" -> {"/blog", "return to written work"}
+      "sports-blog" -> {"/blog", "return to blog"}
       _ -> {"/", "return to homepage"}
     end
   end

@@ -39,8 +39,8 @@ defmodule WebWeb.LogsLive.Show do
      # two recordings of one day share a title: the tab says which this is
      |> assign(
        :page_title,
-       if(Log.ordinal(log),
-         do: "#{Log.title(log)} · Entry #{Log.ordinal(log)}",
+       if(Web.Audio.entry_number(log),
+         do: "#{Log.title(log)} · Entry #{Web.Audio.entry_number(log)}",
          else: Log.title(log)
        )
      )
@@ -90,7 +90,7 @@ defmodule WebWeb.LogsLive.Show do
       <article class="console-frame h-entry">
         <WebWeb.Microformats.entry_fields path={~p"/logs/#{@log.slug}"} />
         <div class="console-rail">
-          <span class="rail-tag">NX-01</span>
+          <span class="rail-tag" title="The section's console is styled after a ship's">NX-01</span>
           <span class="rail-hazard" aria-hidden="true"></span>
           <span class="rail-readout">Log {@log.slug}</span>
         </div>
