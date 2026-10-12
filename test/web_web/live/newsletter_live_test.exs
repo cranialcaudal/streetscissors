@@ -91,9 +91,21 @@ defmodule WebWeb.NewsletterLiveTest do
     assert page_title(view) in [nil, ""]
   end
 
-  test "the newsletter's own page is still titled Dispatch, and no other page is", %{conn: conn} do
+  test "the newsletter's own page is titled Newsletter, and no page is titled Dispatch", %{
+    conn: conn
+  } do
     {:ok, view, _html} = live(conn, "/newsletter")
-    assert page_title(view) == "Dispatch"
+    assert page_title(view) == "Newsletter"
+
+    # Closing the panel used to leave a blank page. There is a page behind
+    # it now, and it can bring the panel back.
+    assert has_element?(view, "main.newsletter-page h1", "Newsletter")
+    assert has_element?(view, ".dispatch-overlay")
+    render_click(view, "close_dispatch")
+    refute has_element?(view, ".dispatch-overlay")
+    assert has_element?(view, "main.newsletter-page h1", "Newsletter")
+    view |> element(~s(button[phx-value-tab="contact"].newsletter-way)) |> render_click()
+    assert has_element?(view, ".dispatch-overlay")
 
     for path <- ["/blog", "/guestbook", "/about"] do
       html = conn |> get(path) |> html_response(200)

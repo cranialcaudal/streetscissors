@@ -13,7 +13,7 @@ defmodule WebWeb.PageHTML do
   deploy of 2026-10-11, the first with the whole revamp live; the second
   number goes up with each deploy that changes what a visitor sees.
   """
-  def beta, do: "1.0"
+  def beta, do: "1.1"
 
   # The splash is set in the block game's own lettering, which is a bitmap:
   # each letter a few pixels on a grid seven high. They are drawn here as

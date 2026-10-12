@@ -149,3 +149,55 @@ a {
     width: 1.1rem;
     height: 1.1rem;
 }
+
+/* The newsletter's own page, behind its panel: what it is, and two ways in. */
+.newsletter-page {
+    max-width: 38rem;
+    margin: 4rem auto;
+    padding: 0 1.25rem;
+    text-align: center;
+}
+.newsletter-title {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 400;
+    margin: 0;
+    color: var(--ink);
+}
+.newsletter-kicker {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0.4rem 0 1.5rem;
+}
+.newsletter-lede {
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    color: var(--ink-2);
+    margin: 0 0 2rem;
+}
+.newsletter-ways {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+}
+.newsletter-way {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.8rem 1.4rem;
+    min-height: 44px;
+    color: var(--accent-ink);
+    background: var(--paper-raised);
+    border: 1px solid var(--accent-ink);
+    cursor: pointer;
+}
+.newsletter-way:hover,
+.newsletter-way:focus-visible {
+    color: var(--paper);
+    background: var(--accent-ink);
+}
