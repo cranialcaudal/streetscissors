@@ -153,6 +153,21 @@ defmodule WebWeb.LogsLiveTest do
       assert_patched(view, "/logs?sort=viewed")
     end
 
+    test "the index offers the feed once, and the running time sits on the featured plate",
+         %{conn: conn} do
+      log_fixture(recorded_on: ~D[2026-09-17], duration: 61)
+      log_fixture(recorded_on: ~D[2026-09-18], duration: 252)
+
+      {:ok, view, html} = live(conn, "/logs")
+
+      # (the layout's own <link rel="alternate"> is a second href, so count
+      # the visible links in the page body)
+      assert count(html, ~s(href="/feed" class)) == 1
+      assert has_element?(view, ~s(.console-bank a[href="/feed"]), "Follow by RSS")
+      assert has_element?(view, ".log-plate .log-plate-length", "4:12")
+      assert count(html, "log-plate-length") == 1
+    end
+
     test "sorting by most viewed orders on view count", %{conn: conn} do
       quiet = log_fixture(recorded_on: ~D[2026-09-18], caption: "Quiet")
       loud = log_fixture(recorded_on: ~D[2026-09-17], caption: "Loud")
@@ -242,6 +257,36 @@ defmodule WebWeb.LogsLiveTest do
 
     test "an unknown slug 404s", %{conn: conn} do
       assert_raise Ecto.NoResultsError, fn -> live(conn, "/logs/2026-01-01") end
+    end
+
+    test "the plate shows the running time before it plays", %{conn: conn} do
+      log = log_fixture(duration: 252)
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+
+      assert has_element?(view, "#log-plate-#{log.id} .log-plate-length", "4:12")
+    end
+
+    test "an entry with no known length shows no running time on the plate", %{conn: conn} do
+      log = log_fixture(duration: nil)
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+
+      refute has_element?(view, ".log-plate-length")
+    end
+
+    test "the page offers the file to keep and the feed to follow", %{conn: conn} do
+      log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
+
+      {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
+
+      assert has_element?(
+               view,
+               ~s(.log-keep a[download][href="/uploads/logs/2026-09-18-abc12345/video.mp4"]),
+               "Download"
+             )
+
+      assert has_element?(view, ~s(.log-keep a[href="/feed"]), "Follow by RSS")
     end
 
     test "the player is handed one MP4 but told to preload nothing", %{conn: conn} do

@@ -127,6 +127,7 @@ defmodule Web.Bible do
         {c, v, text}
       end
     end)
+    |> Enum.uniq_by(fn {c, v, _} -> {c, v} end)
   end
 
   defp index do

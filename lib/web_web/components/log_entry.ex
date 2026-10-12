@@ -139,6 +139,13 @@ defmodule WebWeb.LogEntry do
         </div>
       </div>
 
+      <%!-- The running time, before it plays: the plate says how long an
+            entry is without anyone pressing anything. CSS drops it once the
+            plate is playing. --%>
+      <span :if={@src && format_duration(@log.duration)} class="log-plate-length">
+        {format_duration(@log.duration)}
+      </span>
+
       <p :if={is_nil(@src)} class="log-plate-pending">Still processing</p>
     </div>
 

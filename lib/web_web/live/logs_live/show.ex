@@ -141,6 +141,19 @@ defmodule WebWeb.LogsLive.Show do
             Later entry ›
           </.link>
         </nav>
+
+        <%!-- Keeping or following a log: the file itself, and the feed. --%>
+        <p class="log-keep">
+          <a
+            :if={Log.media_url(@log)}
+            href={Log.media_url(@log)}
+            download
+            class="console-follow log-keep-link"
+          >
+            Download
+          </a>
+          <a href="/feed" class="console-follow log-keep-link">Follow by RSS</a>
+        </p>
       </article>
 
       <%!-- Letters about this log, and the sites that cite it. --%>

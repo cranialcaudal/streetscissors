@@ -145,6 +145,17 @@ defmodule WebWeb.FaithControllerTest do
     assert html =~ ~s(href="/Christ/bible/luke/10#v38")
   end
 
+  test "a shorter form of a reading is folded under the longer, not printed again", %{conn: conn} do
+    html = conn |> get(~p"/Christ/readings?date=2026-10-11") |> html_response(200)
+
+    assert html =~ "Matthew 22:1-14"
+    assert length(Regex.scan(~r/<sup class="faith-verse-n">1<\/sup>/, html)) == 3
+    assert [_, folded] = String.split(html, ~r/<details class="faith-known">/, parts: 2)
+    assert folded =~ "Shorter form"
+    assert folded =~ "Matthew 22:1-10"
+    refute String.contains?(hd(String.split(html, "Shorter form")), "Matthew 22:1-10")
+  end
+
   test "the readings say so on a day only Carmel keeps", %{conn: conn} do
     html = conn |> get(~p"/Christ/readings?date=2026-07-16") |> html_response(200)
 

@@ -308,7 +308,7 @@ defmodule WebWeb.FaithController do
             Map.put(reading, :passage, passage(reading.citation, psalm_opts(reading)))
           end
 
-        %{mass | readings: readings}
+        %{mass | readings: fold_shorter(readings)}
       end
 
     summary =
@@ -329,6 +329,32 @@ defmodule WebWeb.FaithController do
       usa_day: Calendar.day(date, calendar: :usa)
     }
   end
+
+  # The lectionary lists a longer and a shorter form of one reading as two
+  # entries of the same kind. When the second is wholly inside the one before
+  # it, it is kept under that one as `:shorter` and not printed again.
+  defp fold_shorter(readings) do
+    readings
+    |> Enum.reduce([], fn reading, acc ->
+      case acc do
+        [prev | rest] when prev.kind == reading.kind and not is_map_key(prev, :shorter) ->
+          if inside?(reading.passage, prev.passage),
+            do: [Map.put(prev, :shorter, reading) | rest],
+            else: [reading | acc]
+
+        _ ->
+          [reading | acc]
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  defp inside?(%{verses: shorter}, %{verses: longer}) do
+    verses = MapSet.new(longer, fn {c, v, _} -> {c, v} end)
+    Enum.all?(shorter, fn {c, v, _} -> MapSet.member?(verses, {c, v}) end)
+  end
+
+  defp inside?(_shorter, _longer), do: false
 
   defp psalm_opts(%{psalm: true}), do: [default: "psalms"]
   defp psalm_opts(_reading), do: []

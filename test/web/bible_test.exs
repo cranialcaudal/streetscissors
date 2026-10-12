@@ -6,6 +6,15 @@ defmodule Web.BibleTest do
 
   doctest Web.Bible.Citation
 
+  test "overlapping ranges print each verse once, in order" do
+    assert {:ok, %{verses: verses}} = Bible.passage("Ps 23:1-3, 3-4")
+
+    assert Enum.map(verses, fn {c, v, _} -> {c, v} end) ==
+             Enum.uniq(Enum.map(verses, fn {c, v, _} -> {c, v} end))
+
+    assert length(verses) == 4
+  end
+
   describe "the hosted text" do
     test "is the whole Catholic canon" do
       books = Bible.books()

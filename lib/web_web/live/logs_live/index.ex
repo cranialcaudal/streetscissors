@@ -200,6 +200,7 @@ defmodule WebWeb.LogsLive.Index do
           >
             Most viewed
           </.link>
+          <a href="/feed" class="console-follow">Follow by RSS</a>
         </nav>
 
         <nav :if={@keywords != []} class="console-bank" aria-label="Filter by keyword">

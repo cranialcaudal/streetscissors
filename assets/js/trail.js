@@ -163,7 +163,34 @@ const leave = (link) => {
   write(trail)
 }
 
-const short = (text) => (text.length > 22 ? text.slice(0, 21).trimEnd() + "…" : text)
+// A page's title can be a sentence, or an old name ("Dispatch"); a back button
+// should say where it goes in a word or two. For those, name the section the
+// page belongs to, read off its path.
+const SECTIONS = [
+  [/^\/(blog)(\/|$)/, "Blog"],
+  [/^\/logs(\/|$)/, "Captain's logs"],
+  [/^\/(negatives|archive)(\/|$)/, "Photographs"],
+  [/^\/fitness(\/|$)/, "Fitness"],
+  [/^\/(daybook|day)(\/|$)/, "Daybook"],
+  [/^\/Christ(\/|$)/, "Prayer"],
+  [/^\/about\/?$/, "About"],
+  [/^\/guestbook\/?$/, "Guestbook"],
+  [/^\/how-to\/?$/, "Manual"],
+  [/^\/search\/?$/, "Search"],
+]
+
+const section = (url) => {
+  const path = (url || "").split(/[?#]/)[0]
+  for (const [pattern, name] of SECTIONS) if (pattern.test(path)) return name
+  return "Back"
+}
+
+const words = (before) => {
+  const path = (before.url || "").split(/[?#]/)[0]
+  if (path === "/") return "Home"
+  if (before.title.length > 18 || before.title === "Dispatch") return section(before.url)
+  return before.title
+}
 
 // The control says where it goes.
 const label = (trail) => {
@@ -171,7 +198,7 @@ const label = (trail) => {
   const before = up(location.pathname) || trail[trail.length - 2]
   if (!link || !before || !before.title) return
   const text = link.querySelector(".header-action-label")
-  if (text) text.textContent = short(before.title)
+  if (text) text.textContent = words(before)
   link.setAttribute("aria-label", `Back to ${before.title}`)
 }
 

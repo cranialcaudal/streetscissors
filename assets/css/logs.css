@@ -493,6 +493,36 @@
 .log-plate.is-error .log-play { display: none; }
 .log-plate.log--video.is-playing .log-poster { display: none; }
 
+/* The running time on the plate, stamped like the card's slate. It steps
+   aside once the plate plays, and while an error panel is up. */
+.log-plate-length {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(5, 7, 8, 0.82);
+  border: 1px solid var(--rule);
+  pointer-events: none;
+}
+
+.log-plate.is-playing .log-plate-length,
+.log-plate.is-loading .log-plate-length,
+.log-plate.is-error .log-plate-length { display: none; }
+
+.log-keep {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 1rem 1.75rem 0;
+}
+
+.log-keep .console-follow { margin-left: 0; }
+
 .log-plate-pending {
   position: absolute;
   inset: auto 0 0 0;

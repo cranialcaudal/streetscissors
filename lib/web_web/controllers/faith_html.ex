@@ -315,13 +315,22 @@ defmodule WebWeb.FaithHTML do
     </p>
     <div :for={mass <- @masses} class="faith-office">
       <h3 :if={mass.name} class="faith-mass-name">{mass.name}</h3>
-      <.passage
-        :for={reading <- mass.readings}
-        passage={reading.passage}
-        citation={reading.citation}
-        label={reading.label}
-        lines={reading.psalm}
-      />
+      <%= for reading <- mass.readings do %>
+        <.passage
+          passage={reading.passage}
+          citation={reading.citation}
+          label={reading.label}
+          lines={reading.psalm}
+        />
+        <.known :if={reading[:shorter]} title="Shorter form">
+          <.passage
+            passage={reading.shorter.passage}
+            citation={reading.shorter.citation}
+            label={reading.shorter.label}
+            lines={reading.shorter.psalm}
+          />
+        </.known>
+      <% end %>
     </div>
     <p class="faith-colophon">
       The passages are those the lectionary appoints; the wording is that of the Bible hosted here, not the translation read in church. Where the lectionary cites part of a verse, the whole verse is given.
