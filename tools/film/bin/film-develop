@@ -1540,6 +1540,120 @@ def frames_by_gaps(trace, start, end, frame_mm=FRAME_35MM):
     return runs
 
 
+def picture_runs(rows, start, end):
+    """The stretches of a strip that are not bare film: [(lo, hi)], each at
+    least 3 mm long. `rows` marks a bare line with a value over 128."""
+    mm = STRIP_DPI / 25.4
+    runs, i = [], start
+    while i < end:
+        j = i
+        while j < end and rows[j] <= 128:
+            j += 1
+        if j - i >= 3 * mm:
+            runs.append((i, j))
+        i = max(j, i + 1)
+    return runs
+
+
+def frames_miss(spans, rows, start, end):
+    """How badly a set of frames fits the film it was laid on, in mm, as
+    (missed, taken): the length of picture left outside every frame, and the
+    length of bare film taken inside one (a millimetre at each frame's ends
+    is nobody's fault). Only `missed` says a layout is wrong: thin film
+    reads as bare all through its pictures, so `taken` is large on a strip
+    laid perfectly (roll 055, strip 2) and is used only to choose between
+    two layouts that miss the same."""
+    mm = STRIP_DPI / 25.4
+    slack = int(round(mm))
+    inside = [False] * (end + 1)
+    for lo, hi in spans:
+        for i in range(max(start, lo - slack), min(end, hi + slack)):
+            inside[i] = True
+    missed = sum(1 for lo, hi in picture_runs(rows, start, end)
+                 for i in range(lo, hi) if not inside[i])
+    taken = sum(1 for lo, hi in spans
+                for i in range(max(start, lo + slack), min(end, hi - slack)) if rows[i] > 128)
+    return missed / mm, taken / mm
+
+
+def frames_by_runs(rows, start, end, pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
+    """Frames laid on the pictures themselves: each stretch that is not bare
+    holds as many frames as its length makes, set evenly along it. It knows
+    nothing of the camera's spacing from one stretch to the next, which is
+    its use: a blank frame, a double wind or a short first frame throws a
+    grid out for the rest of the strip and does not trouble this."""
+    mm = STRIP_DPI / 25.4
+    frame = (pitch_mm - gap_mm) * mm
+    spans = []
+    for lo, hi in picture_runs(rows, start, end):
+        if hi - lo < 0.5 * frame:
+            continue
+        n = max(1, int(round((hi - lo + gap_mm * mm) / (pitch_mm * mm))))
+        each = (hi - lo) / float(n)
+        for k in range(n):
+            a = lo + k * each + (gap_mm * mm / 2 if n > 1 else 0)
+            b = lo + (k + 1) * each - (gap_mm * mm / 2 if n > 1 else 0)
+            b = min(b, a + frame + 2 * mm)
+            spans.append((int(round(a)), int(round(b))))
+    return spans
+
+
+def retry_frames(regions, rows, trace, start, end, w, h, vertical,
+                 pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
+    """Look at where the frames were put, and lay them again another way if
+    pictures were left out: (regions, how), `how` None when the first laying
+    stands.
+
+    The finders each trust something (a grid, a template, a walk from the
+    plainest frame) and each can be led off by one odd frame. None of them
+    looked at its own answer. This does: a third of a frame of picture left
+    outside every frame, or of bare film taken inside them, means the layout
+    is wrong, and every other way of laying the strip is tried and the one
+    that leaves least out is kept, if it is better by a good margin.
+    """
+    mm = STRIP_DPI / 25.4
+    frame = (pitch_mm - gap_mm) * mm
+    axis = 1 if vertical else 0
+    spans = [(r[axis], r[axis] + r[axis + 2]) for r in regions]
+    first, first_taken = frames_miss(spans, rows, start, end)
+    if first < 12.0:
+        return regions, None
+    tries = {}
+    g_first, g_pitch, g_found = grid_35mm(rows, start, end, True, pitch_mm, gap_mm)
+    for name, (at, pitch, ok) in (("grid", (g_first, g_pitch, g_found)),
+                                  ("template", grid_by_template(trace, start, end, False, pitch_mm, gap_mm))):
+        if ok:
+            starts, x = [], at - pitch * math.ceil((at - start) / pitch + 1)
+            while x < end:
+                if min(x + pitch, end) - max(x, start) >= MIN_CELL * pitch:
+                    starts.append(x + gap_mm * mm / 2)
+                x += pitch
+            starts = snap_frames(trace, start, end, starts, False, pitch_mm - gap_mm)
+            tries[name] = [(int(round(max(x, start))), int(round(min(x + frame, end)))) for x in starts]
+    seen = frames_by_gaps(trace, start, end, pitch_mm - gap_mm)
+    if seen:
+        tries["gaps"] = [(int(a), int(b)) for a, b in seen]
+    tries["runs"] = frames_by_runs(rows, start, end, pitch_mm, gap_mm)
+    best, best_taken, how = first, first_taken, None
+    for name, cand in tries.items():
+        # a layout of scraps is no layout: every frame must be near a frame long
+        if not cand or any(b - a < 0.8 * frame for a, b in cand):
+            continue
+        miss, taken = frames_miss(cand, rows, start, end)
+        if miss < first - 6.0 and (miss, taken) < (best, best_taken):
+            best, best_taken, how, spans = miss, taken, name, cand
+    if how is None:
+        return regions, None
+    clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
+    side = int(round((w if vertical else h) * SIDE_INSET))
+    out = []
+    for lo, hi in spans:
+        lo, hi = int(round(lo + clear)), int(round(hi - clear))
+        if hi - lo >= 8:
+            out.append((side, lo, w - 2 * side, hi - lo) if vertical else (lo, side, hi - lo, h - 2 * side))
+    return out, f"{how} ({first:.0f} mm out, now {best:.0f})"
+
+
 def whole_strip(start, end, pitch_mm=PITCH_35MM):
     """The pitch of a strip cut between frames at both ends, or None: its
     length is then a whole number of frames, give or take the cuts."""
@@ -2056,6 +2170,7 @@ def cmd_analyze(args):
     # First the geometry and the readings, strip by strip; the colour comes
     # after, from all of them together.
     found, profiles, mis_split, unaligned = [], [], [], []
+    relaid = {}
     for index, scan in enumerate(scans):
         w, h = dimensions(scan)
         vertical = h >= w
@@ -2089,18 +2204,24 @@ def cmd_analyze(args):
                     # read line by line like the others. (Scans made with
                     # the scanner's own program are left as they were.)
                     trace = middle_trace(scan, vertical)
-                pieces = film_on_glass.pieces if held else [(a, b)]
-                if len(pieces) > 1:
-                    # each piece of film in the slot is laid out by itself
-                    regions, aligned = [], True
-                    for pa, pb in pieces:
-                        more, ok = frames_35mm(rows, pa, pb, w, h, vertical,
-                                               True, pitch_mm, gap_mm, trace, slide)
-                        regions += more
-                        aligned = aligned and ok
-                else:
-                    regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
-                                                   bool(held), pitch_mm, gap_mm, trace, slide)
+                pieces = (film_on_glass.pieces if held else None) or [(a, b)]
+                # each piece of film in the slot is laid out by itself, and
+                # each laying is looked at and done again if it left pictures out
+                regions, aligned, again = [], True, []
+                for pa, pb in pieces:
+                    more, ok = frames_35mm(rows, pa, pb, w, h, vertical,
+                                           bool(held), pitch_mm, gap_mm, trace, slide)
+                    if held and trace is not None and not slide:
+                        more, how = retry_frames(more, rows, trace, pa, pb, w, h, vertical,
+                                                 pitch_mm, gap_mm)
+                        if how:
+                            again.append(how)
+                            ok = True
+                    regions += more
+                    aligned = aligned and ok
+                if again:
+                    relaid[os.path.basename(scan)] = "; ".join(again)
+                    print(f"      {os.path.basename(scan)}: laid again by {'; '.join(again)}")
                 refined = [aligned] * max(0, len(regions) - 1)
                 if not aligned and regions:
                     unaligned.append(os.path.basename(scan))
@@ -2243,6 +2364,9 @@ def cmd_analyze(args):
 
     if unaligned:
         doc["unaligned"] = unaligned
+    if relaid:
+        # strips whose frames were laid a second way, and why
+        doc["relaid"] = relaid
 
     if mis_split:
         hint = suggest_frame_count(profiles, max_n=per_strip)
