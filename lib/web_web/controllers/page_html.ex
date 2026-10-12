@@ -25,6 +25,13 @@ defmodule WebWeb.PageHTML do
     "t" => ~w(.1. .1. 111 .1. .1. .1. ..1),
     "a" => ~w(..... ..... .111. ....1 .1111 1...1 .1111),
     " " => ~w(... ... ... ... ... ... ...),
+    "i" => ~w(1 . 1 1 1 1 1),
+    "I" => ~w(111 .1. .1. .1. .1. .1. 111),
+    "'" => ~w(1 1 . . . . .),
+    "m" => ~w(..... ..... 11.1. 1.1.1 1.1.1 1...1 1...1),
+    "n" => ~w(..... ..... 1111. 1...1 1...1 1...1 1...1),
+    "b" => ~w(1.... 1.... 1.11. 11..1 1...1 1...1 1111.),
+    "!" => ~w(1 1 1 1 1 . 1),
     "." => ~w(. . . . . . 1),
     "0" => ~w(.111. 1...1 1..11 1.1.1 11..1 1...1 .111.),
     "1" => ~w(..1.. .11.. ..1.. ..1.. ..1.. ..1.. 11111),
@@ -44,6 +51,7 @@ defmodule WebWeb.PageHTML do
   letter for are left out.
   """
   attr :text, :string, required: true
+  attr :title, :string, default: nil
 
   def beta_splash(assigns) do
     {pixels, width} =
@@ -74,6 +82,7 @@ defmodule WebWeb.PageHTML do
       aria-label={@text}
       shape-rendering="crispEdges"
     >
+      <title :if={@title}>{@title}</title>
       <path class="site-beta-shadow" transform="translate(1 1)" d={@path} />
       <path class="site-beta-face" d={@path} />
     </svg>
