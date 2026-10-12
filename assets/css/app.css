@@ -62,6 +62,9 @@
  * literal hex, so the whole press can be re-inked from this block.
  */
 :root {
+  /* the beta splash's yellow and its shadow: a certain block game's own */
+  --splash: #ffff00;
+  --splash-shadow: #3f3f00;
     /* Paper — page ground through raised panels to sunk wells */
     --paper: #f3eee4;
     --paper-raised: #fbf9f4;
