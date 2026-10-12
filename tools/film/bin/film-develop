@@ -144,6 +144,8 @@ GLASS_OVER_BASE = 0.85
 MIDDLE_INSET = 0.20
 # A run of not-glass shorter than this is the holder's shadow, not film.
 SCRAP_MM = 8.0
+# glass this long between two stretches of film means two pieces of film
+PIECE_GAP_MM = 2.5
 # A cell of the grid has to be this much on the film to be a frame; less is
 # the stub left where a strip was cut.
 MIN_CELL = 0.85
@@ -1498,6 +1500,46 @@ def snap_frames(trace, start, end, starts, darker, frame_mm=FRAME_35MM):
     return moved
 
 
+def frames_by_gaps(trace, start, end, frame_mm=FRAME_35MM):
+    """Pictures read straight off the clear film between them: [(lo, hi)], or
+    None when the strip does not show them plainly.
+
+    A camera that winds unevenly, or leaves part of a frame blank, fits no
+    grid and no fixed spacing (roll 055, strip 4: a blank stretch after the
+    first frame put every later frame half a frame out). Where the film
+    between the pictures is clear enough to see, nothing has to be assumed:
+    each stretch that is not bare is a picture. It is believed only when
+    every such stretch is one frame long, and there are at least two; thin
+    film, whose pictures are as bright as its gaps, is left to the others.
+    """
+    mm = STRIP_DPI / 25.4
+    seg = sorted(trace[start:end])
+    if len(seg) < 10 * mm:
+        return None
+    bare = seg[int(len(seg) * 0.985)] * 0.86
+    runs, i = [], start
+    while i < end:
+        j = i
+        while j < end and trace[j] < bare:
+            j += 1
+        if j - i >= 3 * mm:
+            if runs and i - runs[-1][1] < 0.5 * mm:
+                runs[-1] = (runs[-1][0], j)
+            else:
+                runs.append((i, j))
+        i = max(j, i + 1)
+    # a sliver at either end is the next frame's edge, cut off with the strip
+    while runs and runs[0][0] <= start + mm and runs[0][1] - runs[0][0] < 0.5 * frame_mm * mm:
+        runs.pop(0)
+    while runs and runs[-1][1] >= end - mm and runs[-1][1] - runs[-1][0] < 0.5 * frame_mm * mm:
+        runs.pop()
+    if len(runs) < 2:
+        return None
+    if any(not (frame_mm - 2.0) * mm <= b - a <= (frame_mm + 3.0) * mm for a, b in runs):
+        return None
+    return runs
+
+
 def whole_strip(start, end, pitch_mm=PITCH_35MM):
     """The pitch of a strip cut between frames at both ends, or None: its
     length is then a whole number of frames, give or take the cuts."""
@@ -1510,6 +1552,7 @@ def whole_strip(start, end, pitch_mm=PITCH_35MM):
 
 
 def film_on_glass(path, vertical, start, end, glass, slide=False):
+    film_on_glass.pieces = []
     """A strip scanned in a holder, with the glass left out: (start, end,
     rows), or None when what looked like glass is as bright as the film.
 
@@ -1545,6 +1588,18 @@ def film_on_glass(path, vertical, start, end, glass, slide=False):
     if not kept:
         return None
     a, b = kept[0][0], kept[-1][1]
+    # Two pieces of film laid end to end in one slot are two strips: each
+    # was cut and wound by itself, so one grid cannot be laid across both
+    # (roll 055: the second piece's frames were cut where the first piece's
+    # spacing fell). The pieces are kept for whoever lays the frames.
+    apart = PIECE_GAP_MM / 25.4 * STRIP_DPI
+    pieces = [list(kept[0])]
+    for r in kept[1:]:
+        if r[0] - pieces[-1][1] >= apart:
+            pieces.append(list(r))
+        else:
+            pieces[-1][1] = r[1]
+    film_on_glass.pieces = [tuple(p) for p in pieces]
 
     w, h = dimensions(path)
     if vertical:
@@ -1687,6 +1742,16 @@ def frames_35mm(rows, start, end, w, h, vertical, on_glass=False,
         if t_found:
             first, pitch, found, templated = t_first, t_pitch, True, True
         else:
+            seen = None if darker else frames_by_gaps(trace, start, end, pitch_mm - gap_mm)
+            if seen:
+                side = int(round((h if not vertical else w) * SIDE_INSET))
+                clear = EDGE_CLEAR_MM / 25.4 * STRIP_DPI
+                regions = []
+                for lo, hi in seen:
+                    lo, hi = int(round(lo + clear)), int(round(hi - clear))
+                    regions.append((side, lo, w - 2 * side, hi - lo) if vertical
+                                   else (lo, side, hi - lo, h - 2 * side))
+                return regions, True
             placed = walk_frames(trace, start, end, darker, pitch_mm - gap_mm, pitch_mm)
             if placed and cuts:
                 # A camera that winds evenly is better served by its grid: the
@@ -2018,8 +2083,24 @@ def cmd_analyze(args):
                 if held:
                     a, b, rows = held
                     trace = middle_trace(scan, vertical)
-                regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
-                                               bool(held), pitch_mm, gap_mm, trace, slide)
+                elif strip_source(scan, False) == "glass":
+                    # A strip from the scanner studio that fills its slot
+                    # shows no glass, but it is the same instrument: it is
+                    # read line by line like the others. (Scans made with
+                    # the scanner's own program are left as they were.)
+                    trace = middle_trace(scan, vertical)
+                pieces = film_on_glass.pieces if held else [(a, b)]
+                if len(pieces) > 1:
+                    # each piece of film in the slot is laid out by itself
+                    regions, aligned = [], True
+                    for pa, pb in pieces:
+                        more, ok = frames_35mm(rows, pa, pb, w, h, vertical,
+                                               True, pitch_mm, gap_mm, trace, slide)
+                        regions += more
+                        aligned = aligned and ok
+                else:
+                    regions, aligned = frames_35mm(rows, a, b, w, h, vertical,
+                                                   bool(held), pitch_mm, gap_mm, trace, slide)
                 refined = [aligned] * max(0, len(regions) - 1)
                 if not aligned and regions:
                     unaligned.append(os.path.basename(scan))
