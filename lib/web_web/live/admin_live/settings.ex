@@ -107,7 +107,7 @@ defmodule WebWeb.AdminLive.Settings do
     {:noreply,
      socket
      |> assign(portraits: Web.Author.portraits())
-     |> put_flash(:info, "Picture taken out of the turn.")}
+     |> put_flash(:info, "Picture removed.")}
   end
 
   def handle_event("test_notify", _params, socket) do
@@ -169,7 +169,7 @@ defmodule WebWeb.AdminLive.Settings do
         <.drop_zone
           upload={@uploads.portrait}
           title="Add pictures of yourself"
-          hint="As many as you like. The About page shows one at a time and changes it every four hours, in the order they were added."
+          hint="As many as you like. The About page shows a different one each time it loads, with the rest in a small gallery under it."
           browse="Choose pictures"
           error_message={&portrait_error/1}
         />
@@ -188,7 +188,7 @@ defmodule WebWeb.AdminLive.Settings do
               class="adm-btn adm-btn--quiet adm-btn--small"
               phx-click="remove_portrait"
               phx-value-path={path}
-              data-confirm="Take this picture out of the turn?"
+              data-confirm="Remove this picture from the About page?"
             >
               Remove
             </button>

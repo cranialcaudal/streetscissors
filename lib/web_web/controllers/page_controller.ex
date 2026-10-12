@@ -88,9 +88,20 @@ defmodule WebWeb.PageController do
       return_to: return_to,
       return_label: return_label,
       html_content: html_content,
-      portrait: Web.Author.portrait()
+      portrait: Web.Author.portrait(chosen_picture(params["picture"])),
+      portraits: Web.Author.portraits(),
+      picked?: is_binary(params["picture"])
     )
   end
+
+  defp chosen_picture(said) when is_binary(said) do
+    case Integer.parse(said) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp chosen_picture(_), do: nil
 
   defp put_present(map, _key, nil), do: map
   defp put_present(map, key, value), do: Map.put(map, key, value)

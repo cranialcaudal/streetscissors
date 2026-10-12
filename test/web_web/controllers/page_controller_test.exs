@@ -61,8 +61,13 @@ defmodule WebWeb.PageControllerTest do
 
     html = conn |> get(~p"/about") |> html_response(200)
     assert html =~ ~s(src="/uploads/about/one.jpg")
-    # one picture has no turns to speak of
-    refute html =~ "changes every four hours"
+    # one picture needs no gallery
+    refute html =~ "about-gallery"
+
+    File.write!(Path.join(dir, "two.jpg"), "x")
+    html = conn |> get(~p"/about?picture=2") |> html_response(200)
+    assert html =~ "2 of 2"
+    assert html =~ ~s(href="/about?picture=1#portrait")
   end
 
   describe "GET /search" do

@@ -68,13 +68,47 @@ a {
     border: 1px solid var(--rule-strong);
     background: var(--paper-sunk);
 }
-.about-portrait figcaption {
+/* The rest of the pictures, kept quiet: a small line under the picture that
+   opens to a strip of thumbnails. Choosing one shows it large. */
+.about-gallery {
     margin-top: 0.4rem;
     font-family: var(--font-ui);
     font-size: 0.72rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ink-3);
+}
+.about-gallery summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 0.3rem 0;
+}
+.about-gallery summary::-webkit-details-marker {
+    display: none;
+}
+.about-gallery summary:hover,
+.about-gallery[open] summary {
+    color: var(--accent-ink);
+}
+.about-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr));
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+}
+.about-gallery-grid a {
+    display: block;
+    opacity: 0.7;
+    border: 1px solid var(--rule);
+}
+.about-gallery-grid a:hover,
+.about-gallery-grid a[aria-current="true"] {
+    opacity: 1;
+    border-color: var(--accent-ink);
+}
+.about-portrait .about-gallery-grid img {
+    aspect-ratio: 1;
+    border: 0;
 }
 .about-portrait-add {
     font-family: var(--font-ui);

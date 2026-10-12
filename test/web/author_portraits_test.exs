@@ -1,6 +1,6 @@
 defmodule Web.AuthorPortraitsTest do
-  # The About page shows one picture of the author and changes it every four
-  # hours. The pictures are whatever image files are in the uploads root's
+  # The About page shows one picture of the author, a different one each time
+  # it loads. The pictures are whatever image files are in the uploads root's
   # `about` folder.
   use ExUnit.Case, async: false
 
@@ -22,13 +22,13 @@ defmodule Web.AuthorPortraitsTest do
              ~w(/uploads/about/a.png /uploads/about/b.jpg /uploads/about/c.webp)
   end
 
-  test "each has a turn of four hours, and they come round again" do
-    hour = 3600
-    assert {"/uploads/about/a.png", 1, 3} = Author.portrait(0)
-    assert {"/uploads/about/a.png", 1, 3} = Author.portrait(4 * hour - 1)
-    assert {"/uploads/about/b.jpg", 2, 3} = Author.portrait(4 * hour)
-    assert {"/uploads/about/c.webp", 3, 3} = Author.portrait(8 * hour)
-    assert {"/uploads/about/a.png", 1, 3} = Author.portrait(12 * hour)
+  test "the one shown is drawn by lot, unless the reader chose one" do
+    seen = for _ <- 1..60, into: MapSet.new(), do: elem(Author.portrait(), 0)
+    assert MapSet.size(seen) == 3
+    assert {"/uploads/about/b.jpg", 2, 3} = Author.portrait(2)
+    # a place that does not exist is drawn by lot like no choice at all
+    assert {_, place, 3} = Author.portrait(9)
+    assert place in 1..3
   end
 
   test "a picture taken in is shrunk, kept as a JPEG and joins the turn" do

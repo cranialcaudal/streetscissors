@@ -1,17 +1,27 @@
 <div class="container">
   <div class="glass-panel about-panel" style="padding: 3rem; min-height: 80vh;">
-    <%!-- One picture of the author, a different one every four hours
-          (Web.Author.portrait/1). --%>
-    <figure :if={@portrait} class="about-portrait">
+    <%!-- One picture of the author, a different one each time the page
+          loads (Web.Author.portrait/1), and under it, folded away, the rest. --%>
+    <figure :if={@portrait} class="about-portrait" id="portrait">
       <img
         src={elem(@portrait, 0)}
         alt="A photograph of the author"
         decoding="async"
         fetchpriority="high"
       />
-      <figcaption :if={elem(@portrait, 2) > 1}>
-        {elem(@portrait, 1)} of {elem(@portrait, 2)} · changes every four hours
-      </figcaption>
+      <details :if={elem(@portrait, 2) > 1} class="about-gallery" open={@picked?}>
+        <summary>{elem(@portrait, 1)} of {elem(@portrait, 2)} · all pictures</summary>
+        <div class="about-gallery-grid">
+          <a
+            :for={{path, n} <- Enum.with_index(@portraits, 1)}
+            href={~p"/about?picture=#{n}" <> "#portrait"}
+            aria-current={n == elem(@portrait, 1) && "true"}
+            aria-label={"Picture #{n}"}
+          >
+            <img src={path} alt="" loading="lazy" decoding="async" />
+          </a>
+        </div>
+      </details>
     </figure>
     <%!-- Only the author, signed in, sees the way to add pictures. --%>
     <p :if={assigns[:admin_mode]} class="about-portrait-add">

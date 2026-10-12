@@ -32,10 +32,9 @@ defmodule Web.Author do
   end
 
   @portraits "about"
-  @every 4 * 60 * 60
 
   @doc """
-  The pictures of the author the About page turns through: the image files in
+  The pictures of the author the About page draws from: the image files in
   the `about` folder under the uploads root (`/uploads/about/…`, which the
   proxy serves), as web paths in order of name. Dropping a file in the folder
   adds it and taking one out removes it; nothing is deployed. Empty when the
@@ -110,21 +109,20 @@ defmodule Web.Author do
   end
 
   @doc """
-  The one shown now: the pictures take turns of four hours each, in order,
-  the same for every visitor (the turn is counted from the clock, not from
-  the visit). `{path, place, count}` or nil when there are none.
+  The one to show: a different picture each time the page is asked for,
+  drawn by lot, or the one at `place` (counted from 1) when the reader chose
+  it from the gallery. `{path, place, count}`, or nil when there are none.
   """
-  def portrait(now \\ System.os_time(:second)) do
+  def portrait(place \\ nil) do
     case portraits() do
-      [] -> nil
-      all -> turn(all, now)
-    end
-  end
+      [] ->
+        nil
 
-  @doc false
-  def turn(all, now) do
-    at = rem(div(now, @every), length(all))
-    {Enum.at(all, at), at + 1, length(all)}
+      all ->
+        count = length(all)
+        at = if is_integer(place) and place in 1..count, do: place, else: :rand.uniform(count)
+        {Enum.at(all, at - 1), at, count}
+    end
   end
 
   @doc "One key of it, as trimmed text, or nil."
