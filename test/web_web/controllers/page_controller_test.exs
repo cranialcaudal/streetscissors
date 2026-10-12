@@ -70,6 +70,12 @@ defmodule WebWeb.PageControllerTest do
     assert html =~ ~s(href="/about?picture=1#portrait")
   end
 
+  test "the homepage says what the site is only when the author has written it", %{conn: conn} do
+    refute conn |> get(~p"/") |> html_response(200) =~ "home-about"
+    {:ok, _} = Web.SiteSettings.put_setting("site_description", "A workshop kept in public.")
+    assert conn |> get(~p"/") |> html_response(200) =~ "A workshop kept in public."
+  end
+
   describe "GET /search" do
     test "the page is a form, reachable from the homepage and every header", %{conn: conn} do
       html = conn |> get(~p"/search") |> html_response(200)

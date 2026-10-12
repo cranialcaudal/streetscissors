@@ -105,7 +105,16 @@ defmodule WebWeb.AdminLive.SettingsTest do
 
       {_, 0} = System.cmd("magick", ["-size", "40x50", "xc:gray", png])
       on_exit(fn -> File.rm(png) end)
-      %{png: File.read!(png)}
+      # a different picture each time: the same one sent twice is kept once
+      picture = fn n ->
+        other = png <> ".#{n}.png"
+        {_, 0} = System.cmd("magick", ["-size", "40x50", "xc:gray#{n * 5}", other])
+        bytes = File.read!(other)
+        File.rm(other)
+        bytes
+      end
+
+      %{png: File.read!(png), picture: picture}
     end
 
     test "a picture sent from the page is kept, listed, and shown on /about", %{
@@ -126,7 +135,7 @@ defmodule WebWeb.AdminLive.SettingsTest do
       assert conn |> get(~p"/about") |> html_response(200) =~ path
     end
 
-    test "any number may be sent, and one can be removed", %{conn: conn, png: png} do
+    test "any number may be sent, and one can be removed", %{conn: conn, picture: picture} do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/settings")
 
       for n <- 1..12 do
@@ -134,7 +143,7 @@ defmodule WebWeb.AdminLive.SettingsTest do
 
         view
         |> file_input("#settings-portraits", :portrait, [
-          %{name: name, content: png, type: "image/png"}
+          %{name: name, content: picture.(n), type: "image/png"}
         ])
         |> render_upload(name)
       end

@@ -83,7 +83,7 @@ defmodule Web.Author do
 
     case System.cmd(Web.Negatives.magick_bin(), args, stderr_to_stdout: true) do
       {_, 0} ->
-        {:ok, Web.Uploads.web_path(@portraits, name)}
+        keep_once(dir, name)
 
       {said, _} ->
         {:error, "could not read that picture: #{String.slice(String.trim(said), 0, 160)}"}
@@ -91,6 +91,27 @@ defmodule Web.Author do
   rescue
     error in ErlangError -> {:error, "could not run ImageMagick: #{inspect(error.original)}"}
   end
+
+  # The same photograph sent twice comes out byte for byte the same, so a
+  # second copy is found by its hash and not kept: fifteen of the first
+  # ninety-nine pictures were repeats, sent in two goes from a phone.
+  defp keep_once(dir, name) do
+    mine = hash(Path.join(dir, name))
+
+    twin =
+      Enum.find(portraits(), fn path ->
+        Path.basename(path) != name and hash(Path.join(dir, Path.basename(path))) == mine
+      end)
+
+    if twin do
+      File.rm(Path.join(dir, name))
+      {:ok, twin}
+    else
+      {:ok, Web.Uploads.web_path(@portraits, name)}
+    end
+  end
+
+  defp hash(path), do: :crypto.hash(:sha256, File.read!(path))
 
   @doc """
   Take a picture out of the turn. It is set aside in the folder's `removed`

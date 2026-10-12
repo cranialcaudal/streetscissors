@@ -1468,3 +1468,13 @@ html:has(.darkroom),
 html:has(.darkroom) body {
   overscroll-behavior-y: contain;
 }
+
+/* Under a sheet, what a first visitor cannot guess from it. */
+.sheet-legend {
+  margin: -0.2rem 0 0.6rem;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  color: var(--ink-4);
+  text-align: center;
+  flex-shrink: 0;
+}

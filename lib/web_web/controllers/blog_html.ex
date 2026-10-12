@@ -30,7 +30,7 @@ defmodule WebWeb.BlogHTML do
       <span class="writing-meta-dot" aria-hidden="true">·</span>
       <span>{@post.read_min} min read</span>
       <span class="writing-meta-dot" aria-hidden="true">·</span>
-      <span>{witnessed(@post.hit_count)}</span>
+      <span title="How many different people have read it">{witnessed(@post.hit_count)}</span>
     </p>
     """
   end

@@ -407,6 +407,15 @@
 }
 /* Sits directly under the Captain's Logs / About Me row rather than being
    pushed to the bottom of the viewport by a spacer. */
+.home-about {
+  text-align: center;
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--ink-2);
+  margin: 1.25rem auto 0;
+  max-width: 40rem;
+  padding: 0 1rem;
+}
 .home-footer {
   text-align: center;
   font-family: var(--font-data);

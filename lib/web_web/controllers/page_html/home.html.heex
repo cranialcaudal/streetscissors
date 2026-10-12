@@ -164,11 +164,14 @@
         <span class="bento-label-small">Christ</span>
       </a>
     </div>
+    <%!-- One sentence saying what the site is, when the author has written
+          one (Settings: "Homepage sentence"). Nothing when he has not. --%>
+    <p :if={@site_description} class="home-about">{@site_description}</p>
     <footer class="home-footer">
       &copy; {Web.Clock.local_today().year}
       <span :if={@author}>{@author} &middot;</span>
       streetscissors. <a href={~p"/daybook"} class="home-footer-link">The daybook</a>
-      <a href={~p"/how-to?from=home"} class="home-footer-link">How it works</a>
+      <a href={~p"/how-to?from=home"} class="home-footer-link">How this is made</a>
       <WebWeb.Microformats.representative_card />
       <a
         href={~p"/admin/login"}

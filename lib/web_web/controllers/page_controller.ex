@@ -30,7 +30,11 @@ defmodule WebWeb.PageController do
     |> assign(:og_title, title)
     |> assign(:og_description, desc)
     |> assign(:canonical_path, ~p"/")
-    |> render(:home, author: author, spotify_profile: Web.Author.link("spotify_profile"))
+    |> render(:home,
+      author: author,
+      spotify_profile: Web.Author.link("spotify_profile"),
+      site_description: site_description()
+    )
   end
 
   def about(conn, params) do
@@ -92,6 +96,14 @@ defmodule WebWeb.PageController do
       portraits: Web.Author.portraits(),
       picked?: is_binary(params["picture"])
     )
+  end
+
+  # The homepage's one sentence about the site: a setting, never the code's.
+  defp site_description do
+    case String.trim(Web.SiteSettings.get_setting("site_description", "")) do
+      "" -> nil
+      said -> said
+    end
   end
 
   defp chosen_picture(said) when is_binary(said) do

@@ -293,7 +293,7 @@ whose names end in a number, and any it finds appear in the strip beneath the
 contact sheet and get their own address:
 
 ```
-/negatives/roll/7/frame/3
+/negatives/roll/007/frame/3
 ```
 
 The frame page always links back to the sheet it was cut from; a photograph

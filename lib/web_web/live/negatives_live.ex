@@ -706,6 +706,10 @@ defmodule WebWeb.NegativesLive do
                     </span>
                     <span :if={@sheet.meta.notes} class="sheet-about-notes">{@sheet.meta.notes}</span>
                   </p>
+                  <%!-- What a first visitor cannot guess from the sheet. --%>
+                  <p class="sheet-legend">
+                    Circled frames are printed. Frame numbers skip where a frame was blank.
+                  </p>
 
                   <%!-- A lightbox, not a page with a control bar: the arrows and the
                       download sit on the sheet itself, so nothing below it competes

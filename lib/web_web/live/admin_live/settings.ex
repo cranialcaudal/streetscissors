@@ -25,7 +25,8 @@ defmodule WebWeb.AdminLive.Settings do
          spotify_playlist_id: SiteSettings.get_setting("spotify_playlist_id", @default_playlist),
          newsletter_test_email: SiteSettings.get_setting("newsletter_test_email", ""),
          notify_email: Notify.address() || "",
-         portraits: Web.Author.portraits()
+         portraits: Web.Author.portraits(),
+         site_description: SiteSettings.get_setting("site_description", "")
        )
        # No limit to how many pictures are kept; a hundred is only how many
        # may be sent in one go. HEIC is left out on purpose: this machine's
@@ -97,6 +98,18 @@ defmodule WebWeb.AdminLive.Settings do
       {:noreply,
        socket |> assign(notify_email: Notify.address() || "") |> put_flash(:info, message)}
     end
+  end
+
+  def handle_event("save_site_description", %{"site_description" => raw}, socket) do
+    said = String.trim(raw)
+
+    # A setting cannot hold an empty value, so clearing one is deleting it.
+    if said == "",
+      do: SiteSettings.delete_setting("site_description"),
+      else: {:ok, _} = SiteSettings.put_setting("site_description", said)
+
+    message = if said == "", do: "The homepage says nothing about itself.", else: "Saved."
+    {:noreply, socket |> assign(site_description: said) |> put_flash(:info, message)}
   end
 
   def handle_event("portrait_change", _params, socket), do: {:noreply, socket}
@@ -195,6 +208,27 @@ defmodule WebWeb.AdminLive.Settings do
           </div>
         </div>
       </div>
+    </.panel>
+
+    <.panel title="Homepage sentence">
+      <form phx-submit="save_site_description" id="settings-description" class="adm-sheet">
+        <label class="adm-label" for="site_description">What the site is, in a sentence</label>
+        <div class="adm-inline-form">
+          <input
+            type="text"
+            id="site_description"
+            name="site_description"
+            value={@site_description}
+            class="adm-input"
+            placeholder="Leave empty to say nothing"
+            autocomplete="off"
+          />
+          <button type="submit" class="adm-btn">Save</button>
+        </div>
+        <p class="adm-help">
+          Shown at the foot of the homepage, for a visitor who arrives knowing nothing.
+        </p>
+      </form>
     </.panel>
 
     <.panel title="Homepage player">

@@ -43,6 +43,17 @@ defmodule Web.AuthorPortraitsTest do
     assert size == "1600x1067"
   end
 
+  test "the same picture sent twice is kept once" do
+    source = Path.join(System.tmp_dir!(), "twice-#{System.unique_integer([:positive])}.png")
+    {_, 0} = System.cmd("magick", ["-size", "300x200", "gradient:", source])
+    on_exit(fn -> File.rm(source) end)
+
+    assert {:ok, first} = Author.add_portrait(source)
+    count = length(Author.portraits())
+    assert {:ok, ^first} = Author.add_portrait(source)
+    assert length(Author.portraits()) == count
+  end
+
   test "what is not a picture is refused, and nothing is kept" do
     source =
       Path.join(System.tmp_dir!(), "not-a-picture-#{System.unique_integer([:positive])}.jpg")
