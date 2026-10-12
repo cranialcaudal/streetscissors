@@ -13,6 +13,10 @@
         {elem(@portrait, 1)} of {elem(@portrait, 2)} · changes every four hours
       </figcaption>
     </figure>
+    <%!-- Only the author, signed in, sees the way to add pictures. --%>
+    <p :if={assigns[:admin_mode]} class="about-portrait-add">
+      <a href="/admin/settings#settings-portraits">Add or remove pictures of yourself</a>
+    </p>
     <div class="prose">
       {raw(@html_content)}
     </div>

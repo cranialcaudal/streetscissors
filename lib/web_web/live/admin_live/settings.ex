@@ -164,27 +164,6 @@ defmodule WebWeb.AdminLive.Settings do
       </:lede>
     </.page_head>
 
-    <.panel title="Homepage player">
-      <form phx-submit="save_settings" id="settings-spotify" class="adm-sheet">
-        <label class="adm-label" for="spotify_playlist_id">Spotify playlist</label>
-        <div class="adm-inline-form">
-          <input
-            type="text"
-            id="spotify_playlist_id"
-            name="spotify_playlist_id"
-            value={@spotify_playlist_id}
-            class="adm-input"
-            placeholder="Paste a playlist link or its ID"
-            autocomplete="off"
-          />
-          <button type="submit" class="adm-btn">Save</button>
-        </div>
-        <p class="adm-help">
-          The player in the homepage's corner. A full share link works; the ID is taken out of it.
-        </p>
-      </form>
-    </.panel>
-
     <.panel title="About page pictures">
       <form id="settings-portraits" phx-change="portrait_change" class="adm-sheet">
         <.drop_zone
@@ -216,6 +195,27 @@ defmodule WebWeb.AdminLive.Settings do
           </div>
         </div>
       </div>
+    </.panel>
+
+    <.panel title="Homepage player">
+      <form phx-submit="save_settings" id="settings-spotify" class="adm-sheet">
+        <label class="adm-label" for="spotify_playlist_id">Spotify playlist</label>
+        <div class="adm-inline-form">
+          <input
+            type="text"
+            id="spotify_playlist_id"
+            name="spotify_playlist_id"
+            value={@spotify_playlist_id}
+            class="adm-input"
+            placeholder="Paste a playlist link or its ID"
+            autocomplete="off"
+          />
+          <button type="submit" class="adm-btn">Save</button>
+        </div>
+        <p class="adm-help">
+          The player in the homepage's corner. A full share link works; the ID is taken out of it.
+        </p>
+      </form>
     </.panel>
 
     <.panel title="Newsletter">

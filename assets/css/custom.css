@@ -76,6 +76,11 @@ a {
     text-transform: uppercase;
     color: var(--ink-3);
 }
+.about-portrait-add {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    margin: 0 0 1rem;
+}
 @media (max-width: 700px) {
     .about-portrait {
         float: none;
