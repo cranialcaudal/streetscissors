@@ -49,7 +49,7 @@ defmodule WebWeb.PageControllerTest do
   test "the homepage wears its beta number beside the wordmark", %{conn: conn} do
     html = conn |> get(~p"/") |> html_response(200)
     assert html =~ ~s(class="site-beta")
-    assert html =~ "aria-label=\"i&#39;m in beta!\""
+    assert html =~ ~s(aria-label="Beta!!!")
     assert html =~ "<title>Beta #{WebWeb.PageHTML.beta()}</title>"
   end
 
