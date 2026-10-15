@@ -86,7 +86,7 @@ export function lift(track, f) {
     const at = (p, z) => [p[0], G - p[1], z]
     const shz = 8.0 * Math.cos(turn)
     const gap = f.spread ?? handGap(track)
-    const side = f.side * 9
+    const sideA = (f.side_a ?? f.side) * 9, sideB = (f.side_b ?? f.side) * 9
     J.pelvis = at(f.pelvis, 0); J.chest = at(f.chest, 0); J.neck = at(f.neck, 0)
     J.nape = at(f.nape, 0); J.head = at(f.head, 0)
     J.sh_a = at(f.sh_a, shz); J.sh_b = at(f.sh_b, -shz)
@@ -97,7 +97,8 @@ export function lift(track, f) {
     J.knee_a = at(f.knee_a, KNEES + out * 0.6); J.knee_b = at(f.knee_b, -KNEES - out * 0.6)
     J.foot_a = at(f.foot_a, wide); J.foot_b = at(f.foot_b, -wide)
     J.toe_a = at(f.toe_a, wide + 0.6 + out * 0.35); J.toe_b = at(f.toe_b, -wide - 0.6 - out * 0.35)
-    J.hand_a = at(f.hand_a, gap + side); J.hand_b = at(f.hand_b, -gap + side)
+    // each hand may be set to a side of its own (side_a, side_b)
+    J.hand_a = at(f.hand_a, gap + sideA); J.hand_b = at(f.hand_b, -gap + sideB)
     // The shoulder is not a fixed point on the trunk: it rises with an arm
     // reaching overhead and comes forward with one reaching out, the shoulder
     // blade turning under it. A little of each, by how far the arm reaches.
@@ -109,13 +110,25 @@ export function lift(track, f) {
     // flare swings the elbow out of the picture's plane, toward its own side
     const flare = f.flare || 0
     const hint = (S, flat, out) => v.add(S, v.mix(v.sub(flat, S), [0, 0, out], flare))
-    J.elbow_a = elbow(J.sh_a, J.hand_a, hint(J.sh_a, at(f.elbow_a, (shz + gap + side) / 2 + 2.0), 30))
-    J.elbow_b = elbow(J.sh_b, J.hand_b, hint(J.sh_b, at(f.elbow_b, (-shz - gap + side) / 2 - 2.0), -30))
+    J.elbow_a = elbow(J.sh_a, J.hand_a, hint(J.sh_a, at(f.elbow_a, (shz + gap + sideA) / 2 + 2.0), 30))
+    J.elbow_b = elbow(J.sh_b, J.hand_b, hint(J.sh_b, at(f.elbow_b, (-shz - gap + sideB) / 2 - 2.0), -30))
   } else if (m === "front") {
     const at = (p, x) => [x, G - p[1], -(p[0] - 80)]
     for (const k of ["pelvis", "chest", "neck", "nape", "head", "sh_a", "sh_b", "hip_a", "hip_b", "knee_a", "knee_b", "foot_a", "foot_b"]) J[k] = at(f[k], 0)
+    // seen from the front, a hand's side is toward the viewer (1) or away
+    // (-1): an arm threaded under a side plank, in front of the chest first
+    const nearA = (f.side_a ?? f.side ?? 0) * 9, nearB = (f.side_b ?? f.side ?? 0) * 9
     J.elbow_a = at(f.elbow_a, 0.5); J.elbow_b = at(f.elbow_b, 0.5)
     J.hand_a = at(f.hand_a, 2.0); J.hand_b = at(f.hand_b, 2.0)
+    // and the arm is solved again so that no bone grows: the hand comes in
+    // along its reach if the depth took it further than the arm is long
+    for (const [k, near] of [["a", nearA], ["b", nearB]]) {
+      if (!near) continue
+      const S = J["sh_" + k], H = v.add(J["hand_" + k], [near, 0, 0])
+      const reach = v.sub(H, S), far = Math.min(v.len(reach), UPPER + FORE - 0.05)
+      J["hand_" + k] = v.add(S, v.mul(v.norm(reach), far))
+      J["elbow_" + k] = elbow(S, J["hand_" + k], v.add(J["elbow_" + k], [near * 0.5, 0, 0]))
+    }
     // toes point at the viewer and a little outward
     J.toe_a = v.add(J.foot_a, [6.6, f.foot_a[1] > 96 ? 0 : -2, 1.2])
     J.toe_b = v.add(J.foot_b, [6.6, f.foot_b[1] > 96 ? 0 : -2, -1.2])
@@ -555,6 +568,9 @@ function touching(H, things, track) {
 // A kettlebell: the bell's radius, half the width of its grip, and how far
 // the middle of the bell hangs from the middle of the grip.
 const KB_BELL = 4.0, KB_GRIP = 2.9, KB_REACH = 7.4
+// a racked bell's middle off the axis of the forearm: the bell's radius and
+// the forearm's, so it rests on the arm without sinking into it
+const KB_RACK = 5.9
 
 export function gear(track, i, J) {
   const out = []
@@ -611,8 +627,25 @@ export function gear(track, i, J) {
         // the fist, a horn down from each end of it to the bell's shoulders,
         // and a window between the bar and the bell for the fingers. The bell
         // used to begin under the bar, so the hand was drawn sunk in the iron.
-        const down = v.norm(v.sub(weight, grip), [0, -1, 0])
-        const bell = v.add(grip, v.mul(down, KB_REACH))
+        let down = v.norm(v.sub(weight, grip), [0, -1, 0])
+        let bell = v.add(grip, v.mul(down, KB_REACH))
+        if (p.mode === "rack") {
+          // In the rack and overhead the bell rests on the back of the
+          // forearm, a little down it from the hand. Racked, the palm faces
+          // in and the back of the hand is the outside of the arm; pressed
+          // overhead it faces forward, and the back of the hand is behind
+          // (-x: the figure faces +x in every view, and a mirrored one is
+          // flipped after). Between the two it turns as the hand rises.
+          const b = p.hold === "hand_b"
+          const E = b ? J.elbow_b : p.hold === "hand_a" ? J.elbow_a : v.mix(J.elbow_a, J.elbow_b, 0.5)
+          const S = b ? J.sh_b : p.hold === "hand_a" ? J.sh_a : v.mix(J.sh_a, J.sh_b, 0.5)
+          const fore = v.norm(v.sub(grip, E), [0, 1, 0])
+          const outside = [0, 0, Math.sign(S[2] - J.chest[2]) || (b ? -1 : 1)]
+          const up = Math.max(0, Math.min(1, (grip[1] - S[1]) / 12))
+          const back = v.norm(v.reject(v.mix(outside, [-1, 0, 0], up), fore), [0, 1, 0])
+          bell = v.add(v.add(grip, v.mul(back, KB_RACK)), v.mul(fore, -2.0))
+          down = v.norm(v.sub(bell, grip), back)
+        }
         const a = v.add(grip, v.mul(across, -KB_GRIP)), b = v.add(grip, v.mul(across, KB_GRIP))
         capsule(a, b, 0.72, IRON)
         const shoulder = v.add(bell, v.mul(down, -KB_BELL * 0.66))

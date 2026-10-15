@@ -44,7 +44,8 @@ defmodule Web.Fitness.Figure do
       the default (flat on the floor, else square to the shin) is wrong;
     * `side`: how far the hands are to one side of the body, from 1 (the
       near side) to -1 (the far side); a flat picture cannot show it, the 3D
-      clip can;
+      clip can. `side_a`/`side_b` set one hand's alone, as an arm threaded
+      under a side plank needs while the other hand stays planted;
     * `spread`: how far each hand is from the middle of the body, in stage
       units, for the 3D clip: from the side, hands a shoulder's width apart
       and hands wide open look the same. Given in every pose of a figure or
@@ -72,6 +73,10 @@ defmodule Web.Fitness.Figure do
   alias Web.Fitness.Vault
 
   @width 160.0
+  # a racked bell's middle: off the back of the forearm (the bell's radius and
+  # the forearm's), and down it from the hand
+  @rack_off 5.6
+  @rack_down 2.0
   @height 108
   @floor 100.0
   @rest 99.0
@@ -120,7 +125,7 @@ defmodule Web.Fitness.Figure do
   @line_ends ~w(hands hand_a hand_b foot_a foot_b)
   @pose_keys ~w(name hold move pelvis lean curl head turn hands hand_a hand_b arms arm_a arm_b
                 feet foot_a foot_b legs leg_a leg_b toes toe_a toe_b elbows elbow_a elbow_b
-                knees knee_a knee_b weight side spread stance flare)
+                knees knee_a knee_b weight side side_a side_b spread stance flare)
   @top_keys ~w(view mirror floor planted props poses note targets model)
 
   @muscle_map [
@@ -262,6 +267,8 @@ defmodule Web.Fitness.Figure do
     |> Map.merge(%{
       turn: Float.round(joints.turn * 1.0, 2),
       side: Float.round(joints.lateral * 1.0, 3),
+      side_a: Float.round(joints.lateral_a * 1.0, 3),
+      side_b: Float.round(joints.lateral_b * 1.0, 3),
       spread: joints.spread && Float.round(joints.spread * 1.0, 2),
       stance: joints.stance && Float.round(joints.stance * 1.0, 2),
       flare: Float.round(joints.flare * 1.0, 3)
@@ -390,7 +397,7 @@ defmodule Web.Fitness.Figure do
     {toe_b, p11} = point(pose["toe_b"] || pose["toes"], where, "toe_b", :optional)
 
     numbers =
-      for key <- ~w(lean curl head turn side spread stance flare hold move),
+      for key <- ~w(lean curl head turn side side_a side_b spread stance flare hold move),
           not is_nil(pose[key]),
           not is_number(pose[key]) do
         "#{where}: #{key} must be a number"
@@ -422,6 +429,8 @@ defmodule Web.Fitness.Figure do
       head: num(pose["head"], 0.0),
       turn: num(pose["turn"], 0.0),
       side: num(pose["side"], 0.0),
+      side_a: num(pose["side_a"], num(pose["side"], 0.0)),
+      side_b: num(pose["side_b"], num(pose["side"], 0.0)),
       spread: if(is_number(pose["spread"]), do: pose["spread"] * 1.0),
       stance: if(is_number(pose["stance"]), do: pose["stance"] * 1.0),
       flare: num(pose["flare"], 0.0),
@@ -514,8 +523,11 @@ defmodule Web.Fitness.Figure do
       hold not in @holds ->
         {nil, ["prop #{n}: hold must be one of #{Enum.join(@holds, ", ")}"]}
 
-      mode not in ~w(hang arm up) ->
-        {nil, ["prop #{n}: mode must be hang, arm or up"]}
+      mode not in ~w(hang arm up rack) ->
+        {nil, ["prop #{n}: mode must be hang, arm, up or rack"]}
+
+      mode == "rack" and kind != "kettlebell" ->
+        {nil, ["prop #{n}: only a kettlebell is held in the rack"]}
 
       true ->
         {%{
@@ -830,6 +842,8 @@ defmodule Web.Fitness.Figure do
       weight: pose[:weight],
       turn: pose.turn,
       lateral: pose[:side] || 0.0,
+      lateral_a: pose[:side_a] || pose[:side] || 0.0,
+      lateral_b: pose[:side_b] || pose[:side] || 0.0,
       spread: pose[:spread],
       stance: pose[:stance],
       flare: pose[:flare] || 0.0,
@@ -1051,6 +1065,8 @@ defmodule Web.Fitness.Figure do
         head: mix.(from.head, to.head),
         turn: mix.(from.turn, to.turn),
         side: mix.(from.side, to.side),
+        side_a: mix.(from.side_a, to.side_a),
+        side_b: mix.(from.side_b, to.side_b),
         spread: if(from.spread && to.spread, do: mix.(from.spread, to.spread)),
         stance: if(from.stance && to.stance, do: mix.(from.stance, to.stance)),
         flare: mix.(from.flare, to.flare),
@@ -1394,9 +1410,24 @@ defmodule Web.Fitness.Figure do
         :hang -> add(grip, {0.0, drop})
         :up -> add(grip, {0.0, -drop})
         :arm -> add(grip, mul(unit(sub(grip, elbow)), drop))
+        :rack -> rack(grip, elbow, if(prop.hold == :hand_b, do: frame.sh_b, else: frame.sh_a))
       end
 
     {grip, weight}
+  end
+
+  # In the rack and pressed overhead, the handle lies across the palm and the
+  # bell rests on the back of the forearm, a little down it from the hand.
+  # Overhead the back of the hand is the side of the forearm away from where
+  # the figure faces (or the top of a forearm held level). Racked it is the
+  # outside of the arm, which a flat picture shows as the bell over the
+  # forearm; the 3D clip puts it beside it (figure3d.js).
+  defp rack(grip, elbow, {_, shoulder_y}) do
+    {fx, fy} = fore = unit(sub(grip, elbow))
+    {bx, by} = side = {fy, -fx}
+    back = if bx > 0.05 or (abs(bx) <= 0.05 and by > 0), do: mul(side, -1.0), else: side
+    up = min(max((shoulder_y - elem(grip, 1)) / 12, 0.0), 1.0)
+    grip |> add(mul(back, @rack_off * up)) |> add(mul(fore, -@rack_down))
   end
 
   defp polyline([first | rest]) do

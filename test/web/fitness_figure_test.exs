@@ -294,6 +294,35 @@ defmodule Web.Fitness.FigureTest do
       assert Enum.max_by(track.frames, & &1.spread).spread > 11.5
     end
 
+    test "one hand can be set to a side of its own while the other stays put" do
+      threaded = change(@squat, 1, &Map.put(&1, "side_a", 1))
+
+      assert {:ok, track} = Figure.track(threaded)
+      assert hd(track.frames).side_a == 0.0
+      assert Enum.max_by(track.frames, & &1.side_a).side_a == 1.0
+      assert Enum.all?(track.frames, &(&1.side_b == 0.0))
+    end
+
+    test "a racked bell rests on the forearm, beside the hand and not below it" do
+      racked =
+        @squat
+        |> Map.put("props", [%{"kind" => "kettlebell", "hold" => "hand_a", "mode" => "rack"}])
+        |> change(0, &Map.put(&1, "hands", [84, 36]))
+
+      assert {:ok, track} = Figure.track(racked)
+      [bell] = track.props
+      [[gx, gy], [wx, wy]] = hd(bell.at)
+
+      assert bell.mode == :rack
+      assert :math.sqrt((wx - gx) ** 2 + (wy - gy) ** 2) < 7
+      assert wy - gy < 4
+
+      # only a kettlebell is held that way
+      dumbbell = put_in(racked, ["props", Access.at(0), "kind"], "dumbbell")
+      assert {:error, [problem]} = Figure.build(dumbbell)
+      assert problem =~ "rack"
+    end
+
     test "a figure that says nothing of them is filmed in the plane of the picture" do
       assert {:ok, track} = Figure.track(@squat)
       assert Enum.all?(track.frames, &(&1.flare == 0.0 and &1.spread == nil))
