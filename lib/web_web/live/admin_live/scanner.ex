@@ -1068,14 +1068,14 @@ defmodule WebWeb.AdminLive.Scanner do
         Driver.pass_args(device, output)
 
       :band ->
-        Driver.band_args(device, color, job.meta.band.rect, output, deep: Scanner.slide?(dir))
+        Driver.band_args(device, color, job.meta.band.rect, output, deep: Scanner.deep?(dir))
 
       :keeper ->
         region = Scanner.frame_region(dir, job.meta.frame)
         margin = Map.get(job.meta, :margin, Driver.keeper_margin(:put_back))
 
         Driver.keeper_args(device, format, color, region, output, margin,
-          deep: Scanner.slide?(dir)
+          deep: Scanner.deep?(dir)
         )
     end
   end
@@ -1245,8 +1245,11 @@ defmodule WebWeb.AdminLive.Scanner do
   # The Epson backend now and then refuses to start with "Invalid argument"
   # when asked straight after another scan; asked again a moment later it
   # goes. One more try, by the page that asked, before it is called a failure.
+  # A scanner unplugged and plugged back in has a new USB address, and the
+  # one the page holds no longer opens: it is listed again before the retry.
   def handle_info({:scanner, :failed, job, reason}, socket) do
     mine? = Map.get(job, :owner, self()) == self()
+    if mine? and reason =~ "open of device", do: Bed.refresh()
 
     if mine? and reason =~ "Invalid argument" and not Map.get(job, :retried, false) do
       Process.send_after(self(), {:retry_scan, Map.put(job, :retried, true)}, 2_500)
@@ -1255,7 +1258,7 @@ defmodule WebWeb.AdminLive.Scanner do
       {:noreply,
        socket
        |> assign(job: nil, queue: [], then_publish?: false)
-       |> put_flash(:error, "Scan failed: #{reason}")}
+       |> put_flash(:error, "Scan failed: #{reason}#{refusal_hint(reason)}")}
     end
   end
 
@@ -1264,6 +1267,21 @@ defmodule WebWeb.AdminLive.Scanner do
       {:ok, socket} -> {:noreply, socket}
       {:error, socket} -> {:noreply, assign(socket, queue: [], then_publish?: false)}
     end
+  end
+
+  # Refused twice, it is seldom the moment: the V550 answers every start with
+  # "Invalid argument" while it holds a fault of its own (its status carries
+  # the fatal bit). On 2026-10-15 that was the film holder sitting crooked on
+  # the glass. A fault outlasts its cause until the power is cut, and a USB
+  # cable pulled and put back does not cut it.
+  defp refusal_hint(reason) do
+    if reason =~ "sane_start: Invalid argument",
+      do:
+        ". The scanner itself is refusing to start, which it does while it holds a fault " <>
+          "(a flashing light). Check the film holder sits square in its place on the " <>
+          "glass, the lid's cable is in and the document mat is out of the lid; then " <>
+          "switch the scanner off at its power button and on again.",
+      else: ""
   end
 
   # --- The slow tools ---------------------------------------------------------
@@ -1661,7 +1679,17 @@ defmodule WebWeb.AdminLive.Scanner do
         ""
 
       frames ->
-        "#{length(frames)} frames found, #{MapSet.size(socket.assigns.ticked)} ticked."
+        "#{length(frames)} frames found, #{MapSet.size(socket.assigns.ticked)} ticked." <>
+          bath_line(socket.assigns.roll_dir)
+    end
+  end
+
+  # What the analysis read of the bath off the clear film: a veil, strips
+  # fixed apart, pictures the scanner cannot see into.
+  defp bath_line(roll_dir) do
+    case Scanner.bath_notes(roll_dir) do
+      [] -> ""
+      notes -> " " <> Enum.join(notes, " ")
     end
   end
 

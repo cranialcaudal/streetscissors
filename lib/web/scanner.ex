@@ -24,6 +24,8 @@ defmodule Web.Scanner do
   defdelegate split_roll(roll_dir, from_file), to: Pipeline
   defdelegate generate_frames_analysis(roll_dir, format, color, opts \\ []), to: Pipeline
   defdelegate slide?(roll_dir), to: Pipeline
+  defdelegate deep?(roll_dir), to: Pipeline
+  defdelegate bath_notes(roll_dir), to: Pipeline
   defdelegate frames(roll_dir), to: Pipeline
   defdelegate add_pass(roll_dir, scan, dpi, strips, color, rows \\ nil), to: Pipeline
   defdelegate holder(roll_dir), to: Pipeline

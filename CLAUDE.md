@@ -759,6 +759,34 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     **Only pictures left out count as wrong**: thin film reads as bare through its
     pictures, so bare film inside a frame proves nothing. The page does not show `relaid`
     yet, and has no button to ask for another cut.
+  - **The bath is read off the clear film** (2026-10-15, rolls 069 and 071: "the fixer
+    period was too short"; the copy replaced is in `~/film-pipeline-backups/2026-10-15/`).
+    Work in density: fog and the veil of a short fix or wash are density *added* to all
+    the film, gaps included, while development is a *gain* on the picture, so blank film
+    measures the first and never the second. Three things follow, black and white only:
+    - **Each strip may have its own clear film** (`strip_veils`, `gap_level`): read in the
+      gaps between its frames, never the brightest of the whole strip (which moves with a
+      fogged leader or a strip with no clear stretch, and moving bases on that wrecked
+      sound rolls), and used only when the strip's gaps agree among themselves and sit 20%
+      off the roll's (`VEIL_STEP`). The roll's contrast is still the roll's, read with every
+      strip brought to the roll's base. On the roll's base a clearer strip printed black
+      end to end: roll 069's second, roll 059's first three (Dodger Stadium).
+    - **`frames.json` carries a `diagnosis`** (`diagnose`) and the page says it after a look
+      or an analysis (`Pipeline.bath_notes/1`): `veil` (clear film over D 0.50; the
+      archive's sound rolls read 0.22 to 0.39, at the scanner's gamma of 1.8), `uneven`
+      (strips' gaps more than 0.20 apart: fog at the roll's start, or fixed apart) and
+      `blocked` (over 5% of the pictures under 8-bit 5, where the scan reads noise). Only
+      said: a veil of undissolved halide comes off in fresh fixer and **darkens for good
+      under any lamp, the scanner's included**, so the advice is to test a cut piece and
+      refix before the singles. A veiled or blocked roll's singles are 16-bit
+      (`Pipeline.deep?/1`, as a slide's). Nothing digital recovers what lies at the
+      scanner's floor: roll 071 (clear film at D 2.0) printed blank from its look.
+    - **A negative denser than the holder's black is still film**: read off the glass
+      alone, as a slide is, when that finds far more film, and a strip with a quarter of
+      its film under `BLACK` keeps those pixels (`DENSE_STRIP_SHARE`). Analysed as black
+      and white, roll 071 crashed on an empty gap reading before this.
+    `Web.Scanner.Detect` and `looks_like_slide/1` still take film that dark for a slide
+    (roll 071 was filed colour, then slide): set the roll to black and white by hand.
   - **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
     things went wrong at once when one strip of an August roll was scanned again on the site.
     **The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`

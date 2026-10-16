@@ -684,6 +684,24 @@ defmodule WebWeb.AdminLive.ScannerTest do
       assert File.ls!(roll_dir(root)) == ["frames"]
       assert has_element?(view, "#hardware-scan button.adm-scan-go", "Preview")
     end
+
+    @tag :capture_log
+    test "a scanner that refuses to start is asked once more, then said to be at fault", %{
+      conn: conn
+    } do
+      with_env("STUB_SCANIMAGE_FAIL", "refused")
+      view = open_studio(conn)
+      view |> element("button", "Create the folder") |> render_click()
+
+      view |> element("button", "Preview") |> render_click()
+      assert_receive {:scanner, :failed, _job, _reason}, 5_000
+      refute render(view) =~ "Scan failed"
+
+      assert_receive {:scanner, :failed, _job, _reason}, 8_000
+      html = render(view)
+      assert html =~ "Scan failed: scanimage exited 4: scanimage: sane_start: Invalid argument"
+      assert html =~ "switch the scanner off at its power button"
+    end
   end
 
   describe "from strips to a published roll" do

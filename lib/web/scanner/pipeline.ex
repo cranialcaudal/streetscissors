@@ -1208,12 +1208,61 @@ defmodule Web.Scanner.Pipeline do
   that by looking; the page only knows colour from black and white). A roll
   not yet analysed is not one.
   """
-  def slide?(roll_dir) do
-    with {:ok, body} <- File.read(Path.join(roll_dir, "frames.json")),
-         {:ok, %{"mode" => "slide"}} <- Jason.decode(body) do
-      true
-    else
+  def slide?(roll_dir), do: match?(%{"mode" => "slide"}, analysis(roll_dir))
+
+  @doc """
+  Whether the roll's singles are scanned at sixteen bits: a slide's are, and
+  so are those of a roll whose analysis found a veil on its clear film or
+  highlights at the scanner's floor (`film-develop`'s `diagnosis`). Roll 069
+  came out of a short fix with its pictures in 75 greys of 256, and roll 071
+  in about 25.
+  """
+  def deep?(roll_dir) do
+    case analysis(roll_dir) do
+      %{"mode" => "slide"} -> true
+      %{"diagnosis" => %{"deep" => true}} -> true
       _ -> false
+    end
+  end
+
+  @doc """
+  What the analysis read of the roll's bath off its clear film, as sentences
+  for the page; `[]` when it found nothing. Only said, never acted on beyond
+  developing each strip on its own clear film: refixing is the author's.
+  """
+  def bath_notes(roll_dir) do
+    case analysis(roll_dir) do
+      %{"diagnosis" => %{"found" => found} = diagnosis} when is_list(found) ->
+        Enum.flat_map(found, &bath_note(&1, diagnosis))
+
+      _ ->
+        []
+    end
+  end
+
+  defp bath_note("veil", %{"clear_middle" => clear}) when is_number(clear) do
+    [
+      "The clear film reads D #{:erlang.float_to_binary(clear / 1, decimals: 2)}, where " <>
+        "well-fixed film reads under 0.40: a short fix, or fog. Put a cut piece in fresh " <>
+        "fixer; if it clears, refix the roll before scanning its singles, since the " <>
+        "scanner's light darkens what the fixer left."
+    ]
+  end
+
+  defp bath_note("uneven", _diagnosis),
+    do: ["Its strips were not fixed or developed alike; each is developed on its own clear film."]
+
+  defp bath_note("blocked", %{"blocked" => share}) when is_number(share),
+    do: ["#{round(share * 100)}% of the pictures lie at the scanner's floor."]
+
+  defp bath_note(_found, _diagnosis), do: []
+
+  defp analysis(roll_dir) do
+    with {:ok, body} <- File.read(Path.join(roll_dir, "frames.json")),
+         {:ok, %{} = doc} <- Jason.decode(body) do
+      doc
+    else
+      _ -> nil
     end
   end
 

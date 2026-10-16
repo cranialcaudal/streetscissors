@@ -12,7 +12,9 @@
 # something particular on the glass.
 #
 # STUB_SCANIMAGE_FAIL=1 exits 1 after writing half a file, the way a scan
-# interrupted at the cable does. STUB_SCANIMAGE_HANG=1 never finishes.
+# interrupted at the cable does. STUB_SCANIMAGE_FAIL=refused exits 4 before
+# writing anything, as the Epson backend does when the scanner reports a
+# fault. STUB_SCANIMAGE_HANG=1 never finishes.
 set -euo pipefail
 
 if [ "${1:-}" = "-L" ]; then
@@ -38,6 +40,10 @@ printf 'Progress: 10.0%%\r'
 if [ "${STUB_SCANIMAGE_HANG:-0}" = "1" ]; then
   printf 'half' > "$output"
   exec sleep 600
+fi
+if [ "${STUB_SCANIMAGE_FAIL:-0}" = "refused" ]; then
+  echo "scanimage: sane_start: Invalid argument" >&2
+  exit 4
 fi
 if [ "${STUB_SCANIMAGE_FAIL:-0}" = "1" ]; then
   printf 'half' > "$output"

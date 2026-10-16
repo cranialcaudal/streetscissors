@@ -921,6 +921,51 @@ defmodule Web.ScannerTest do
       File.write!(Path.join(dir, "frames.json"), ~s({"mode": "slide", "strips": []}))
       assert Web.Scanner.slide?(dir)
     end
+
+    test "singles are scanned deep for a slide, and for a roll whose bath left it veiled" do
+      dir = Path.join(System.tmp_dir!(), "deep-roll-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf(dir) end)
+      write = &File.write!(Path.join(dir, "frames.json"), Jason.encode!(&1))
+
+      refute Web.Scanner.deep?(dir)
+      write.(%{"mode" => "bw", "strips" => []})
+      refute Web.Scanner.deep?(dir)
+      write.(%{"mode" => "bw", "diagnosis" => %{"found" => ["uneven"], "deep" => false}})
+      refute Web.Scanner.deep?(dir)
+      write.(%{"mode" => "bw", "diagnosis" => %{"found" => ["veil", "blocked"], "deep" => true}})
+      assert Web.Scanner.deep?(dir)
+      refute Web.Scanner.slide?(dir)
+      write.(%{"mode" => "slide", "strips" => []})
+      assert Web.Scanner.deep?(dir)
+    end
+
+    test "what the analysis read of the bath is said in a sentence each, and nothing when well" do
+      dir = Path.join(System.tmp_dir!(), "bath-roll-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf(dir) end)
+      write = &File.write!(Path.join(dir, "frames.json"), Jason.encode!(&1))
+
+      assert Web.Scanner.bath_notes(dir) == []
+      write.(%{"mode" => "bw", "strips" => []})
+      assert Web.Scanner.bath_notes(dir) == []
+
+      write.(%{
+        "mode" => "bw",
+        "diagnosis" => %{
+          "found" => ["veil", "uneven", "blocked"],
+          "clear_middle" => 1.7,
+          "blocked" => 0.312,
+          "deep" => true
+        }
+      })
+
+      [veil, uneven, blocked] = Web.Scanner.bath_notes(dir)
+      assert veil =~ "The clear film reads D 1.70"
+      assert veil =~ "refix the roll before scanning its singles"
+      assert uneven =~ "not fixed or developed alike"
+      assert blocked == "31% of the pictures lie at the scanner's floor."
+    end
   end
 
   describe "Pipeline: where the film lies along a strip of an uncalibrated holder" do
