@@ -92,6 +92,32 @@ import subprocess
 import sys
 
 WHITE, BLACK = 245, 12   # non-film: scanner bed / clear area, holder gap
+# A negative read off the glass with this share of its film under BLACK is
+# dense film, not holder, and keeps those pixels (see cmd_analyze).
+DENSE_STRIP_SHARE = 0.25
+# How far a strip's clear film may be from its roll's (log10 of the ratio of
+# the two readings, 20%, about 0.14 in density) before it is developed on
+# its own (strip_veils).
+VEIL_STEP = 0.08
+# What a roll's clear film says of its bath (diagnose). The studio scans
+# with the V550's default tone table, gamma 1.8, so a scan value v over the
+# glass's g is a density of 1.8 * log10(g / v).
+SCAN_GAMMA = 1.8
+# Black-and-white film's base and fog, unexposed and well processed, reads
+# 0.22 to 0.39 here (rolls 033 to 035, 042, 043, 052, 053, 062, 063, 070:
+# the scanner reads a little denser than Kodak's figure of about 0.2 to
+# 0.35); over this the film carries a veil. Rolls 059, 060, 068, 069 and 071
+# read 0.58 to 2.0.
+CLEAR_NORMAL = 0.50
+# Strips of one roll whose clear film, read in their gaps, differs by more
+# than this were not processed alike, or one was fogged.
+CLEAR_SPREAD = 0.20
+# The densest an 8-bit scan can read: under this value is the scanner's
+# noise (the Federal Agencies Digital Guidelines Initiative, Technical
+# Guidelines, 3rd ed., 2023, asks for no 8-bit value under 5). A roll with
+# this share of its pictures there has highlights the scan cannot see.
+SCAN_FLOOR = 5
+BLOCKED_SHARE = 0.05
 CLIP = 0.5               # percent of film pixels discarded at each end
 ANALYSIS_SCALE = 25      # percentiles are stable well below full resolution
 
@@ -569,6 +595,168 @@ def exposure_for(settings, hist, ghist, kept):
     gamma = math.exp(MID_STRENGTH * math.log(full))
     gamma = min(max(gamma, GAMMA_LIMITS[0]), GAMMA_LIMITS[1])
     return {"black": round(black, 4), "white": round(top, 4), "gamma": round(gamma, 4)}
+
+
+def gap_level(scan, regions, vertical):
+    """The median of a strip's clear film between its frames, read across
+    the middle of the strip clear of each frame's edge: the film nothing
+    exposed, whatever the pictures are. None with fewer than two gaps, or
+    when the gaps disagree by more than twice VEIL_STEP: that is light fog
+    or a misplaced frame, not a veil (roll 044's first strip read 18, 47
+    and 4), and is no reason to move the strip's base."""
+    inset = int(0.3 / 25.4 * STRIP_DPI)
+    values = []
+    order = sorted(regions, key=lambda r: r[1] if vertical else r[0])
+    for one, two in zip(order, order[1:]):
+        if vertical:
+            x, w = one[0] + int(one[2] * MIDDLE_INSET), int(one[2] * (1 - 2 * MIDDLE_INSET))
+            a, b = one[1] + one[3] + inset, two[1] - inset
+            crop = (x, a, max(1, w), b - a)
+        else:
+            y, h = one[1] + int(one[3] * MIDDLE_INSET), int(one[3] * (1 - 2 * MIDDLE_INSET))
+            a, b = one[0] + one[2] + inset, two[0] - inset
+            crop = (a, y, b - a, max(1, h))
+        if b - a < inset:
+            continue
+        gap = read_grey(scan, crop, scale=100)
+        if gap:
+            values.append(sorted(gap)[len(gap) // 2])
+    if len(values) < 2 or max(values) > min(values) * 10 ** (2 * VEIL_STEP):
+        return None
+    return sorted(values)[len(values) // 2]
+
+
+def strip_veils(found, mode):
+    """{index: (the strip's own base, its roll's)} for each black-and-white
+    strip from the scanner studio whose clear film, read in the gaps between
+    its frames, is VEIL_STEP or more off the roll's.
+
+    Fog and the veil a short fix or wash leaves are density added to the
+    whole strip, its unexposed film too, so dividing by the strip's own
+    clear film takes off exactly them. A roll is developed and fixed in one
+    tank, so its strips agree (the gaps of roll 070's seven read 174 to 191),
+    but a tank with too little fixer, or film that slipped on the reel,
+    fixes them unevenly: roll 069's gaps read about 112 on six strips and
+    188 on one, and on the roll's base that one printed black end to end.
+
+    Read in the gaps and nowhere else: the brightest of a whole strip, which
+    is what a base is, moves with what is on it (a strip that is mostly
+    fogged leader, or has no clear stretch at all, read 64 on a roll of 165),
+    and moving a strip's base on that wrecked rolls that had nothing wrong
+    with them. The strip's own base is the roll's moved by its gaps' ratio.
+    Only black and white, and only the studio's scans: Epson's program set
+    its levels scan by scan, and those are read exactly as before."""
+    if mode != "bw":
+        return {}
+    gaps = {}
+    for i, s in enumerate(found):
+        hist, ghist, kept = s["whole"]
+        if s["source"] == "glass" and kept:
+            level = gap_level(s["scan"], [f["region"] for f in s["frames"]], s["vertical"])
+            s["gap"] = level
+            if level:
+                gaps[i] = level
+    if len(gaps) < 3:
+        return {}
+    middle = sorted(gaps.values())[len(gaps) // 2]
+    bases = sorted(pct(s["whole"][1], s["whole"][2], BASE_PCT) for s in found
+                   if s["source"] == "glass" and s["whole"][2])
+    roll = bases[len(bases) // 2]
+    veils = {}
+    for i, level in gaps.items():
+        if abs(math.log10(level / float(middle))) >= VEIL_STEP:
+            veils[i] = ([min(255, int(round(roll * level / float(middle))))], [roll])
+    return veils
+
+
+def diagnose(found, veils, mode):
+    """What the clear film and the pictures say of how the roll was
+    processed, for the author to act on: a dict for frames.json and the
+    lines to print, or (None, []) when there is nothing to say.
+
+    Only flags, never a correction: fog and a fixing veil are already taken
+    off by each strip's base, and what they hide cannot be put back.
+    * A veil is clear film denser than CLEAR_NORMAL. Undissolved silver
+      halide does it (a short fix or tired fixer), and so does fog; a cut
+      piece in fresh fixer tells them apart, since halide clears. Halide is
+      still sensitive to light and darkens for good under any lamp, the
+      scanner's included, so a veiled roll is refixed before its singles.
+    * Strips that disagree were fixed or developed unevenly.
+    * Blocked highlights lie at the scanner's floor; refixing lifts a veil
+      off them, and a 16-bit single reads finer near it.
+    Read in the gaps between frames where strip_veils could read them, since
+    the brightest of a whole strip moves with what is on it. Only black and
+    white (a colour negative's clear film is its orange mask, which says
+    nothing of the bath) and only the studio's scans: their tone table is
+    known.
+    """
+    if mode != "bw":
+        return None, []
+    strips = []
+    for i, s in enumerate(found):
+        hist, ghist, kept = s["whole"]
+        if s["source"] != "glass" or not kept:
+            continue
+        glass = glass_level(s["scan"]) or 255
+        base = s.get("gap") or pct(ghist, kept, BASE_PCT)
+        clear = SCAN_GAMMA * math.log10(glass / float(max(base, 1)))
+        floor = blocked = 0
+        for f in s["frames"]:
+            fh, fg, fk = f["read"]
+            if fk:
+                blocked += sum(fg[:SCAN_FLOOR])
+                floor += fk
+        strips.append((os.path.basename(s["scan"]), round(clear, 2), blocked, floor,
+                       bool(s.get("gap"))))
+    if not strips:
+        return None, []
+    clears = sorted(c for _, c, _, _, _ in strips)
+    middle = clears[len(clears) // 2]
+    in_gaps = sorted(c for _, c, _, _, g in strips if g)
+    blocked = sum(b for _, _, b, _, _ in strips) / float(max(1, sum(f for _, _, _, f, _ in strips)))
+    found_notes, lines = [], []
+    if middle > CLEAR_NORMAL:
+        found_notes.append("veil")
+        lines.append(f"  VEIL: clear film at D {middle:.2f}, where a well-fixed roll reads under "
+                     f"{CLEAR_NORMAL:.2f}. Undissolved halide (a short fix) or fog: put a cut "
+                     "piece in fresh fixer, and if it clears, refix the roll before scanning "
+                     "its singles. The scanner's light darkens halide for good.")
+    if len(in_gaps) >= 2 and in_gaps[-1] - in_gaps[0] > CLEAR_SPREAD:
+        found_notes.append("uneven")
+        odd = [n for n, c, _, _, g in strips if g and abs(c - middle) > CLEAR_SPREAD]
+        lines.append(f"  UNEVEN: clear film between frames runs from D {in_gaps[0]:.2f} to "
+                     f"{in_gaps[-1]:.2f} ({', '.join(odd)} apart from the rest): fogged, or "
+                     "not fixed alike. Each strip is developed on its own clear film.")
+    if blocked > BLOCKED_SHARE:
+        found_notes.append("blocked")
+        lines.append(f"  BLOCKED: {blocked:.0%} of the pictures lie at the scanner's floor, "
+                     "where the scan reads nothing. Singles are scanned at 16 bits"
+                     + (" (refix first: that lifts the veil off them)." if "veil" in found_notes
+                        else "."))
+    report = {"clear": {n: c for n, c, _, _, _ in strips}, "clear_middle": middle,
+              "blocked": round(blocked, 3), "found": found_notes,
+              "deep": bool({"veil", "blocked"} & set(found_notes))}
+    return report, lines
+
+
+def rebase(read, own, roll, mode="bw"):
+    """A reading moved from a strip's own base to its roll's: each value
+    scaled by the ratio, which in density is an offset."""
+    hist, ghist, kept = read
+
+    def move(h, f):
+        out = [0] * 256
+        for v, n in enumerate(h):
+            if n:
+                out[min(255, int(round(v * f)))] += n
+        return out
+
+    if mode == "color":
+        f = [r / float(max(o, 1)) for o, r in zip(own, roll)]
+        g = math.exp(sum(math.log(x) for x in f) / 3.0)
+        return [move(hist[c], f[c]) for c in range(3)], move(ghist, g), kept
+    f = roll[0] / float(max(own[0], 1))
+    return [move(h, f) for h in hist], move(ghist, f), kept
 
 
 def frame_settings(film, hist, ghist, kept, score=0.0):
@@ -2194,6 +2382,18 @@ def cmd_analyze(args):
                     a, b = 0, axis_len
                 if glass:
                     held = film_on_glass(scan, vertical, a, b, glass, slide)
+                    if not slide:
+                        # A negative denser than the holder's black is no
+                        # film to the extent above either (roll 071, which
+                        # came out of a short fix with clear film at D 1.7):
+                        # it is read off the glass alone, as a slide is, when
+                        # that finds far more film.
+                        narrow = film_on_glass.pieces
+                        wide = film_on_glass(scan, vertical, 0, axis_len, glass, False)
+                        if wide and (not held or wide[1] - wide[0] > 1.5 * (held[1] - held[0])):
+                            held = wide
+                        else:
+                            film_on_glass.pieces = narrow
                 trace = None
                 if held:
                     a, b, rows = held
@@ -2244,6 +2444,7 @@ def cmd_analyze(args):
                         mis_split.append(os.path.basename(scan))
                     regions = trim_to_pictures([b * scale for b in bounds], rows, w, h, vertical)
 
+        strip_black = black
         if held:
             # The strip as a whole is read off its film alone. Taken with the
             # holder's grey edges and the glass's glare in it, the "film
@@ -2256,10 +2457,20 @@ def cmd_analyze(args):
                 y = int(h * MIDDLE_INSET)
                 on_film = (held[0], y, max(1, held[1] - held[0]), h - 2 * y)
             whole = histograms(scan, on_film, black=black)
+            # Under the holder's black is the holder, except on film read off
+            # the glass, which has no holder in it. A negative left with a
+            # veil (roll 071's clear film read 21 of 255 and its pictures
+            # 0 to 24) is mostly that dark, and with those pixels thrown away
+            # its "base" was the glare at its ends. Such a strip keeps them;
+            # one that is not that dense is read exactly as before.
+            if not slide and whole[2]:
+                every = histograms(scan, on_film, black=-1)
+                if sum(every[1][:black + 1]) >= DENSE_STRIP_SHARE * every[2]:
+                    strip_black, whole = -1, every
 
         frames = []
         for region in regions:
-            hist, ghist, kept = histograms(scan, stats_crop(region, vertical), black=black)
+            hist, ghist, kept = histograms(scan, stats_crop(region, vertical), black=strip_black)
             contrast = interquartile(ghist, kept) if kept else 0
             frames.append({"region": region, "read": (hist, ghist, kept),
                            "contrast": contrast, "score": quality(contrast) if kept else 0.0})
@@ -2281,11 +2492,22 @@ def cmd_analyze(args):
     # scanner): then each kind is read by itself, since the film's base and
     # its contrast are numbers of the scan as much as of the film. A single is
     # always scanned on the glass, so the glass's reading is the roll's.
-    everything = model(found)
+    #
+    # A strip fixed or washed apart from the rest of its roll has clear film
+    # of its own, and is developed on it (strip_veils). The roll's contrast
+    # is still the roll's: it is read with every strip brought to the roll's
+    # base first, so a veiled strip neither flattens nor steepens it.
+    veils = {} if slide else strip_veils(found, mode)
+    reading = [dict(s, whole=rebase(s["whole"], *veils[i], mode=mode),
+                    frames=[dict(f, read=rebase(f["read"], *veils[i], mode=mode))
+                            for f in s["frames"]])
+               if i in veils else s
+               for i, s in enumerate(found)]
+    everything = model(reading)
     films = {}
     if len({s["source"] for s in found}) > 1:
         for source in sorted({s["source"] for s in found}):
-            films[source] = model([s for s in found if s["source"] == source]) or everything
+            films[source] = model([s for s in reading if s["source"] == source]) or everything
     film = films.get("glass") or everything
     if film:
         doc["film"] = film
@@ -2303,9 +2525,15 @@ def cmd_analyze(args):
            else f"{per_strip} frames/strip"))
     number = 0
     roll_film = film
-    for s in found:
+    for i, s in enumerate(found):
         scan, w, h = s["scan"], s["size"][0], s["size"][1]
         film = films.get(s["source"]) or roll_film
+        if film and i in veils:
+            own, base = veils[i]
+            film = dict(film, channels=[dict(ch, base=b) for ch, b in zip(film["channels"], own)])
+            print(f"  {os.path.basename(scan)}: clear film of its own, "
+                  f"{'/'.join(str(b) for b in own)} against the roll's "
+                  f"{'/'.join(str(b) for b in base)}: fixed, washed or fogged apart from the rest")
         frames = []
         for f in s["frames"]:
             number += 1
@@ -2351,6 +2579,8 @@ def cmd_analyze(args):
             "settings": strip_settings,
             "frames": frames,
         })
+        if i in veils:
+            doc["strips"][-1]["own_base"] = veils[i][0]
 
         note = ""
         if os.path.basename(scan) in unaligned:
@@ -2361,6 +2591,12 @@ def cmd_analyze(args):
         for f in frames:
             mark = "*" if f["well_exposed"] else " "
             print(f"      {mark} frame {f['frame']:>2}  quality {f['quality']:.2f}")
+
+    report, lines = diagnose(found, veils, mode)
+    if report:
+        doc["diagnosis"] = report
+        for line in lines:
+            print(line)
 
     if unaligned:
         doc["unaligned"] = unaligned
