@@ -667,7 +667,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       colour-balanced (the roll's brightest highlight is white, the same in all channels, and
       a frame may only nudge its own black and white), frames are found by their **dark**
       gaps, and dust removal is skipped. **The site does not know the mode exists, and the tool tells
-      by looking** (`looks_like_slide/1`): a roll the page calls colour is a slide when the
+      by looking** (`film_look/1`): a roll the page calls colour is a slide when the
       clearest film down the middle of its strips is neutral (a colour negative's orange mask
       makes it far redder than blue) and at least 2% of it is true black. All eleven colour
       negative rolls in the archive read as negatives by it. `roll.json` outranks the look
@@ -785,8 +785,22 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
       alone, as a slide is, when that finds far more film, and a strip with a quarter of
       its film under `BLACK` keeps those pixels (`DENSE_STRIP_SHARE`). Analysed as black
       and white, roll 071 crashed on an empty gap reading before this.
-    `Web.Scanner.Detect` and `looks_like_slide/1` still take film that dark for a slide
-    (roll 071 was filed colour, then slide): set the roll to black and white by hand.
+    - **A negative as black as a slide is told by its gaps** (2026-10-15; the copy replaced
+      is in `~/film-pipeline-backups/2026-10-15-slide/`). Roll 071 was filed colour by the
+      page and developed as a slide, because both took film mostly darker than the holder
+      for reversal film. The film between frames has nothing on it, so it is a negative's
+      clearest and a slide's blackest: where film is that dark, gaps are laid on it at the
+      35mm pitch, and gaps 2.5 times as bright as the pictures' median (about 0.7 in
+      density) make it a negative. `Web.Scanner.Detect` reads the look that way, a row to
+      the millimetre between the glass at the film's ends (071 read 3.5 and 4.5 on looks
+      rebuilt from its strips, no slide strip past 1.9), and then reads its colour as any
+      other film's. `film-develop`'s `film_look/1` lays its frame template as a negative's
+      (`clear_gaps`: 071 read 4.4 and 3.7, and only two of the 34 slide strips took such a
+      grid at all, at 1.3 and 1.4), and calls a dense negative black and white when its gaps'
+      channels part by under 0.4 in density (`MASK_DENSITY`: C-41 reads 0.65 to 1.26, 071
+      about 0.2). **Roll 027's pink base reads 0.19**, so a colour roll that dense would be
+      taken for black and white: `"process": "negative"` in `roll.json` keeps it colour. Old
+      and new tools gave byte-identical `frames.json` for every other roll in the archive.
   - **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
     things went wrong at once when one strip of an August roll was scanned again on the site.
     **The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`

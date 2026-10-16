@@ -38,6 +38,16 @@ defmodule Web.Scanner.Detect do
   film in it. Film found that way, or mostly that dark, is taken for reversal
   film and so for colour (`:slide`), since its colour cannot be read off
   black.
+
+  **A negative can be as black.** Roll 071, black and white left with a veil
+  by a short fix, was darker than the holder nearly everywhere and was filed
+  as colour slides. What tells the two apart is the film between frames,
+  which has nothing on it: a negative's clearest, a slide's blackest. So dark
+  film is read along its length, and when gaps laid at the 35mm frame's pitch
+  are each `@clear_gaps` times as bright as the pictures' median, the film is
+  a negative and its colour is read as any other's. On looks rebuilt from the
+  archive's strips (the looks themselves are not kept), roll 071's two strips
+  read 3.5 and 4.5, and no strip of the six rolls of slides came past 1.9.
   """
 
   alias Web.Negatives
@@ -57,8 +67,14 @@ defmodule Web.Scanner.Detect do
   @glass_some 0.05
   @glass_most 0.6
   @dark_much 0.3
-  # Film this dark overall is reversal film.
+  # Film this dark overall is reversal film,
   @slide_dark 0.5
+  # unless its gaps between frames are this many times as bright as its
+  # pictures' median (about 0.7 in density): then it is a dense negative.
+  # The frame is 36 mm and the gap 2, give or take the scanner's travel.
+  @clear_gaps 2.5
+  @pitch_mm 38.0
+  @gap_mm 2.0
 
   # Enough pixels to judge by, few enough to walk in the BEAM. Only the
   # columns have to be fine (a strip's edges are cut from them), so the
@@ -85,9 +101,14 @@ defmodule Web.Scanner.Detect do
     ]
 
     with {ppm, 0} <- System.cmd(Negatives.magick_bin(), args, stderr_to_stdout: false),
-         {:ok, width, _height, pixels} <- parse_ppm(ppm),
-         {full_width, _} <- full_width(path) do
-      classify(pixels, width, 25.4 * full_width / (dpi * width))
+         {:ok, width, height, pixels} <- parse_ppm(ppm),
+         {full_width, full_height} <- full_size(path) do
+      classify(
+        pixels,
+        width,
+        25.4 * full_width / (dpi * width),
+        25.4 * full_height / (dpi * height)
+      )
     else
       _ -> :none
     end
@@ -95,11 +116,16 @@ defmodule Web.Scanner.Detect do
     _ -> :none
   end
 
-  defp full_width(path) do
-    case System.cmd(Negatives.magick_bin(), ["identify", "-format", "%w", path <> "[0]"],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} -> Integer.parse(String.trim(output))
+  defp full_size(path) do
+    with {output, 0} <-
+           System.cmd(Negatives.magick_bin(), ["identify", "-format", "%w %h", path <> "[0]"],
+             stderr_to_stdout: true
+           ),
+         [width, height] <- String.split(output),
+         {width, ""} <- Integer.parse(width),
+         {height, ""} <- Integer.parse(height) do
+      {width, height}
+    else
       _ -> :error
     end
   end
@@ -134,9 +160,12 @@ defmodule Web.Scanner.Detect do
 
   @doc """
   The same answer from pixels already in hand: `pixels` is rows of RGB bytes
-  `width` across, and each pixel is `mm_per_pixel` wide.
+  `width` across, each pixel is `mm_per_pixel` wide, and each row is
+  `mm_per_row` tall (as tall as a pixel is wide, unless said).
   """
-  def classify(pixels, width, mm_per_pixel) when width > 0 do
+  def classify(pixels, width, mm_per_pixel, mm_per_row \\ nil)
+
+  def classify(pixels, width, mm_per_pixel, mm_per_row) when width > 0 do
     rows = for <<row::binary-size(width * 3) <- pixels>>, do: row
 
     runs =
@@ -151,7 +180,10 @@ defmodule Web.Scanner.Detect do
       {first, last} ->
         width_mm = (last - first + 1) * mm_per_pixel
         {cast, spread} = colour(rows, first, last)
-        slide? = dark_share(rows, first, last) >= @slide_dark
+
+        slide? =
+          dark_share(rows, first, last) >= @slide_dark and
+            not Enum.any?(runs, &clear_gaps?(rows, &1, mm_per_row || mm_per_pixel))
 
         {:ok,
          %{
@@ -173,7 +205,7 @@ defmodule Web.Scanner.Detect do
     end
   end
 
-  def classify(_pixels, _width, _mm_per_pixel), do: :none
+  def classify(_pixels, _width, _mm_per_pixel, _mm_per_row), do: :none
 
   defp light(r, g, b), do: div(r * 299 + g * 587 + b * 114, 1000)
 
@@ -239,6 +271,87 @@ defmodule Web.Scanner.Detect do
 
     if all == 0, do: 0.0, else: dark / all
   end
+
+  # Whether a strip's gaps between frames are far clearer than its pictures,
+  # as only a negative's are. The strip is read down the middle of its width,
+  # one value per row, between the glass at its two ends (a cut is the glass's
+  # glare for a millimetre, which is left out); gaps are laid at every pitch
+  # and phase the 35mm frame allows, and each gap is its brightest row, since
+  # a row of the look is a millimetre and a gap only two.
+  defp clear_gaps?(rows, {first, last}, mm_per_row) do
+    inset = div(last - first + 1, 5)
+    trace = Enum.map(rows, &mean_light(&1, first + inset, last - inset))
+    trim = max(1, round(1.0 / mm_per_row))
+
+    case between_glass(trace) do
+      {top, bottom} when (bottom - top - 2 * trim) * mm_per_row >= 2 * @pitch_mm ->
+        laid_clear?(List.to_tuple(trace), top + trim, bottom - trim, mm_per_row)
+
+      _ ->
+        false
+    end
+  end
+
+  defp mean_light(row, from, to) do
+    sum =
+      for <<r, g, b <- binary_part(row, from * 3, (to - from + 1) * 3)>>, reduce: 0 do
+        sum -> sum + r * 299 + g * 587 + b * 114
+      end
+
+    sum / (1000 * (to - from + 1))
+  end
+
+  # The longest run of rows that are not glass with glass on both sides of
+  # it, as {first, after last}. Runs of glass and not-glass alternate, so a
+  # run between two of glass is one that follows glass.
+  defp between_glass(trace) do
+    trace
+    |> Enum.with_index()
+    |> Enum.chunk_by(fn {light, _row} -> light >= @glass end)
+    |> Enum.chunk_every(3, 1, :discard)
+    |> Enum.flat_map(fn
+      [[{before, _} | _], [{_light, top} | _] = run, _after] when before >= @glass ->
+        [{top, top + length(run)}]
+
+      _ ->
+        []
+    end)
+    |> Enum.max_by(fn {top, bottom} -> bottom - top end, fn -> nil end)
+  end
+
+  defp laid_clear?(trace, top, bottom, mm_per_row) do
+    half = @gap_mm / 2 / mm_per_row
+
+    Enum.any?(-6..4, fn step ->
+      pitch = @pitch_mm * (1 + step * 0.002) / mm_per_row
+
+      Enum.any?(0..(ceil(pitch * 4) - 1), fn quarter ->
+        (top + quarter / 4)
+        |> Stream.iterate(&(&1 + pitch))
+        |> Enum.take_while(&(&1 + half <= bottom))
+        |> Enum.filter(&(&1 - half >= top))
+        |> gaps_clear?(trace, top, bottom, half)
+      end)
+    end)
+  end
+
+  defp gaps_clear?(centres, _trace, _top, _bottom, _half) when length(centres) < 2, do: false
+
+  defp gaps_clear?(centres, trace, top, bottom, half) do
+    gaps =
+      for at <- centres do
+        round(at - half)..round(at + half) |> Enum.map(&elem(trace, &1)) |> Enum.max()
+      end
+
+    pictures =
+      for row <- top..(bottom - 1), Enum.all?(centres, &(abs(row - &1) > 2 * half)) do
+        elem(trace, row)
+      end
+
+    length(pictures) >= 10 and Enum.min(gaps) >= @clear_gaps * max(median(pictures), 0.5)
+  end
+
+  defp median(values), do: values |> Enum.sort() |> Enum.at(div(length(values), 2))
 
   defp columns(row) do
     for {<<r, g, b>>, index} <- Enum.with_index(for(<<pixel::binary-size(3) <- row>>, do: pixel)) do

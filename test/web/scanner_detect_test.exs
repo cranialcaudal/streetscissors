@@ -79,6 +79,47 @@ defmodule Web.Scanner.DetectTest do
     end
   end
 
+  describe "a negative as black as a slide" do
+    # A look as the scanner page reads it: a row to the millimetre, a strip
+    # 25 mm wide in a 30 mm slot, glass past both ends of the film, and five
+    # 36 mm frames with a 2 mm gap after each. `stripes` is [{rows, bands}].
+    defp look(stripes), do: for({rows, bands} <- stripes, into: <<>>, do: glass(300, bands, rows))
+
+    defp strip_of(frames, gap) do
+      glass = [{20..269, {250, 250, 250}}]
+
+      [{10, []}, {10, glass}] ++
+        Enum.flat_map(frames, &[{36, [{20..269, &1}]}, {2, [{20..269, gap}]}]) ++
+        [{20, glass}, {10, []}]
+    end
+
+    test "is told by its gaps, which are its clearest film" do
+      # Roll 071: black and white left with a veil, its clear film at about
+      # 20 of 255 and a little warm, its pictures at the scanner's floor.
+      scan = look(strip_of(List.duplicate({5, 4, 4}, 5), {21, 18, 16}))
+
+      assert {:ok, %{slide: false, color: "bw", format: "35mm"}} =
+               Detect.classify(scan, 300, 0.1, 1.0)
+    end
+
+    test "a slide's gaps are its blackest, so it stays a slide" do
+      # Night pictures with a lamp here and there, and black between frames.
+      lamp = fn x -> if x in 120..150, do: <<90, 70, 50>>, else: <<5, 4, 4>> end
+      frames = [{5, 4, 4}, lamp, {6, 5, 5}, {5, 4, 4}, lamp]
+      scan = look(strip_of(frames, {2, 2, 2}))
+
+      assert {:ok, %{slide: true, color: "color"}} = Detect.classify(scan, 300, 0.1, 1.0)
+    end
+
+    test "film too short to hold two frames is not read for gaps" do
+      scan = look(strip_of(List.duplicate({5, 4, 4}, 5), {21, 18, 16}))
+
+      # Rows as tall as a pixel is wide make the film 19 mm long, and dark
+      # film with no gaps to read is taken for a slide, as before.
+      assert {:ok, %{slide: true}} = Detect.classify(scan, 300, 0.1)
+    end
+  end
+
   test "bare glass, an empty holder and a sliver are no film" do
     assert :none = read(680, [{0..679, {250, 250, 250}}])
     assert :none = read(680, [])
