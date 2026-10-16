@@ -61,6 +61,10 @@ part of the pipeline and per-frame colour stopped being good enough):
          knows colour from black and white. Between frames a slide is black
          where a negative is clear, so the frames are found by their dark
          gaps. 35mm only; dust, which prints dark on a slide, is left alone.
+         A roll asked for as colour is also looked at (film_look), and that
+         same difference tells a slide from a negative as black as one: a
+         black-and-white roll left with a veil (071) was taken for slides
+         until its clear gaps were read.
 
 Where the frames are:
 
@@ -201,6 +205,21 @@ SLIDE_STOCKS = re.compile(
     r"precisa|ct ?100|agfachrome|slide|reversal|e-?6)\b", re.I)
 # A slide's gap is its densest black: within this of the darkest film counts.
 SLIDE_DARK = 10
+# A negative's gap is its clearest film. A strip dark enough to be taken for
+# a slide is a negative when frames laid on it as a negative's leave gaps this
+# many times as bright as its pictures' median, about 0.7 in density: roll
+# 071's two strips (black and white, left with a veil by a short fix) read
+# 4.4 and 3.7; of the 34 strips of slides in the archive, such a grid could
+# be laid on only two, at 1.3 and 1.4 (clear_gaps).
+CLEAR_GAPS = 2.5
+# A dense negative's clear film is a colour negative's when its channels part
+# by this much in density: the mask, which a veil does not hide, since silver
+# adds the same density to every channel. Read in their gaps, the archive's
+# C-41 rolls part by 0.65 to 1.26, roll 071 by 0.20 and 0.22 (undissolved
+# halide is a little yellow). Roll 027, whose base is pink, parts by 0.19:
+# were it ever this dense it would be taken for black and white, and
+# "process": "negative" in roll.json is what keeps such a roll colour.
+MASK_DENSITY = 0.4
 # A frame of a slide roll may bring its own white down to this of the roll's
 # (a dark slide is lifted a little, not remade), and its black up to this.
 SLIDE_WHITE_FLOOR = 0.12
@@ -957,14 +976,84 @@ def roll_is_slide(roll_dir):
     return bool(SLIDE_STOCKS.search(str(doc.get("film") or "")))
 
 
-def looks_like_slide(scans):
-    """Whether colour strips are reversal film, read off the film itself.
+def clear_gaps(scan):
+    """The colour of a strip's gaps between frames, as (r, g, b), when they
+    are far clearer than its pictures; None otherwise.
+
+    The film between frames is the film with nothing on it: a negative's
+    clearest, a slide's blackest. So frames are laid on the strip as a
+    negative's, by the frame template (grid_by_template), and the gaps that
+    leaves are compared with the frames' median. On a negative so dense that
+    most of it is black (roll 071, its clear film at about D 2.0 after a
+    short fix, its pictures 0 to 24 of 255) the gaps stand out as bright
+    lines CLEAR_GAPS times the pictures' level and more. On a slide no
+    negative's grid fits at all, since its clearest film is lit picture: a
+    grid of gaps all at that level would cut through every frame."""
+    w, h = dimensions(scan)
+    vertical = h >= w
+    axis = h if vertical else w
+    glass = glass_level(scan)
+    pieces = [(0, axis)]
+    if glass and film_on_glass(scan, vertical, 0, axis, glass, True):
+        pieces = film_on_glass.pieces or pieces
+    trace = middle_trace(scan, vertical)
+    gap = GAP_35MM / 25.4 * STRIP_DPI
+    half = gap / 2.0
+    inset = int(1.0 / 25.4 * STRIP_DPI)
+    centres, inner = [], []
+    for a, b in pieces:
+        first, pitch, found = grid_by_template(trace, a, b, False)
+        if not found:
+            continue
+        lo, hi = a + inset, min(b, len(trace)) - inset
+        # the gaps the template scored: a picture's width of film either side
+        here, x = [], first
+        while x <= hi:
+            if x - half - gap >= lo and x + half + gap <= hi:
+                here.append(x)
+            x += pitch
+        centres += here
+        inner += [trace[i] for i in range(lo, hi)
+                  if all(abs(i - c) > gap for c in here)]
+    if len(centres) < 2 or not inner:
+        return None
+
+    def band(c):
+        part = trace[int(c - half):int(c + half) + 1]
+        return sum(part) / float(len(part))
+
+    level = sorted(band(c) for c in centres)
+    inner.sort()
+    if level[len(level) // 2] < CLEAR_GAPS * max(inner[len(inner) // 2], 0.5):
+        return None
+    # the colour of clear film, from the middle millimetre of each gap
+    across = w if vertical else h
+    edge = int(across * MIDDLE_INSET)
+    r = g = b = n = 0
+    for c in centres:
+        lo, hi = int(c - half / 2), int(c + half / 2) + 1
+        crop = (edge, lo, across - 2 * edge, hi - lo) if vertical \
+            else (lo, edge, hi - lo, across - 2 * edge)
+        rgb = read_rgb(scan, crop, scale=100)
+        for i in range(0, len(rgb) - 2, 3):
+            r, g, b, n = r + rgb[i], g + rgb[i + 1], b + rgb[i + 2], n + 1
+    return (r / float(n), g / float(n), b / float(n)) if n else None
+
+
+def film_look(scans):
+    """What colour strips are, read off the film itself: "slide", "bw" or
+    "color".
 
     A colour negative wears an orange mask: its clearest film is far redder
     than it is blue, and nothing on it is truly black. A slide's highlights
     are neutral, and its gaps and shadows are the blackest thing in the scan.
     Read down the middle of each strip, clear of the holder's edges; the
     middle strip's verdict is the roll's, so one odd strip cannot decide it.
+
+    A negative can be as black as a slide, though: roll 071 was black and
+    white left with a veil, and was taken for one. Where a strip is that
+    dark, its gaps between frames decide (clear_gaps): clearer than its
+    pictures, it is a negative, and its clear film's colour says which kind.
     """
     votes = []
     for scan in scans:
@@ -987,9 +1076,21 @@ def looks_like_slide(scans):
         black = sum(1 for p in film if sum(p) <= 48) / float(len(film))
         # A roll of night slides is black nearly everywhere, and what little
         # is lit may be any colour (stage lights are red); a negative is
-        # never that black, fogged leader and all.
-        votes.append(black >= 0.25 or (blue >= 0.8 * max(red, 1.0) and black >= 0.02))
-    return bool(votes) and sum(votes) * 2 > len(votes)
+        # seldom that black, and then its gaps are clear.
+        if black >= 0.25 or (blue >= 0.8 * max(red, 1.0) and black >= 0.02):
+            votes.append(clear_gaps(scan) or "slide")
+        else:
+            votes.append("color")
+    if sum(1 for v in votes if v == "slide") * 2 > len(votes):
+        return "slide"
+    dense = [v for v in votes if isinstance(v, tuple)]
+    if dense and len(dense) * 2 > len(votes):
+        # silver, a veil included, is the same density in every channel; a
+        # colour negative's mask is not
+        r, g, b = (sum(v[i] for v in dense) / len(dense) for i in range(3))
+        mask = SCAN_GAMMA * math.log10(max(r, g, b, 1.0) / max(min(r, g, b), 1.0))
+        return "color" if mask >= MASK_DENSITY else "bw"
+    return "color"
 
 
 def roll_dial(roll_dir):
@@ -1011,7 +1112,9 @@ def roll_mode(roll_dir, asked=None):
     """color, bw or slide. What roll.json says of the film comes first
     ("process": "slide" or "negative", or a reversal stock under "film");
     then what was asked for, or else the folder's name; and a roll taken for
-    colour is looked at, because neither of those can say "slide"."""
+    colour is looked at, because neither of those can say "slide" (film_look),
+    and a black-and-white negative too dense to show the page its colour was
+    once taken for one."""
     said = None
     if roll_dir:
         try:
@@ -1025,9 +1128,8 @@ def roll_mode(roll_dir, asked=None):
     if name.endswith("_slide"):
         return "slide"
     mode = asked or ("color" if name.endswith("_color") or name.endswith("_colour") else "bw")
-    if mode == "color" and roll_dir and said not in ("negative", "c-41", "c41") \
-            and looks_like_slide(strip_scans(roll_dir)):
-        return "slide"
+    if mode == "color" and roll_dir and said not in ("negative", "c-41", "c41"):
+        return film_look(strip_scans(roll_dir))
     return mode
 
 
