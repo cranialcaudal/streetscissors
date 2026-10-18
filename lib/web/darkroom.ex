@@ -73,16 +73,34 @@ defmodule Web.Darkroom do
   def base_path(roll_dir, frame), do: Path.join([roll_dir, "developed", "#{pad2(frame)}.png"])
   def edits_path(roll_dir, frame), do: Path.join([roll_dir, "edits", "#{pad2(frame)}.json"])
 
+  @doc "A frame's repair mask (`Web.Darkroom.Repair`): white where a mark is."
+  def mask_path(roll_dir, frame), do: Path.join([roll_dir, "edits", "#{pad2(frame)}.mask.png"])
+
+  @doc "The print as developed, with the marks the mask covers repaired."
+  def repaired_path(roll_dir, frame),
+    do: Path.join([roll_dir, "developed", "#{pad2(frame)}.repaired.png"])
+
+  @doc "A repair offered for looking at before it is kept (Stable Diffusion's)."
+  def candidate_path(roll_dir, frame),
+    do: Path.join([roll_dir, "developed", "#{pad2(frame)}.candidate.png"])
+
   @doc "Whether a frame's print has a recipe applied to it."
   def edited?(roll_dir, frame), do: File.regular?(edits_path(roll_dir, frame))
 
   @doc """
-  The picture a frame's edits apply to: the print as it was developed when the
-  frame has been edited, otherwise the print itself, which is that picture.
+  The picture a frame's edits apply to: its repaired picture when it has one,
+  else the print as it was developed when the frame has been edited, else the
+  print itself, which is that picture.
   """
   def source_path(roll_dir, frame) do
+    repaired = repaired_path(roll_dir, frame)
     base = base_path(roll_dir, frame)
-    if File.regular?(base), do: base, else: print_path(roll_dir, frame)
+
+    cond do
+      File.regular?(repaired) -> repaired
+      File.regular?(base) -> base
+      true -> print_path(roll_dir, frame)
+    end
   end
 
   # ── The recipe ────────────────────────────────────────────────────────
@@ -289,14 +307,14 @@ defmodule Web.Darkroom do
   An empty recipe is a revert.
   """
   def save(roll_dir, frame, recipe) do
-    if empty?(recipe) do
+    if empty?(recipe) and not File.regular?(repaired_path(roll_dir, frame)) do
       revert(roll_dir, frame)
     else
       base = base_path(roll_dir, frame)
       print = print_path(roll_dir, frame)
 
-      with :ok <- set_aside(print, base),
-           :ok <- render(base, recipe, print),
+      with :ok <- copy_aside(print, base),
+           :ok <- render(source_path(roll_dir, frame), recipe, print),
            :ok <- write_recipe(roll_dir, frame, recipe) do
         clear_previews(roll_dir, frame)
         :ok
@@ -310,6 +328,14 @@ defmodule Web.Darkroom do
 
     if File.regular?(base), do: File.rename!(base, print_path(roll_dir, frame))
     File.rm(edits_path(roll_dir, frame))
+
+    for path <- [
+          mask_path(roll_dir, frame),
+          repaired_path(roll_dir, frame),
+          candidate_path(roll_dir, frame)
+        ],
+        do: File.rm(path)
+
     clear_previews(roll_dir, frame)
     :ok
   end
@@ -325,7 +351,13 @@ defmodule Web.Darkroom do
       File.mkdir_p!(Path.dirname(base))
       File.rename!(print, base)
 
-      with {:error, reason} <- render(base, recipe(roll_dir, frame), print) do
+      # The repair was made from the old development: made again from the new.
+      File.rm(repaired_path(roll_dir, frame))
+      File.rm(candidate_path(roll_dir, frame))
+      if File.regular?(mask_path(roll_dir, frame)), do: Web.Darkroom.Repair.lama(roll_dir, frame)
+
+      with {:error, reason} <-
+             render(source_path(roll_dir, frame), recipe(roll_dir, frame), print) do
         # The new development is still worth showing; the recipe is kept.
         File.cp!(base, print)
         {:error, reason}
@@ -341,8 +373,15 @@ defmodule Web.Darkroom do
   """
   def turn(roll_dir, frame, degrees) do
     if edited?(roll_dir, frame) and rem(degrees, 360) != 0 do
-      base = base_path(roll_dir, frame)
-      if File.regular?(base), do: magick([base, "-rotate", "#{degrees}", base])
+      for path <- [
+            base_path(roll_dir, frame),
+            mask_path(roll_dir, frame),
+            repaired_path(roll_dir, frame)
+          ],
+          File.regular?(path),
+          do: magick([path, "-rotate", "#{degrees}", path])
+
+      File.rm(candidate_path(roll_dir, frame))
 
       recipe = recipe(roll_dir, frame)
 
@@ -382,7 +421,11 @@ defmodule Web.Darkroom do
     end)
   end
 
-  defp set_aside(print, base) do
+  @doc "Sets the print as developed aside, the first time a frame is changed."
+  def set_aside(roll_dir, frame),
+    do: copy_aside(print_path(roll_dir, frame), base_path(roll_dir, frame))
+
+  defp copy_aside(print, base) do
     cond do
       File.regular?(base) ->
         :ok

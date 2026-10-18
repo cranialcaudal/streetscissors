@@ -125,6 +125,44 @@ defmodule WebWeb.AdminLive.DarkroomTest do
     assert [%{x: 0.75, y: 0.2}, %{x: 0.5, y: 0.5}] = Web.Darkroom.recipe(folder, 3).spots
   end
 
+  # The repair stub (test/support/stub_film_repair) draws its mask with
+  # ImageMagick, so the print must be a picture it can read.
+  if System.find_executable("magick") do
+    test "a scanner line is found, repaired, and the repair undone", %{conn: conn, folder: folder} do
+      print = Path.join([folder, "frames", "03.png"])
+      {_, 0} = System.cmd("magick", ["-size", "30x20", "gradient:white-gray", print])
+
+      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+      view |> element("button", "Repair") |> render_click()
+      assert has_element?(view, "#repair-box canvas")
+      assert has_element?(view, "button[phx-click=lama][disabled]")
+
+      view |> element("button", "Find scanner lines") |> render_click()
+      render_async(view)
+      assert render(view) =~ "Found a scanner line; it is marked."
+      assert conn |> admin_conn() |> get(~p"/admin/darkroom/mask/007/3") |> response(200)
+      assert conn |> get(~p"/admin/darkroom/mask/007/3") |> response(404)
+
+      view |> element("button", "Repair what is marked") |> render_click()
+      render_async(view)
+      assert render(view) =~ "Repaired: 1 scanner line corrected, 1 place painted."
+      assert Darkroom.source_path(folder, 3) == Darkroom.repaired_path(folder, 3)
+
+      # A repair is worth saving on its own, though the recipe is unchanged.
+      refute has_element?(view, "button[phx-click=save][disabled]")
+      view |> element("button[phx-click=save]") |> render_click()
+      render_async(view)
+      assert render(view) =~ "Printed."
+      assert has_element?(view, "button[phx-click=save][disabled]")
+      assert has_element?(view, "button", "Revert")
+
+      view |> element("button", "Undo the repair") |> render_click()
+      refute File.exists?(Darkroom.repaired_path(folder, 3))
+      assert File.exists?(Darkroom.mask_path(folder, 3))
+      refute has_element?(view, "button[phx-click=save][disabled]")
+    end
+  end
+
   test "an unknown print is not a page", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: "/admin/darkroom"}}} =
              live(admin_conn(conn), ~p"/admin/darkroom/007/9")

@@ -85,6 +85,10 @@ config :web, :darkroom_scratch, "streetscissors-darkroom-test"
 # database can see them (Web.Cuts).
 config :web, :cuts_async, false
 
+# The print editor's repairs (Web.Darkroom.Repair): a stub stands in for the
+# Python that runs LaMa.
+config :web, :film_repair_python, Path.expand("../test/support/stub_film_repair", __DIR__)
+
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.
 config :web, :transcoder_requeue_on_boot, false

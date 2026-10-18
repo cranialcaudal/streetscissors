@@ -26,7 +26,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   import WebWeb.AdminComponents
 
   alias Web.Darkroom
-  alias Web.Darkroom.{Archive, Prior, Session, Taste}
+  alias Web.Darkroom.{Archive, Prior, Repair, Session, Taste}
   alias Web.Negatives
   alias Web.Negatives.RollMeta
 
@@ -60,6 +60,12 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           showing_before: false,
           cropping: false,
           dusting: false,
+          repairing: false,
+          masked: Repair.mask?(dir, frame),
+          repaired: Repair.repaired?(dir, frame),
+          repair_unsaved: repair_unsaved?(dir, frame),
+          on_print: Darkroom.edited?(dir, frame),
+          mask_stamp: System.system_time(:millisecond),
           working: nil,
           error: nil,
           stamp: System.system_time(:second),
@@ -214,7 +220,10 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     crop = socket.assigns.recipe.crop || %{rect: [0.0, 0.0, 1.0, 1.0], angle: 0.0}
 
     {:noreply,
-     socket |> assign(cropping: true, dusting: false) |> put_recipe(crop: crop) |> draw()}
+     socket
+     |> assign(cropping: true, dusting: false, repairing: false)
+     |> put_recipe(crop: crop)
+     |> draw()}
   end
 
   def handle_event("crop", _params, socket) do
@@ -247,7 +256,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           |> put_recipe(crop: Darkroom.clean_crop(crop_params(socket.assigns.recipe.crop))),
         else: socket
 
-    {:noreply, socket |> assign(dusting: !socket.assigns.dusting) |> draw()}
+    {:noreply, socket |> assign(dusting: !socket.assigns.dusting, repairing: false) |> draw()}
   end
 
   def handle_event("find_dust", params, %{assigns: %{session: pid}} = socket) when is_pid(pid) do
@@ -287,6 +296,71 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> put_recipe(spots: []) |> draw()}
   end
 
+  # ── Repair ────────────────────────────────────────────────────────────
+
+  def handle_event("repair", _params, socket) do
+    socket =
+      if socket.assigns.cropping,
+        do:
+          socket
+          |> assign(cropping: false)
+          |> put_recipe(crop: Darkroom.clean_crop(crop_params(socket.assigns.recipe.crop))),
+        else: socket
+
+    {:noreply, socket |> assign(repairing: !socket.assigns.repairing, dusting: false) |> draw()}
+  end
+
+  def handle_event("mask", %{"png" => "data:image/png;base64," <> data}, socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    with {:ok, png} <- Base.decode64(data),
+         :ok <- Repair.put_mask(dir, frame, png) do
+      {:noreply, assign(socket, masked: Repair.mask?(dir, frame))}
+    else
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "The mask was not kept: #{reason}")}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "The mask was not kept.")}
+    end
+  end
+
+  def handle_event("find_lines", _params, %{assigns: %{working: nil}} = socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(working: :lines)
+     |> start_async(:repair, fn -> {:lines, Repair.find_lines(dir, frame)} end)}
+  end
+
+  def handle_event("clear_mask", _params, socket) do
+    Repair.clear_mask(socket.assigns.dir, socket.assigns.frame)
+    {:noreply, socket |> assign(masked: false) |> reload_mask()}
+  end
+
+  def handle_event("lama", _params, %{assigns: %{working: nil}} = socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(working: :lama)
+     |> start_async(:repair, fn -> {:lama, Repair.lama(dir, frame)} end)}
+  end
+
+  def handle_event("undo_repair", _params, socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+    Repair.undo(dir, frame)
+
+    {:noreply,
+     socket
+     |> assign(repaired: false, repair_unsaved: socket.assigns.on_print)
+     |> open(Darkroom.source_path(dir, frame))}
+  end
+
+  def handle_event(event, _params, socket) when event in ["find_lines", "lama"],
+    do: {:noreply, socket}
+
   # ── The bench ─────────────────────────────────────────────────────────
 
   def handle_event("before", %{"on" => on}, socket) do
@@ -324,17 +398,69 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   def handle_async(:prior, _result, socket), do: {:noreply, assign(socket, prior: :error)}
 
+  def handle_async(:repair, {:ok, {:lines, {:ok, found}}}, socket) do
+    masked = Repair.mask?(socket.assigns.dir, socket.assigns.frame)
+
+    said =
+      case found do
+        0 -> "No scanner lines found."
+        1 -> "Found a scanner line; it is marked."
+        n -> "Found #{n} scanner lines; they are marked."
+      end
+
+    {:noreply,
+     socket |> assign(working: nil, masked: masked) |> reload_mask() |> put_flash(:info, said)}
+  end
+
+  def handle_async(:repair, {:ok, {:lama, {:ok, %{lines: lines, places: places}}}}, socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    done =
+      [
+        lines > 0 && count(lines, "scanner line corrected", "scanner lines corrected"),
+        places > 0 && count(places, "place painted", "places painted")
+      ]
+      |> Enum.filter(& &1)
+      |> Enum.join(", ")
+
+    {:noreply,
+     socket
+     |> assign(working: nil, repaired: true, repair_unsaved: true)
+     |> open(Darkroom.source_path(dir, frame))
+     |> put_flash(:info, "Repaired: #{done}. Save keeps it on the print.")}
+  end
+
+  def handle_async(:repair, {:ok, {_what, {:error, reason}}}, socket) do
+    {:noreply, socket |> assign(working: nil) |> put_flash(:error, "Not repaired: #{reason}")}
+  end
+
+  def handle_async(:repair, {:exit, reason}, socket) do
+    {:noreply,
+     socket |> assign(working: nil) |> put_flash(:error, "Not repaired: #{inspect(reason)}")}
+  end
+
   def handle_async(:print, {:ok, {what, recipe, :ok}}, socket) do
     %{dir: dir, frame: frame} = socket.assigns
 
+    on_print = Darkroom.edited?(dir, frame)
+
     message =
-      if what == :save and not Darkroom.empty?(recipe),
+      if what == :save and on_print,
         do: "Printed. The site shows the edited print.",
         else: "The print is back as it was developed."
 
     {:noreply,
      socket
-     |> assign(working: nil, saved: recipe, recipe: recipe, stamp: System.system_time(:second))
+     |> assign(
+       working: nil,
+       saved: recipe,
+       recipe: recipe,
+       on_print: on_print,
+       repaired: Repair.repaired?(dir, frame),
+       masked: Repair.mask?(dir, frame),
+       repair_unsaved: false,
+       stamp: System.system_time(:second)
+     )
      |> put_flash(:info, message)
      |> open(Darkroom.source_path(dir, frame))}
   end
@@ -387,6 +513,15 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp number_or(_value, default), do: default
 
+  defp count(1, one, _many), do: "1 #{one}"
+  defp count(n, _one, many), do: "#{n} #{many}"
+
+  defp reload_mask(socket) do
+    stamp = System.system_time(:millisecond)
+    url = ~p"/admin/darkroom/mask/#{socket.assigns.roll}/#{socket.assigns.frame}?v=#{stamp}"
+    socket |> assign(mask_stamp: stamp) |> push_event("mask-reload", %{url: url})
+  end
+
   defp put_recipe(socket, changes),
     do: assign(socket, recipe: Map.merge(socket.assigns.recipe, Map.new(changes)))
 
@@ -401,7 +536,20 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   # The recipe as it is kept: a crop that is the whole picture and level is no crop.
   defp finished(recipe), do: %{recipe | crop: Darkroom.clean_crop(crop_params(recipe.crop))}
 
-  defp dirty?(assigns), do: finished(assigns.recipe) != finished(assigns.saved)
+  # A repair is not in the recipe, so one made or undone and not yet printed
+  # counts on its own.
+  defp dirty?(assigns),
+    do: assigns.repair_unsaved or finished(assigns.recipe) != finished(assigns.saved)
+
+  # Opening a frame: a repair newer than the print has not been printed.
+  defp repair_unsaved?(dir, frame) do
+    with {:ok, %{mtime: repaired}} <- File.stat(Darkroom.repaired_path(dir, frame), time: :posix),
+         {:ok, %{mtime: print}} <- File.stat(Darkroom.print_path(dir, frame), time: :posix) do
+      repaired > print
+    else
+      _ -> false
+    end
+  end
 
   defp value(recipe, control), do: Map.get(recipe.controls, control["id"], control["default"])
 
@@ -452,7 +600,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     assigns =
       assign(assigns,
         dirty: dirty?(assigns),
-        edited: not Darkroom.empty?(assigns.saved),
+        edited: assigns.on_print,
         previous: neighbour(assigns.frames, assigns.frame, -1),
         next: neighbour(assigns.frames, assigns.frame, 1),
         angle: crop.angle,
@@ -562,8 +710,27 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           >
           </button>
         </div>
+        <div
+          :if={@repairing}
+          id="repair-box"
+          class="adm-dr-frame adm-dr-frame--repair"
+          style={dust_box(@size)}
+          phx-hook=".MaskPainter"
+          phx-update="ignore"
+          data-w={elem(@size, 0)}
+          data-h={elem(@size, 1)}
+          data-mask={~p"/admin/darkroom/mask/#{@roll}/#{@frame}?v=#{@mask_stamp}"}
+        >
+          <img
+            src={~p"/admin/darkroom/developed/#{@roll}/#{@frame}"}
+            alt=""
+            class="adm-dr-frame-picture adm-dr-frame-picture--flat"
+            draggable="false"
+          />
+          <canvas class="adm-dr-mask"></canvas>
+        </div>
         <img
-          :if={!@cropping and !@dusting}
+          :if={!@cropping and !@dusting and !@repairing}
           src={(@showing_before && @before) || @preview || @print}
           alt={"Roll #{@roll}, frame #{@frame}"}
           class="adm-dr-picture"
@@ -602,6 +769,14 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             aria-pressed={to_string(@dusting)}
           >
             {if @dusting, do: "Done", else: "Dust"}
+          </button>
+          <button
+            type="button"
+            phx-click="repair"
+            class={["adm-btn adm-btn--small", @repairing && "is-on"]}
+            aria-pressed={to_string(@repairing)}
+          >
+            {if @repairing, do: "Done", else: "Repair"}
           </button>
           <button type="button" phx-click="reset" class="adm-btn adm-btn--small adm-btn--quiet">
             Reset all
@@ -665,7 +840,66 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </p>
         </form>
 
-        <section :if={!@cropping and !@dusting} id="film" class="adm-dr-section">
+        <section :if={@repairing} id="repair" class="adm-dr-section">
+          <div class="adm-dr-section-head">
+            <h2 class="adm-dr-section-title">Repair</h2>
+            <button :if={@masked} type="button" phx-click="clear_mask" class="adm-dr-reset">
+              Clear the mask
+            </button>
+          </div>
+          <div class="adm-dr-brush" id="brush-controls" phx-update="ignore">
+            <label class="adm-dr-control">
+              <span class="adm-dr-label">Brush</span>
+              <input
+                id="brush"
+                type="range"
+                min="3"
+                max="120"
+                value="18"
+                class="adm-dr-range adm-dr-track--plain"
+              />
+            </label>
+            <label class="adm-cut-check">
+              <input type="radio" name="brush-mode" value="paint" checked /> Paint marks
+            </label>
+            <label class="adm-cut-check">
+              <input type="radio" name="brush-mode" value="erase" /> Erase
+            </label>
+          </div>
+          <button
+            type="button"
+            phx-click="find_lines"
+            class="adm-btn adm-btn--small"
+            disabled={@working != nil}
+          >
+            {if @working == :lines, do: "Looking…", else: "Find scanner lines"}
+          </button>
+          <button
+            type="button"
+            phx-click="lama"
+            class="adm-btn adm-btn--small adm-btn--primary"
+            disabled={@working != nil or !@masked}
+          >
+            {if @working == :lama, do: "Repairing…", else: "Repair what is marked"}
+          </button>
+          <button
+            :if={@repaired}
+            type="button"
+            phx-click="undo_repair"
+            class="adm-btn adm-btn--small adm-btn--quiet"
+          >
+            Undo the repair
+          </button>
+          <p class="adm-dr-hint">
+            Paint over scratches, hairs and other marks on the picture as it was developed, or let
+            it find the scanner's lines. A scanner line is corrected, so what was under it comes
+            back as it was; anything else marked is painted by LaMa from what is around it, at the
+            picture's own size, with the grain put back (about seven seconds a place). {if @repaired,
+              do: "This print is repaired."}
+          </p>
+        </section>
+
+        <section :if={!@cropping and !@dusting and !@repairing} id="film" class="adm-dr-section">
           <div class="adm-dr-section-head">
             <h2 class="adm-dr-section-title">Film</h2>
             <button
@@ -720,7 +954,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </form>
         </section>
 
-        <form :if={!@cropping and !@dusting} id="adjust" phx-change="adjust">
+        <form :if={!@cropping and !@dusting and !@repairing} id="adjust" phx-change="adjust">
           <fieldset :for={section <- @sections} class="adm-dr-section" id={"section-#{section.key}"}>
             <div class="adm-dr-section-head">
               <legend class="adm-dr-section-title">{section.title}</legend>
@@ -789,6 +1023,81 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           window.removeEventListener("keydown", this.onDown)
           window.removeEventListener("keyup", this.onUp)
           window.removeEventListener("beforeunload", this.onLeave)
+        }
+      }
+    </script>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".MaskPainter">
+      // The repair mask, painted on a canvas the picture's own size over the
+      // picture as developed. Red where marked; the canvas's own opacity
+      // makes it translucent, so strokes do not darken where they cross.
+      // Lifting the brush sends the mask as a black and white PNG.
+      export default {
+        mounted() {
+          this.canvas = this.el.querySelector("canvas")
+          this.canvas.width = parseInt(this.el.dataset.w)
+          this.canvas.height = parseInt(this.el.dataset.h)
+          this.ctx = this.canvas.getContext("2d")
+          this.load(this.el.dataset.mask)
+          this.handleEvent("mask-reload", ({url}) => this.load(url))
+          const at = (e) => {
+            const r = this.canvas.getBoundingClientRect()
+            return [(e.clientX - r.left) * this.canvas.width / r.width, (e.clientY - r.top) * this.canvas.height / r.height]
+          }
+          this.canvas.addEventListener("pointerdown", (e) => {
+            e.preventDefault()
+            this.canvas.setPointerCapture(e.pointerId)
+            this.last = at(e)
+            this.stroke(this.last, this.last)
+          })
+          this.canvas.addEventListener("pointermove", (e) => {
+            if (!this.last) return
+            const p = at(e)
+            this.stroke(this.last, p)
+            this.last = p
+          })
+          const end = () => { if (this.last) { this.last = null; this.send() } }
+          this.canvas.addEventListener("pointerup", end)
+          this.canvas.addEventListener("pointercancel", end)
+        },
+        stroke(a, b) {
+          const erase = document.querySelector("input[name=brush-mode]:checked")?.value === "erase"
+          const size = parseFloat(document.getElementById("brush")?.value || 18)
+          const c = this.ctx
+          c.globalCompositeOperation = erase ? "destination-out" : "source-over"
+          c.strokeStyle = c.fillStyle = "rgb(255, 40, 40)"
+          c.lineWidth = size
+          c.lineCap = "round"
+          c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke()
+        },
+        load(url) {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+          const img = new Image()
+          img.onload = () => {
+            const off = document.createElement("canvas")
+            off.width = this.canvas.width; off.height = this.canvas.height
+            const o = off.getContext("2d")
+            o.drawImage(img, 0, 0, off.width, off.height)
+            const d = o.getImageData(0, 0, off.width, off.height)
+            for (let i = 0; i < d.data.length; i += 4) {
+              const on = d.data[i] > 127
+              d.data[i] = 255; d.data[i + 1] = 40; d.data[i + 2] = 40; d.data[i + 3] = on ? 255 : 0
+            }
+            this.ctx.putImageData(d, 0, 0)
+          }
+          img.src = url
+        },
+        send() {
+          const off = document.createElement("canvas")
+          off.width = this.canvas.width; off.height = this.canvas.height
+          const o = off.getContext("2d")
+          const d = this.ctx.getImageData(0, 0, off.width, off.height)
+          for (let i = 0; i < d.data.length; i += 4) {
+            const v = d.data[i + 3] > 0 ? 255 : 0
+            d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255
+          }
+          o.putImageData(d, 0, 0)
+          this.pushEvent("mask", {png: off.toDataURL("image/png")})
         }
       }
     </script>

@@ -2658,6 +2658,20 @@ button.adm-tab:hover {
    size is the spot's, a fraction of the picture's long edge (--long is the
    long edge over the width). */
 .adm-dr-frame--dust { cursor: crosshair; }
+
+/* Repair: the mask is a canvas the picture's own size laid over it. */
+.adm-dr-frame--repair { cursor: crosshair; }
+
+.adm-dr-mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+  touch-action: none;
+}
+
+.adm-dr-brush { display: flex; flex-direction: column; gap: 0.3rem; }
 .adm-dr-frame-picture--flat { transform: none; }
 
 .adm-dr-spot,

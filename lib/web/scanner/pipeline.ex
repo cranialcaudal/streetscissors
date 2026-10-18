@@ -1164,7 +1164,9 @@ defmodule Web.Scanner.Pipeline do
       {"frames", "#{name}.png"},
       {"raw-frames", "frame-#{name}.tiff"},
       {"developed", "#{name}.png"},
-      {"edits", "#{name}.json"}
+      {"developed", "#{name}.repaired.png"},
+      {"edits", "#{name}.json"},
+      {"edits", "#{name}.mask.png"}
     ]
   end
 
@@ -1511,8 +1513,15 @@ defmodule Web.Scanner.Pipeline do
     name = pad2(frame)
     File.rm(Path.join([roll_dir, "frames", "#{name}.png"]))
     File.rm(keeper_raw_path(roll_dir, frame))
-    File.rm(Darkroom.base_path(roll_dir, frame))
-    File.rm(Darkroom.edits_path(roll_dir, frame))
+
+    for path <- [
+          Darkroom.base_path(roll_dir, frame),
+          Darkroom.edits_path(roll_dir, frame),
+          Darkroom.mask_path(roll_dir, frame),
+          Darkroom.repaired_path(roll_dir, frame),
+          Darkroom.candidate_path(roll_dir, frame)
+        ],
+        do: File.rm(path)
 
     clear_previews(roll_dir, frame)
 

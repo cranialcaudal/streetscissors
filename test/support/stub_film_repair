@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Stands in for the print editor's repair tools (priv/repair/film_repair.py
+# under its own Python), which the suite has no business running.
+# Called as the Python would be: `-I SCRIPT COMMAND ARGS...`.
+#
+#   detect IMAGE MASK --lines   a black mask the picture's size with one
+#                               white line across it
+#   lama IMAGE MASK OUT ...     copies IMAGE to OUT, saying one line was
+#                               corrected and one place painted
+#
+# STUB_FILM_REPAIR_FAIL=1 fails instead.
+set -euo pipefail
+shift 2
+if [ "${STUB_FILM_REPAIR_FAIL:-0}" = "1" ]; then
+  echo "film_repair: could not read the picture" >&2
+  exit 1
+fi
+case "$1" in
+  detect)
+    magick "$2" -fill black -colorize 100 -fill white -draw "rectangle 0,2 10000,3" -colorspace Gray "$3"
+    echo '{"lines": 1, "marked": 0.01}' ;;
+  lama)
+    cp "$2" "$4"
+    echo '{"lines": 1, "windows": 1, "repaired": 0.01}' ;;
+esac

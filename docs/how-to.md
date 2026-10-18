@@ -434,6 +434,16 @@ tell your films apart.
 **Dust** shows the whole picture: **Find dust** rings the dark specks and heals
 them, a click on a speck heals it, a click on a ring lets it go.
 
+**Repair** shows the print as it was developed, with a brush. Paint over a
+scratch, a hair or any other mark, or press **Find scanner lines** to have the
+scanner's streaks marked for you, then **Repair what is marked**. A scanner line
+is corrected rather than painted over: the scanner's fault is the same all along
+the line, so what was under it comes back as it was. Anything else you marked is
+filled in by **LaMa**, an open source model that paints a hole from what is
+around it, with the film's grain put back (about seven seconds a place). Save
+keeps the repair on the print; **Undo the repair** takes it off and keeps what
+you painted, and Revert forgets both.
+
 **Nothing is ever painted over.** An edit is a short recipe kept in the roll's folder (`edits/`), and the print as `film-develop` made it is set aside the first time a frame is edited (`developed/`). Neither is served. Turning a frame, renumbering its strip or developing it again carries the recipe along: a frame developed again gets its edit back on the new development.
 
 ---
@@ -1233,6 +1243,7 @@ does well, it starts that tool as a child process and reads what it prints.
 | `scanimage` (SANE) | Driving the flatbed scanner | `Web.Scanner.Driver`, `Web.Scanner.Bed` |
 | `film-develop` | Finding frames on a strip, developing a scan into a print | `Web.Scanner.Pipeline` |
 | `lightcraft-cli` | The print editor: every picture on the bench, and the edited print | `Web.Darkroom` |
+| `film_repair.py` | The print editor's Repair: finding and correcting scanner lines, and LaMa. Runs in its own Python under `~/.local/share/film-repair/` | `Web.Darkroom.Repair` |
 | `digital-contact-sheet-maker` | Assembling a contact sheet, through GIMP | `Web.Scanner.Pipeline` |
 | `rsync` | Copying the negatives and the recordings to the external drive | `Web.Backup.Tree` |
 | `unzip` | Reading an Apple Health export | `Web.Rides.AppleHealth.Export` |
@@ -1714,6 +1725,10 @@ fault. A backup that has never been restored is a hope.
 - **The darkroom tools** in `~/.local/bin` and the GIMP script they drive.
   They are not part of this repository and not in these backups, and they
   need a copy of their own.
+- **The repair tools** in `~/.local/share/film-repair/`. They are made again
+  from nothing: a Python environment (`python3 -m venv venv`, then
+  `venv/bin/pip install numpy opencv-python-headless onnxruntime`) and the
+  model, `lama_fp32.onnx` from the Carve/LaMa-ONNX repository on Hugging Face.
 
 ### Getting something back
 

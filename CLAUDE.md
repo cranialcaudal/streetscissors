@@ -1002,6 +1002,22 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `spots`, in fractions of the whole picture (LightCraft places a spot so whatever the crop),
     healed after the crop and turned with the frame like the crop. It finds dark specks: dust on
     a slide or a B&W print. White specks on colour negatives are `film-develop`'s.
+  - **Repair** (`Web.Darkroom.Repair`, 2026-10-18, his choice of LaMa for marks and Stable
+    Diffusion for large damage) is a mask (`edits/NN.mask.png`, white where marked, painted in
+    the browser by the `.MaskPainter` hook or found by `find_lines/2`) and a picture made from
+    it (`developed/NN.repaired.png`), which the sliders then work on (`source_path/2`). The work
+    is `priv/repair/film_repair.py` in a Python of its own (`:film_repair_python`, numpy,
+    OpenCV, onnxruntime; `test/support/stub_film_repair` in the suite) with LaMa's ONNX port
+    (`:lama_model`). **A scanner line is corrected, not painted**: rows the mask covers the
+    whole way along get a gain and offset per channel fitted against the rows on both sides,
+    and LaMa gets only what that cannot bring back (clipped pixels, a blanked row, a row no
+    gain and offset explains, such as a scratch along the film). On the Powell Camera print
+    LaMa alone painted out a reflection in a picture frame and dented a camera. Lines are found
+    as rows that differ from both sides along 60% of their length, then grown over a line's
+    echo (16 to 22 rows on that print) **in the channels the line is in only**: that one is a
+    loss of red, and green and blue kept every row under the bar. LaMa works in 512-pixel
+    windows at full resolution, at most 1.2 GB. Turn, revert, redevelop and deleting a print
+    carry or remove the mask and the repair.
   - **A crop's edges are snapped to whole pixels** (`Darkroom.commands/2` with the picture's
     size): LightCraft resamples a crop whose edge falls between pixels, and a measured slide lost
     two fifths of its fine detail that way.
