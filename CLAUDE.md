@@ -998,6 +998,35 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `?v=`), so an edit is seen at once instead of when a browser's day-old copy expires;
     unedited prints keep their address. A blog embed builds its own frame address and still
     waits out the day.
+  - **Dust** (`spot.findDust`, LightCraft's own PatchMatch healing, grain kept) is the recipe's
+    `spots`, in fractions of the whole picture (LightCraft places a spot so whatever the crop),
+    healed after the crop and turned with the frame like the crop. It finds dark specks: dust on
+    a slide or a B&W print. White specks on colour negatives are `film-develop`'s.
+  - **A crop's edges are snapped to whole pixels** (`Darkroom.commands/2` with the picture's
+    size): LightCraft resamples a crop whose edge falls between pixels, and a measured slide lost
+    two fifths of its fine detail that way.
+  - **The film suggests where colour starts** (2026-10-17, his ask: "an equation where some
+    attunement is approached over the average color balance of a film given its expected
+    reciprocity and exposure condition"). `Web.Darkroom.Prior`'s moduledoc has the equation, in
+    `{rg, bg}` = `log10(R/G), log10(B/G)`: the print's near-neutral cast (`Stats`) blended with
+    its film's average over the archive (`Archive`, cached in `<archive>/.darkroom/stats.json`,
+    grouped by the stock `roll.json`'s `film` names, else by process), moved toward a target,
+    plus the datasheet's reciprocity filter for an exposure time typed per frame
+    (`roll.json` `"exposures"`, `RollMeta.exposure/2`). **`priv/film/stocks.json` holds only
+    figures read from the maker's sheet**, each with its source; Kodak publishes nothing past
+    1 s for Portra 400 and Ektar 100 (`"unpublished"`), and third-party tables are not used.
+    A CC filter is its density × 100. Temp and Tint move the ratios as **measured** on
+    LightCraft (`Film`'s moduledoc; `test/web/darkroom_film_test.exs` measures it again).
+    The exposure part of reciprocity is not applied: `film-develop` exposes each single itself.
+    In the archive as of 2026-10-17 no roll named its stock, and colour negatives average
+    neutral because `film-develop` balances each roll on its base.
+  - **His taste** (`Web.Darkroom.Taste`) is learned from saved edits and from choices on
+    `/admin/darkroom/taste` (two grades of a random print, one moved a visible step along one
+    slider, sides hidden; kept in `<archive>/.darkroom/choices.jsonl`, a choice half an edit).
+    Colour: a per-film target shrunk (k = 3) toward one fitted rule `α m + o`. Other sliders:
+    `y = μ + W f + a_s + b_k` by weighted ridge (penalties are the shrinkage), predicted only
+    once moved in three examples. A recipe stores only sliders off their default, so a missing
+    one is read as the schema's default. The Film section's button applies both.
   - Styled by `adm-dr-*` rules in `admin.css`. The slider tracks take the colours the schema
     gives (temperature, tint, the mixer's eight bands, a gradient's two ends) as literal colour,
     since they are what the slider does. `test/support/stub_lightcraft` answers both modes.
@@ -1223,7 +1252,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   instrument voice; Goudy is kept for page titles and for words people wrote. The pigments are
   lifted for the dark ground (`--adm-act`/`-live`/`-held`/`-fail`, each ≥4.5:1). theme.css styles
   bare `button`s, so every admin button class states its hover in full.
-  The rail groups pages as **Write** (Blog, Captain's Logs, Cutting room, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints), **Mail** (Inbox, Guestbook,
+  The rail groups pages as **Write** (Blog, Captain's Logs, Cutting room, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints, Taste), **Mail** (Inbox, Guestbook,
   Citations, Newsletter) and **Sync** (Activities), plus Overview and Settings, with badges for
   open messages (letters included), held signatures, held citations and failed transcodes. It folds to a Menu bar at ≤900px. **View state is in the
   URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords), `?filter=missing|drafts`

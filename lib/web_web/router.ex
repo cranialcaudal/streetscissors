@@ -193,6 +193,8 @@ defmodule WebWeb.Router do
       # the bench, and the bench's pictures, which the action serves only to
       # the admin session.
       live "/admin/darkroom", AdminLive.Darkroom
+      # Two grades of one print and a choice, to teach Web.Darkroom.Taste.
+      live "/admin/darkroom/taste", AdminLive.Taste
       live "/admin/darkroom/:roll/:frame", AdminLive.DarkroomEditor
       get "/admin/darkroom/picture/:token/:file", DarkroomController, :picture
       live "/admin/inbox", AdminLive.Inbox

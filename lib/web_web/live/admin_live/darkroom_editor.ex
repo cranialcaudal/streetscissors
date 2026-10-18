@@ -26,7 +26,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   import WebWeb.AdminComponents
 
   alias Web.Darkroom
-  alias Web.Darkroom.{Prior, Session}
+  alias Web.Darkroom.{Archive, Prior, Session, Taste}
   alias Web.Negatives
   alias Web.Negatives.RollMeta
 
@@ -105,14 +105,30 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp picture(token, file), do: ~p"/admin/darkroom/picture/#{token}/#{file}"
 
-  # The film's suggestion (Web.Darkroom.Prior), worked out off the page: the
-  # first time, the archive's averages are measured, which takes a minute.
+  # The film's suggestion (Web.Darkroom.Prior) and his taste's
+  # (Web.Darkroom.Taste), worked out off the page: the first time, the
+  # archive's prints are measured, which takes a minute or so.
   defp suggest(socket) do
-    %{dir: dir, frame: frame, grey: grey, recipe: recipe} = socket.assigns
+    %{dir: dir, frame: frame, grey: grey, recipe: recipe, schema: schema} = socket.assigns
     source = Darkroom.source_path(dir, frame)
     temp = Map.get(recipe.controls, "wb.temp", 6500.0)
     color = if grey, do: "bw", else: "color"
-    start_async(socket, :prior, fn -> Prior.suggest(dir, frame, source, color, temp: temp) end)
+    defaults = Map.new(schema, &{&1["id"], &1["default"]})
+    start_async(socket, :prior, fn -> work_out(dir, frame, source, color, temp, defaults) end)
+  end
+
+  defp work_out(dir, frame, source, color, temp, defaults) do
+    prints = Archive.prints()
+    groups = Archive.groups(prints)
+    model = Taste.fit(prints, groups, defaults)
+    {group, _stock} = Archive.group_of(dir, color)
+    taste = Taste.taste_for(model, group)
+    opts = [temp: temp, groups: groups, taste: taste]
+
+    with {:ok, prior} <- Prior.suggest(dir, frame, source, color, opts) do
+      predicted = Taste.predict(model, prior.stats, group, Taste.condition(dir))
+      {:ok, Map.merge(prior, %{taught: model.n, chosen: model.choices, predicted: predicted})}
+    end
   end
 
   # Asks for the picture the bench now describes. While cropping that is the
@@ -168,18 +184,25 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> assign(seconds: seconds) |> suggest()}
   end
 
-  # Temp is set where the suggestion puts it; Tint is moved by it.
-  def handle_event("apply_prior", _params, %{assigns: %{prior: %{sliders: sliders}}} = socket)
-      when sliders != %{} do
+  # Temp is set where the suggestion puts it and Tint moved by it; the
+  # sliders his taste predicts are set to its values.
+  def handle_event("apply_prior", _params, %{assigns: %{prior: %{} = prior}} = socket) do
     controls = socket.assigns.recipe.controls
-    tint = Map.get(controls, "wb.tint", 0.0) + sliders["wb.tint"]
 
-    values = %{
-      "wb.temp" => Float.round(sliders["wb.temp"] / 50) * 50,
-      "wb.tint" => Float.round(tint * 1.0)
-    }
+    colour =
+      case prior.sliders do
+        %{"wb.temp" => temp, "wb.tint" => tint} ->
+          %{
+            "wb.temp" => Float.round(temp / 50) * 50,
+            "wb.tint" => Float.round(Map.get(controls, "wb.tint", 0.0) + tint)
+          }
 
-    changed = Darkroom.clean_controls(Map.merge(controls, values), socket.assigns.schema)
+        _ ->
+          %{}
+      end
+
+    values = controls |> Map.merge(prior.predicted) |> Map.merge(colour)
+    changed = Darkroom.clean_controls(values, socket.assigns.schema)
     {:noreply, socket |> put_recipe(controls: changed) |> draw() |> suggest()}
   end
 
@@ -392,6 +415,17 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
       index when index + step < 0 -> nil
       index -> Enum.at(frames, index + step)
     end
+  end
+
+  defp predicted_words(predicted, schema) do
+    labels = Map.new(schema, &{&1["id"], {&1["label"], &1["decimals"] || 0}})
+
+    predicted
+    |> Enum.sort()
+    |> Enum.map_join(", ", fn {id, value} ->
+      {label, decimals} = labels[id] || {id, 1}
+      "#{label} #{:erlang.float_to_binary(value * 1.0, decimals: decimals)}"
+    end)
   end
 
   # The dust box has the picture's shape; --long is its long edge over its
@@ -635,18 +669,33 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           <div class="adm-dr-section-head">
             <h2 class="adm-dr-section-title">Film</h2>
             <button
-              :if={is_map(@prior) and @prior.sliders != %{}}
+              :if={is_map(@prior) and (@prior.sliders != %{} or @prior.predicted != %{})}
               type="button"
               phx-click="apply_prior"
               class="adm-dr-reset"
             >
-              Start from the film
+              {if @prior.taught + @prior.chosen > 0,
+                do: "Start from the film and your taste",
+                else: "Start from the film"}
             </button>
           </div>
           <p :if={is_nil(@prior)} class="adm-dr-hint">Reading the film…</p>
           <p :if={@prior == :error} class="adm-dr-hint">The print could not be read.</p>
           <ul :if={is_map(@prior)} class="adm-dr-film">
             <li :for={line <- @prior.lines}>{line}</li>
+            <li :if={@prior.taught + @prior.chosen > 0}>
+              Your taste, from {@prior.taught} edits and {@prior.chosen} choices{if @prior.predicted !=
+                                                                                      %{},
+                                                                                    do:
+                                                                                      ": " <>
+                                                                                        predicted_words(
+                                                                                          @prior.predicted,
+                                                                                          @schema
+                                                                                        )}
+            </li>
+            <li :if={@prior.taught + @prior.chosen == 0}>
+              Your taste is learned from what you save here and choose under Taste.
+            </li>
             <li :if={@prior.sliders != %{}}>
               Suggests Temp {round(@prior.sliders["wb.temp"])}, Tint {if @prior.sliders["wb.tint"] >=
                                                                            0,

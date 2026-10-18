@@ -82,6 +82,7 @@ defmodule Web.Darkroom.Prior do
       if grey?, do: %{}, else: Film.sliders(delta, Keyword.get(opts, :temp, 6500.0))
 
     %{
+      stats: stats,
       group: group,
       stock: stock && stock["name"],
       seconds: seconds,

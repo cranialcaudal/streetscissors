@@ -43,7 +43,8 @@ defmodule WebWeb.AdminNav do
       {"Darkroom",
        [
          %{label: "Scanner", path: ~p"/admin/scanner", icon: "hero-film"},
-         %{label: "Prints", path: ~p"/admin/darkroom", icon: "hero-photo"}
+         %{label: "Prints", path: ~p"/admin/darkroom", icon: "hero-photo"},
+         %{label: "Taste", path: ~p"/admin/darkroom/taste", icon: "hero-squares-2x2"}
        ]},
       {"Mail",
        [

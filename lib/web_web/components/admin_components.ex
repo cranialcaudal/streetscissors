@@ -34,7 +34,20 @@ defmodule WebWeb.AdminComponents do
   attr :counts, :map, default: %{}
 
   def rail(assigns) do
-    assigns = assign(assigns, :sections, WebWeb.AdminNav.sections())
+    sections = WebWeb.AdminNav.sections()
+
+    # The page is marked on the link nearest it: /admin/darkroom/taste is
+    # Taste, not also Prints at /admin/darkroom.
+    nearest =
+      for(
+        {_group, links} <- sections,
+        link <- links,
+        under?(assigns[:path], link.path),
+        do: link.path
+      )
+      |> Enum.max_by(&String.length/1, fn -> nil end)
+
+    assigns = assign(assigns, sections: sections, nearest: nearest)
 
     ~H"""
     <aside id="adm-rail" class="adm-rail">
@@ -62,7 +75,7 @@ defmodule WebWeb.AdminComponents do
               :for={link <- links}
               navigate={link.path}
               class="adm-nav-link"
-              aria-current={current?(@path, link.path) && "page"}
+              aria-current={link.path == @nearest && "page"}
             >
               <.icon name={link.icon} class="size-4" />
               <span class="adm-nav-label">{link.label}</span>
@@ -92,8 +105,8 @@ defmodule WebWeb.AdminComponents do
     """
   end
 
-  defp current?(nil, _link), do: false
-  defp current?(path, link), do: path == link or String.starts_with?(path, link <> "/")
+  defp under?(nil, _link), do: false
+  defp under?(path, link), do: path == link or String.starts_with?(path, link <> "/")
 
   # --- Page furniture -------------------------------------------------------
 

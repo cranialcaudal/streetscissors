@@ -421,6 +421,19 @@ The bench is the picture on the left and the sliders on the right, in the order 
 | Save | Prints the edit at full size; the site shows it at once |
 | Revert | Puts the print back as it was developed and forgets the edit |
 
+**The Film section** at the top of the sliders suggests where a print's colour
+should start. It knows each film's long-exposure behaviour from the maker's own
+datasheet, so type the exposure time of a long exposure into it: Velvia 50 at
+32 seconds wants the magenta its sheet asks for. It also knows what your prints
+of that film look like on average, and leans toward how you like them, which it
+learns from what you save and from the **Taste** page (Darkroom, Taste): two
+versions of a random print side by side, and you choose (left and right arrow
+keys; down passes). Name the film on each roll (Scanner, Roll, Film) so it can
+tell your films apart.
+
+**Dust** shows the whole picture: **Find dust** rings the dark specks and heals
+them, a click on a speck heals it, a click on a ring lets it go.
+
 **Nothing is ever painted over.** An edit is a short recipe kept in the roll's folder (`edits/`), and the print as `film-develop` made it is set aside the first time a frame is edited (`developed/`). Neither is served. Turning a frame, renumbering its strip or developing it again carries the recipe along: a frame developed again gets its edit back on the new development.
 
 ---
