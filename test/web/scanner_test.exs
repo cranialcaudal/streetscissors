@@ -551,6 +551,33 @@ defmodule Web.ScannerTest do
         refute Map.has_key?(selects, "6")
       end
 
+      test "an edited single's recipe moves with its print, and turns with it" do
+        # Three strips of two frames: 1-2, 3-4, 5-6.
+        dir = real_roll("042", ["001.tiff", "002.tiff", "003.tiff"])
+        put_single(dir, 3, 30)
+        Pipeline.record_selects(dir, Pipeline.frames(dir), [3])
+
+        recipe = %{
+          controls: %{"light.exposure" => 0.4},
+          crop: %{rect: [0.1, 0.2, 0.5, 0.6], angle: 2.0}
+        }
+
+        :ok = Web.Darkroom.save(dir, 3, recipe)
+
+        Pipeline.delete_strip(dir, "001.tiff")
+
+        # Frame 3 is now 1, its print as developed and its recipe with it.
+        assert Pipeline.printed_frames(dir) == [1]
+        assert Web.Darkroom.recipe(dir, 1) == recipe
+        assert File.ls!(Path.join(dir, "developed")) == ["01.png"]
+        assert File.ls!(Path.join(dir, "edits")) == ["01.json"]
+
+        Pipeline.turn_frame(dir, 1)
+
+        assert Web.Darkroom.recipe(dir, 1).crop.rect ==
+                 Web.Darkroom.turn_crop(recipe.crop, 90).rect
+      end
+
       test "a new roll begun at a strip takes that strip, what follows, and all that is theirs" do
         # Three strips of two frames: 1-2, 3-4, 5-6. The roll really ended after the first.
         dir = real_roll("044", ["001.tiff", "002.tiff", "003.tiff"])
@@ -794,8 +821,16 @@ defmodule Web.ScannerTest do
         File.write!(Path.join(dir, file), "x")
       end
 
+      # An edited single's print as developed and its recipe (Web.Darkroom).
+      File.mkdir_p!(Path.join(dir, "developed"))
+      File.mkdir_p!(Path.join(dir, "edits"))
+      File.write!(Path.join(dir, "developed/01.png"), "x")
+      File.write!(Path.join(dir, "edits/01.json"), "{}")
+
       assert :ok = Pipeline.remove_print(dir, 1)
 
+      refute File.exists?(Path.join(dir, "developed/01.png"))
+      refute File.exists?(Path.join(dir, "edits/01.json"))
       assert Pipeline.printed_frames(dir) == [2]
       assert File.ls!(Path.join(dir, "frames/previews")) == []
       refute File.exists?(Path.join(dir, "raw-frames/frame-01.tiff"))
@@ -886,6 +921,25 @@ defmodule Web.ScannerTest do
       assert {:ok, print} = Pipeline.develop_keeper(dir, 3)
       assert print == Path.join(dir, "frames/03.png")
       assert File.regular?(print)
+    end
+
+    test "an edited single developed again keeps its edits, on the new development" do
+      dir = roll_with_strips("058")
+      {:ok, _} = Pipeline.generate_frames_analysis(dir, "120", "bw")
+      raw = Pipeline.keeper_raw_path(dir, 3)
+      File.mkdir_p!(Path.dirname(raw))
+      File.write!(raw, "first scan")
+      assert Pipeline.turn_frame(dir, 3) == 0
+      {:ok, _print} = Pipeline.develop_keeper(dir, 3)
+
+      recipe = %{controls: %{"light.exposure" => 0.4}, crop: nil}
+      :ok = Web.Darkroom.save(dir, 3, recipe)
+      assert File.read!(Web.Darkroom.base_path(dir, 3)) == "first scan"
+
+      File.write!(raw, "second scan")
+      assert {:ok, _print} = Pipeline.develop_keeper(dir, 3)
+      assert File.read!(Web.Darkroom.base_path(dir, 3)) == "second scan"
+      assert Web.Darkroom.recipe(dir, 3) == recipe
     end
   end
 

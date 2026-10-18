@@ -343,7 +343,7 @@ defmodule Web.Negatives do
             [
               %{
                 frame: frame,
-                url: "/negatives/frame/#{roll_num}/#{frame}",
+                url: frame_url(roll_num, frame, folder, Path.join(dir, file)),
                 original_url: "/negatives/frame/#{roll_num}/#{frame}/original"
               }
             ]
@@ -356,6 +356,21 @@ defmodule Web.Negatives do
       |> Enum.sort_by(& &1.frame)
     else
       _ -> []
+    end
+  end
+
+  # A print edited in the darkroom (Web.Darkroom) is addressed by when it was
+  # last printed, so an edit is seen at once rather than when a browser's
+  # day-old copy runs out (and, carrying `v`, is then kept a month). Every
+  # other print keeps the address it always had.
+  defp frame_url(roll_num, frame, folder, print) do
+    url = "/negatives/frame/#{roll_num}/#{frame}"
+
+    with true <- Web.Darkroom.edited?(folder, frame),
+         {:ok, %File.Stat{mtime: mtime}} <- File.stat(print, time: :posix) do
+      url <> "?v=" <> Integer.to_string(mtime)
+    else
+      _ -> url
     end
   end
 

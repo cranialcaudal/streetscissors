@@ -36,6 +36,14 @@ defmodule Web.Application do
       # scanner page is never blocked by one.
       Web.Scanner.Bed,
 
+      # One LightCraft per open print editor (Web.Darkroom.Session), each
+      # ending with the page that opened it. The folders of pictures any
+      # session left behind when the site last stopped go first.
+      {DynamicSupervisor, name: Web.Darkroom.Sessions, strategy: :one_for_one},
+      Supervisor.child_spec({Task, &Web.Darkroom.Session.clear_scratch/0},
+        id: :clear_darkroom_scratch
+      ),
+
       # Quantum scheduled (cron) jobs
       Web.Scheduler,
       # Catch up the backups the schedule slept through: the database snapshot,

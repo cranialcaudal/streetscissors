@@ -15,6 +15,7 @@ defmodule Web.Scanner.Pipeline do
   public page asks for before it draws a ring.
   """
 
+  alias Web.Darkroom
   alias Web.Negatives
   alias Web.Negatives.Sheet
   alias Web.Negatives.SheetLayout
@@ -1132,6 +1133,11 @@ defmodule Web.Scanner.Pipeline do
         end
       end
 
+      # The print was turned above; an edited one's picture and crop follow.
+      for {_number, {new, _strip, turn}} <- moves, new != nil, turn != 0 do
+        Darkroom.turn(roll_dir, new, turn)
+      end
+
       carried =
         for {number, {new, strip, _turn}} <- moves,
             new != nil,
@@ -1149,9 +1155,17 @@ defmodule Web.Scanner.Pipeline do
     end
   end
 
+  # A single's files: its print, its raw scan and, when it has been edited
+  # (Web.Darkroom), the print as developed and the recipe.
   defp single_files(number) do
     name = pad2(number)
-    [{"frames", "#{name}.png"}, {"raw-frames", "frame-#{name}.tiff"}]
+
+    [
+      {"frames", "#{name}.png"},
+      {"raw-frames", "frame-#{name}.tiff"},
+      {"developed", "#{name}.png"},
+      {"edits", "#{name}.json"}
+    ]
   end
 
   defp clear_previews(roll_dir, number) do
@@ -1483,6 +1497,7 @@ defmodule Web.Scanner.Pipeline do
 
     print = Path.join([roll_dir, "frames", "#{pad2(frame)}.png"])
     if File.regular?(print), do: turn_file(print, 90)
+    Darkroom.turn(roll_dir, frame, 90)
 
     degrees
   end
@@ -1496,6 +1511,8 @@ defmodule Web.Scanner.Pipeline do
     name = pad2(frame)
     File.rm(Path.join([roll_dir, "frames", "#{name}.png"]))
     File.rm(keeper_raw_path(roll_dir, frame))
+    File.rm(Darkroom.base_path(roll_dir, frame))
+    File.rm(Darkroom.edits_path(roll_dir, frame))
 
     clear_previews(roll_dir, frame)
 
@@ -1622,7 +1639,8 @@ defmodule Web.Scanner.Pipeline do
          true <-
            File.regular?(print) or
              {:error, "film-develop finished without writing #{Path.basename(print)}"},
-         :ok <- turn_file(print, rotation(roll_dir, frame)) do
+         :ok <- turn_file(print, rotation(roll_dir, frame)),
+         :ok <- Darkroom.reapply(roll_dir, frame) do
       warm_previews(roll_dir)
       {:ok, print}
     end

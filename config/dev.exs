@@ -146,6 +146,9 @@ config :web,
 
 config :web, :webmention_send, false
 
+# The print editor's previews, apart from the live site's on this machine.
+config :web, :darkroom_scratch, "streetscissors-darkroom-dev"
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

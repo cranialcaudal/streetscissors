@@ -75,6 +75,12 @@ config :web, :film_develop_bin, Path.expand("../test/support/stub_film_develop",
 config :web, :contact_sheet_bin, Path.expand("../test/support/stub_contact_sheet", __DIR__)
 config :web, :scanner_simulation, true
 
+# The print editor's engine (Web.Darkroom): a stub that answers LightCraft's
+# commands and copies the picture, and a scratch folder of the suite's own so
+# a test run never clears the live site's previews.
+config :web, :lightcraft_bin, Path.expand("../test/support/stub_lightcraft", __DIR__)
+config :web, :darkroom_scratch, "streetscissors-darkroom-test"
+
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.
 config :web, :transcoder_requeue_on_boot, false

@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Stands in for lightcraft-cli, the print editor's engine (Web.Darkroom), which
+# the suite has no business building.
+#
+#   run --import IN --script FILE   answers each command in FILE with a line
+#                                   {"command", "ok": true}; app.export copies
+#                                   IN to its "path".
+#   mcp --compact IN                speaks MCP's JSON-RPC a line at a time:
+#                                   initialize, and tools/call run_command,
+#                                   where develop.controls answers a small
+#                                   schema and app.export copies IN as above.
+#
+# STUB_LIGHTCRAFT_FAIL=1 refuses develop.set as LightCraft refuses an unknown
+# control. STUB_LIGHTCRAFT_LOG=FILE appends every command it is given there.
+set -euo pipefail
+
+mode="${1:-}"
+input=""
+script=""
+shift || true
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --import) input="$2"; shift 2 ;;
+    --script) script="$2"; shift 2 ;;
+    --compact) shift ;;
+    *) input="$1"; shift ;;
+  esac
+done
+
+field() { sed -n "s/.*\"$1\":\"\\([^\"]*\\)\".*/\\1/p" <<<"$2" | head -1; }
+
+log() { [ -z "${STUB_LIGHTCRAFT_LOG:-}" ] || printf '%s\n' "$1" >>"$STUB_LIGHTCRAFT_LOG"; }
+
+# Answers one command: prints `ok TEXT` or `error TEXT`.
+answer() {
+  local line="$1" command path
+  command="$(field command "$line")"
+  log "$line"
+  case "$command" in
+    develop.set)
+      if [ "${STUB_LIGHTCRAFT_FAIL:-0}" = "1" ]; then
+        echo "error invalid parameters for \`develop.set\`: unknown control"
+        return
+      fi
+      echo "ok ok" ;;
+    develop.controls)
+      echo 'ok [{\"id\":\"light.exposure\",\"label\":\"Exposure\",\"section\":\"light\",\"min\":-5.0,\"max\":5.0,\"step\":0.01,\"decimals\":2,\"default\":0.0,\"value\":0.0,\"track\":{\"kind\":\"centered\"}},{\"id\":\"hdr.maxEv\",\"label\":\"Max EV\",\"section\":\"light\",\"min\":0.0,\"max\":4.0,\"step\":0.1,\"decimals\":1,\"default\":0.0,\"value\":0.0,\"track\":{\"kind\":\"plain\"}},{\"id\":\"wb.temp\",\"label\":\"Temp\",\"section\":\"color\",\"min\":2000.0,\"max\":50000.0,\"step\":50.0,\"decimals\":0,\"default\":6500.0,\"value\":6500.0,\"track\":{\"kind\":\"temp\"}},{\"id\":\"effects.clarity\",\"label\":\"Clarity\",\"section\":\"effects\",\"min\":-100.0,\"max\":100.0,\"step\":1.0,\"decimals\":0,\"default\":0.0,\"value\":0.0,\"track\":{\"kind\":\"centered\"}}]' ;;
+    app.export)
+      path="$(field path "$line")"
+      if mkdir -p "$(dirname "$path")" 2>/dev/null && cp "$input" "$path" 2>/dev/null; then
+        echo 'ok {}'
+      else
+        echo "error app.export: could not read the picture"
+      fi ;;
+    *)
+      echo "ok ok" ;;
+  esac
+}
+
+case "$mode" in
+  run)
+    while IFS= read -r line || [ -n "$line" ]; do
+      [ -n "$line" ] || continue
+      reply="$(answer "$line")"
+      command="$(field command "$line")"
+      if [ "${reply%% *}" = "ok" ]; then
+        printf '{"command":"%s","ms":0.1,"ok":true,"result":null}\n' "$command"
+      else
+        printf '{"command":"%s","error":"%s","ms":0.1,"ok":false}\n' "$command" "${reply#error }"
+      fi
+    done <"$script"
+    ;;
+  mcp)
+    while IFS= read -r line; do
+      id="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' <<<"$line" | head -1)"
+      [ -n "$id" ] || continue
+      case "$(field method "$line")" in
+        initialize)
+          printf '{"id":%s,"jsonrpc":"2.0","result":{"capabilities":{}}}\n' "$id" ;;
+        tools/call)
+          reply="$(answer "$line")"
+          text="${reply#* }"
+          if [ "${reply%% *}" = "ok" ]; then error=false; else error=true; fi
+          printf '{"id":%s,"jsonrpc":"2.0","result":{"content":[{"text":"%s","type":"text"}],"isError":%s}}\n' \
+            "$id" "$text" "$error" ;;
+        *)
+          printf '{"id":%s,"jsonrpc":"2.0","error":{"code":-32601,"message":"no such method"}}\n' "$id" ;;
+      esac
+    done
+    ;;
+  *)
+    echo "stub lightcraft-cli: unknown mode $mode" >&2
+    exit 2
+    ;;
+esac

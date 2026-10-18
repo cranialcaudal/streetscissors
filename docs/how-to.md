@@ -407,6 +407,22 @@ With no scanner connected the page says so and scans nothing. The slot rectangle
 
 For complete technical specifications, mathematical equations, and driver designs, see `docs/negatives-pipeline.md` and `docs/scanner-gui-blueprint.md` in the repository.
 
+### Editing a print
+
+A print comes out of `film-develop` as the roll's chemistry decided. The admin's **Prints** page (`/admin/darkroom`, under Darkroom) is where one is finished by hand, the way a print is dodged and burned under an enlarger: pick a roll, then a print.
+
+The bench is the picture on the left and the sliders on the right, in the order Lightroom keeps them: Light (exposure, contrast, highlights, shadows, whites, blacks), Colour, the tone curve, the colour mixer, black and white mix, colour grading, effects (texture, clarity, dehaze), detail (sharpening, noise reduction) and vignette. A black and white print is offered no colour, since on grey film a white balance only tints it. Every picture on the bench is made by **LightCraft**, an open source Lightroom written in Rust, running on the server: a slider moved is a new picture about a tenth of a second later, and what the bench shows is exactly what will be printed.
+
+| Control | What it does |
+|---|---|
+| Before | The print as it was developed; hold the backslash key to compare |
+| Crop | Shows the whole picture with a box to drag, and Straighten to level it |
+| Reset | Puts one section's sliders back; Reset all puts back every one |
+| Save | Prints the edit at full size; the site shows it at once |
+| Revert | Puts the print back as it was developed and forgets the edit |
+
+**Nothing is ever painted over.** An edit is a short recipe kept in the roll's folder (`edits/`), and the print as `film-develop` made it is set aside the first time a frame is edited (`developed/`). Neither is served. Turning a frame, renumbering its strip or developing it again carries the recipe along: a frame developed again gets its edit back on the new development.
+
 ---
 
 ## Part 4: Words, from file to page
@@ -1166,6 +1182,7 @@ does well, it starts that tool as a child process and reads what it prints.
 | `magick` (ImageMagick) | Web-sized copies of contact sheets and frames, share cards, and the cutting and measuring the scanner page does | `Web.Negatives`, `Web.ShareCard`, `Web.Scanner.*` |
 | `scanimage` (SANE) | Driving the flatbed scanner | `Web.Scanner.Driver`, `Web.Scanner.Bed` |
 | `film-develop` | Finding frames on a strip, developing a scan into a print | `Web.Scanner.Pipeline` |
+| `lightcraft-cli` | The print editor: every picture on the bench, and the edited print | `Web.Darkroom` |
 | `digital-contact-sheet-maker` | Assembling a contact sheet, through GIMP | `Web.Scanner.Pipeline` |
 | `rsync` | Copying the negatives and the recordings to the external drive | `Web.Backup.Tree` |
 | `unzip` | Reading an Apple Health export | `Web.Rides.AppleHealth.Export` |

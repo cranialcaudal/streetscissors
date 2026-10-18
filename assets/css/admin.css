@@ -2531,3 +2531,319 @@ button.adm-tab:hover {
   gap: 0.6rem;
   font-family: var(--font-ui);
 }
+
+/* ── Darkroom: the print editor (Web.Darkroom) ─────────────────────────
+   The prints roll by roll, then one print on the bench: the picture on the
+   left, LightCraft's sliders on the right. The slider tracks carry the
+   colours the engine describes for them (temperature, tint, the eight
+   mixer bands, a gradient's two ends). Those are the slider's meaning, not
+   the admin's palette, which is why they are literal here.
+   ─────────────────────────────────────────────────────────────────── */
+
+.adm-page:has(.adm-dr-bench) { max-width: none; }
+
+.adm-dr-rolls {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.adm-dr-roll {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 0.6rem;
+  align-items: baseline;
+  flex: none;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-family: var(--font-data);
+  text-decoration: none;
+}
+
+.adm-dr-roll:hover { border-color: var(--adm-act); color: var(--ink); }
+.adm-dr-roll.is-current { border-color: var(--ink); color: var(--ink); background: var(--paper-raised); }
+.adm-dr-roll-number { font-size: 1.1rem; }
+.adm-dr-roll-count { justify-self: end; color: var(--ink-3); font-size: 0.72rem; }
+.adm-dr-roll-film { grid-column: 1 / -1; color: var(--ink-3); font-size: 0.66rem; letter-spacing: 0.06em; }
+
+.adm-dr-prints {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-dr-print {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.adm-dr-print img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+.adm-dr-print:hover img { border-color: var(--adm-act); }
+
+.adm-dr-print-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+}
+
+/* The bench */
+
+.adm-dr-bench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.adm-dr-stage {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1rem;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+.adm-dr-picture {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 220px);
+  object-fit: contain;
+}
+
+/* The whole picture while cropping, turned by the straightening about its
+   middle as LightCraft turns it, inside a box of its own proportions. */
+.adm-dr-frame {
+  position: relative;
+  width: min(100%, calc((100vh - 220px) * var(--ar)));
+  overflow: hidden;
+  background: var(--paper-sunk);
+  touch-action: none;
+  user-select: none;
+}
+
+.adm-dr-frame-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--angle));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.adm-dr-crop {
+  position: absolute;
+  left: calc(var(--x0) * 100%);
+  top: calc(var(--y0) * 100%);
+  width: calc((var(--x1) - var(--x0)) * 100%);
+  height: calc((var(--y1) - var(--y0)) * 100%);
+  outline: 1px solid var(--ink);
+  /* Above the turned picture, whose transform gives it a layer of its own. */
+  z-index: 1;
+  box-shadow: 0 0 0 100vmax rgba(10, 9, 8, 0.6);
+  background:
+    linear-gradient(to right, transparent calc(33.33% - 0.5px), var(--rule-strong) calc(33.33% - 0.5px), var(--rule-strong) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), var(--rule-strong) calc(66.66% - 0.5px), var(--rule-strong) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.33% - 0.5px), var(--rule-strong) calc(33.33% - 0.5px), var(--rule-strong) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), var(--rule-strong) calc(66.66% - 0.5px), var(--rule-strong) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px));
+  cursor: move;
+}
+
+.adm-dr-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  background: var(--ink);
+  border: 2px solid var(--paper-deep);
+}
+
+.adm-dr-handle--nw { left: 0; top: 0; cursor: nwse-resize; }
+.adm-dr-handle--n { left: 50%; top: 0; cursor: ns-resize; }
+.adm-dr-handle--ne { left: 100%; top: 0; cursor: nesw-resize; }
+.adm-dr-handle--e { left: 100%; top: 50%; cursor: ew-resize; }
+.adm-dr-handle--se { left: 100%; top: 100%; cursor: nwse-resize; }
+.adm-dr-handle--s { left: 50%; top: 100%; cursor: ns-resize; }
+.adm-dr-handle--sw { left: 0; top: 100%; cursor: nesw-resize; }
+.adm-dr-handle--w { left: 0; top: 50%; cursor: ew-resize; }
+
+.adm-dr-caption {
+  display: flex;
+  gap: 1rem;
+  min-height: 1.2rem;
+  color: var(--ink-3);
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+}
+
+.adm-dr-error { color: var(--adm-fail); }
+
+/* The sliders */
+
+.adm-dr-panel {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.adm-dr-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-dr-tools .adm-btn.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.adm-dr-section {
+  margin: 0;
+  padding: 0.8rem 0.9rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-dr-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.adm-dr-section-title {
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adm-dr-reset,
+.adm-dr-reset:hover {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.adm-dr-reset:hover { color: var(--adm-act); }
+
+.adm-dr-control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 0.15rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.75rem;
+}
+
+.adm-dr-label { color: var(--ink-2); }
+
+.adm-dr-value {
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-dr-hint {
+  margin: 0.4rem 0 0;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+}
+
+.adm-dr-range {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  --track: var(--rule-strong);
+}
+
+.adm-dr-range::-webkit-slider-runnable-track { height: 4px; background: var(--track); }
+.adm-dr-range::-moz-range-track { height: 4px; background: var(--track); }
+
+.adm-dr-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--paper-raised);
+}
+
+.adm-dr-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--paper-raised);
+}
+
+.adm-dr-range:focus-visible { outline: 1px solid var(--adm-act); outline-offset: 2px; }
+
+.adm-dr-track--centered {
+  --track: linear-gradient(to right, var(--rule-strong) calc(50% - 1px), var(--ink-3) calc(50% - 1px), var(--ink-3) calc(50% + 1px), var(--rule-strong) calc(50% + 1px));
+}
+
+.adm-dr-track--temp { --track: linear-gradient(to right, #3a6fd8, #d8d4c8, #e0b030); }
+.adm-dr-track--tint { --track: linear-gradient(to right, #40b050, #d8d4c8, #d040b0); }
+.adm-dr-track--rainbow { --track: linear-gradient(to right, #e04040, #e0d030, #40c040, #30c0c0, #3a60e0, #c040d0, #e04040); }
+.adm-dr-track--gradient { --track: linear-gradient(to right, var(--from), var(--to)); }
+
+.adm-dr-band-0 { --band: #e04040; }
+.adm-dr-band-1 { --band: #e08a30; }
+.adm-dr-band-2 { --band: #d8c830; }
+.adm-dr-band-3 { --band: #40b050; }
+.adm-dr-band-4 { --band: #30b8c0; }
+.adm-dr-band-5 { --band: #3a60e0; }
+.adm-dr-band-6 { --band: #8a40d0; }
+.adm-dr-band-7 { --band: #d040b0; }
+
+.adm-dr-track--hue { --track: linear-gradient(to right, color-mix(in oklch shorter hue, var(--band), #e04040 60%), var(--band), color-mix(in oklch shorter hue, var(--band), #3a60e0 60%)); }
+.adm-dr-track--sat { --track: linear-gradient(to right, #7a7a7a, var(--band)); }
+.adm-dr-track--lum { --track: linear-gradient(to right, #101010, var(--band), #f0f0f0); }
+
+@media (max-width: 1100px) {
+  .adm-dr-bench { grid-template-columns: minmax(0, 1fr); }
+  .adm-dr-stage, .adm-dr-panel { position: static; max-height: none; }
+  .adm-dr-picture { max-height: 70vh; }
+  .adm-dr-frame { width: min(100%, calc(70vh * var(--ar))); }
+}

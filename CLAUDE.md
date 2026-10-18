@@ -116,7 +116,8 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   `Web.Scheduler` (**Quantum** cron jobs), plus `Web.Media.Transcoder`, which runs the captain's
   logs' ffmpeg queue one job at a time. The transcoder deliberately does *not* use Oban: its retries
   would re-encode an unreadable source over and over. It resumes instead from the `audio_logs` rows
-  left at `pending`/`processing`, which it requeues on boot.
+  left at `pending`/`processing`, which it requeues on boot. `Web.Darkroom.Sessions` is a
+  `DynamicSupervisor` of the print editor's LightCraft processes, one per open editor.
 
 - **Backups** (`Web.Backup`, `lib/web/backup/`): four things, each kept the way that suits it.
   The database is a nightly `VACUUM INTO` snapshot, reopened and integrity-checked, 14 kept.
@@ -912,6 +913,53 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     the catalog does not list), not the next free number.
   - Styled only by `adm-scan-*` rules in `admin.css`.
 
+- **The print editor** (`/admin/darkroom`, "Prints" under Darkroom; `Web.Darkroom`,
+  `WebWeb.AdminLive.Darkroom` and `.DarkroomEditor`, 2026-10-17, his ask: "the Lightroom
+  clone… so that I may edit single photos"). A developed print is finished by hand with
+  LightCraft's sliders, crop and straightening.
+  - **The engine is LightCraft** (github.com/storytold/lightcraft, MIT or Apache-2.0, Rust,
+    alpha). `lightcraft-cli` is built from a pinned checkout (`cargo build --release -p
+    lightcraft-cli`, stripped) and installed in `~/.local/bin` like `film-develop`
+    (`:lightcraft_bin`). It was chosen over RapidRAW (AGPL: copying its shaders would make
+    this MIT site AGPL) and over writing the adjustments twice (WebGL to look, numpy to print).
+    **There is one implementation of every adjustment**: the previews and the print are both
+    LightCraft's, given the same commands (`Darkroom.commands/1`).
+  - **`Web.Darkroom.Session`** holds one `lightcraft-cli mcp --compact <picture>` open per
+    editor over stdio (MCP's JSON-RPC, a line each; edits go through its `run_command` tool).
+    The first picture takes about 300 ms, each after about 65 ms; starting the program costs
+    a quarter of a second, which is why it is held open. Only the newest preview asked for is
+    drawn (the mailbox is drained before each). Pictures go to a 0700 folder under the system
+    tmp dir named by a random token, served to the admin session alone by
+    `DarkroomController.picture/2`; the folder is env-specific (`:darkroom_scratch`) because
+    the suite and a dev server run on the server too and clear theirs at boot. `lightcraft-cli
+    run --script` reads all of stdin before it starts, so it is used only for the one-shot print.
+  - **An edit is a recipe, never a change to the picture**: `edits/NN.json` (sliders off their
+    default, by LightCraft's control id, and `crop: {rect: [x0, y0, x1, y1], angle}`, the rect
+    in fractions of the picture, the angle in degrees clockwise). The picture it applies to is
+    the print as `film-develop` made it, set aside as `developed/NN.png` on the first save;
+    `frames/NN.png` is rendered from it. Revert puts it back. `develop_keeper/2` re-applies the
+    recipe to a new development (`reapply/2`), `turn_frame/2` and `carry_singles/3` turn the
+    developed picture and **turn the crop's rect with it** (`turn_crop/2`), and `remove_print/2`
+    deletes both. `film-develop redevelop` by hand bypasses all of this.
+  - **The sliders are LightCraft's own schema** (`develop.controls`: id, section, range, step,
+    default and the track's colours), cut to the sections a print from film needs
+    (`Darkroom.sections/2`): no optics, calibration, profile, `hdr.*` or the AI denoiser, and
+    **no colour sections on a grey print**, since white balance on grey only tints it. Values
+    from the browser are checked against the schema (`clean_controls/2`): an unknown id fails
+    LightCraft's whole `develop.set`. LightCraft writes colour, so a grey print is put back to
+    grey after (`grey?/1`).
+  - **The crop is drawn over the whole picture**: while it is open the preview is asked for
+    uncropped (`%{recipe | crop: nil}`) and the browser turns it by the angle about its middle,
+    as LightCraft does, with the box (`.CropBox`) in the picture's own fractions. A rect that no
+    longer fits once straightened is shrunk by LightCraft, not by the page.
+  - **An edited print's address carries its print's time** (`Negatives.list_frames/1`,
+    `?v=`), so an edit is seen at once instead of when a browser's day-old copy expires;
+    unedited prints keep their address. A blog embed builds its own frame address and still
+    waits out the day.
+  - Styled by `adm-dr-*` rules in `admin.css`. The slider tracks take the colours the schema
+    gives (temperature, tint, the mixer's eight bands, a gradient's two ends) as literal colour,
+    since they are what the slider does. `test/support/stub_lightcraft` answers both modes.
+
 - **Search** (2026-10-07). `Web.Search.search/1` answers one query across every section, grouped
   by section (Blog, Captain's logs, Exercise wiki, Activities, Photographs, Saints, The Bible,
   How it works). **There is no index**: each query reads the same public list functions the
@@ -1133,7 +1181,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   instrument voice; Goudy is kept for page titles and for words people wrote. The pigments are
   lifted for the dark ground (`--adm-act`/`-live`/`-held`/`-fail`, each ≥4.5:1). theme.css styles
   bare `button`s, so every admin button class states its hover in full.
-  The rail groups pages as **Write** (Blog, Captain's Logs, Fitness, Keywords, Content health), **Darkroom** (Scanner), **Mail** (Inbox, Guestbook,
+  The rail groups pages as **Write** (Blog, Captain's Logs, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints), **Mail** (Inbox, Guestbook,
   Citations, Newsletter) and **Sync** (Activities), plus Overview and Settings, with badges for
   open messages (letters included), held signatures, held citations and failed transcodes. It folds to a Menu bar at ≤900px. **View state is in the
   URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords), `?filter=missing|drafts`

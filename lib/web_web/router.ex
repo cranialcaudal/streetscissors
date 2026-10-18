@@ -184,6 +184,12 @@ defmodule WebWeb.Router do
       # page: the action 404s without the admin session.
       get "/admin/fitness/calendar", PageController, :calendar
       live "/admin/scanner", AdminLive.Scanner
+      # The print editor (Web.Darkroom): the prints roll by roll, one print on
+      # the bench, and the bench's pictures, which the action serves only to
+      # the admin session.
+      live "/admin/darkroom", AdminLive.Darkroom
+      live "/admin/darkroom/:roll/:frame", AdminLive.DarkroomEditor
+      get "/admin/darkroom/picture/:token/:file", DarkroomController, :picture
       live "/admin/inbox", AdminLive.Inbox
       live "/admin/guestbook", AdminLive.GuestbookManager
       live "/admin/citations", AdminLive.Citations
