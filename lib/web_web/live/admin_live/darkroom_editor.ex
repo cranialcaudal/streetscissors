@@ -26,8 +26,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   import WebWeb.AdminComponents
 
   alias Web.Darkroom
-  alias Web.Darkroom.Session
+  alias Web.Darkroom.{Prior, Session}
   alias Web.Negatives
+  alias Web.Negatives.RollMeta
 
   def mount(%{"roll" => roll, "frame" => frame}, session, socket) do
     with true <- !!session["admin_user"] || :not_admin,
@@ -60,10 +61,12 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           cropping: false,
           working: nil,
           error: nil,
-          stamp: System.system_time(:second)
+          stamp: System.system_time(:second),
+          prior: nil,
+          seconds: RollMeta.exposure(dir, frame)
         )
 
-      {:ok, if(connected?(socket), do: open(socket, source), else: socket)}
+      {:ok, if(connected?(socket), do: socket |> open(source) |> suggest(), else: socket)}
     else
       :not_admin ->
         {:ok, push_navigate(socket, to: "/")}
@@ -101,6 +104,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp picture(token, file), do: ~p"/admin/darkroom/picture/#{token}/#{file}"
 
+  # The film's suggestion (Web.Darkroom.Prior), worked out off the page: the
+  # first time, the archive's averages are measured, which takes a minute.
+  defp suggest(socket) do
+    %{dir: dir, frame: frame, grey: grey, recipe: recipe} = socket.assigns
+    source = Darkroom.source_path(dir, frame)
+    temp = Map.get(recipe.controls, "wb.temp", 6500.0)
+    color = if grey, do: "bw", else: "color"
+    start_async(socket, :prior, fn -> Prior.suggest(dir, frame, source, color, temp: temp) end)
+  end
+
   # Asks for the picture the bench now describes. While cropping that is the
   # whole picture, level: the browser turns it and draws the box.
   defp draw(%{assigns: %{session: nil}} = socket), do: socket
@@ -137,6 +150,36 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   def handle_event("reset", _params, socket) do
     {:noreply, socket |> assign(recipe: Darkroom.empty(), cropping: false) |> draw()}
   end
+
+  # ── The film ──────────────────────────────────────────────────────────
+
+  def handle_event("exposure", %{"seconds" => text}, socket) do
+    seconds =
+      case Float.parse(String.trim(text)) do
+        {s, _} when s > 0 -> if s == Float.round(s), do: round(s), else: s
+        _ -> nil
+      end
+
+    RollMeta.put_exposure(socket.assigns.dir, socket.assigns.frame, seconds)
+    {:noreply, socket |> assign(seconds: seconds) |> suggest()}
+  end
+
+  # Temp is set where the suggestion puts it; Tint is moved by it.
+  def handle_event("apply_prior", _params, %{assigns: %{prior: %{sliders: sliders}}} = socket)
+      when sliders != %{} do
+    controls = socket.assigns.recipe.controls
+    tint = Map.get(controls, "wb.tint", 0.0) + sliders["wb.tint"]
+
+    values = %{
+      "wb.temp" => Float.round(sliders["wb.temp"] / 50) * 50,
+      "wb.tint" => Float.round(tint * 1.0)
+    }
+
+    changed = Darkroom.clean_controls(Map.merge(controls, values), socket.assigns.schema)
+    {:noreply, socket |> put_recipe(controls: changed) |> draw() |> suggest()}
+  end
+
+  def handle_event("apply_prior", _params, socket), do: {:noreply, socket}
 
   # ── Crop ──────────────────────────────────────────────────────────────
 
@@ -195,6 +238,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   def handle_event(event, _params, socket) when event in ["save", "revert"],
     do: {:noreply, socket}
+
+  def handle_async(:prior, {:ok, {:ok, prior}}, socket),
+    do: {:noreply, assign(socket, prior: prior)}
+
+  def handle_async(:prior, _result, socket), do: {:noreply, assign(socket, prior: :error)}
 
   def handle_async(:print, {:ok, {what, recipe, :ok}}, socket) do
     %{dir: dir, frame: frame} = socket.assigns
@@ -428,6 +476,45 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </label>
           <p class="adm-dr-hint">Drag the box's corners and sides, or the box itself.</p>
         </form>
+
+        <section :if={!@cropping} id="film" class="adm-dr-section">
+          <div class="adm-dr-section-head">
+            <h2 class="adm-dr-section-title">Film</h2>
+            <button
+              :if={is_map(@prior) and @prior.sliders != %{}}
+              type="button"
+              phx-click="apply_prior"
+              class="adm-dr-reset"
+            >
+              Start from the film
+            </button>
+          </div>
+          <p :if={is_nil(@prior)} class="adm-dr-hint">Reading the film…</p>
+          <p :if={@prior == :error} class="adm-dr-hint">The print could not be read.</p>
+          <ul :if={is_map(@prior)} class="adm-dr-film">
+            <li :for={line <- @prior.lines}>{line}</li>
+            <li :if={@prior.sliders != %{}}>
+              Suggests Temp {round(@prior.sliders["wb.temp"])}, Tint {if @prior.sliders["wb.tint"] >=
+                                                                           0, do: "+"}{round(
+                @prior.sliders["wb.tint"]
+              )}
+            </li>
+          </ul>
+          <form id="exposure" phx-change="exposure">
+            <label class="adm-dr-control">
+              <span class="adm-dr-label">Exposure time (s), if long</span>
+              <input
+                type="text"
+                inputmode="decimal"
+                name="seconds"
+                value={@seconds}
+                class="adm-input"
+                phx-debounce="500"
+                placeholder="e.g. 30"
+              />
+            </label>
+          </form>
+        </section>
 
         <form :if={!@cropping} id="adjust" phx-change="adjust">
           <fieldset :for={section <- @sections} class="adm-dr-section" id={"section-#{section.key}"}>

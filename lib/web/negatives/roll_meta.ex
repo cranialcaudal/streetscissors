@@ -120,6 +120,55 @@ defmodule Web.Negatives.RollMeta do
   end
 
   @doc """
+  How long a frame was exposed, in seconds, when the author has said
+  (`roll.json`'s `"exposures"`, by frame number), else nil. Film keeps no
+  record of its shutter, so this is only ever what was typed: the print
+  editor's colour prior needs it for a long exposure's reciprocity.
+  """
+  def exposure(roll_dir, frame) do
+    case doc(roll_dir)["exposures"] do
+      %{} = times ->
+        case times[to_string(frame)] do
+          seconds when is_number(seconds) and seconds > 0 -> seconds
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc "Keeps (or, with nil, forgets) how long a frame was exposed. Other keys stay."
+  def put_exposure(roll_dir, frame, seconds) do
+    doc = doc(roll_dir)
+    times = (doc["exposures"] || %{}) |> then(&if(is_map(&1), do: &1, else: %{}))
+
+    times =
+      if is_number(seconds) and seconds > 0,
+        do: Map.put(times, to_string(frame), seconds),
+        else: Map.delete(times, to_string(frame))
+
+    doc =
+      if times == %{}, do: Map.delete(doc, "exposures"), else: Map.put(doc, "exposures", times)
+
+    path = Path.join(roll_dir, "roll.json")
+
+    cond do
+      not File.dir?(roll_dir) ->
+        {:error, :no_folder}
+
+      doc == %{} ->
+        File.rm(path)
+        :ok
+
+      true ->
+        File.write!(path <> ".partial", Jason.encode_to_iodata!(doc, pretty: true))
+        File.rename!(path <> ".partial", path)
+        :ok
+    end
+  end
+
+  @doc """
   When the roll was shot, as it reads: `"2023"`, `"June 2023"`, `"June 14,
   2023"`. nil when unset.
   """

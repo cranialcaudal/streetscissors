@@ -2699,6 +2699,17 @@ button.adm-tab:hover {
 
 .adm-dr-error { color: var(--adm-fail); }
 
+.adm-dr-film {
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.adm-dr-film li + li { margin-top: 0.2rem; }
+
 /* The sliders */
 
 .adm-dr-panel {

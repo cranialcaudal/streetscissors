@@ -15,6 +15,31 @@ defmodule Web.Negatives.RollMetaTest do
     assert RollMeta.empty?(RollMeta.read(Path.join(dir, "not-there")))
   end
 
+  test "a frame's exposure time is kept beside the roll's other words, and forgotten when cleared",
+       %{dir: dir} do
+    :ok =
+      RollMeta.write(dir, %{shot: "2023", camera: nil, film: "Velvia 50", place: nil, notes: nil})
+
+    :ok = RollMeta.put_exposure(dir, 6, 32)
+    :ok = RollMeta.put_exposure(dir, 7, 2.5)
+
+    assert RollMeta.exposure(dir, 6) == 32
+    assert RollMeta.exposure(dir, "7") == 2.5
+    assert RollMeta.exposure(dir, 8) == nil
+    assert RollMeta.read(dir).film == "Velvia 50"
+
+    # Writing the roll's words keeps the times; clearing a time keeps the words.
+    :ok =
+      RollMeta.write(dir, %{shot: "2024", camera: nil, film: "Velvia 50", place: nil, notes: nil})
+
+    assert RollMeta.exposure(dir, 6) == 32
+    :ok = RollMeta.put_exposure(dir, 6, nil)
+    :ok = RollMeta.put_exposure(dir, 7, 0)
+    assert RollMeta.exposure(dir, 6) == nil
+    refute File.read!(Path.join(dir, "roll.json")) =~ "exposures"
+    assert RollMeta.read(dir).shot == "2024"
+  end
+
   test "when it was shot is as exact as is known, and no more" do
     assert {:ok, %{shot: "2023"}} = RollMeta.cast(%{"shot" => " 2023 "})
     assert {:ok, %{shot: "2023-06"}} = RollMeta.cast(%{"shot" => "2023-06"})
