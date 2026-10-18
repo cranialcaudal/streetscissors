@@ -339,9 +339,7 @@ defmodule Web.Fitness.Vault do
   def get_exercise_by_slug(slug) do
     list_muscle_groups()
     |> Enum.find_value(:error, fn group ->
-      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
-
-      if File.exists?(path) do
+      if path = exercise_path(group, slug) do
         meta = parse_frontmatter(path)
 
         {:ok,
@@ -568,9 +566,7 @@ defmodule Web.Fitness.Vault do
   defp exercise_meta(slug) do
     list_muscle_groups()
     |> Enum.find_value(:error, fn group ->
-      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
-
-      if File.exists?(path) do
+      if path = exercise_path(group, slug) do
         meta = parse_frontmatter(path)
 
         {:ok,
@@ -583,6 +579,17 @@ defmodule Web.Fitness.Vault do
          }}
       end
     end)
+  end
+
+  # The file an exercise is kept in, or nil. The slug comes from the address
+  # bar (`/fitness/wiki/:slug`), and Phoenix decodes `%2F` in a path segment to
+  # "/", so a slug of `../` steps out of exercise-wiki/ to any .md file on disk.
+  # Only the shape every page's file name already has is looked up.
+  defp exercise_path(group, slug) do
+    if is_binary(slug) and Regex.match?(~r/\A[a-z0-9][a-z0-9-]*\z/, slug) do
+      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
+      if File.exists?(path), do: path
+    end
   end
 
   # The regimen page is a checklist, not a training diary. Only block headings

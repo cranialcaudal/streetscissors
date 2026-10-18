@@ -287,6 +287,21 @@ defmodule Web.Fitness.VaultTest do
     end
   end
 
+  # `/fitness/wiki/..%2F..%2Fnotes%2Fplan` arrives as the slug "../../notes/plan"
+  # (Phoenix decodes %2F in a segment), which used to render the private note.
+  test "an exercise slug cannot step out of the wiki", %{tmp: tmp} do
+    File.mkdir_p!(Path.join([tmp, "exercise-wiki", "upper"]))
+    File.write!(Path.join([tmp, "exercise-wiki", "upper", "push-ups.md"]), "Push.\n")
+    File.mkdir_p!(Path.join(tmp, "notes"))
+    File.write!(Path.join([tmp, "notes", "plan.md"]), "---\ntitle: Private\n---\n\nSecret.\n")
+
+    assert {:ok, %{slug: "push-ups"}} = Vault.get_exercise_by_slug("push-ups")
+
+    for slug <- [URI.decode("..%2F..%2Fnotes%2Fplan"), "../../notes/plan", "/etc/passwd", "", nil] do
+      assert Vault.get_exercise_by_slug(slug) == :error, "looked up #{inspect(slug)}"
+    end
+  end
+
   # The admin's form has no field for `references:`. Saving a page there used
   # to rebuild the frontmatter from the form alone and drop the citations.
   test "saving an exercise keeps the frontmatter its form has no field for", %{tmp: tmp} do
