@@ -46,6 +46,12 @@ defmodule Web.Darkroom.Session do
 
   def start_link({path, owner}), do: GenServer.start_link(__MODULE__, {path, owner})
 
+  @doc """
+  The dust LightCraft finds on the picture (`spot.findDust`: small dark spots
+  on smooth ground), as spots for a recipe, without healing them yet.
+  """
+  def find_dust(pid, sensitivity), do: GenServer.call(pid, {:find_dust, sensitivity}, @timeout)
+
   @doc "Asks for picture `n` of `recipe`; it arrives as a message."
   def preview(pid, recipe, n), do: GenServer.cast(pid, {:preview, recipe, n})
 
@@ -88,7 +94,15 @@ defmodule Web.Darkroom.Session do
     File.mkdir_p!(dir)
     File.chmod!(dir, 0o700)
 
-    state = %{owner: owner, token: token, dir: dir, port: nil, schema: [], shown: []}
+    state = %{
+      owner: owner,
+      token: token,
+      dir: dir,
+      port: nil,
+      schema: [],
+      shown: [],
+      size: Darkroom.dimensions(path)
+    }
 
     case open(state, path) do
       {:ok, state} ->
@@ -144,11 +158,26 @@ defmodule Web.Darkroom.Session do
     {:reply, %{token: state.token, schema: state.schema, before: "before.jpg"}, state}
   end
 
+  def handle_call({:find_dust, sensitivity}, _from, state) do
+    reply =
+      with {:ok, _} <- command(state, "develop.reset", %{}),
+           {:ok, text} <-
+             command(state, "spot.findDust", %{"sensitivity" => sensitivity, "add" => false}),
+           {:ok, %{"spots" => spots}} <- Jason.decode(text) do
+        {:ok, Darkroom.clean_spots(spots)}
+      else
+        {:error, reason} -> {:error, reason}
+        _ -> {:error, "LightCraft gave no spots"}
+      end
+
+    {:reply, reply, state}
+  end
+
   @impl true
   def handle_cast({:preview, recipe, n}, state) do
     {recipe, n} = newest(recipe, n)
     file = "p-#{n}.jpg"
-    steps = Darkroom.commands(recipe) ++ [{"app.export", export_params(state, file)}]
+    steps = Darkroom.commands(recipe, state.size) ++ [{"app.export", export_params(state, file)}]
 
     result =
       Enum.reduce_while(steps, :ok, fn {name, params}, :ok ->

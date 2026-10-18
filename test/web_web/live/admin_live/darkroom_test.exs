@@ -102,6 +102,29 @@ defmodule WebWeb.AdminLive.DarkroomTest do
     assert Darkroom.recipe(folder, 3).crop == %{rect: [0.1, 0.2, 0.7, 0.9], angle: 2.5}
   end
 
+  test "dust is found by LightCraft, healed, and taken off by hand", %{conn: conn, folder: folder} do
+    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+
+    view |> element("button", "Dust") |> render_click()
+    assert has_element?(view, "#dust-box")
+
+    view |> form("#dust", %{"sensitivity" => "60"}) |> render_submit()
+    assert render(view) =~ "Found 2 specks; 2 new."
+    assert view |> element("#dust-box") |> render() |> String.contains?("Speck 2")
+
+    # Found again, the same specks are not healed twice.
+    view |> form("#dust", %{"sensitivity" => "60"}) |> render_submit()
+    assert render(view) =~ "0 new"
+
+    render_hook(view, "add_spot", %{"x" => 0.5, "y" => 0.5})
+    render_hook(view, "remove_spot", %{"index" => "0"})
+    assert has_element?(view, "output", "2 healed")
+
+    view |> element("button", "Save") |> render_click()
+    render_async(view)
+    assert [%{x: 0.75, y: 0.2}, %{x: 0.5, y: 0.5}] = Web.Darkroom.recipe(folder, 3).spots
+  end
+
   test "an unknown print is not a page", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: "/admin/darkroom"}}} =
              live(admin_conn(conn), ~p"/admin/darkroom/007/9")

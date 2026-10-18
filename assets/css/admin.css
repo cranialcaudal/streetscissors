@@ -2654,6 +2654,30 @@ button.adm-tab:hover {
   z-index: 0;
 }
 
+/* Dust: the picture flat and whole, a ring on every healed speck. A ring's
+   size is the spot's, a fraction of the picture's long edge (--long is the
+   long edge over the width). */
+.adm-dr-frame--dust { cursor: crosshair; }
+.adm-dr-frame-picture--flat { transform: none; }
+
+.adm-dr-spot,
+.adm-dr-spot:hover {
+  position: absolute;
+  left: calc(var(--x) * 100%);
+  top: calc(var(--y) * 100%);
+  width: max(calc(var(--s) * var(--long) * 200%), 14px);
+  aspect-ratio: 1;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  border: 2px solid var(--adm-act);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(10, 9, 8, 0.7);
+  cursor: pointer;
+}
+
+.adm-dr-spot:hover { border-color: var(--ink); }
+
 .adm-dr-crop {
   position: absolute;
   left: calc(var(--x0) * 100%);

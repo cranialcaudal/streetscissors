@@ -559,7 +559,8 @@ defmodule Web.ScannerTest do
 
         recipe = %{
           controls: %{"light.exposure" => 0.4},
-          crop: %{rect: [0.1, 0.2, 0.5, 0.6], angle: 2.0}
+          crop: %{rect: [0.1, 0.2, 0.5, 0.6], angle: 2.0},
+          spots: []
         }
 
         :ok = Web.Darkroom.save(dir, 3, recipe)
@@ -932,7 +933,7 @@ defmodule Web.ScannerTest do
       assert Pipeline.turn_frame(dir, 3) == 0
       {:ok, _print} = Pipeline.develop_keeper(dir, 3)
 
-      recipe = %{controls: %{"light.exposure" => 0.4}, crop: nil}
+      recipe = %{controls: %{"light.exposure" => 0.4}, crop: nil, spots: []}
       :ok = Web.Darkroom.save(dir, 3, recipe)
       assert File.read!(Web.Darkroom.base_path(dir, 3)) == "first scan"
 

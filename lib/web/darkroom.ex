@@ -87,7 +87,12 @@ defmodule Web.Darkroom do
 
   # ── The recipe ────────────────────────────────────────────────────────
 
-  @doc "A frame's recipe: `%{controls: %{id => number}, crop: nil | %{rect, angle}}`."
+  @doc """
+  A frame's recipe: `%{controls: %{id => number}, crop: nil | %{rect, angle},
+  spots: [%{x, y, size}]}`. Spots are dust healed by LightCraft, in
+  fractions of the whole picture (not of the crop), `size` a fraction of its
+  long edge.
+  """
   def recipe(roll_dir, frame) do
     with {:ok, body} <- File.read(edits_path(roll_dir, frame)),
          {:ok, %{} = doc} <- Jason.decode(body) do
@@ -97,10 +102,12 @@ defmodule Web.Darkroom do
     end
   end
 
-  def empty, do: %{controls: %{}, crop: nil}
+  def empty, do: %{controls: %{}, crop: nil, spots: []}
 
   @doc "Whether a recipe changes nothing."
-  def empty?(%{controls: controls, crop: crop}), do: controls == %{} and crop == nil
+  def empty?(recipe), do: recipe.controls == %{} and recipe.crop == nil and spots(recipe) == []
+
+  defp spots(recipe), do: Map.get(recipe, :spots, [])
 
   defp from_json(doc) do
     controls =
@@ -108,7 +115,7 @@ defmodule Web.Darkroom do
         {id, value}
       end
 
-    %{controls: controls, crop: crop_from_json(doc["crop"])}
+    %{controls: controls, crop: crop_from_json(doc["crop"]), spots: clean_spots(doc["spots"])}
   end
 
   defp crop_from_json(%{"rect" => [x0, y0, x1, y1] = rect} = crop)
@@ -118,10 +125,11 @@ defmodule Web.Darkroom do
 
   defp crop_from_json(_), do: nil
 
-  defp to_json(%{controls: controls, crop: crop}) do
+  defp to_json(%{controls: controls, crop: crop} = recipe) do
     %{
       "controls" => controls,
       "crop" => crop && %{"rect" => crop.rect, "angle" => crop.angle},
+      "spots" => Enum.map(spots(recipe), &%{"x" => &1.x, "y" => &1.y, "size" => &1.size}),
       "saved_at" => DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
     }
   end
@@ -129,12 +137,56 @@ defmodule Web.Darkroom do
   @doc """
   The commands that apply a recipe, after a `develop.reset`. The same list goes
   to the open session for a preview and into the script for the print.
+
+  `size` is the picture's `{width, height}`. **A crop's edges are put on whole
+  pixels**: LightCraft resamples a crop whose edge falls between two (0.3 of
+  2229 pixels is 668.7), and the print came out with two fifths of its fine
+  detail gone; on whole pixels it is the picture's own pixels, untouched.
   """
-  def commands(%{controls: controls, crop: crop}) do
+  def commands(%{controls: controls, crop: crop} = recipe, size \\ nil) do
     set = if controls == %{}, do: [], else: [{"develop.set", %{"values" => controls}}]
-    cut = if crop, do: [{"crop.set", %{"rect" => crop.rect, "angle" => crop.angle}}], else: []
-    [{"develop.reset", %{}} | set ++ cut]
+
+    cut =
+      if crop,
+        do: [{"crop.set", %{"rect" => snap(crop.rect, size), "angle" => crop.angle}}],
+        else: []
+
+    heal =
+      for spot <- spots(recipe) do
+        {"spot.add", %{"mode" => "heal", "points" => [[spot.x, spot.y]], "size" => spot.size}}
+      end
+
+    [{"develop.reset", %{}} | set ++ cut ++ heal]
   end
+
+  @doc false
+  def snap(rect, nil), do: rect
+
+  def snap([x0, y0, x1, y1], {w, h}) do
+    [round(x0 * w) / w, round(y0 * h) / h, round(x1 * w) / w, round(y1 * h) / h]
+  end
+
+  @doc """
+  Dust spots the browser or LightCraft gave, held to the picture and to a
+  sensible size, at most three hundred.
+  """
+  def clean_spots(list) when is_list(list) do
+    list
+    |> Enum.flat_map(fn spot ->
+      with %{} <- spot,
+           x when is_float(x) <- number(spot["x"] || spot[:x]),
+           y when is_float(y) <- number(spot["y"] || spot[:y]),
+           true <- x >= 0 and x <= 1 and y >= 0 and y <= 1 do
+        size = (number(spot["size"] || spot[:size]) || 0.004) |> max(0.001) |> min(0.05)
+        [%{x: x, y: y, size: size}]
+      else
+        _ -> []
+      end
+    end)
+    |> Enum.take(300)
+  end
+
+  def clean_spots(_), do: []
 
   @doc "The export a preview is: JPEG, `preview_edge/0` on the long side."
   def preview_export(path) do
@@ -293,7 +345,12 @@ defmodule Web.Darkroom do
       if File.regular?(base), do: magick([base, "-rotate", "#{degrees}", base])
 
       recipe = recipe(roll_dir, frame)
-      write_recipe(roll_dir, frame, %{recipe | crop: turn_crop(recipe.crop, degrees)})
+
+      write_recipe(roll_dir, frame, %{
+        recipe
+        | crop: turn_crop(recipe.crop, degrees),
+          spots: Enum.map(recipe.spots, &turn_spot(&1, degrees))
+      })
     else
       :ok
     end
@@ -314,6 +371,15 @@ defmodule Web.Darkroom do
       end)
 
     %{crop | rect: rect}
+  end
+
+  @doc "A dust spot turned with its picture, a quarter at a time, as `turn_crop/2` turns a crop."
+  def turn_spot(spot, degrees) do
+    turns = div(rem(rem(degrees, 360) + 360, 360), 90)
+
+    Enum.reduce(List.duplicate(:quarter, turns), spot, fn :quarter, %{x: x, y: y} = s ->
+      %{s | x: 1 - y, y: x}
+    end)
   end
 
   defp set_aside(print, base) do
@@ -353,7 +419,7 @@ defmodule Web.Darkroom do
     script = Path.join(scratch, "commands.jsonl")
 
     lines =
-      for {command, params} <- commands(recipe) ++ [print_export(made)] do
+      for {command, params} <- commands(recipe, dimensions(input)) ++ [print_export(made)] do
         Jason.encode!(%{"command" => command, "params" => params})
       end
 

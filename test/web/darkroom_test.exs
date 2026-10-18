@@ -57,7 +57,8 @@ defmodule Web.DarkroomTest do
 
   @recipe %{
     controls: %{"light.exposure" => 0.4},
-    crop: %{rect: [0.1, 0.2, 0.5, 0.6], angle: 2.0}
+    crop: %{rect: [0.1, 0.2, 0.5, 0.6], angle: 2.0},
+    spots: []
   }
 
   describe "the recipe" do
@@ -111,6 +112,51 @@ defmodule Web.DarkroomTest do
              ] = Darkroom.commands(@recipe)
 
       assert Darkroom.commands(Darkroom.empty()) == [{"develop.reset", %{}}]
+    end
+  end
+
+  describe "dust and the crop's pixels" do
+    test "a crop's edges are put on whole pixels, so LightCraft does not resample the print" do
+      [{"develop.reset", _}, {"crop.set", %{"rect" => rect}}] =
+        Darkroom.commands(
+          %{controls: %{}, crop: %{rect: [0.3, 0.2, 0.6, 0.5], angle: 0.0}, spots: []},
+          {2229, 1488}
+        )
+
+      assert rect == [669 / 2229, 298 / 1488, 1337 / 2229, 744 / 1488]
+    end
+
+    test "dust spots are healed after the crop, in the whole picture's fractions" do
+      recipe = %{controls: %{}, crop: nil, spots: [%{x: 0.25, y: 0.5, size: 0.004}]}
+
+      assert [_, {"spot.add", %{"mode" => "heal", "points" => [[0.25, 0.5]], "size" => 0.004}}] =
+               Darkroom.commands(recipe)
+    end
+
+    test "spots from anywhere are held to the picture and a sensible size" do
+      assert [%{x: 0.5, y: 0.25, size: 0.05}, %{x: 0.1, y: 0.1, size: 0.004}] =
+               Darkroom.clean_spots([
+                 %{"x" => 0.5, "y" => 0.25, "size" => 1},
+                 %{"x" => 2, "y" => 0.5},
+                 %{"x" => "0.1", "y" => 0.1},
+                 "nonsense"
+               ])
+
+      assert Darkroom.clean_spots(nil) == []
+    end
+
+    test "spots are kept with the recipe and turn with the picture", %{folder: folder} do
+      recipe = %{
+        controls: %{"light.exposure" => 0.2},
+        crop: nil,
+        spots: [%{x: 0.25, y: 0.75, size: 0.004}]
+      }
+
+      :ok = Darkroom.save(folder, 3, recipe)
+      assert Darkroom.recipe(folder, 3) == recipe
+
+      :ok = Darkroom.turn(folder, 3, 90)
+      assert [%{x: 0.25, y: 0.25}] = Darkroom.recipe(folder, 3).spots
     end
   end
 

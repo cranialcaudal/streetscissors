@@ -59,6 +59,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           before: nil,
           showing_before: false,
           cropping: false,
+          dusting: false,
           working: nil,
           error: nil,
           stamp: System.system_time(:second),
@@ -119,8 +120,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   defp draw(%{assigns: %{session: nil}} = socket), do: socket
 
   defp draw(socket) do
-    %{recipe: recipe, cropping: cropping, n: n, session: session} = socket.assigns
-    Session.preview(session, if(cropping, do: %{recipe | crop: nil}, else: recipe), n + 1)
+    %{recipe: recipe, cropping: cropping, dusting: dusting, n: n, session: session} =
+      socket.assigns
+
+    whole? = cropping or dusting
+    Session.preview(session, if(whole?, do: %{recipe | crop: nil}, else: recipe), n + 1)
     assign(socket, n: n + 1)
   end
 
@@ -185,7 +189,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   def handle_event("crop", _params, %{assigns: %{cropping: false}} = socket) do
     crop = socket.assigns.recipe.crop || %{rect: [0.0, 0.0, 1.0, 1.0], angle: 0.0}
-    {:noreply, socket |> assign(cropping: true) |> put_recipe(crop: crop) |> draw()}
+
+    {:noreply,
+     socket |> assign(cropping: true, dusting: false) |> put_recipe(crop: crop) |> draw()}
   end
 
   def handle_event("crop", _params, socket) do
@@ -205,6 +211,57 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   def handle_event("crop_reset", _params, socket) do
     {:noreply, put_crop(socket, %{"rect" => [0.0, 0.0, 1.0, 1.0], "angle" => 0.0})}
+  end
+
+  # ── Dust ──────────────────────────────────────────────────────────────
+
+  def handle_event("dust", _params, socket) do
+    socket =
+      if socket.assigns.cropping,
+        do:
+          socket
+          |> assign(cropping: false)
+          |> put_recipe(crop: Darkroom.clean_crop(crop_params(socket.assigns.recipe.crop))),
+        else: socket
+
+    {:noreply, socket |> assign(dusting: !socket.assigns.dusting) |> draw()}
+  end
+
+  def handle_event("find_dust", params, %{assigns: %{session: pid}} = socket) when is_pid(pid) do
+    keen = params["sensitivity"] |> number_or(60) |> round() |> max(0) |> min(100)
+
+    case Session.find_dust(pid, keen) do
+      {:ok, found} ->
+        spots = merge_spots(socket.assigns.recipe.spots, found)
+        added = length(spots) - length(socket.assigns.recipe.spots)
+
+        {:noreply,
+         socket
+         |> put_recipe(spots: spots)
+         |> draw()
+         |> put_flash(:info, "Found #{length(found)} specks; #{added} new.")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "No dust found: #{reason}")}
+    end
+  end
+
+  def handle_event("find_dust", _params, socket), do: {:noreply, socket}
+
+  def handle_event("add_spot", %{"x" => x, "y" => y}, socket) do
+    new = Darkroom.clean_spots([%{"x" => x, "y" => y, "size" => 0.005}])
+
+    {:noreply,
+     socket |> put_recipe(spots: merge_spots(socket.assigns.recipe.spots, new)) |> draw()}
+  end
+
+  def handle_event("remove_spot", %{"index" => index}, socket) do
+    spots = List.delete_at(socket.assigns.recipe.spots, index |> number_or(-1) |> round())
+    {:noreply, socket |> put_recipe(spots: spots) |> draw()}
+  end
+
+  def handle_event("clear_spots", _params, socket) do
+    {:noreply, socket |> put_recipe(spots: []) |> draw()}
   end
 
   # ── The bench ─────────────────────────────────────────────────────────
@@ -281,6 +338,32 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, assign(socket, error: reason)}
   end
 
+  # A speck found twice is healed once: a new spot within its own size of one
+  # already there is the same speck.
+  defp merge_spots(spots, found) do
+    found
+    |> Enum.reduce(spots, fn new, acc ->
+      near? = fn s ->
+        reach = max(s.size, new.size)
+        abs(s.x - new.x) < reach and abs(s.y - new.y) < reach
+      end
+
+      if Enum.any?(acc, near?), do: acc, else: acc ++ [new]
+    end)
+    |> Enum.take(300)
+  end
+
+  defp number_or(value, _default) when is_number(value), do: value
+
+  defp number_or(value, default) when is_binary(value) do
+    case Float.parse(value) do
+      {f, _} -> f
+      :error -> default
+    end
+  end
+
+  defp number_or(_value, default), do: default
+
   defp put_recipe(socket, changes),
     do: assign(socket, recipe: Map.merge(socket.assigns.recipe, Map.new(changes)))
 
@@ -309,6 +392,12 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
       index when index + step < 0 -> nil
       index -> Enum.at(frames, index + step)
     end
+  end
+
+  # The dust box has the picture's shape; --long is its long edge over its
+  # width, so a spot's size (a fraction of the long edge) can be drawn.
+  defp dust_box({w, h}) do
+    "--ar: #{Float.round(w / h, 4)}; --long: #{max(w, h) / w}; aspect-ratio: #{w} / #{h}"
   end
 
   # A track's own colours, as the engine describes them, for its stylesheet rule.
@@ -415,8 +504,32 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             </span>
           </div>
         </div>
+        <div
+          :if={@dusting}
+          id="dust-box"
+          class="adm-dr-frame adm-dr-frame--dust"
+          style={dust_box(@size)}
+          phx-hook=".DustBox"
+        >
+          <img
+            :if={@preview}
+            src={@preview}
+            alt=""
+            class="adm-dr-frame-picture adm-dr-frame-picture--flat"
+            draggable="false"
+          />
+          <button
+            :for={{spot, i} <- Enum.with_index(@recipe.spots)}
+            type="button"
+            class="adm-dr-spot"
+            data-index={i}
+            style={"--x: #{spot.x}; --y: #{spot.y}; --s: #{spot.size}"}
+            aria-label={"Speck #{i + 1}: take it off"}
+          >
+          </button>
+        </div>
         <img
-          :if={!@cropping}
+          :if={!@cropping and !@dusting}
           src={(@showing_before && @before) || @preview || @print}
           alt={"Roll #{@roll}, frame #{@frame}"}
           class="adm-dr-picture"
@@ -448,6 +561,14 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           >
             <.icon name="hero-scissors" class="size-4" /> {if @cropping, do: "Done", else: "Crop"}
           </button>
+          <button
+            type="button"
+            phx-click="dust"
+            class={["adm-btn adm-btn--small", @dusting && "is-on"]}
+            aria-pressed={to_string(@dusting)}
+          >
+            {if @dusting, do: "Done", else: "Dust"}
+          </button>
           <button type="button" phx-click="reset" class="adm-btn adm-btn--small adm-btn--quiet">
             Reset all
           </button>
@@ -477,7 +598,40 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           <p class="adm-dr-hint">Drag the box's corners and sides, or the box itself.</p>
         </form>
 
-        <section :if={!@cropping} id="film" class="adm-dr-section">
+        <form :if={@dusting} id="dust" phx-submit="find_dust" class="adm-dr-section">
+          <div class="adm-dr-section-head">
+            <h2 class="adm-dr-section-title">Dust</h2>
+            <button
+              :if={@recipe.spots != []}
+              type="button"
+              phx-click="clear_spots"
+              class="adm-dr-reset"
+            >
+              Clear all
+            </button>
+          </div>
+          <label class="adm-dr-control">
+            <span class="adm-dr-label">How keen</span>
+            <output class="adm-dr-value">{length(@recipe.spots)} healed</output>
+            <input
+              type="range"
+              name="sensitivity"
+              min="0"
+              max="100"
+              step="5"
+              value="60"
+              class="adm-dr-range adm-dr-track--plain"
+            />
+          </label>
+          <button type="submit" class="adm-btn adm-btn--small">Find dust</button>
+          <p class="adm-dr-hint">
+            Finds small dark specks on smooth ground: dust on a slide, or on a black and white
+            negative's print. Click a speck to heal it; click a ring to take it off. White specks on
+            colour negatives are taken out when the frame is developed.
+          </p>
+        </form>
+
+        <section :if={!@cropping and !@dusting} id="film" class="adm-dr-section">
           <div class="adm-dr-section-head">
             <h2 class="adm-dr-section-title">Film</h2>
             <button
@@ -495,7 +649,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             <li :for={line <- @prior.lines}>{line}</li>
             <li :if={@prior.sliders != %{}}>
               Suggests Temp {round(@prior.sliders["wb.temp"])}, Tint {if @prior.sliders["wb.tint"] >=
-                                                                           0, do: "+"}{round(
+                                                                           0,
+                                                                         do: "+"}{round(
                 @prior.sliders["wb.tint"]
               )}
             </li>
@@ -516,7 +671,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </form>
         </section>
 
-        <form :if={!@cropping} id="adjust" phx-change="adjust">
+        <form :if={!@cropping and !@dusting} id="adjust" phx-change="adjust">
           <fieldset :for={section <- @sections} class="adm-dr-section" id={"section-#{section.key}"}>
             <div class="adm-dr-section-head">
               <legend class="adm-dr-section-title">{section.title}</legend>
@@ -585,6 +740,25 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           window.removeEventListener("keydown", this.onDown)
           window.removeEventListener("keyup", this.onUp)
           window.removeEventListener("beforeunload", this.onLeave)
+        }
+      }
+    </script>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".DustBox">
+      // Dust on the whole picture: a click on the picture heals the speck
+      // there, a click on a ring takes it off. Positions are fractions of the
+      // picture, which is how LightCraft places a spot whatever the crop.
+      export default {
+        mounted() {
+          this.el.addEventListener("click", (event) => {
+            const ring = event.target.closest(".adm-dr-spot")
+            if (ring) return this.pushEvent("remove_spot", {index: ring.dataset.index})
+            const box = this.el.getBoundingClientRect()
+            this.pushEvent("add_spot", {
+              x: (event.clientX - box.left) / box.width,
+              y: (event.clientY - box.top) / box.height
+            })
+          })
         }
       }
     </script>
