@@ -457,7 +457,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
     <.page_head slug="Write / Cutting room" title={@cut.name}>
       <:lede>
         {clock(@plan.length)} · {length(@plan.clips)} clips
-        <span :if={@cut.audio_log}> · rendered into the log of  {Log.title(@cut.audio_log)}</span>
+        <span :if={@cut.audio_log}>· rendered into the log of {Log.title(@cut.audio_log)}</span>
       </:lede>
       <:actions>
         <.link navigate={~p"/admin/cuts"} class="adm-btn adm-btn--quiet">All cuts</.link>
