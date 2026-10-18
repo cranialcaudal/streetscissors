@@ -41,14 +41,31 @@ defmodule WebWeb.Plugs.MediaServe do
 
   def call(conn, _opts), do: conn
 
-  defp serve_file(conn, file_path, filename, %{size: file_size} = stat) do
+  @doc """
+  Sends one media file the way a player needs it (Range, ETag, HEAD), for a
+  caller that has already decided the file may be seen: the cutting room
+  serves the takes in its bin to the admin through this, privately.
+  """
+  def send_media(conn, file_path, cache_control) do
+    case File.stat(file_path) do
+      {:ok, %{type: :regular} = stat} ->
+        serve_file(conn, file_path, Path.basename(file_path), stat, cache_control)
+
+      _ ->
+        conn |> send_resp(404, "Not found") |> halt()
+    end
+  end
+
+  defp serve_file(conn, file_path, filename, stat, cache_control \\ @cache_control)
+
+  defp serve_file(conn, file_path, filename, %{size: file_size} = stat, cache_control) do
     etag = etag(stat)
 
     conn =
       conn
       |> put_resp_header("content-type", mime_type(filename))
       |> put_resp_header("accept-ranges", "bytes")
-      |> put_resp_header("cache-control", @cache_control)
+      |> put_resp_header("cache-control", cache_control)
       |> put_resp_header("etag", etag)
 
     cond do

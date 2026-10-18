@@ -81,6 +81,10 @@ config :web, :scanner_simulation, true
 config :web, :lightcraft_bin, Path.expand("../test/support/stub_lightcraft", __DIR__)
 config :web, :darkroom_scratch, "streetscissors-darkroom-test"
 
+# The cutting room's proxies and renders run inline, where the sandboxed
+# database can see them (Web.Cuts).
+config :web, :cuts_async, false
+
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.
 config :web, :transcoder_requeue_on_boot, false

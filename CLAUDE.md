@@ -577,6 +577,48 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     caption, keywords, date, published and the poster stay editable. A failed entry keeps its
     source and can be retried from the admin.
 
+- **The cutting room** (`/admin/cuts`, `Web.Cuts`, `WebWeb.AdminLive.Cuts` and
+  `.CuttingRoom`, 2026-10-17, his ask: the "Premiere clone", for logs "from several takes",
+  "photos from the archive", "titles and music"). A cut (`log_cuts`) is a timeline and a bin
+  of files (`cut_media`); it renders into a captain's log.
+  - **The timeline is data** (`Web.Cuts.Timeline`, JSON on the cut): `clips` play one after
+    another on one main track (a take with `in`/`out` in ms and `gain`, or a print `still`
+    with `frame: "065/6"`, `duration` and `move`), and `titles` and `sounds` sit at an `at` of
+    their own. **Everything from the browser goes through `normalize/2`**, which drops what
+    refers to nothing (a file not `ready`, a malformed frame) and clamps every number, so a
+    saved timeline always renders. Item ids carry their track's letter (`c-`, `t-`, `s-`).
+  - **The render is one ffmpeg command** built by `Web.Cuts.Render.args/3` (pure; the graph
+    is in its moduledoc): each clip to 1280x720 at 30 with sound of exactly its length (a take
+    by input seeking, a print by `zoompan` after scaling up 2x, which is what keeps a slow
+    zoom from shuddering), `concat`, titles overlaid in their time (PNG from
+    `Web.Cuts.Titles`, ImageMagick in the vendored faces, words through `caption:@`), sounds
+    delayed and faded, the `duck` ones pressed down by the main track's own sound
+    (`sidechaincompress`), `amix` with `normalize=0`. `test/web/cuts_render_test.exs` renders
+    a real cut with the real ffmpeg (skipped without it): the graph is proved by ffmpeg, not
+    by reading its text.
+  - **A render becomes a log through the logs' own path** (`Cuts.publish/2`): the film is
+    staged as a booth upload is, and either a new log is made (`recorded_on` from the form,
+    unpublished) or, for a cut already rendered, its log is given the new source as
+    `Media.reencode/1` does (off the site while it transcodes). The transcoder makes the 720p
+    rendition and poster; nothing on the public side knows a log came from a cut.
+  - **The bin is kept, unlike a booth source**: `cutting-room/<cut id>/` **beside** the uploads
+    root (which the proxy serves), until the cut is deleted. **It is in no backup** (the
+    uploads mirror covers only the uploads root); the published log's film is. Each file gets a
+    proxy for the browser (`make_proxy/1`: 480 lines, a keyframe every half second for
+    scrubbing), served to the admin alone with Range by `CutMediaController` through
+    `MediaServe.send_media/3`; the original is never served. Proxies and renders run under
+    `Web.TaskSupervisor` (`:cuts_async`, inline in the suite) and report on `"cut:<id>"`.
+  - **The browser plays, the server edits.** The `.Cutting` hook plays the program from
+    `data-program` (two `<video>`s taking turns so the next take is loaded before it is
+    reached; a print's move as a CSS transform matching the zoompan; titles drawn in the same
+    faces at the same fractions of the frame; ducking as a lowered volume) and turns drags and
+    trims into events (`move`, `place`, `trim`, `split`, `delete`); the server saves and
+    re-renders the blocks. The screen, the playhead and the timecode are `phx-update="ignore"`
+    (the hook owns them). Overlapping titles or sounds stack in rows (`lanes/1`). The assign is
+    `plan`, not `layout`, which LiveView reserves.
+  - Styled by `adm-cut-*` rules in `admin.css`. Existing logs cannot be brought into a bin
+    yet: their sources were deleted after transcoding.
+
 - **The scanner studio** (`/admin/scanner`, `WebWeb.AdminLive.Scanner`) takes a roll from film on
   the glass to a sheet on `/negatives`, on the host the scanner is plugged into.
   - **`Web.Scanner.Bed`** (supervised) owns the flatbed: one `scanimage` `Port` at a time (a second
@@ -1181,7 +1223,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   instrument voice; Goudy is kept for page titles and for words people wrote. The pigments are
   lifted for the dark ground (`--adm-act`/`-live`/`-held`/`-fail`, each ≥4.5:1). theme.css styles
   bare `button`s, so every admin button class states its hover in full.
-  The rail groups pages as **Write** (Blog, Captain's Logs, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints), **Mail** (Inbox, Guestbook,
+  The rail groups pages as **Write** (Blog, Captain's Logs, Cutting room, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints), **Mail** (Inbox, Guestbook,
   Citations, Newsletter) and **Sync** (Activities), plus Overview and Settings, with badges for
   open messages (letters included), held signatures, held citations and failed transcodes. It folds to a Menu bar at ≤900px. **View state is in the
   URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords), `?filter=missing|drafts`

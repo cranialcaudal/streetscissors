@@ -31,6 +31,7 @@ defmodule WebWeb.AdminNav do
        [
          %{label: "Blog", path: ~p"/admin/blog", icon: "hero-document-text"},
          %{label: "Captain's Logs", path: ~p"/admin/logs", icon: "hero-microphone", count: :logs},
+         %{label: "Cutting room", path: ~p"/admin/cuts", icon: "hero-scissors"},
          %{label: "Fitness", path: ~p"/admin/fitness", icon: "hero-heart"},
          %{label: "Keywords", path: ~p"/admin/keywords", icon: "hero-tag"},
          %{

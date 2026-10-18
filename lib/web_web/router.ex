@@ -178,6 +178,11 @@ defmodule WebWeb.Router do
       live "/admin/keywords", AdminLive.Keywords
       live "/admin/health", AdminLive.ContentHealth
       live "/admin/logs", AdminLive.LogsManager
+      # The cutting room (Web.Cuts): a log assembled from takes, prints, titles
+      # and sound. Its proxies are served by the action to the admin alone.
+      live "/admin/cuts", AdminLive.Cuts
+      live "/admin/cuts/:id", AdminLive.CuttingRoom
+      get "/admin/cuts/:id/media/:file", CutMediaController, :show
       live "/admin/fitness", AdminLive.FitnessManager
       # The week as calendar events, from content/notes/calendar.md. It names
       # venues and times, so it is the author's own reference rather than a

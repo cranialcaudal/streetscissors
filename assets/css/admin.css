@@ -2847,3 +2847,389 @@ button.adm-tab:hover {
   .adm-dr-picture { max-height: 70vh; }
   .adm-dr-frame { width: min(100%, calc(70vh * var(--ar))); }
 }
+
+/* ── The cutting room (Web.Cuts) ───────────────────────────────────────
+   The bin, the program and the inspector side by side, the timeline under
+   the program. Blocks sit on the timeline by --at and --len in seconds,
+   times --pps, the timeline's pixels per second. The program's titles are
+   sized in fractions of the screen's height (cqh), so they stand where the
+   render's 1280x720 titles do (Web.Cuts.Titles).
+   ─────────────────────────────────────────────────────────────────── */
+
+.adm-page:has(.adm-cut-bench) { max-width: none; }
+
+.adm-cut-bench {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.adm-cut-bin,
+.adm-cut-inspector {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.adm-cut-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-cut-heading {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adm-cut-drop {
+  position: relative;
+  padding: 1rem 0.8rem;
+  border: 1px dashed var(--rule-strong);
+  color: var(--ink-3);
+  font-size: 0.75rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.adm-cut-drop:hover,
+.adm-cut-drop.phx-drop-target-active { border-color: var(--adm-act); color: var(--ink); }
+
+.adm-cut-file {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.adm-cut-uploading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 0.5rem;
+  font-family: var(--font-data);
+  font-size: 0.7rem;
+}
+
+.adm-cut-uploading progress { grid-column: 1 / -1; width: 100%; }
+.adm-cut-camera { width: 100%; background: var(--paper-deep); }
+
+.adm-cut-media {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-cut-file-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.75rem;
+}
+
+.adm-cut-file-name {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-cut-file-meta { color: var(--ink-3); font-family: var(--font-data); font-size: 0.68rem; }
+.adm-cut-file-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.adm-cut-file-row.is-processing .adm-cut-file-name { color: var(--ink-3); }
+
+.adm-cut-prints {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-cut-print,
+.adm-cut-print:hover {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  cursor: copy;
+}
+
+.adm-cut-print:hover { border-color: var(--adm-act); }
+
+.adm-cut-print img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+/* The program */
+
+.adm-cut-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.adm-cut-screen {
+  position: relative;
+  width: 100%;
+  max-height: 56vh;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+  container-type: size;
+}
+
+.adm-cut-screen video,
+.adm-cut-still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.adm-cut-still { overflow: hidden; }
+
+.adm-cut-still img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: center;
+}
+
+.adm-cut-screen [hidden] { display: none; }
+
+.adm-cut-overlay--title {
+  position: absolute;
+  top: 50%;
+  left: 6.25%;
+  width: 87.5%;
+  transform: translateY(-50%);
+  color: #f3eee4;
+  font-family: var(--font-serif);
+  font-size: calc(72 / 720 * 100cqh);
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 0.3cqh 0.8cqh rgba(10, 9, 8, 0.9);
+}
+
+.adm-cut-overlay--lower {
+  position: absolute;
+  top: calc(598 / 720 * 100%);
+  left: 0;
+  right: 0;
+  height: calc(76 / 720 * 100%);
+  display: flex;
+  align-items: center;
+  padding-left: calc(56 / 1280 * 100%);
+  background: rgba(10, 9, 8, 0.62);
+  color: #f3eee4;
+  font-family: var(--font-ui);
+  font-size: calc(26 / 720 * 100cqh);
+  letter-spacing: 0.08em;
+}
+
+.adm-cut-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.adm-cut-transport .adm-btn.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.adm-cut-timecode,
+.adm-cut-length {
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+.adm-cut-length { color: var(--ink-3); }
+
+.adm-cut-zoom {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+}
+
+/* The timeline */
+
+.adm-cut-timeline {
+  --track-name-w: 72px;
+  --span: calc(var(--track-name-w) + (var(--length) + 10) * var(--pps) * 1px);
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  background: var(--paper-sunk);
+  user-select: none;
+}
+
+.adm-cut-ruler {
+  position: relative;
+  width: var(--span);
+  min-width: 100%;
+  height: 22px;
+  border-bottom: 1px solid var(--rule);
+  background-image: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px calc(var(--pps) * 1px));
+  background-position: var(--track-name-w) 0;
+  background-repeat: repeat-x;
+  cursor: text;
+}
+
+.adm-cut-mark {
+  position: absolute;
+  top: 3px;
+  left: calc(var(--track-name-w) + var(--at) * var(--pps) * 1px);
+  padding-left: 3px;
+  color: var(--ink-3);
+  font-family: var(--font-data);
+  font-size: 0.62rem;
+  pointer-events: none;
+}
+
+.adm-cut-track {
+  position: relative;
+  width: var(--span);
+  min-width: 100%;
+  height: 44px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.adm-cut-track--picture { height: 60px; }
+
+/* Titles and sounds that overlap stack in rows (--lane), and the track is as
+   tall as its rows (--lanes). */
+.adm-cut-track--titles,
+.adm-cut-track--sound { height: calc(10px + var(--lanes, 1) * 34px); }
+
+.adm-cut-track--titles .adm-cut-block,
+.adm-cut-track--sound .adm-cut-block {
+  top: calc(5px + var(--lane, 0) * 34px);
+  bottom: auto;
+  height: 30px;
+}
+
+.adm-cut-track-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  width: var(--track-name-w);
+  height: 100%;
+  padding-left: 0.5rem;
+  background: var(--paper-raised);
+  border-right: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.adm-cut-block {
+  --tint: var(--adm-info);
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: calc(var(--track-name-w) + var(--at) * var(--pps) * 1px);
+  width: max(calc(var(--len) * var(--pps) * 1px), 6px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tint) 32%, var(--paper));
+  border: 1px solid var(--tint);
+  color: var(--ink);
+  font-size: 0.7rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.adm-cut-block--take { --tint: var(--adm-info); }
+.adm-cut-block--still { --tint: var(--adm-live); }
+.adm-cut-block--title { --tint: var(--adm-held); }
+.adm-cut-block--sound { --tint: var(--adm-act); }
+.adm-cut-block.is-selected { outline: 2px solid var(--ink); outline-offset: -1px; z-index: 1; }
+
+.adm-cut-block-label {
+  flex: 1;
+  min-width: 0;
+  padding: 0 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.adm-cut-handle {
+  flex: none;
+  width: 8px;
+  height: 100%;
+  background: color-mix(in srgb, var(--tint) 60%, transparent);
+  cursor: ew-resize;
+}
+
+.adm-cut-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--track-name-w);
+  z-index: 3;
+  width: 2px;
+  background: var(--adm-act);
+  pointer-events: none;
+}
+
+/* The inspector and the list */
+
+.adm-cut-inspect-print { width: 100%; background: var(--paper-deep); }
+.adm-cut-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-2); }
+.adm-cut-publish { display: flex; flex-direction: column; gap: 0.4rem; }
+.adm-cut-error pre { margin: 0.4rem 0 0; white-space: pre-wrap; color: var(--adm-fail); font-family: var(--font-data); font-size: 0.66rem; }
+
+.adm-cut-list { margin: 0; padding: 0; list-style: none; }
+
+.adm-cut-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.adm-cut-row:hover .adm-cut-row-name { color: var(--adm-act); }
+.adm-cut-row-name { font-family: var(--font-heading); font-size: 1.05rem; }
+.adm-cut-row-figures { grid-column: 1; color: var(--ink-3); font-family: var(--font-data); font-size: 0.7rem; }
+.adm-cut-row-state { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--ink-2); font-size: 0.75rem; }
+
+@media (max-width: 1200px) {
+  .adm-cut-bench { grid-template-columns: minmax(0, 1fr); }
+  .adm-cut-bin, .adm-cut-inspector { position: static; max-height: none; }
+}

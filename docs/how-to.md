@@ -524,6 +524,43 @@ and poster stay editable.
 A log is titled by the day it was recorded, and that date is its address:
 `/logs/2026-09-18`. A second recording on the same day becomes `2026-09-18-2`.
 
+### Cutting a log from several takes
+
+The booth makes a log of one take. The **Cutting room** (`/admin/cuts`, under
+Write) puts one together from several, with prints from the archive between
+them, titles over them and music under them, the way Premiere does.
+
+1. Begin a cut and give it a working name.
+2. Drop takes and music into the **Bin**, or press **Record a take**. Each is
+   read and given a small copy the page plays, in a few seconds.
+3. **Add to picture** puts a take on the end of the picture track; choose a
+   roll under **Prints** and press a print to add it. **Add as sound** lays a
+   file under the picture at the playhead; **Add a title** puts words over it.
+4. Arrange them on the timeline: drag a clip along the picture track to move
+   it (the others close up), drag either end of anything to trim it, press
+   **S** to split the clip under the playhead and **Delete** to take out what
+   is selected. Space plays and stops.
+5. Select anything to change it on the right: a take's in and out points and
+   loudness, how slowly the camera moves over a print, a title's words and
+   style (across the middle in Goudy, or along the foot), a sound's place,
+   loudness, fades, and whether it drops while someone on screen speaks.
+6. **Render and publish** makes the film on the server and files it as a new
+   log, dated as you say, which is then published from Captain's Logs like
+   any other. The picture is 1280x720 at 30 frames a second.
+
+The page plays a close copy of the result, not the result: the render is
+ffmpeg's. A cut keeps its takes after it is published, so it can be cut again;
+**Render again** gives the same log the new film, and the log is off the site
+for the minute it takes to convert.
+
+| On the timeline | What it does |
+|---|---|
+| Space | Play and stop |
+| S | Split the clip under the playhead |
+| Delete | Take out the selected item |
+| Arrows | Step a frame; with Shift, a second |
+| Home, End | Go to either end |
+
 ### The training log
 
 `/fitness` works like the blog: Markdown files, this time in `content/fitness/`.
@@ -1178,7 +1215,7 @@ does well, it starts that tool as a child process and reads what it prints.
 
 | Program | Used for | Called from |
 |---|---|---|
-| `ffmpeg`, `ffprobe` | Converting recordings to one MP4 or M4A, cutting the trim, drawing the poster or waveform. Run under `nice` so an encode never starves the site | `Web.Media.FFmpeg` |
+| `ffmpeg`, `ffprobe` | Converting recordings to one MP4 or M4A, cutting the trim, drawing the poster or waveform, and rendering a cut from the cutting room. Run under `nice` so an encode never starves the site | `Web.Media.FFmpeg`, `Web.Cuts` |
 | `magick` (ImageMagick) | Web-sized copies of contact sheets and frames, share cards, and the cutting and measuring the scanner page does | `Web.Negatives`, `Web.ShareCard`, `Web.Scanner.*` |
 | `scanimage` (SANE) | Driving the flatbed scanner | `Web.Scanner.Driver`, `Web.Scanner.Bed` |
 | `film-develop` | Finding frames on a strip, developing a scan into a print | `Web.Scanner.Pipeline` |
