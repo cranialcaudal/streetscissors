@@ -177,133 +177,145 @@ defmodule WebWeb.AdminLive.Settings do
       </:lede>
     </.page_head>
 
-    <.panel title="About page pictures">
-      <form id="settings-portraits" phx-change="portrait_change" class="adm-sheet">
-        <.drop_zone
-          upload={@uploads.portrait}
-          title="Add pictures of yourself"
-          hint="As many as you like. The About page shows a different one each time it loads, with the rest in a small gallery under it."
-          browse="Choose pictures"
-          error_message={&portrait_error/1}
-        />
-      </form>
-      <p :if={@portraits == []} class="adm-help">None yet: the About page shows no picture.</p>
-      <div :if={@portraits != []} class="adm-images" id="settings-portrait-list">
-        <div
-          :for={path <- @portraits}
-          class="adm-image"
-          id={"portrait-" <> Path.basename(path, ".jpg")}
-        >
-          <img src={path} alt="" loading="lazy" />
-          <div class="adm-image-body">
-            <button
-              type="button"
-              class="adm-btn adm-btn--quiet adm-btn--small"
-              phx-click="remove_portrait"
-              phx-value-path={path}
-              data-confirm="Remove this picture from the About page?"
-            >
-              Remove
-            </button>
+    <section class="adm-set-group" aria-label="Homepage">
+      <p class="adm-set-eyebrow">Homepage</p>
+
+      <.panel title="Homepage sentence">
+        <form phx-submit="save_site_description" id="settings-description">
+          <label class="adm-label" for="site_description">What the site is, in a sentence</label>
+          <div class="adm-inline-form">
+            <input
+              type="text"
+              id="site_description"
+              name="site_description"
+              value={@site_description}
+              class="adm-input"
+              placeholder="Leave empty to say nothing"
+              autocomplete="off"
+            />
+            <button type="submit" class="adm-btn">Save</button>
+          </div>
+          <p class="adm-help">
+            Shown at the foot of the homepage, for a visitor who arrives knowing nothing.
+          </p>
+        </form>
+      </.panel>
+
+      <.panel title="Homepage player">
+        <form phx-submit="save_settings" id="settings-spotify">
+          <label class="adm-label" for="spotify_playlist_id">Spotify playlist</label>
+          <div class="adm-inline-form">
+            <input
+              type="text"
+              id="spotify_playlist_id"
+              name="spotify_playlist_id"
+              value={@spotify_playlist_id}
+              class="adm-input"
+              placeholder="Paste a playlist link or its ID"
+              autocomplete="off"
+            />
+            <button type="submit" class="adm-btn">Save</button>
+          </div>
+          <p class="adm-help">
+            The player in the homepage's corner. A full share link works; the ID is taken out of it.
+          </p>
+        </form>
+      </.panel>
+    </section>
+
+    <section class="adm-set-group" aria-label="About page">
+      <p class="adm-set-eyebrow">About page</p>
+
+      <.panel title="About page pictures">
+        <form id="settings-portraits" phx-change="portrait_change">
+          <.drop_zone
+            upload={@uploads.portrait}
+            title="Add pictures of yourself"
+            hint="As many as you like. The About page shows a different one each time it loads, with the rest in a small gallery under it."
+            browse="Choose pictures"
+            error_message={&portrait_error/1}
+          />
+        </form>
+        <p :if={@portraits == []} class="adm-help">None yet: the About page shows no picture.</p>
+        <div :if={@portraits != []} class="adm-images" id="settings-portrait-list">
+          <div
+            :for={path <- @portraits}
+            class="adm-image"
+            id={"portrait-" <> Path.basename(path, ".jpg")}
+          >
+            <img src={path} alt="" loading="lazy" />
+            <div class="adm-image-body">
+              <button
+                type="button"
+                class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
+                phx-click="remove_portrait"
+                phx-value-path={path}
+                data-confirm="Remove this picture from the About page?"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </.panel>
+      </.panel>
+    </section>
 
-    <.panel title="Homepage sentence">
-      <form phx-submit="save_site_description" id="settings-description" class="adm-sheet">
-        <label class="adm-label" for="site_description">What the site is, in a sentence</label>
-        <div class="adm-inline-form">
-          <input
-            type="text"
-            id="site_description"
-            name="site_description"
-            value={@site_description}
-            class="adm-input"
-            placeholder="Leave empty to say nothing"
-            autocomplete="off"
-          />
-          <button type="submit" class="adm-btn">Save</button>
-        </div>
-        <p class="adm-help">
-          Shown at the foot of the homepage, for a visitor who arrives knowing nothing.
-        </p>
-      </form>
-    </.panel>
+    <section class="adm-set-group" aria-label="Mail">
+      <p class="adm-set-eyebrow">Mail</p>
 
-    <.panel title="Homepage player">
-      <form phx-submit="save_settings" id="settings-spotify" class="adm-sheet">
-        <label class="adm-label" for="spotify_playlist_id">Spotify playlist</label>
-        <div class="adm-inline-form">
-          <input
-            type="text"
-            id="spotify_playlist_id"
-            name="spotify_playlist_id"
-            value={@spotify_playlist_id}
-            class="adm-input"
-            placeholder="Paste a playlist link or its ID"
-            autocomplete="off"
-          />
-          <button type="submit" class="adm-btn">Save</button>
-        </div>
-        <p class="adm-help">
-          The player in the homepage's corner. A full share link works; the ID is taken out of it.
-        </p>
-      </form>
-    </.panel>
+      <.panel title="Newsletter">
+        <form phx-submit="save_test_email" id="settings-newsletter">
+          <label class="adm-label" for="newsletter_test_email">Test-send address</label>
+          <div class="adm-inline-form">
+            <input
+              type="email"
+              id="newsletter_test_email"
+              name="newsletter_test_email"
+              value={@newsletter_test_email}
+              class="adm-input"
+              placeholder="you@example.com"
+              autocomplete="email"
+            />
+            <button type="submit" class="adm-btn">Save</button>
+          </div>
+          <p class="adm-help">
+            Where the newsletter's "Send a test" goes by default. It can still be changed per send.
+          </p>
+        </form>
+      </.panel>
 
-    <.panel title="Newsletter">
-      <form phx-submit="save_test_email" id="settings-newsletter" class="adm-sheet">
-        <label class="adm-label" for="newsletter_test_email">Test-send address</label>
-        <div class="adm-inline-form">
-          <input
-            type="email"
-            id="newsletter_test_email"
-            name="newsletter_test_email"
-            value={@newsletter_test_email}
-            class="adm-input"
-            placeholder="you@example.com"
-            autocomplete="email"
-          />
-          <button type="submit" class="adm-btn">Save</button>
-        </div>
-        <p class="adm-help">
-          Where the newsletter's "Send a test" goes by default. It can still be changed per send.
-        </p>
-      </form>
-    </.panel>
-
-    <.panel title="Alerts">
-      <form phx-submit="save_notify_email" id="settings-alerts" class="adm-sheet">
-        <label class="adm-label" for="notify_email">Where the site writes to you</label>
-        <div class="adm-inline-form">
-          <input
-            type="email"
-            id="notify_email"
-            name="notify_email"
-            value={@notify_email}
-            class="adm-input"
-            placeholder="you@example.com"
-            autocomplete="email"
-          />
-          <button type="submit" class="adm-btn">Save</button>
-          <button
-            :if={@notify_email != ""}
-            type="button"
-            phx-click="test_notify"
-            id="settings-alerts-test"
-            class="adm-btn adm-btn--quiet"
-          >
-            Send a test
-          </button>
-        </div>
-        <p class="adm-help">
-          A guestbook signature waiting for approval, and anything on the machine that has failed:
-          the certificate, the proxy, the domain's address, the disk, a backup. A fault is mailed
-          once, again each day it lasts, and once more when it clears.
-        </p>
-      </form>
-    </.panel>
+      <.panel title="Alerts">
+        <form phx-submit="save_notify_email" id="settings-alerts">
+          <label class="adm-label" for="notify_email">Where the site writes to you</label>
+          <div class="adm-inline-form">
+            <input
+              type="email"
+              id="notify_email"
+              name="notify_email"
+              value={@notify_email}
+              class="adm-input"
+              placeholder="you@example.com"
+              autocomplete="email"
+            />
+            <button type="submit" class="adm-btn">Save</button>
+            <button
+              :if={@notify_email != ""}
+              type="button"
+              phx-click="test_notify"
+              id="settings-alerts-test"
+              class="adm-btn adm-btn--quiet"
+            >
+              Send a test
+            </button>
+          </div>
+          <p class="adm-help">
+            A guestbook signature waiting for approval, and anything on the machine that has failed:
+            the certificate, the proxy, the domain's address, the disk, a backup. A fault is mailed
+            once, again each day it lasts, and once more when it clears.
+          </p>
+        </form>
+      </.panel>
+    </section>
     """
   end
 end

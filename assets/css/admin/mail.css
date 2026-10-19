@@ -1,33 +1,292 @@
 /* ═══════════════════════════════════════════════════════════════════
    ADMIN / Mail: inbox, guestbook, citations, newsletter
-   Moved out of admin.css unchanged; imported after base.css.
+   Imported after base.css. Every rule is keyed to a class these four
+   pages put on their own markup, so nothing here reaches another page.
+
+   Type: IBM Plex Sans is the interface; Plex Mono carries addresses,
+   URLs, dates and figures; Fraunces carries the words people wrote (a
+   message, a letter, a signature, a piece's title). No capitals, no
+   letter-spacing. Colour from the --st-* tokens only.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Newsletter: composer beside its preview ─────────────────────── */
+/* ── Addresses, dates and figures ─────────────────────────────────── */
+
+/* An address or a URL: Plex Mono, and a long one wraps rather than pushing
+   the page sideways on a phone. */
+.adm-mail-address,
+.adm-mail-url {
+  min-width: 0;
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.adm-mail-when {
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A link in a URL cell keeps the cell's face (its own link rule sets one). */
+.adm-mail-url a,
+.adm-mail-url .adm-link {
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* rows/1 puts a column's class on its heading too: a heading stays in the
+   interface's face, as every other one does. */
+.adm-table th.adm-mail-address,
+.adm-table th.adm-mail-url,
+.adm-table th.adm-mail-when {
+  font-family: var(--st-font-ui);
+  font-variant-numeric: normal;
+  overflow-wrap: normal;
+}
+
+/* A small heading over one part of a page (the composer's sections). */
+.adm-mail-subhead {
+  margin: 0 0 0.5rem;
+  font-family: var(--st-font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--st-ink);
+}
+
+/* ── Quiet actions ────────────────────────────────────────────────── */
+
+/* A quiet button that asks for something: the accent to publish, the fail
+   colour to delete. The hover keeps its colour. */
+.admin-layout .adm-act-accent {
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-act-danger {
+  color: var(--st-fail);
+}
+
+.admin-layout .adm-act-danger:hover {
+  color: var(--st-fail);
+}
+
+/* ── Letters, signatures and citations: one item, set as a letter ── */
+
+.adm-letter,
+.adm-signature,
+.adm-citation {
+  display: block;
+  padding: 1.5rem 0;
+}
+
+/* Something waiting on you is a card, set apart from what is dealt with:
+   a surface, a hairline, and a rule down its left in the colour of the
+   thing it asks for. Cards keep their own edge at the foot of a list. */
+.adm-item.adm-letter--flagged,
+.adm-item.adm-signature--held,
+.adm-item.adm-citation--held {
+  margin: 0 0 0.75rem;
+  padding: 1.25rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
+}
+
+.adm-item.adm-letter--flagged {
+  box-shadow: inset 3px 0 0 var(--st-accent);
+}
+
+.adm-item.adm-signature--held,
+.adm-item.adm-citation--held {
+  box-shadow: inset 3px 0 0 var(--st-warn);
+}
+
+.adm-letter-head,
+.adm-signature-head,
+.adm-citation-head {
+  min-width: 0;
+}
+
+/* The sender, the signer, a page's title: the words someone wrote. */
+.adm-letter-from,
+.adm-signature-name,
+.adm-citation-title {
+  margin: 0;
+  font-family: var(--st-font-display);
+  font-size: 1.1875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--st-ink);
+  overflow-wrap: anywhere;
+}
+
+/* The line under a name: the words are the interface's, the date and the
+   address are figures (their own classes set the mono face). */
+.adm-letter-meta,
+.adm-signature-head .adm-item-meta,
+.adm-citation-head .adm-item-meta {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-signature-ip {
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* What the item is about: a piece, a source. */
+.adm-letter-about,
+.adm-citation-cites {
+  margin: 0.5rem 0 0;
+  font-size: var(--st-fs-sm);
+  line-height: 1.5;
+  color: var(--st-ink-3);
+}
+
+.admin-layout .adm-letter-piece,
+.admin-layout .adm-citation-piece {
+  font-family: var(--st-font-display);
+  font-size: var(--st-fs);
+  color: var(--st-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.admin-layout .adm-letter-piece:hover,
+.admin-layout .adm-citation-piece:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The message itself, in the display face, set like a letter. */
+.adm-letter-body,
+.adm-signature-message {
+  max-width: 64ch;
+  margin: 0.75rem 0 0;
+  font-family: var(--st-font-display);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--st-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-citation-source {
+  margin: 0.35rem 0 0;
+  color: var(--st-ink-3);
+}
+
+.admin-layout .adm-citation-link {
+  color: var(--st-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.admin-layout .adm-citation-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The actions under an item: small and quiet, on the left. */
+.adm-letter-actions,
+.adm-signature-actions,
+.adm-citation-actions {
+  justify-content: flex-start;
+  gap: 0.5rem 0.25rem;
+  margin-top: 0.75rem;
+}
+
+/* A contact a signer left: hidden until asked for, then in the mono face
+   with its own buttons on the same line. */
+.adm-signature-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--st-line);
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-3);
+}
+
+.adm-signature-contact .adm-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Citations sent (the other direction) ─────────────────────────── */
+
+.adm-sent-note {
+  max-width: 62ch;
+  margin: 0 0 1rem;
+  font-size: var(--st-fs-dense);
+  line-height: 1.5;
+  color: var(--st-ink-2);
+}
+
+.adm-sent-detail {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-3);
+  overflow-wrap: anywhere;
+}
+
+/* ── Newsletter: the composer beside the reader's view ────────────── */
 
 .adm-compose {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 2rem;
   align-items: start;
 }
 
+.adm-compose-write,
+.adm-compose-look {
+  min-width: 0;
+}
+
+/* The test send is its own section under the form, set off by a rule. */
 .adm-test-send {
-  margin-top: 1.5rem;
+  margin-top: 2rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--st-line);
+}
+
+.adm-test-send .adm-help {
+  margin: 0 0 0.75rem;
+}
+
+.adm-test-send form {
+  margin: 0;
 }
 
 .adm-preview-frame {
   display: block;
   width: 100%;
   height: 560px;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+}
+
+.adm-compose-look .adm-help {
+  margin-top: 0.6rem;
 }
 
 @media (max-width: 1100px) {
   .adm-compose {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-preview-frame {
+    height: 440px;
   }
 }

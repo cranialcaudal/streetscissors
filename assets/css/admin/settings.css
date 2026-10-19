@@ -1,4 +1,35 @@
 /* ═══════════════════════════════════════════════════════════════════
    ADMIN / Settings
-   Moved out of admin.css unchanged; imported after base.css.
+   Imported after base.css. Neutral: the accent is ink here. The page is
+   grouped into a few sections, each a run of small forms; every setting
+   has its label first and a line of help under its field.
+   Type: IBM Plex Sans throughout; no capitals, no letter-spacing.
    ═══════════════════════════════════════════════════════════════════ */
+
+.adm-set-group {
+  margin: 0 0 2.25rem;
+}
+
+/* A section's name: a section eyebrow, 12px, sentence case, ink-3. */
+.adm-set-eyebrow {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--st-line);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--st-ink-3);
+}
+
+/* Each setting: the label reads first, the field, then its help line. */
+.admin-layout .adm-set-group .adm-label {
+  margin-bottom: 0.4rem;
+  font-size: var(--st-fs-dense);
+  font-weight: 600;
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-set-group .adm-help {
+  margin-top: 0.6rem;
+}
