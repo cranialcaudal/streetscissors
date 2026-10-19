@@ -1048,6 +1048,7 @@ site only starts answering once everything it depends on is standing.
 | Every 15 minutes | The machine checks itself | `Web.Monitor` |
 | 03:17 daily | Snapshot the database | `Web.Backup` |
 | 03:19 daily | Keep a version of the writing, if it changed | `Web.Backup.Content` |
+| 03:23 daily | Copy the training block's private photographs | `Web.Backup.FitnessPhotos` |
 | 03:41 on Sundays | Rehearse a restore | `Web.Backup.Drill` |
 
 03:17 UTC is 8:17 in the evening, Pacific daylight time, and an hour earlier

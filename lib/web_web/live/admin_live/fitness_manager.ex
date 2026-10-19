@@ -417,6 +417,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <% else %>
           · begins {Calendar.strftime(@block.start, "%-d %B %Y")}
         <% end %>
+        · <.link navigate={~p"/admin/fitness/block"} class="adm-link">Block report</.link>
       </p>
       <WebWeb.FitnessCharts.block_charts block={@block} entries={@entries} weeks={@weeks} />
     </section>

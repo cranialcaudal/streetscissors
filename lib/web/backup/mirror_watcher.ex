@@ -113,6 +113,7 @@ defmodule Web.Backup.MirrorWatcher do
     Content.sync_mirror()
     Photos.sync()
     Uploads.sync()
+    Web.Backup.FitnessPhotos.sync()
   end
 
   # Any one destination being there means the drive is.

@@ -646,7 +646,11 @@ defmodule Web.Fitness.Vault do
     |> Enum.any?(&exercise_checkbox?/1)
   end
 
-  defp render_markdown(md) do
+  @doc """
+  The vault's markdown as HTML: `[[slug|Name]]` wiki links resolved, and a
+  Log button on each checklist line that names an exercise.
+  """
+  def render_markdown(md) do
     md = inject_log_markers(md)
 
     html =

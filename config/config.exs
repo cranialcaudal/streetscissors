@@ -94,6 +94,8 @@ config :web, Web.Scheduler,
     # The written content, two minutes behind it. A version is only written
     # when something changed, so most nights this hashes the vault and stops.
     {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}},
+    # The progress photographs, copied beside the database's snapshots.
+    {"23 3 * * *", {Web.Backup.FitnessPhotos, :run_scheduled, []}},
     # Once a week, restore the newest of each to a scratch copy and read it
     # back: a backup that has never been restored is a hope.
     {"41 3 * * 0", {Web.Backup.Drill, :run_scheduled, []}},

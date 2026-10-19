@@ -168,6 +168,91 @@ defmodule Web.Fitness.Training do
   end
 
   @doc """
+  The block report's figures (G.13): a row per week (phase, days trained
+  of planned, volume load, the check-ins' averages, days the pain held or
+  stopped the block), each lift's e1RM change from its first week with a
+  figure to its latest, and the experiment's answer once the block is over.
+  `checkins` are the block's, any order.
+  """
+  def report(entries, block, weeks, checkins, planned \\ nil) do
+    compliance = compliance(entries, block, weeks, planned)
+    volume = weekly_volume(entries, block)
+    by_week = Enum.group_by(checkins, &week_of(&1.date, block))
+
+    rows =
+      for week <- weeks do
+        cs = Map.get(by_week, week, [])
+        {done, planned} = compliance[week]
+
+        %{
+          week: week,
+          phase: block.phases[week],
+          done: done,
+          planned: planned,
+          volume: volume |> Map.values() |> Enum.map(&Map.get(&1, week, 0)) |> Enum.sum(),
+          pain: mean(cs, :pain),
+          sleep: mean(cs, :sleep_hours),
+          energy: mean(cs, :energy),
+          held: Enum.count(cs, &(is_integer(&1.pain) and &1.pain in 3..4)),
+          stopped: Enum.count(cs, &(is_integer(&1.pain) and &1.pain >= 5))
+        }
+      end
+
+    lifts =
+      for {slug, rule} <- Enum.sort_by(block.lifts, &elem(&1, 0)),
+          by = e1rm_by_week(entries, block, slug),
+          by != %{} do
+        {w0, first} = Enum.min_by(by, &elem(&1, 0))
+        {w1, last} = Enum.max_by(by, &elem(&1, 0))
+
+        %{
+          slug: slug,
+          name: entries |> Enum.find(&(&1.slug == slug)) |> Map.get(:name),
+          pattern: rule.pattern,
+          from: {w0, first},
+          to: {w1, last},
+          change: if(w1 > w0, do: Float.round((last - first) / first * 100, 1))
+        }
+      end
+
+    %{rows: rows, lifts: lifts, answer: answer(block, weeks, lifts, rows)}
+  end
+
+  # The hypothesis is that the hinge and the presses rise with no Achilles
+  # flare: answered only once the last week has begun.
+  defp answer(block, weeks, lifts, rows) do
+    if List.last(weeks) == block.weeks do
+      key = Enum.filter(lifts, &(&1.pattern in ["hinge", "push"] and is_number(&1.change)))
+      rose = Enum.filter(key, &(&1.change > 0))
+      stopped = rows |> Enum.map(& &1.stopped) |> Enum.sum()
+
+      cond do
+        key == [] ->
+          "Not enough entries on the hinge and the presses to say."
+
+        length(rose) == length(key) and stopped == 0 ->
+          "Supported: every hinge and press lift rose, and the guardrails never stopped the block."
+
+        rose != [] and stopped == 0 ->
+          "Partly: #{length(rose)} of #{length(key)} hinge and press lifts rose, with no stop for pain."
+
+        stopped > 0 ->
+          "Not as hoped: pain stopped the block on #{stopped} day#{if stopped == 1, do: "", else: "s"}."
+
+        true ->
+          "Not supported: the hinge and the presses did not rise."
+      end
+    end
+  end
+
+  defp mean(rows, key) do
+    case for(r <- rows, v = Map.get(r, key), is_number(v), do: v) do
+      [] -> nil
+      vs -> Float.round(Enum.sum(vs) / length(vs), 1)
+    end
+  end
+
+  @doc """
   One exercise's record, for its wiki page: the first and last entries, the
   best e1RM and when, and the latest five, newest first. Nil with no entry.
   """

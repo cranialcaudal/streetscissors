@@ -29,7 +29,7 @@ defmodule Web.Fitness.Block do
     |> Path.wildcard()
     |> Enum.flat_map(fn path ->
       case parse(Path.basename(path, ".md"), Vault.parse_frontmatter(path)) do
-        {:ok, block} -> [block]
+        {:ok, block} -> [Map.put(block, :body, body(path))]
         :error -> []
       end
     end)
@@ -99,6 +99,14 @@ defmodule Web.Fitness.Block do
        }}
     else
       _ -> :error
+    end
+  end
+
+  # The file's prose under its frontmatter: the experiment's framing.
+  defp body(path) do
+    case File.read(path) do
+      {:ok, text} -> text |> String.replace(~r/\A---\n.*?\n---\n?/s, "") |> String.trim()
+      _ -> ""
     end
   end
 

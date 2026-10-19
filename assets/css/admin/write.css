@@ -390,3 +390,40 @@
   margin: 0 0 var(--st-space-4, 1rem);
   color: var(--st-warn);
 }
+
+/* ── Fitness: the block report (/admin/fitness/block) ──────────────── */
+
+.adm-fit-answer {
+  margin: 0 0 var(--st-space-4, 1rem);
+  font-family: var(--st-font-display);
+  font-size: var(--st-fs-lg, 1.15rem);
+  color: var(--st-ink);
+}
+
+.adm-fit-framing h2 { font-size: var(--st-fs-md, 1rem); margin: var(--st-space-4, 1rem) 0 var(--st-space-2, 0.5rem); }
+.adm-fit-framing h2:first-child { margin-top: 0; }
+.adm-fit-framing p,
+.adm-fit-framing li { color: var(--st-ink-2); max-width: 70ch; }
+
+#photo-form { display: grid; gap: var(--st-space-3, 0.75rem); margin-bottom: var(--st-space-6, 1.5rem); }
+
+.adm-fit-photo-date { font-size: var(--st-fs-sm, 0.9rem); color: var(--st-ink-2); margin: var(--st-space-4, 1rem) 0 var(--st-space-2, 0.5rem); }
+
+.adm-fit-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--st-space-3, 0.75rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-fit-photos li { display: grid; gap: var(--st-space-2, 0.5rem); }
+
+.adm-fit-photos img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--st-bay);
+  border-radius: var(--st-radius-sm, 4px);
+}

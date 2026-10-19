@@ -110,6 +110,13 @@ config :web, :backup_on_boot, false
 config :web, :backup_mirror_path, nil
 config :web, :photos_mirror_path, nil
 config :web, :uploads_mirror_path, nil
+config :web, :fitness_photos_path, Path.expand("../tmp/test_fitness_photos", __DIR__)
+
+config :web,
+       :fitness_photos_backup_path,
+       Path.expand("../tmp/test_fitness_photos_backup", __DIR__)
+
+config :web, :fitness_photos_mirror_path, nil
 # The content backup archives the fixture vault, never the author's own: left
 # at its defaults it would tar the real content/ into a tmp dir on every run.
 config :web, :content_backup_path, Path.expand("../tmp/test_content_backups", __DIR__)

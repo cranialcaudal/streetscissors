@@ -111,4 +111,31 @@ defmodule Web.Fitness.TrainingTest do
 
     assert Training.history(rows, "box-jumps") == nil
   end
+
+  test "the report answers the hypothesis once the last week has begun" do
+    rows =
+      entries([
+        log(1, ~D[2026-10-27], "hexbar-rdl", %{"weight" => "200", "sets" => "3", "reps" => "5"}),
+        log(2, ~D[2026-12-15], "hexbar-rdl", %{"weight" => "230", "sets" => "1", "reps" => "5"}),
+        log(3, ~D[2026-10-28], "weighted-dips", %{"weight" => "25", "reps" => "8"}),
+        log(4, ~D[2026-12-16], "weighted-dips", %{"weight" => "45", "reps" => "8"})
+      ])
+
+    weeks = Enum.to_list(1..8)
+    calm = [%{date: ~D[2026-11-02], pain: 1, sleep_hours: 7.5, energy: 7}]
+
+    assert %{answer: "Supported:" <> _, lifts: [rdl, dips], rows: rows8} =
+             Training.report(rows, @block, weeks, calm, [2, 3])
+
+    assert rdl.change == 15.0
+    assert dips.from == {1, 31.7}
+    assert %{week: 2, pain: 1.0, sleep: 7.5} = Enum.at(rows8, 1)
+
+    sore = [%{date: ~D[2026-11-02], pain: 6, sleep_hours: nil, energy: nil}]
+    assert %{answer: "Not as hoped: pain stopped the block on 1 day."} =
+             Training.report(rows, @block, weeks, sore, [2, 3])
+
+    assert %{answer: nil} = Training.report(rows, @block, [1, 2, 3], calm, [2, 3])
+  end
 end
+

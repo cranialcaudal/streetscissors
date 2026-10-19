@@ -188,6 +188,10 @@ defmodule WebWeb.Router do
       # venues and times, so it is the author's own reference rather than a
       # page: the action 404s without the admin session.
       get "/admin/fitness/calendar", PageController, :calendar
+      # The training block's report, and its progress photographs, which the
+      # action serves to the admin session alone (Web.Fitness.Photos).
+      live "/admin/fitness/block", AdminLive.BlockReport
+      get "/admin/fitness/photos/:date/:file", FitnessPhotoController, :show
       live "/admin/scanner", AdminLive.Scanner
       # The print editor (Web.Darkroom): the prints roll by roll, one print on
       # the bench, and the bench's pictures, which the action serves only to
