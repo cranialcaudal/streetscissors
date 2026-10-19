@@ -1946,7 +1946,9 @@ a.st-strip-link:hover {
     min-width: 6.5rem;
     margin-right: 0.5rem;
     color: var(--st-ink-3);
+    font-family: var(--st-font-ui);
     font-size: var(--st-fs-xs);
+    font-weight: 500;
   }
 
   .adm-table td.adm-cell-title::before {
