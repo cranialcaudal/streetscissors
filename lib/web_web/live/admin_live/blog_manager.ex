@@ -173,7 +173,7 @@ defmodule WebWeb.AdminLive.BlogManager do
       |> assign(:draft_count, length(shown(assigns.posts, "drafts")))
 
     ~H"""
-    <.page_head slug="Write / Blog" title="Blog">
+    <.page_head slug="Writing / Blog" title="Blog">
       <:lede>
         Typed work, as markdown files in the vault; this page writes the same files. Spoken pieces
         live in <.link navigate={~p"/admin/logs"} class="adm-link">Captain's Logs</.link>.
@@ -250,20 +250,21 @@ defmodule WebWeb.AdminLive.BlogManager do
         end}
       </.empty>
 
-      <div :if={@shown != []} class="adm-list" id="posts">
+      <div :if={@shown != []} class="adm-list adm-list--desk" id="posts">
         <article :for={post <- @shown} id={"post-#{post.slug}"} class="adm-item">
           <div class="adm-item-main">
             <h2 class="adm-item-title">{post.title}</h2>
             <div class="adm-item-meta">
               <.pill :if={post.draft} tone="draft">draft</.pill>
-              <span>{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
-              <span>{post.word_count} words</span>
-              <span>/blog/{post.slug}</span>
+              <.pill :if={!post.draft} tone="live">published</.pill>
+              <.pill :if={post.keywords == [] and not post.draft} tone="held">no keywords</.pill>
+              <span class="adm-figure">{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
+              <span><span class="adm-figure">{post.word_count}</span> words</span>
+              <span class="adm-figure">/blog/{post.slug}</span>
             </div>
 
-            <div :if={@keyword_edit != post.slug} class="adm-item-meta">
+            <div :if={@keyword_edit != post.slug and post.keywords != []} class="adm-item-meta">
               <.keyword_chips keywords={post.keywords} />
-              <.pill :if={post.keywords == [] and not post.draft} tone="held">no keywords</.pill>
             </div>
 
             <form
@@ -283,15 +284,25 @@ defmodule WebWeb.AdminLive.BlogManager do
                 phx-mounted={JS.focus()}
               />
               <button type="submit" class="adm-btn adm-btn--small">Write</button>
-              <button type="button" phx-click="cancel_keywords" class="adm-link adm-link--quiet">
+              <button
+                type="button"
+                phx-click="cancel_keywords"
+                class="adm-btn adm-btn--small adm-btn--quiet"
+              >
                 Cancel
               </button>
             </form>
           </div>
 
           <div class="adm-item-actions">
-            <.link navigate={~p"/admin/blog/#{post.slug}/edit"} class="adm-link">Edit</.link>
-            <.link href={~p"/blog/#{post.slug}"} target="_blank" class="adm-link">
+            <.link navigate={~p"/admin/blog/#{post.slug}/edit"} class="adm-btn adm-btn--small">
+              Edit
+            </.link>
+            <.link
+              href={~p"/blog/#{post.slug}"}
+              target="_blank"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
               {if post.draft, do: "See the draft", else: "View"}
               <.icon name="hero-arrow-top-right-on-square" class="size-4" />
             </.link>
@@ -299,7 +310,7 @@ defmodule WebWeb.AdminLive.BlogManager do
               phx-click="set_draft"
               phx-value-slug={post.slug}
               phx-value-draft={to_string(!post.draft)}
-              class="adm-link"
+              class="adm-btn adm-btn--small adm-btn--quiet"
               data-confirm={!post.draft && "Take /blog/#{post.slug} off the site? The file stays."}
             >
               {if post.draft, do: "Publish", else: "Unpublish"}
@@ -308,14 +319,14 @@ defmodule WebWeb.AdminLive.BlogManager do
               :if={@keyword_edit != post.slug}
               phx-click="edit_keywords"
               phx-value-slug={post.slug}
-              class="adm-link"
+              class="adm-btn adm-btn--small adm-btn--quiet"
             >
               Keywords
             </button>
             <button
               phx-click="delete_post"
               phx-value-slug={post.slug}
-              class="adm-link adm-link--danger"
+              class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
               data-confirm={"Delete #{post.slug}.md from the vault? This cannot be undone."}
             >
               Delete
@@ -354,7 +365,7 @@ defmodule WebWeb.AdminLive.BlogManager do
               :if={!image.legacy}
               phx-click="delete_image"
               phx-value-name={image.name}
-              class="adm-link adm-link--danger"
+              class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
               data-confirm="Delete this image? Posts that embed it will show a broken image."
             >
               Delete

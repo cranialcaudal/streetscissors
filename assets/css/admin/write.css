@@ -1,12 +1,351 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN / Writing desk: blog manager and editor, fitness, keywords, content health
-   Moved out of admin.css unchanged; imported after base.css.
+   ADMIN / Writing desk and Training's wiki: the blog manager and editor,
+   keywords, content health, and fitness (the exercise wiki and the regimen).
+   The page sets its program colour (writing blue, training teal); this file
+   reads it through --st-accent and the tokens only.
+
+   Type: the interface is IBM Plex Sans, sentence case. Plex Mono is for
+   figures, dates and paths. Fraunces is for post titles, the preview and the
+   words people wrote. No uppercase, no letter-spaced labels.
    ═══════════════════════════════════════════════════════════════════ */
+
+/* Figures, dates and paths: the only places Plex Mono appears in these pages. */
+.adm-figure {
+  font-family: var(--st-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Lists on the writing desk: posts and keywords ────────────────── */
+
+/* The rows read as text, not as a log: the title in Fraunces, the state as
+   pills, the figures in mono, and the actions as small quiet buttons. */
+.adm-list--desk .adm-item {
+  padding: 1.1rem 0;
+}
+
+.adm-list--desk .adm-item-title {
+  font-size: 1.1875rem;
+}
+
+.adm-list--desk .adm-item-meta {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-3);
+}
+
+.adm-list--desk .adm-item-meta .adm-pill {
+  font-size: var(--st-fs-xs);
+}
+
+.adm-list--desk .adm-item-actions {
+  gap: 0.25rem 0.25rem;
+}
+
+.adm-list--desk .adm-item-actions .adm-btn--small {
+  padding: 0 0.55rem;
+}
+
+/* A keyword is a filing word: sentence case in the interface face. */
+.adm-list--desk .adm-keyword {
+  font-family: var(--st-font-ui);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: var(--st-ink);
+}
+
+/* An action button that removes something: quiet, in the failure colour. */
+.admin-layout .adm-btn.adm-act-danger {
+  color: var(--st-fail);
+}
+
+.admin-layout .adm-btn.adm-act-danger:hover {
+  background: var(--st-raised);
+  border-color: transparent;
+  color: var(--st-fail);
+}
+
+/* ── Blog: new post, uploads ──────────────────────────────────────── */
 
 .adm-filter {
   max-width: 24rem;
   margin: 0 0 1.75rem;
 }
+
+.adm-results {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--st-ok);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-results li {
+  padding: 0.15rem 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-results code {
+  font-family: var(--st-font-data);
+  font-size: 0.9em;
+  color: var(--st-ink-2);
+}
+
+/* Each image's delete sits under its markdown, at the card's left. */
+.adm-image-body .adm-btn {
+  align-self: flex-start;
+}
+
+/* ── The editors: the file and the page it makes ──────────────────── */
+
+.adm-editor {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.adm-editor-body {
+  min-width: 0;
+}
+
+.adm-editor-body textarea {
+  min-height: 62vh;
+}
+
+/* The source and the preview side by side; below 1100px they stack, the
+   preview under the source. */
+.adm-editor--post {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.adm-editor--post textarea {
+  min-height: 72vh;
+}
+
+/* The bar over each side: its name, and what state it is in. */
+.adm-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+  color: var(--st-ink-2);
+}
+
+.adm-editor-bar .adm-pill {
+  font-weight: 500;
+}
+
+/* The preview's title, in the face the site sets titles in. */
+.adm-preview-title {
+  margin: 0 0 0.75rem;
+  font-family: var(--st-font-display);
+  font-size: 1.625rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  color: var(--st-ink);
+  overflow-wrap: anywhere;
+}
+
+/* What the frontmatter says, read back: a label column and what it holds. */
+.adm-facts {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-2);
+}
+
+.adm-facts > div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.adm-facts dt {
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
+  color: var(--st-ink-3);
+}
+
+.adm-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-facts dd .adm-pill {
+  margin: 0 0.25rem 0.15rem 0;
+}
+
+/* The preview's body: the words people wrote, in Fraunces, on the raised
+   surface. Headings are Fraunces too; figures and paths stay in mono. */
+.adm-prose {
+  min-height: 62vh;
+  padding: 1.25rem 1.5rem;
+  overflow-wrap: anywhere;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink);
+  font-family: var(--st-font-display);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.adm-prose p {
+  margin: 0 0 0.9em;
+}
+
+.adm-prose :is(h1, h2, h3, h4) {
+  margin: 1.3em 0 0.4em;
+  font-family: var(--st-font-display);
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--st-ink);
+}
+
+.adm-prose :is(ul, ol) {
+  padding-left: 1.4rem;
+}
+
+.adm-prose a {
+  color: var(--st-accent);
+}
+
+.adm-prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.adm-prose code {
+  font-family: var(--st-font-data);
+  font-size: 0.9em;
+}
+
+.adm-prose table {
+  border-collapse: collapse;
+  font-family: var(--st-font-data);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-prose :is(th, td) {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--st-line-strong);
+}
+
+/* A save that was refused, and the two versions on the table. Warn-coloured
+   for what needs a choice, not failure: nothing has been lost. */
+.adm-conflict {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem 1.25rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-warn);
+  border-radius: var(--st-radius);
+}
+
+.adm-conflict-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--st-font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--st-warn);
+}
+
+.adm-conflict p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--st-fs-dense);
+  color: var(--st-ink-2);
+}
+
+.adm-conflict .adm-form-actions {
+  margin-top: 1rem;
+}
+
+.adm-conflict-disk {
+  margin-top: 1rem;
+}
+
+.adm-conflict-disk summary {
+  cursor: pointer;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+  color: var(--st-accent);
+}
+
+.adm-conflict-disk pre {
+  max-height: 22rem;
+  margin: 0.6rem 0 0;
+  padding: 0.75rem 1rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink-2);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  line-height: 1.5;
+}
+
+/* ── Tables that stack on a phone: every cell led by its label ────── */
+
+/* A row's cells sit on one line beside their label, in a fixed label column,
+   so the values line up down the page whatever their length; a value that
+   wraps stays under its own label's column. `rows/1` writes the label as
+   `data-label`; the wrap class is set by the page. Big cells (the title, the
+   file name) keep their label above, as they always did. */
+@media (max-width: 640px) {
+  .adm-rows--grid .adm-table td[data-label]:not(.adm-cell-title) {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .adm-rows--grid .adm-table td[data-label]:not(.adm-cell-title)::before {
+    flex: 0 0 6.5rem;
+    margin-right: 0;
+  }
+}
+
+/* On a phone a post's five actions sit in three columns: two rows, never a
+   single button stranded on a line of its own. */
+@media (max-width: 640px) {
+  .adm-list--desk .adm-item-actions {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    justify-content: start;
+    gap: 0.25rem 0.75rem;
+  }
+}
+
+/* Long paths and file names wrap inside their cell, never past the page. */
+.adm-table code,
+.adm-help code,
+.adm-results code {
+  overflow-wrap: anywhere;
+}
+
+/* A short summary above a report's panels. */
+.adm-summary {
+  margin: 0 0 1rem;
+  font-size: var(--st-fs-dense);
+  color: var(--st-ink-2);
+}
+
+/* ── Fitness: the wiki's list and the regimen's days ──────────────── */
 
 /* Fixed shares, for tables stacked one per group (the fitness wiki) whose
    columns should line up down the page. */
@@ -18,170 +357,7 @@
   width: 22%;
 }
 
-.adm-results {
-  margin: 1rem 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--adm-live);
-  font-family: var(--font-data);
-  font-size: 0.78rem;
-}
-
-.adm-results li {
-  padding: 0.15rem 0;
-}
-
-/* ── Fitness: the vault editor ───────────────────────────────────── */
-
-.adm-editor {
-  display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.adm-editor-body textarea {
-  min-height: 62vh;
-}
-
-.adm-prose {
-  min-height: 62vh;
-  padding: 1rem 1.25rem;
-  overflow-wrap: anywhere;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule-strong);
-  color: var(--ink-2);
-  font-family: var(--font-body);
-  font-size: 1.02rem;
-  line-height: 1.6;
-}
-
-.adm-prose :is(h1, h2, h3, h4) {
-  margin: 1.2em 0 0.4em;
-  font-family: var(--font-heading);
-  font-weight: 400;
-  color: var(--ink);
-}
-
-.adm-prose :is(ul, ol) {
-  padding-left: 1.4rem;
-}
-
-.adm-prose a {
-  color: var(--adm-act);
-}
-
-.adm-prose table {
-  border-collapse: collapse;
-  font-family: var(--font-data);
-  font-size: 0.8rem;
-}
-
-.adm-prose :is(th, td) {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--rule);
-}
-
-/* ── Blog: the post editor ───────────────────────────────────────── */
-
-/* The file and the page it makes, side by side; they stack below, with
-   the other single-column folds. */
-.adm-editor--post {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.adm-editor--post textarea {
-  min-height: 72vh;
-}
-
-.adm-editor-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 0 0.5rem;
-  font-size: 0.64rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-/* What the frontmatter says, read back: a label column and what it holds. */
-.adm-facts {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0 0 0.75rem;
-  font-family: var(--font-data);
-  font-size: 0.74rem;
-  color: var(--ink-2);
-}
-
-.adm-facts > div {
-  display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: baseline;
-}
-
-.adm-facts dt {
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.adm-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-/* A save that was refused, and the two versions on the table. */
-.adm-conflict {
-  margin: 0 0 1.5rem;
-  padding: 1rem 1.25rem 1.25rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--adm-held);
-}
-
-.adm-conflict-title {
-  margin: 0 0 0.4rem;
-  font-family: var(--font-ui);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--adm-held);
-}
-
-.adm-conflict p {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--ink-2);
-}
-
-.adm-conflict-disk {
-  margin-top: 1rem;
-}
-
-.adm-conflict-disk summary {
-  cursor: pointer;
-  font-size: 0.74rem;
-  color: var(--adm-act);
-}
-
-.adm-conflict-disk pre {
-  max-height: 22rem;
-  margin: 0.6rem 0 0;
-  padding: 0.75rem 1rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule);
-  color: var(--ink-2);
-  font-family: var(--font-data);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
+/* ── Narrow screens ───────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
   .adm-editor--post {
@@ -193,8 +369,8 @@
     min-height: 46vh;
   }
 }
-@media (max-width: 900px) {
 
+@media (max-width: 900px) {
   .adm-editor {
     grid-template-columns: minmax(0, 1fr);
   }

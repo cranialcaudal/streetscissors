@@ -74,7 +74,7 @@ defmodule WebWeb.AdminLive.Keywords do
       |> assign(:names, Enum.map(assigns.usage, & &1.keyword))
 
     ~H"""
-    <.page_head slug="Write / Keywords" title="Keywords">
+    <.page_head slug="Writing / Keywords" title="Keywords">
       <:lede>
         What the blog and the logs are filed under. A keyword renamed here is rewritten in every
         post's file and every log that carries it; renamed to one that already exists, the two
@@ -102,10 +102,10 @@ defmodule WebWeb.AdminLive.Keywords do
         <option :for={name <- @names} value={name}></option>
       </datalist>
 
-      <div :if={@shown != []} class="adm-list" id="keywords">
+      <div :if={@shown != []} class="adm-list adm-list--desk" id="keywords">
         <article :for={entry <- @shown} id={"keyword-#{entry.keyword}"} class="adm-item">
           <div class="adm-item-main">
-            <h2 class="adm-item-title adm-item-title--mono">{entry.keyword}</h2>
+            <h2 class="adm-item-title adm-keyword">{entry.keyword}</h2>
             <div class="adm-item-meta">
               <span>{count(length(entry.posts), "post")}</span>
               <span>{count(length(entry.logs), "log")}</span>
@@ -143,21 +143,25 @@ defmodule WebWeb.AdminLive.Keywords do
                 required
               />
               <button type="submit" class="adm-btn adm-btn--small">Rename everywhere</button>
-              <button type="button" phx-click="cancel" class="adm-link adm-link--quiet">
+              <button type="button" phx-click="cancel" class="adm-btn adm-btn--small adm-btn--quiet">
                 Cancel
               </button>
             </form>
           </div>
 
           <div class="adm-item-actions">
-            <.link href={~p"/blog?keyword=#{entry.keyword}"} target="_blank" class="adm-link">
+            <.link
+              href={~p"/blog?keyword=#{entry.keyword}"}
+              target="_blank"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
               On the blog <.icon name="hero-arrow-top-right-on-square" class="size-4" />
             </.link>
             <button
               :if={@renaming != entry.keyword}
               phx-click="rename"
               phx-value-keyword={entry.keyword}
-              class="adm-link"
+              class="adm-btn adm-btn--small"
             >
               Rename or merge
             </button>

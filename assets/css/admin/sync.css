@@ -1,4 +1,70 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN / Sync: activities and rides
-   Moved out of admin.css unchanged; imported after base.css.
+   ADMIN / Training: Activities (the Komoot mirror, Apple Health, the archive)
+   The page's accent is training teal. Komoot's and Apple Health's states are
+   quiet text beside a dot (the dots keep their tone classes); the archive is
+   a table that stacks on a phone (write.css); the token panel is tidy.
+   Tokens only; Plex Mono for figures, dates and paths.
    ═══════════════════════════════════════════════════════════════════ */
+
+/* The state lines: a dot, a muted name, and what is so in plain words. */
+.admin-layout #komoot .adm-status li,
+.admin-layout #health .adm-status li {
+  padding: 0.7rem 0;
+}
+
+.admin-layout #komoot .adm-status-name,
+.admin-layout #health .adm-status-name {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+  color: var(--st-ink-3);
+}
+
+.admin-layout #komoot .adm-status-detail,
+.admin-layout #health .adm-status-detail {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  line-height: 1.5;
+  color: var(--st-ink);
+}
+
+.admin-layout #komoot .adm-status-detail code,
+.admin-layout #health .adm-status-detail code {
+  font-family: var(--st-font-data);
+  font-size: 0.9em;
+  color: var(--st-ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* The privacy and heart-rate notes under each panel's state. */
+.admin-layout #komoot > .adm-help,
+.admin-layout #health > .adm-help {
+  margin-top: 0.9rem;
+  max-width: 72ch;
+  font-size: var(--st-fs-sm);
+  line-height: 1.55;
+  color: var(--st-ink-3);
+}
+
+/* The export's drop zone and the token's buttons, one step apart. */
+.admin-layout #health .adm-form-actions {
+  margin-top: 0.75rem;
+}
+
+/* The token, shown once: a sheet on the panel's raised ground. */
+.admin-layout #health-token {
+  margin-top: 1.25rem;
+}
+
+.admin-layout #health-token .adm-help {
+  margin: 0 0 1rem;
+  max-width: 68ch;
+  font-size: var(--st-fs-dense);
+  line-height: 1.55;
+  color: var(--st-ink-2);
+}
+
+.admin-layout #health-token .adm-help strong {
+  font-weight: 600;
+  color: var(--st-ink);
+}
