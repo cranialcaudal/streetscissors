@@ -166,15 +166,32 @@ defmodule Web.Fitness.Figure do
   @doc "The stage a figure is drawn on, for the component's `viewBox`."
   def stage, do: %{width: trunc(@width), height: @height, floor: @ground}
 
-  @doc "Where an exercise's figure file would be."
-  def path(slug), do: Path.join([Vault.base_path(), "figures", slug <> ".json"])
+  @doc """
+  Where an exercise's figure file would be, or nil for a slug that is not a
+  wiki slug: callers pass it on from an address, and a raw join would reach
+  any `.json` a `../` could.
+  """
+  def path(slug) when is_binary(slug) do
+    if Regex.match?(~r/\A[a-z0-9][a-z0-9-]*\z/, slug),
+      do: Path.join([Vault.base_path(), "figures", slug <> ".json"])
+  end
+
+  def path(_slug), do: nil
+
+  @doc "The figure file's text, as `File.read/1` answers; `{:error, :enoent}` for a bad slug."
+  def read(slug) do
+    case path(slug) do
+      nil -> {:error, :enoent}
+      path -> File.read(path)
+    end
+  end
 
   @doc """
   The figure for an exercise: `{:ok, figure}`, `:none` when the exercise has
   no file, or `{:error, problems}` when the file is there and wrong.
   """
   def load(slug) do
-    case File.read(path(slug)) do
+    case read(slug) do
       {:ok, json} -> from_json(json, slug)
       {:error, _} -> :none
     end

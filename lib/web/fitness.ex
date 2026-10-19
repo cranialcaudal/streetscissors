@@ -106,6 +106,16 @@ defmodule Web.Fitness do
     )
   end
 
+  @doc "An exercise's latest entries, newest first: what a progression reads."
+  def recent_exercise_logs(exercise_id, limit \\ 12) do
+    Repo.all(
+      from l in ExerciseLog,
+        where: l.exercise_id == ^exercise_id,
+        order_by: [desc: l.date, desc: l.id],
+        limit: ^limit
+    )
+  end
+
   @doc "Everything logged on a day, in the order it was entered, exercise loaded."
   def exercise_logs_on(%Date{} = date) do
     Repo.all(

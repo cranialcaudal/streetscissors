@@ -289,6 +289,14 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
   color: var(--ink);
 }
 
+/* The training block's week: the admin's only, a figure in the mono voice. */
+.day-page-block {
+  margin: -0.5rem 0 1rem;
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
 .day-page-blocks { grid-column: auto; }
 
 /* On the day's own line the stretch is a block like the rest, named: the

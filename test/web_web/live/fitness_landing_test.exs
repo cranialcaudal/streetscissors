@@ -243,6 +243,36 @@ defmodule WebWeb.FitnessLandingTest do
       assert has_element?(view, "form[phx-submit=save_log]")
     end
 
+    test "sets, reps and RPE are kept beside the weight, and read back in a line",
+         %{view: view} do
+      view
+      |> form("form[phx-submit=save_log]",
+        log: %{weight: "185 lbs", sets: "3", reps: "8", rpe: "8"}
+      )
+      |> render_submit()
+
+      assert [%{metrics: metrics}] = Web.Fitness.list_exercise_logs()
+      assert metrics == %{"weight" => "185 lbs", "sets" => "3", "reps" => "8", "rpe" => "8"}
+      assert has_element?(view, "#logged-today .day-logged-values", "185 lbs · 3 x 8 @ RPE 8")
+    end
+
+    # The fixture vault's block (blocks/test-block.md) tracks push-ups and is
+    # in its Accumulate weeks whatever day the suite runs.
+    test "the block's week is shown, and a block lift's next target", %{view: view, conn: conn} do
+      assert has_element?(view, ".day-page-head #block-week", "Test Block · Week")
+      assert has_element?(view, "#block-week", "Accumulate")
+      refute has_element?(view, "#log-target"), "no entry yet, so nothing to aim at"
+
+      view
+      |> form("form[phx-submit=save_log]", log: %{weight: "20 lbs", sets: "3", reps: "12"})
+      |> render_submit()
+
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+
+      assert has_element?(view, "#log-target", "Target: 3 x 8 @ 25 lbs")
+    end
+
     test "a name the wiki does not have is refused, and makes no row", %{view: view} do
       render_click(view, "close_log")
       render_click(view, "open_log", %{"slug" => "no-such-exercise"})
@@ -268,9 +298,14 @@ defmodule WebWeb.FitnessLandingTest do
 
       refute html =~ "Logged today"
       refute html =~ "3 x 12"
+      # The block is the admin's: no week, no phase, no target.
+      refute html =~ "block-week"
+      refute html =~ "Test Block"
+      refute html =~ "Accumulate"
 
       render_click(view, "open_log", %{"slug" => "push-ups"})
       refute has_element?(view, "form[phx-submit=save_log]")
+      refute has_element?(view, "#log-target")
 
       render_click(view, "save_log", %{"log" => %{"result" => "9 x 99"}})
       [log] = Web.Fitness.list_exercise_logs()

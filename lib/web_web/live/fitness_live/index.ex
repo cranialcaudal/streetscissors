@@ -2,7 +2,7 @@ defmodule WebWeb.FitnessLive.Index do
   use WebWeb, :live_view
 
   alias Web.Fitness
-  alias Web.Fitness.Vault
+  alias Web.Fitness.{Block, Progression, Vault}
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   @fuelling "nutrition-module"
@@ -52,9 +52,13 @@ defmodule WebWeb.FitnessLive.Index do
       :extra_modules,
       listed |> Enum.reject(&(&1.slug in [@fuelling | @weekdays])) |> Enum.map(&with_html/1)
     )
+    # The block's week is the admin's: a visitor's page says nothing of
+    # training state (see the privacy tests).
+    |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
     |> assign(:logging_slug, nil)
     |> assign(:logging_name, nil)
     |> assign(:logging_last, nil)
+    |> assign(:logging_target, nil)
     |> assign_logged_today()
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
@@ -118,7 +122,8 @@ defmodule WebWeb.FitnessLive.Index do
          socket
          |> assign(:logging_slug, slug)
          |> assign(:logging_name, exercise.name)
-         |> assign(:logging_last, Fitness.last_exercise_log(exercise.id))}
+         |> assign(:logging_last, Fitness.last_exercise_log(exercise.id))
+         |> assign(:logging_target, target(socket.assigns.block, exercise))}
 
       :error ->
         {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
@@ -177,6 +182,17 @@ defmodule WebWeb.FitnessLive.Index do
     |> assign(:logging_slug, nil)
     |> assign(:logging_name, nil)
     |> assign(:logging_last, nil)
+    |> assign(:logging_target, nil)
+  end
+
+  # What to aim at next time, when the exercise is one of the running
+  # block's lifts and the rule has something to say (not in Baseline week).
+  defp target(nil, _exercise), do: nil
+
+  defp target(block, exercise) do
+    if rule = Block.lift(block, exercise.slug) do
+      Progression.next_target(rule, Fitness.recent_exercise_logs(exercise.id), block)
+    end
   end
 
   # What has been logged today, for the admin only: the proof an entry went
@@ -186,9 +202,22 @@ defmodule WebWeb.FitnessLive.Index do
 
   defp assign_logged_today(socket), do: assign(socket, :logged_today, [])
 
-  @doc "A log entry's values in a line: `200 lbs · 3 x 12`."
+  @doc "A log entry's values in a line: `185 lbs · 3 x 8 @ RPE 8 · 2 miles`."
   def log_line(%{metrics: metrics, note: note}) do
-    values = for key <- ~w(weight distance time result), value = metrics[key], do: value
+    work =
+      case {metrics["sets"], metrics["reps"]} do
+        {nil, nil} -> nil
+        {sets, nil} -> "#{sets} sets"
+        {nil, reps} -> "#{reps} reps"
+        {sets, reps} -> "#{sets} x #{reps}"
+      end
+
+    work = if(work && metrics["rpe"], do: "#{work} @ RPE #{metrics["rpe"]}", else: work)
+
+    values =
+      [metrics["weight"], work, metrics["distance"], metrics["time"], metrics["result"]]
+      |> Enum.reject(&is_nil/1)
+
     Enum.join(values ++ List.wrap(note), " · ")
   end
 
@@ -198,6 +227,9 @@ defmodule WebWeb.FitnessLive.Index do
   defp log_metrics(params) do
     %{}
     |> put_metric("weight", params["weight"])
+    |> put_metric("sets", params["sets"])
+    |> put_metric("reps", params["reps"])
+    |> put_metric("rpe", params["rpe"])
     |> put_metric("distance", params["distance"])
     |> put_metric("time", params["time"])
     |> put_metric("result", params["result"])
@@ -258,6 +290,9 @@ defmodule WebWeb.FitnessLive.Index do
                   <% end %>
                 </p>
                 <h1 class="day-page-title">{@day.title}</h1>
+                <p :if={@block} class="day-page-block" id="block-week">
+                  {@block.title} · Week {@block.week} of {@block.weeks} — {@block.phase}
+                </p>
                 <ul :if={@blocks != []} class="week-chips day-page-blocks">
                   <li
                     :for={block <- @blocks}
@@ -381,10 +416,25 @@ defmodule WebWeb.FitnessLive.Index do
             <p :if={@logging_last} class="log-modal-last">
               Last time, {Calendar.strftime(@logging_last.date, "%-d %b")}: {log_line(@logging_last)}
             </p>
+            <p :if={@logging_target} class="log-modal-target" id="log-target">
+              Target: {Progression.target_line(@logging_target)}
+            </p>
             <form phx-submit="save_log">
               <label>
                 Weight <input type="text" name="log[weight]" placeholder="e.g. 200 lbs" autofocus />
               </label>
+              <div class="log-modal-row">
+                <label>
+                  Sets <input type="text" name="log[sets]" inputmode="numeric" placeholder="3" />
+                </label>
+                <label>
+                  Reps
+                  <input type="text" name="log[reps]" inputmode="numeric" placeholder="top set" />
+                </label>
+                <label>
+                  RPE <input type="text" name="log[rpe]" inputmode="decimal" placeholder="1–10" />
+                </label>
+              </div>
               <label>
                 Distance <input type="text" name="log[distance]" placeholder="e.g. 2 miles" />
               </label>
@@ -467,6 +517,8 @@ defmodule WebWeb.FitnessLive.Index do
       .log-modal label { display: block; color: var(--ink-3); font-size: 0.85rem; margin-bottom: 0.75rem; }
       .log-modal input { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; background: rgba(23, 20, 15, 0.05); border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); font-size: 0.9rem; }
       .log-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+      .log-modal-target { margin: -0.5rem 0 1rem; color: var(--ink); font-family: var(--font-data); font-size: 0.85rem; }
+      .log-modal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
       .log-save-btn { background: var(--theme-color); border: none; color: var(--paper); padding: 0.4rem 1rem; border-radius: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-weight: bold; }
     </style>
     """

@@ -379,4 +379,14 @@ defmodule Web.Fitness.FigureTest do
     assert Map.has_key?(head, :visor)
     assert length(head.visor) == figure.frames
   end
+
+  test "a slug that is not a wiki slug names no figure file" do
+    for slug <- ["../../notes/plan", "/etc/passwd", "Push-Ups", "", nil] do
+      assert Figure.path(slug) == nil, "path for #{inspect(slug)}"
+      assert Figure.read(slug) == {:error, :enoent}
+      assert Figure.load(slug) == :none
+    end
+
+    assert Figure.path("push-ups") =~ ~r{/figures/push-ups\.json$}
+  end
 end

@@ -95,7 +95,7 @@ defmodule Web.Fitness.Clip do
   muscles lit. `nil` when the exercise has no figure file.
   """
   def source(slug, anatomy) do
-    case File.read(Figure.path(slug)) do
+    case Figure.read(slug) do
       {:ok, json} -> hash([json, 0, Enum.join(muscles(anatomy), ",")])
       {:error, _} -> nil
     end
@@ -237,7 +237,7 @@ defmodule Web.Fitness.Clip do
   def job(slug) do
     anatomy = anatomy(slug)
 
-    with {:ok, json} <- File.read(Figure.path(slug)),
+    with {:ok, json} <- Figure.read(slug),
          {:ok, %{} = raw} <- Jason.decode(json),
          {:ok, track} <- Figure.track(raw, @fps) do
       primary = Enum.uniq(muscles(anatomy) ++ Web.Fitness.Chain.detail(anatomy))

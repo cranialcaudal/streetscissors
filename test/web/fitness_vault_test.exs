@@ -299,7 +299,11 @@ defmodule Web.Fitness.VaultTest do
 
     for slug <- [URI.decode("..%2F..%2Fnotes%2Fplan"), "../../notes/plan", "/etc/passwd", "", nil] do
       assert Vault.get_exercise_by_slug(slug) == :error, "looked up #{inspect(slug)}"
+      # The log button's lookup, whose slug comes from the page.
+      assert Vault.get_exercise_raw(slug) == :error, "read raw #{inspect(slug)}"
     end
+
+    assert {:ok, %{slug: "push-ups"}, _body} = Vault.get_exercise_raw("push-ups")
   end
 
   # The admin's form has no field for `references:`. Saving a page there used

@@ -418,9 +418,10 @@ defmodule Web.Fitness.Vault do
   def get_exercise_raw(slug) do
     list_muscle_groups()
     |> Enum.find_value(:error, fn group ->
-      path = Path.join([base_path(), "exercise-wiki", group, slug <> ".md"])
-
-      if File.exists?(path) do
+      # Through the same guard as `get_exercise_by_slug/1`: the slug reaches
+      # here from a log button's `phx-value-slug`, and a raw join would read
+      # any `.md` a `../` could reach.
+      if path = exercise_path(group, slug) do
         meta = parse_frontmatter(path)
         body = strip_frontmatter(File.read!(path))
 
@@ -494,7 +495,12 @@ defmodule Web.Fitness.Vault do
     end
   end
 
-  defp parse_frontmatter(path) do
+  @doc """
+  A markdown file's frontmatter as a flat map of strings: one `key: value` a
+  line, one pair of surrounding quotes stripped, `%{}` when there is none or
+  the file cannot be read. Not YAML: lists and inline comments are not parsed.
+  """
+  def parse_frontmatter(path) do
     case File.read(path) do
       {:ok, content} ->
         case Regex.run(~r/\A---\n(.*?)\n---/ms, content, capture: :all_but_first) do
