@@ -111,3 +111,7 @@ content/notes/
 /backup/
 
 .env
+
+# The print editor's archive cache (Web.Darkroom.Archive), written into the
+# fixture archive by the suite.
+/test/support/fixtures/negatives/.darkroom/
