@@ -367,6 +367,53 @@
 }
 /* Sits directly under the Captain's Logs / About Me row rather than being
    pushed to the bottom of the viewport by a spacer. */
+/* Happening (Web.Happening): three columns under the cards, in the
+   instrument voice for the labels and the body voice for the pieces. */
+.home-happening {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem 2rem;
+  margin: 1.5rem 0 0;
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.home-happening-head {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-3);
+}
+
+.home-happening-line {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.home-happening-line a { color: var(--accent-ink); text-decoration: none; }
+.home-happening-line a:hover,
+.home-happening-line a:focus-visible { text-decoration: underline; }
+
+.home-happening-kind {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+}
+
+.home-happening-date {
+  margin-left: 0.4rem;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
 .home-about {
   text-align: center;
   font-family: var(--font-body);
@@ -652,6 +699,38 @@
     flex: 0 0 auto;
     padding: 0.5vh 0;
     font-size: 0.65rem;
+  }
+
+  /* The page is locked to the screen here, the photograph taking what is
+     left: Happening keeps only its Now line, one row that costs it little. */
+  .home-happening {
+    flex: 0 0 auto;
+    display: block;
+    margin: 0;
+    padding: 0.5vh 0 0;
+  }
+
+  .home-happening-fresh,
+  .home-happening-witnessed,
+  .home-happening-head {
+    display: none;
+  }
+
+  .home-happening-now {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 0.75rem;
+  }
+
+  .home-happening-line {
+    margin: 0;
+    font-size: 0.75rem;
+  }
+
+  /* A sentence of reading is too long for the one line. */
+  .home-happening-now .home-happening-line:nth-child(n + 4) {
+    display: none;
   }
 }
 

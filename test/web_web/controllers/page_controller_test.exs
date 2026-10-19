@@ -301,4 +301,34 @@ defmodule WebWeb.PageControllerTest do
         else: Application.delete_env(:web, :negatives_path)
     end
   end
+
+  describe "Happening" do
+    test "sits after the skinny cards and before the about line, with no clock time", %{
+      conn: conn
+    } do
+      Web.RidesFixtures.ride_fixture(%{stranger_view: "clear"})
+      html = conn |> get(~p"/") |> html_response(200)
+
+      [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)
+      assert section =~ "Test Block · Week"
+      assert section =~ ~s(href="/fitness")
+      refute section =~ ~r/\d{1,2}:\d{2}/
+
+      {sub, _} = :binary.match(html, "bento-fitness-sub-row--three")
+      {hap, _} = :binary.match(html, ~s(class="home-happening"))
+      {foot, _} = :binary.match(html, ~s(class="home-footer"))
+      assert sub < hap and hap < foot
+
+      # The ride is named by sport and distance, never by its name or place.
+      refute section =~ "Evening loop"
+    end
+
+    test "fresh names the newest post, never a draft", %{conn: conn} do
+      html = conn |> get(~p"/") |> html_response(200)
+      [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)
+
+      assert section =~ "home-happening-fresh"
+      refute section =~ "draft-post"
+    end
+  end
 end

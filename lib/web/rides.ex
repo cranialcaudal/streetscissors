@@ -34,6 +34,19 @@ defmodule Web.Rides do
     Repo.all(from r in listed(), order_by: [desc: r.started_at]) |> attach_health()
   end
 
+  @doc """
+  The newest activity Komoot shows a stranger clear of every private place
+  (`clear?/1`), or nil: the one the homepage may name. No health attached.
+  """
+  def latest_clear do
+    Repo.one(
+      from r in listed(),
+        where: r.stranger_view == "clear",
+        order_by: [desc: r.started_at],
+        limit: 1
+    )
+  end
+
   @doc "A listed activity by id, or nil — safe to call with an id straight from a URL."
   def get_ride(id) when is_integer(id), do: listed() |> Repo.get(id) |> attach_health()
 

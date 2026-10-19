@@ -33,7 +33,8 @@ defmodule WebWeb.PageController do
     |> render(:home,
       author: author,
       spotify_profile: Web.Author.link("spotify_profile"),
-      site_description: site_description()
+      site_description: site_description(),
+      happening: Web.Happening.get()
     )
   end
 

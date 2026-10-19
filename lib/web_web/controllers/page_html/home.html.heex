@@ -161,6 +161,52 @@
         <span class="bento-label-small">Christ</span>
       </a>
     </div>
+    <%!-- Happening (Web.Happening): what is going on, what is new, and what
+          people looked at this week. Dates only, never a clock time; on the
+          locked phone layout only the Now line shows (home.css). --%>
+    <section
+      :if={@happening.now.block || @happening.now.ride || @happening.fresh != []}
+      class="home-happening"
+      aria-label="Happening"
+    >
+      <div class="home-happening-col home-happening-now">
+        <h2 class="home-happening-head">Now</h2>
+        <p :if={@happening.now.block} class="home-happening-line">
+          <a href={~p"/fitness"}>{@happening.now.block}</a>
+        </p>
+        <p :if={@happening.now.ride} class="home-happening-line">
+          <a href={@happening.now.ride.path}>
+            {@happening.now.ride.sport}, {@happening.now.ride.distance}
+          </a>
+          <span class="home-happening-date">
+            {Calendar.strftime(@happening.now.ride.date, "%-d %b")}
+          </span>
+        </p>
+        <p :if={@happening.now.reading} class="home-happening-line">
+          Reading {@happening.now.reading}
+        </p>
+      </div>
+      <div :if={@happening.fresh != []} class="home-happening-col home-happening-fresh">
+        <h2 class="home-happening-head">Fresh</h2>
+        <p :for={item <- @happening.fresh} class="home-happening-line">
+          <span class="home-happening-kind">{item.kind}</span>
+          <a href={item.path}>{item.title}</a>
+          <span :if={item.date} class="home-happening-date">
+            {Calendar.strftime(item.date, "%-d %b")}
+          </span>
+        </p>
+      </div>
+      <div :if={@happening.witnessed != []} class="home-happening-col home-happening-witnessed">
+        <h2 class="home-happening-head">Witnessed this week</h2>
+        <p :for={item <- @happening.witnessed} class="home-happening-line">
+          <span class="home-happening-kind">{item.kind}</span>
+          <a href={item.path}>{item.title}</a>
+          <span class="home-happening-date">
+            {item.people} {if item.people == 1, do: "person", else: "people"}
+          </span>
+        </p>
+      </div>
+    </section>
     <%!-- One sentence saying what the site is, when the author has written
           one (Settings: "Homepage sentence"). Nothing when he has not. --%>
     <p :if={@site_description} class="home-about">{@site_description}</p>

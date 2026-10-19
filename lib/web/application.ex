@@ -21,6 +21,8 @@ defmodule Web.Application do
       # Owns the ETS table guarding login attempts, subscribe/guestbook/contact
       # writes and the LanguageTool relay. Must start before the Endpoint.
       Web.RateLimit,
+      # The homepage's "Happening" section, kept ten minutes (Web.Happening).
+      Web.Happening,
       # Remembers the Komoot API token between hourly syncs so the sync stops
       # re-logging-in 24 times a day. Holds no state worth keeping across a
       # restart — a cold boot just logs in once.
