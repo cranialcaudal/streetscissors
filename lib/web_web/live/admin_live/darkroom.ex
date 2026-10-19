@@ -252,10 +252,6 @@ defmodule WebWeb.AdminLive.Darkroom do
           </.link>
         </li>
       </ul>
-      <p class="adm-dr-key">
-        Edited prints carry a recipe beside them; repaired ones have had marks or scanner lines
-        painted out; a fill waiting is Stable Diffusion's, not kept yet.
-      </p>
     </section>
     """
   end
