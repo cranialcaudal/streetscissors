@@ -195,13 +195,23 @@ defmodule WebWeb.AdminLive.Taste do
     <.page_head slug="Darkroom / Taste" title="Which do you prefer?">
       <:lede>
         Two grades of one print. Choose the one you like better; each choice teaches the
-        suggestion in the print editor. {@count} choices so far.
+        suggestion in the print editor. Twenty to forty choices set it.
       </:lede>
+      <:actions>
+        <span class="adm-taste-count" role="status">
+          {@count} {if @count == 1, do: "choice", else: "choices"} so far
+        </span>
+      </:actions>
     </.page_head>
 
     <div class="adm-taste" phx-window-keydown="key" phx-throttle="300">
-      <p :if={@error} class="adm-dr-error" role="alert">{@error}</p>
-      <p :if={!@error and is_nil(@pair)} class="adm-dr-hint">Choosing a print…</p>
+      <div :if={@error} class="adm-taste-note" role="alert">
+        <p class="adm-dr-error">{@error}</p>
+        <button type="button" phx-click="pass" class="adm-btn adm-btn--small">Try again</button>
+      </div>
+      <p :if={!@error and is_nil(@pair)} class="adm-taste-note adm-dr-hint" role="status">
+        Choosing a print…
+      </p>
 
       <div :if={@pair} class="adm-taste-pair">
         <button
@@ -212,8 +222,13 @@ defmodule WebWeb.AdminLive.Taste do
           disabled={is_nil(@right)}
           aria-label="This one (left arrow)"
         >
-          <img :if={@left} src={@left} alt="The first grade" />
-          <span :if={!@left} class="adm-dr-hint">Drawing…</span>
+          <span class="adm-taste-picture">
+            <img :if={@left} src={@left} alt="The first grade" />
+            <span :if={!@left} class="adm-dr-hint">Drawing…</span>
+          </span>
+          <span class="adm-taste-choose">
+            <kbd class="adm-taste-key" aria-hidden="true">←</kbd> This one
+          </span>
         </button>
         <button
           type="button"
@@ -223,15 +238,26 @@ defmodule WebWeb.AdminLive.Taste do
           disabled={is_nil(@right)}
           aria-label="This one (right arrow)"
         >
-          <img :if={@right} src={@right} alt="The second grade" />
-          <span :if={!@right} class="adm-dr-hint">Drawing…</span>
+          <span class="adm-taste-picture">
+            <img :if={@right} src={@right} alt="The second grade" />
+            <span :if={!@right} class="adm-dr-hint">Drawing…</span>
+          </span>
+          <span class="adm-taste-choose">
+            This one <kbd class="adm-taste-key" aria-hidden="true">→</kbd>
+          </span>
         </button>
       </div>
 
       <div :if={@pair} class="adm-taste-foot">
-        <span class="adm-dr-hint">Roll {@pair.print.roll}, frame {@pair.print.frame}</span>
-        <button type="button" phx-click="pass" class="adm-btn adm-btn--small adm-btn--quiet">
-          Neither (↓)
+        <span class="adm-taste-print">
+          Roll <span class="adm-dr-fig">{@pair.print.roll}</span>, frame
+          <span class="adm-dr-fig">{@pair.print.frame}</span>
+        </span>
+        <span class="adm-taste-keys" aria-hidden="true">
+          <kbd class="adm-taste-key">←</kbd> <kbd class="adm-taste-key">→</kbd> choose
+        </span>
+        <button type="button" phx-click="pass" class="adm-btn adm-btn--small">
+          Neither <kbd class="adm-taste-key" aria-hidden="true">↓</kbd>
         </button>
       </div>
     </div>

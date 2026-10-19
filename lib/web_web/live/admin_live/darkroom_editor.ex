@@ -671,50 +671,54 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
         <.pill :if={@dirty} tone="held">unsaved</.pill>
       </:lede>
       <:actions>
-        <.link navigate={~p"/admin/darkroom?roll=#{@roll}"} class="adm-btn adm-btn--quiet">
-          Roll {@roll}
-        </.link>
-        <.link
-          :if={@previous}
-          navigate={~p"/admin/darkroom/#{@roll}/#{@previous}"}
-          class="adm-btn adm-btn--quiet"
-          aria-label="Previous print"
-        >
-          <.icon name="hero-chevron-left" class="size-4" />
-        </.link>
-        <.link
-          :if={@next}
-          navigate={~p"/admin/darkroom/#{@roll}/#{@next}"}
-          class="adm-btn adm-btn--quiet"
-          aria-label="Next print"
-        >
-          <.icon name="hero-chevron-right" class="size-4" />
-        </.link>
-        <.link
-          href={~p"/negatives/roll/#{@roll}/frame/#{@frame}"}
-          target="_blank"
-          class="adm-btn adm-btn--quiet"
-        >
-          <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View
-        </.link>
-        <button
-          :if={@edited}
-          type="button"
-          phx-click="revert"
-          class="adm-btn"
-          disabled={@working != nil}
-          data-confirm="Put the print back as it was developed? The edits are forgotten."
-        >
-          Revert
-        </button>
-        <button
-          type="button"
-          phx-click="save"
-          class="adm-btn adm-btn--primary"
-          disabled={@working != nil or !@dirty}
-        >
-          {if @working == :save, do: "Printing…", else: "Save"}
-        </button>
+        <span class="adm-dr-commit">
+          <button
+            :if={@edited}
+            type="button"
+            phx-click="revert"
+            class="adm-btn"
+            disabled={@working != nil}
+            data-confirm="Put the print back as it was developed? The edits are forgotten."
+          >
+            Revert
+          </button>
+          <button
+            type="button"
+            phx-click="save"
+            class="adm-btn adm-btn--primary"
+            disabled={@working != nil or !@dirty}
+          >
+            {if @working == :save, do: "Printing…", else: "Save"}
+          </button>
+        </span>
+        <span class="adm-dr-nav" role="group" aria-label="Where to go">
+          <.link navigate={~p"/admin/darkroom?roll=#{@roll}"} class="adm-btn adm-btn--quiet">
+            <.icon name="hero-arrow-left" class="size-4" /> Roll {@roll}
+          </.link>
+          <.link
+            :if={@previous}
+            navigate={~p"/admin/darkroom/#{@roll}/#{@previous}"}
+            class="adm-btn adm-btn--quiet"
+            aria-label="Previous print"
+          >
+            <.icon name="hero-chevron-left" class="size-4" />
+          </.link>
+          <.link
+            :if={@next}
+            navigate={~p"/admin/darkroom/#{@roll}/#{@next}"}
+            class="adm-btn adm-btn--quiet"
+            aria-label="Next print"
+          >
+            <.icon name="hero-chevron-right" class="size-4" />
+          </.link>
+          <.link
+            href={~p"/negatives/roll/#{@roll}/frame/#{@frame}"}
+            target="_blank"
+            class="adm-btn adm-btn--quiet"
+          >
+            <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View
+          </.link>
+        </span>
       </:actions>
     </.page_head>
 
@@ -813,42 +817,45 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
       <aside class="adm-dr-panel" aria-label="Adjustments">
         <div class="adm-dr-tools">
-          <button
-            type="button"
-            phx-click="before"
-            class={["adm-btn adm-btn--small", @showing_before && "is-on"]}
-            aria-pressed={to_string(@showing_before)}
-            title="Before and after (\\)"
-          >
-            <.icon name="hero-eye" class="size-4" /> Before
-          </button>
-          <button
-            type="button"
-            phx-click="crop"
-            class={["adm-btn adm-btn--small", @cropping && "is-on"]}
-            aria-pressed={to_string(@cropping)}
-          >
-            <.icon name="hero-scissors" class="size-4" /> {if @cropping, do: "Done", else: "Crop"}
-          </button>
-          <button
-            type="button"
-            phx-click="dust"
-            class={["adm-btn adm-btn--small", @dusting && "is-on"]}
-            aria-pressed={to_string(@dusting)}
-          >
-            {if @dusting, do: "Done", else: "Dust"}
-          </button>
-          <button
-            type="button"
-            phx-click="repair"
-            class={["adm-btn adm-btn--small", @repairing && "is-on"]}
-            aria-pressed={to_string(@repairing)}
-          >
-            {if @repairing, do: "Done", else: "Repair"}
-          </button>
-          <button type="button" phx-click="reset" class="adm-btn adm-btn--small adm-btn--quiet">
-            Reset all
-          </button>
+          <div class="adm-dr-tools-head">
+            <span class="adm-dr-tools-title">Tools</span>
+            <button type="button" phx-click="reset" class="adm-dr-reset">Reset all</button>
+          </div>
+          <div class="adm-dr-toolset" role="group" aria-label="Tools">
+            <button
+              type="button"
+              phx-click="before"
+              class={["adm-btn adm-btn--small", @showing_before && "is-on"]}
+              aria-pressed={to_string(@showing_before)}
+              title="Before and after (\\)"
+            >
+              Before
+            </button>
+            <button
+              type="button"
+              phx-click="crop"
+              class={["adm-btn adm-btn--small", @cropping && "is-on"]}
+              aria-pressed={to_string(@cropping)}
+            >
+              {if @cropping, do: "Done", else: "Crop"}
+            </button>
+            <button
+              type="button"
+              phx-click="dust"
+              class={["adm-btn adm-btn--small", @dusting && "is-on"]}
+              aria-pressed={to_string(@dusting)}
+            >
+              {if @dusting, do: "Done", else: "Dust"}
+            </button>
+            <button
+              type="button"
+              phx-click="repair"
+              class={["adm-btn adm-btn--small", @repairing && "is-on"]}
+              aria-pressed={to_string(@repairing)}
+            >
+              {if @repairing, do: "Done", else: "Repair"}
+            </button>
+          </div>
         </div>
 
         <form :if={@cropping} id="straighten" phx-change="straighten" class="adm-dr-section">
@@ -900,7 +907,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               class="adm-dr-range adm-dr-track--plain"
             />
           </label>
-          <button type="submit" class="adm-btn adm-btn--small">Find dust</button>
+          <div class="adm-dr-actions">
+            <button type="submit" class="adm-btn adm-btn--small">Find dust</button>
+          </div>
           <p class="adm-dr-hint">
             Finds small dark specks on smooth ground: dust on a slide, or on a black and white
             negative's print. Click a speck to heal it; click a ring to take it off. White specks on
@@ -919,28 +928,30 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               Open it large
             </a>
           </div>
-          <button
-            type="button"
-            phx-click="compare"
-            class={["adm-btn adm-btn--small", @comparing && "is-on"]}
-            aria-pressed={to_string(@comparing)}
-          >
-            {if @comparing, do: "Show the fill", else: "Show before"}
-          </button>
-          <button
-            type="button"
-            phx-click="keep_candidate"
-            class="adm-btn adm-btn--small adm-btn--primary"
-          >
-            Keep the fill
-          </button>
-          <button
-            type="button"
-            phx-click="discard_candidate"
-            class="adm-btn adm-btn--small adm-btn--quiet"
-          >
-            Discard it
-          </button>
+          <div class="adm-dr-actions">
+            <button
+              type="button"
+              phx-click="compare"
+              class={["adm-btn adm-btn--small", @comparing && "is-on"]}
+              aria-pressed={to_string(@comparing)}
+            >
+              {if @comparing, do: "Show the fill", else: "Show before"}
+            </button>
+            <button
+              type="button"
+              phx-click="keep_candidate"
+              class="adm-btn adm-btn--small adm-btn--primary"
+            >
+              Keep the fill
+            </button>
+            <button
+              type="button"
+              phx-click="discard_candidate"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
+              Discard it
+            </button>
+          </div>
           <p class="adm-dr-hint">
             It paints what could have been there, not what was: over a shelf it may stand a
             thing that never stood there. Look at every filled place before keeping it. Kept, it
@@ -974,40 +985,42 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               <input type="radio" name="brush-mode" value="erase" /> Erase
             </label>
           </div>
-          <button
-            type="button"
-            phx-click="find_lines"
-            class="adm-btn adm-btn--small"
-            disabled={@working != nil}
-          >
-            {if @working == :lines, do: "Looking…", else: "Find scanner lines"}
-          </button>
-          <button
-            type="button"
-            phx-click="lama"
-            class="adm-btn adm-btn--small adm-btn--primary"
-            disabled={@working != nil or !@masked}
-          >
-            {if @working == :lama, do: "Repairing…", else: "Repair what is marked"}
-          </button>
-          <button
-            type="button"
-            phx-click="diffuse"
-            class="adm-btn adm-btn--small"
-            disabled={@working != nil or !@masked}
-          >
-            {if @working == :diffuse,
-              do: "Filling… (about two minutes a place)",
-              else: "Fill with Stable Diffusion"}
-          </button>
-          <button
-            :if={@repaired}
-            type="button"
-            phx-click="undo_repair"
-            class="adm-btn adm-btn--small adm-btn--quiet"
-          >
-            Undo the repair
-          </button>
+          <div class="adm-dr-actions adm-dr-actions--stack">
+            <button
+              type="button"
+              phx-click="find_lines"
+              class="adm-btn adm-btn--small"
+              disabled={@working != nil}
+            >
+              {if @working == :lines, do: "Looking…", else: "Find scanner lines"}
+            </button>
+            <button
+              type="button"
+              phx-click="lama"
+              class="adm-btn adm-btn--small adm-btn--primary"
+              disabled={@working != nil or !@masked}
+            >
+              {if @working == :lama, do: "Repairing…", else: "Repair what is marked"}
+            </button>
+            <button
+              type="button"
+              phx-click="diffuse"
+              class="adm-btn adm-btn--small"
+              disabled={@working != nil or !@masked}
+            >
+              {if @working == :diffuse,
+                do: "Filling… (about two minutes a place)",
+                else: "Fill with Stable Diffusion"}
+            </button>
+            <button
+              :if={@repaired}
+              type="button"
+              phx-click="undo_repair"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
+              Undo the repair
+            </button>
+          </div>
           <p class="adm-dr-hint">
             Paint over scratches, hairs and other marks on the picture as it was developed, or let
             it find the scanner's lines. A scanner line is corrected, so what was under it comes
@@ -1021,16 +1034,6 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
         <section :if={!@cropping and !@dusting and !@repairing} id="film" class="adm-dr-section">
           <div class="adm-dr-section-head">
             <h2 class="adm-dr-section-title">Film</h2>
-            <button
-              :if={is_map(@prior) and (@prior.sliders != %{} or @prior.predicted != %{})}
-              type="button"
-              phx-click="apply_prior"
-              class="adm-dr-reset"
-            >
-              {if @prior.taught + @prior.chosen > 0,
-                do: "Start from the film and your taste",
-                else: "Start from the film"}
-            </button>
           </div>
           <p :if={is_nil(@prior)} class="adm-dr-hint">Reading the film…</p>
           <p :if={@prior == :error} class="adm-dr-hint">The print could not be read.</p>
@@ -1057,6 +1060,20 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               )}
             </li>
           </ul>
+          <div
+            :if={is_map(@prior) and (@prior.sliders != %{} or @prior.predicted != %{})}
+            class="adm-dr-actions"
+          >
+            <button
+              type="button"
+              phx-click="apply_prior"
+              class="adm-btn adm-btn--small"
+            >
+              {if @prior.taught + @prior.chosen > 0,
+                do: "Start from the film and your taste",
+                else: "Start from the film"}
+            </button>
+          </div>
           <form id="exposure" phx-change="exposure">
             <label class="adm-dr-control">
               <span class="adm-dr-label">Exposure time (s), if long</span>
