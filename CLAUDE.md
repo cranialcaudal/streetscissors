@@ -616,7 +616,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     re-renders the blocks. The screen, the playhead and the timecode are `phx-update="ignore"`
     (the hook owns them). Overlapping titles or sounds stack in rows (`lanes/1`). The assign is
     `plan`, not `layout`, which LiveView reserves.
-  - Styled by `adm-cut-*` rules in `admin.css`. Existing logs cannot be brought into a bin
+  - Styled by `adm-cut-*` rules in `assets/css/admin/cuts.css`. Existing logs cannot be brought into a bin
     yet: their sources were deleted after transcoding.
 
 - **The scanner studio** (`/admin/scanner`, `WebWeb.AdminLive.Scanner`) takes a roll from film on
@@ -953,7 +953,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `.adm-page:has(.adm-scan-bench)` lifts the admin's 1120px limit for this page only. **A
     reload opens the roll in progress** (`Pipeline.roll_in_progress/0`: the newest roll folder
     the catalog does not list), not the next free number.
-  - Styled only by `adm-scan-*` rules in `admin.css`.
+  - Styled only by `adm-scan-*` rules in `assets/css/admin/darkroom.css`.
 
 - **The print editor** (`/admin/darkroom`, "Prints" under Darkroom; `Web.Darkroom`,
   `WebWeb.AdminLive.Darkroom` and `.DarkroomEditor`, 2026-10-17, his ask: "the Lightroom
@@ -1055,7 +1055,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `y = μ + W f + a_s + b_k` by weighted ridge (penalties are the shrinkage), predicted only
     once moved in three examples. A recipe stores only sliders off their default, so a missing
     one is read as the schema's default. The Film section's button applies both.
-  - Styled by `adm-dr-*` rules in `admin.css`. The slider tracks take the colours the schema
+  - Styled by `adm-dr-*` rules in `assets/css/admin/darkroom.css`. The slider tracks take the colours the schema
     gives (temperature, tint, the mixer's eight bands, a gradient's two ends) as literal colour,
     since they are what the slider does. `test/support/stub_lightcraft` answers both modes.
 
@@ -1088,7 +1088,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
 - **Speed** (2026-10-07; measured with headless Chrome on a throttled phone profile, and
   pinned by `test/web_web/speed_test.exs`). The server was never the slow part.
   - **Type is served from here**: `assets/css/fonts.css` + `priv/static/fonts/*.woff2` (latin
-    and latin-ext of the five families, SIL OFL, `LICENSES.md` beside them). No page asks
+    and latin-ext of the seven families (the admin's IBM Plex Sans and Fraunces among them, not preloaded: only /admin draws with them), SIL OFL, `LICENSES.md` beside them). No page asks
     Google. The root layout **preloads the two files the header draws with** (Goudy regular,
     Plex Mono 600) with `crossorigin`; `~p` gives the digested address, the same one
     `phx.digest` rewrites into the stylesheet, and they must stay the same or the font is
@@ -1188,7 +1188,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   `caption:@file`, never as an argument. The two faces are vendored in `priv/fonts/` (OFL).
   `/share/*` has no pipeline, like `/health`. Logs already have a 16:9 JPEG poster.
 
-- **Tending the content** (2026-10-04), both under **Write** in the admin's rail:
+- **Tending the content** (2026-10-04), both under **Writing** in the admin's rail:
   - **`Web.Keywords.Index`** (`/admin/keywords`) is the one place a keyword is changed
     everywhere: `usage/0` lists each with the posts and logs that carry it (drafts and
     unpublished logs included, or the old spelling resurfaces when they publish), and
@@ -1272,29 +1272,88 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     an iframe or an image is not a citation. `/admin/citations?show=sent` lists them, with
     "Try again". `:webmention_send` false turns the pass off.
 
-- **The admin — "the composing room"** (rebuilt 2026-09-29), the print shop's back office. **Every
-  admin rule lives in `assets/css/admin.css`** under `.admin-layout` (`adm-` prefix), and pages are
-  built from `WebWeb.AdminComponents` (`page_head`, `panel`, `tabs`, `rows`, `pill`, `stat`,
-  `drop_zone`, `copy_field`, …): no `<style>` blocks, no inline colour. The old per-page blocks
-  (`CmsStyles`, the fitness "mission control", the rides table) are gone. Plex Mono is the
-  instrument voice; Goudy is kept for page titles and for words people wrote. The pigments are
-  lifted for the dark ground (`--adm-act`/`-live`/`-held`/`-fail`, each ≥4.5:1). theme.css styles
-  bare `button`s, so every admin button class states its hover in full.
-  The rail groups pages as **Write** (Blog, Captain's Logs, Cutting room, Fitness, Keywords, Content health), **Darkroom** (Scanner, Prints, Taste), **Mail** (Inbox, Guestbook,
-  Citations, Newsletter) and **Sync** (Activities), plus Overview and Settings, with badges for
-  open messages (letters included), held signatures, held citations and failed transcodes. It folds to a Menu bar at ≤900px. **View state is in the
-  URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords), `?filter=missing|drafts`
-  (blog), `?tab=` (fitness).
-  `/admin/dashboard` is the **Overview**: a "Needs you" queue (each row a link to where the thing
-  gets done, shown only when non-zero), counts, traffic, and `Web.SystemStatus` (snapshots, the
-  content's versions, the mirror drive, Komoot's last run, ride privacy, failed mail jobs). Contact messages live at `/admin/inbox`, and site settings at
-  `/admin/settings` (the Spotify playlist, the newsletter's test address). The newsletter page
-  holds drafts (`newsletter_drafts.status = "draft"`, which becomes the send's record when sent), a
-  sandboxed preview built from `Web.Email.preview_page/2`, a `[Test]` send, and the subscriber
-  list. New guestbook signatures are announced on `"guestbook:admin"` so the approval queue fills
-  live; the public `"guestbook"` topic still hears only approvals. The blog manager keeps its
-  batch `.md` drop and keyword editing, and `/admin/content` 301s to `/admin/blog`. The logs booth's
-  `.LogRecorder` hook and its `data-role` markup are load-bearing (see above); restyle around them.
+- **The admin — "the studio"** (redesigned 2026-10-18 from "the composing room"). **The programs are
+  the point**: the Darkroom (Scanner, Prints, Taste), the Cutting room (the cutting room and the
+  Captain's Logs booth), Writing (Blog, Keywords, Content health), Training (Fitness, Activities)
+  and Mail (Inbox, Guestbook, Citations, Newsletter); figures are instruments read in passing
+  (`status_strip/1`), never tiles. The rail groups them in that order under a **Studio** link
+  (the overview, `/admin/dashboard`) and puts **Settings** at the foot; each group wears its
+  program's colour as a small mark, and the waiting counts (open messages, letters included, held
+  signatures, held citations, failed transcodes) are small pills. It folds to a Menu bar at ≤900px.
+  `WebWeb.AdminNav.sections/0` is the rail's data (groups with `:id`, `:program`, `:heading`,
+  `:links`); `program/1` names a path's program (the group of the nearest link) and
+  `program_class/1` its class, which the admin layout puts on `.adm-main`.
+  - **CSS is one file per area under `assets/css/admin/`**, imported by `app.css` in this order
+    (`base.css` first, every rule under `.admin-layout`, `adm-` prefix): `base.css` (tokens, layout,
+    the rail, every shared component class: buttons, panels, page head, tabs, rows and tables,
+    pills, stats, forms, drop zones, flash under the admin, the login dialog, `st-card`/`st-strip`),
+    `overview.css` (the dashboard), `darkroom.css` (scanner `adm-scan-*`, prints and the print
+    editor `adm-dr-*`, Taste), `cuts.css` (the cutting room `adm-cut-*` and the logs booth
+    `adm-booth`/`theater-*`), `write.css` (blog manager and editor, fitness, keywords, content
+    health), `mail.css` (inbox, guestbook, citations, newsletter), `sync.css` (activities) and
+    `settings.css`. A class used by two areas is in `base.css`; a few cross-uses remain by name
+    (the cutting room uses `adm-dr-section-head`, `-hint`, `-reset`, `-error` from `darkroom.css`,
+    the print editor `adm-cut-check` from `cuts.css`). No `<style>` blocks, no inline colour, no
+    literal colour in a rule (the slider tracks and the cutting room's title overlay are the
+    exceptions: they are what the picture means).
+  - **Tokens and themes**: the `--st-*` tokens (`bg surface raised line line-strong ink ink-2 ink-3
+    bay`, the program colours `darkroom cuts writing training mail`, `ok warn fail`, `on-accent`,
+    `shadow`, the type scale `--st-fs-*`, a 4px `--st-space-*` scale, radii) are defined once on
+    `.admin-layout`, dark by default and the light set under `@media (prefers-color-scheme:
+    light)`; the admin follows the system and has no switch. Every text pairing is at least
+    4.5:1 on bg, surface and raised (measured; keep it so). **The old names are aliases**
+    (`--paper` `--paper-raised` `--paper-sunk` `--paper-deep` = bg, surface, raised, bay;
+    `--ink`…`--ink-4`, `--rule`, `--rule-strong`, `--adm-act`, `-live`, `-held`, `-fail`, `-info`
+    point at the new ones, and `--font-ui`/`-data`/`-heading`/`-body` at the three voices), so a
+    rule written against them still wears the palette in both themes; new rules use `--st-*`.
+  - **The accent follows the program**: `.adm-main` carries `st-program--<program>` (`darkroom`,
+    `cuts`, `writing`, `training`, `mail`; the Studio and Settings carry none, so their accent is
+    ink), which sets `--st-accent`. A primary button is filled with it (text `--st-on-accent`),
+    and links, the active tab, checkboxes, progress bars, the rail's mark and the 2px focus ring
+    (offset 2px, always on keyboard focus) read it. A rail group and a `program_card` carry their
+    own program class, so what is inside them wears theirs.
+  - **Editing bays stay dark in both themes**: the darkroom bench (`.adm-dr-bench`), the cutting
+    room (`.adm-cut-bench`), Taste (`.adm-taste`), the booth's `.theater`, the scanner's
+    `.adm-scan-look` and `.adm-scan-sheet`, and anything carrying `st-bay`. The dark token set
+    is re-declared on those selectors (the list is at the top of `base.css`, zero specificity,
+    and again at its foot for the surround), so everything inside, text and controls too, reads
+    dark; `--st-accent-dk` (set beside `--st-accent` by the program class) keeps the accent
+    legible on it. A new bay is an element with `st-bay` on it, and a picture or video sits on
+    `--st-bay`, never on white.
+  - **Type** (served from here, `fonts.css`): **IBM Plex Sans** 400/500/600 and 400 italic is the
+    interface (`--st-font-ui`, sentence case, 15px; 14px in dense tables; no letter-spaced
+    uppercase labels), **IBM Plex Mono** the figures, timecodes, ids and file names
+    (`--st-font-data`, `tabular-nums`), and **Fraunces** (one variable file, weight and optical
+    size) the page titles and the words people wrote (`--st-font-display`; a post's title, a
+    log's caption, a letter, a signature). Goudy is no longer used in the admin.
+  - **`WebWeb.AdminComponents`** is the vocabulary: `rail`, `page_head` (eyebrow `slug`, title,
+    one-line lede, actions at the right, under the title on a phone), `panel` (a card; pass
+    `class="adm-panel--bare"` for the head without the card), `tabs`, `rows` (a table that stacks
+    into labelled blocks on a phone; each `td` carries `data-label`), `pill`, `stat` (quiet:
+    a small mono figure over a muted label), `empty` (a sentence and its button), `drop_zone`,
+    `copy_field`, and the two that compose the studio floor: **`program_card/1`** (a program's card:
+    `program`, `title`, `href`, slots `picture` on the `--st-bay` surround, `state` lines with an
+    optional `tone`, `actions`; the title is the one link, stretched over the card by CSS, and
+    anything pressable in the slots sits above it) laid out in a `<div class="st-cards">`, and
+    **`status_strip/1`** (`items` of `label`, `value`, optional `tone` ok/warn/fail, `href`,
+    `spark`: one wrapping line of small muted Plex Mono figures; only a warn or a fail shows its
+    tone). theme.css styles bare `button`s, so `base.css` neutralises them under the admin and
+    every button class states its hover in full. Buttons: `adm-btn` is the secondary (outlined),
+    `--primary` filled with the accent, `--quiet` text only, `--danger`, `--small`; targets are at
+    least 40px (44px on phones). Tables stack on a phone; **nothing scrolls sideways at 390px**.
+  - **View state is in the URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords),
+    `?filter=missing|drafts` (blog), `?tab=` (fitness). `/admin/dashboard` is the **Overview**: a
+    "Needs you" queue (each row a link to where the thing gets done, shown only when non-zero),
+    counts, traffic, and `Web.SystemStatus` (snapshots, the content's versions, the mirror drive,
+    Komoot's last run, ride privacy, failed mail jobs). Contact messages live at `/admin/inbox`,
+    and site settings at `/admin/settings` (the Spotify playlist, the newsletter's test address).
+    The newsletter page holds drafts (`newsletter_drafts.status = "draft"`, which becomes the
+    send's record when sent), a sandboxed preview built from `Web.Email.preview_page/2`, a `[Test]`
+    send, and the subscriber list. New guestbook signatures are announced on `"guestbook:admin"`
+    so the approval queue fills live; the public `"guestbook"` topic still hears only approvals.
+    The blog manager keeps its batch `.md` drop and keyword editing, and `/admin/content` 301s to
+    `/admin/blog`. The logs booth's `.LogRecorder` hook and its `data-role` markup are
+    load-bearing (see above); restyle around them.
 
 - **The manual** (`docs/how-to.md`, `/how-to`, `Web.Docs`) **is live the moment it is saved**:
   the release reads it from the checkout and renders it again when its mtime moves, so write
@@ -1356,7 +1415,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   by hand in `flash.css` — the generator's daisyUI classes never generated, so every flash used to
   print as bare text below the page. Don't add flash markup to page templates. The group sits
   outside `.steel`/`.darkroom`, so it keeps paper tokens there like the header does; inside
-  `.admin-layout` it goes dark. Only the full-screen dialogs above it (the dispatch overlay, admin
+  `.admin-layout` it is the studio's own floating card (`admin/base.css`). Only the full-screen dialogs above it (the dispatch overlay, admin
   login) say their own.
   `CoreComponents.baker_wordmark/1` is the stretched-and-cropped display line (homepage photo
   hero, `/negatives` masthead). Its geometry is **measured off the rendered font** with canvas
@@ -1424,7 +1483,7 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
   `--ink` by a rule in `steel.css`, so don't reintroduce `color: var(--theme-color)` on headings
   there. New section pages need only the `steel` class; style with tokens and they inherit. All tokens live in one `:root` block in `app.css` — **pages should
   read tokens, never literal hex**. Deliberate dark exceptions: the `/pc` terminal (`pc.css`), the
-  plate mat behind contact sheets (`negatives.css`), and the admin layout. esbuild bundles
+  plate mat behind contact sheets (`negatives.css`), and the admin's editing bays (the rest of the admin follows the system's light or dark setting). esbuild bundles
   `assets/js/` (only `app.js`/`app.css` are served — vendor deps must be imported into them, never
   referenced as external `<script>`/`<link>`).
 

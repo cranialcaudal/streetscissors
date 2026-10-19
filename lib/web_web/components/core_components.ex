@@ -14,7 +14,7 @@ defmodule WebWeb.CoreComponents do
 
     * `input/1` keeps the generator's class names (`fieldset`, `label`,
       `input`, `select`); each page that has a form styles them in its own
-      sheet (`admin.css`, `letters.css`).
+      sheet (`admin/base.css`, `letters.css`).
 
     * [Heroicons](https://heroicons.com) - see `icon/1` for usage.
 

@@ -129,7 +129,7 @@
     </style>
 
     <%!-- What an admin sees on the public pages: a way back in and a way
-          out. Styled in admin.css (#admin-indicator). Not rendered inside
+          out. Styled in admin/base.css (#admin-indicator). Not rendered inside
           the admin itself, where the rail already says all of this. --%>
     <%= if assigns[:admin_mode] && !assigns[:admin_chrome] do %>
       <div id="admin-indicator">

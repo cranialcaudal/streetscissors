@@ -10,7 +10,7 @@ defmodule WebWeb.AdminLoginLive do
   end
 
   # A dialog over whatever page asked for it: Escape or a click outside goes
-  # home. It says its own error; admin.css hides the layout's flash group
+  # home. It says its own error; admin/base.css hides the layout's flash group
   # while the dialog is up, so the message isn't repeated behind it.
   def render(assigns) do
     ~H"""

@@ -130,7 +130,7 @@ so a test never sees the owner's real pages.
 | Terminal (`/pc`) | `live/pc_live.ex` | `Web.Pc` | `pc.css` | Reads optional files at compile time: must compile when they are absent |
 | Feed, sitemap, share cards | `feed_controller.ex`, `sitemap_controller.ex`, `share_controller.ex` | `Web.ShareCard` | none | Unlisted pages (`/food`, `/england2026`) stay out of all three |
 | 404 | `error_html/not_found.html.heex`, `not_found.ex` | `Web.Nearby` | `not_found.css` | It is a whole HTML document with no layout. It must never raise |
-| Admin (`/admin/...`) | `live/admin_live/`, `components/admin_components.ex` | each area's own module | `admin.css` (`adm-` classes) | A new admin page goes inside `live_session :admin` in the router, or it is open to the world |
+| Admin (`/admin/...`) | `live/admin_live/`, `components/admin_components.ex` | each area's own module | `assets/css/admin/` (`adm-` classes; `base.css` is shared) | A new admin page goes inside `live_session :admin` in the router, or it is open to the world |
 
 Behind the pages (no HTML of their own): `Web.Backup` (nightly copies), `Web.Monitor` (the
 machine checks itself), `Web.Scheduler` (timed jobs), `Web.Analytics` (counting readers),

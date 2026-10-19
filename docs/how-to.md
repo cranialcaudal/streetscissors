@@ -105,11 +105,14 @@ writing were last copied, whether the backup drive is plugged in, when Komoot
 was last checked, how long the certificate has left, whether the domain still
 points at the house. The machine makes those checks itself every fifteen
 minutes, and writes to its owner when one of them fails.
-The pages are grouped by the kind of work: **Write** (the blog, the captain's
-logs, the fitness wiki, the keywords, and a report on what is broken),
-**Darkroom** (the scanner), **Mail** (the inbox, the guestbook, citations from
-other sites, the newsletter) and **Sync** (the Komoot activities, and the heart
-rate that goes with them), plus a page of settings. The admin writes the same
+The pages are grouped by program, each with its own colour: the **Darkroom**
+(the scanner, the prints and the editor that finishes them, and Taste), the
+**Cutting room** (the cutting room and the captain's logs), **Writing** (the
+blog, the keywords, and a report on what is broken), **Training** (the fitness
+wiki, and the Komoot activities with the heart rate that goes with them) and
+**Mail** (the inbox, the guestbook, citations from other sites, the
+newsletter), with the Studio overview at the top and a page of settings at the
+foot. The admin follows the system's light or dark setting. It writes the same
 files you would write by hand, so nothing it does is locked inside it.
 
 ---
@@ -2027,7 +2030,8 @@ esbuild, and runs them.
 
 **CSS.** `assets/css/app.css` is the entry point. It defines every colour and
 typeface as a token in one `:root` block, then imports about thirty hand-written
-sheets, one per section (`negatives.css`, `admin.css`, `header.css` and so on).
+sheets, one per section (`negatives.css`, `header.css` and so on; the admin's are
+the files in `assets/css/admin/`).
 Tailwind is imported with `source(none)`, which means it scans no files and so
 generates no utility classes. It is there for two things only: the handful of
 utilities named in the `@source inline(...)` lines at the top of that file, and

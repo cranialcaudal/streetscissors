@@ -103,7 +103,7 @@
   --rule-strong: var(--st-line-strong);
   --hairline: var(--rule);
   --adm-act: var(--st-accent);
-  --adm-act-strong: color-mix(in srgb, var(--st-accent) 88%, var(--st-bg));
+  --adm-act-strong: color-mix(in srgb, var(--st-accent) 88%, var(--st-ink-2));
   --adm-live: var(--st-ok);
   --adm-held: var(--st-warn);
   --adm-fail: var(--st-fail);
