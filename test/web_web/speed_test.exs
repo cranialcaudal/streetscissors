@@ -50,7 +50,9 @@ defmodule WebWeb.SpeedTest do
             "IBM Plex Mono",
             "Bebas Neue",
             "League Spartan",
-            "Saira Condensed"
+            "Saira Condensed",
+            "IBM Plex Sans",
+            "Fraunces"
           ] do
         assert css =~ "font-family: '#{family}'"
       end
