@@ -283,12 +283,15 @@ defmodule WebWeb.AdminLive.LogsManager do
 
   def render(assigns) do
     ~H"""
-    <.page_head slug="Write / Captain's Logs" title="Captain's Logs">
+    <.page_head slug="Cutting room" title="Captain's Logs">
       <:lede>
         Record here, or drop a file you already have. Trim and poster are numbers the server
-        applies — nothing is re-encoded in the browser.
+        applies; nothing is re-encoded in the browser.
       </:lede>
       <:actions>
+        <.link navigate={~p"/admin/cuts"} class="adm-btn">
+          <.icon name="hero-scissors" class="size-4" /> Cutting room
+        </.link>
         <.link href={~p"/logs"} target="_blank" class="adm-btn adm-btn--quiet">
           <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View the logs
         </.link>
@@ -305,6 +308,21 @@ defmodule WebWeb.AdminLive.LogsManager do
         phx-hook=".LogRecorder"
         phx-drop-target={@uploads.media.ref}
       >
+        <ol class="theater-steps" aria-label="How a recording goes">
+          <li class="theater-step theater-step--preview">
+            <span class="theater-step-n">1</span> Preview
+          </li>
+          <li class="theater-step theater-step--record">
+            <span class="theater-step-n">2</span> Record
+          </li>
+          <li class="theater-step theater-step--trim">
+            <span class="theater-step-n">3</span> Trim
+          </li>
+          <li class="theater-step theater-step--poster">
+            <span class="theater-step-n">4</span> Poster
+          </li>
+        </ol>
+
         <div class="theater-screen">
           <video class="theater-video" playsinline muted></video>
 
@@ -345,6 +363,10 @@ defmodule WebWeb.AdminLive.LogsManager do
             </label>
           </div>
 
+          <p class="theater-note">
+            Nothing leaves this browser until you publish or save a draft.
+          </p>
+
           <p class="adm-error theater-device-error" data-role="device-error" hidden></p>
         </div>
 
@@ -352,28 +374,34 @@ defmodule WebWeb.AdminLive.LogsManager do
               server — nothing is re-encoded in the browser. --%>
         <div class="theater-review" data-role="review" hidden>
           <div class="theater-trim">
-            <label class="theater-range">
-              <span>In <b data-role="in-label">0:00</b></span>
-              <input type="range" data-role="trim-in" min="0" max="1000" value="0" step="1" />
-            </label>
-            <label class="theater-range">
-              <span>Out <b data-role="out-label">0:00</b></span>
-              <input type="range" data-role="trim-out" min="0" max="1000" value="1000" step="1" />
-            </label>
-            <label class="theater-range">
-              <span>Poster <b data-role="poster-label">0:00</b></span>
-              <input type="range" data-role="poster-at" min="0" max="1000" value="100" step="1" />
-            </label>
+            <div class="theater-group">
+              <h3 class="theater-group-title">Trim</h3>
+              <label class="theater-range">
+                <span>In <b data-role="in-label">0:00</b></span>
+                <input type="range" data-role="trim-in" min="0" max="1000" value="0" step="1" />
+              </label>
+              <label class="theater-range">
+                <span>Out <b data-role="out-label">0:00</b></span>
+                <input type="range" data-role="trim-out" min="0" max="1000" value="1000" step="1" />
+              </label>
+            </div>
+            <div class="theater-group">
+              <h3 class="theater-group-title">Poster</h3>
+              <label class="theater-range">
+                <span>Frame <b data-role="poster-label">0:00</b></span>
+                <input type="range" data-role="poster-at" min="0" max="1000" value="100" step="1" />
+              </label>
+            </div>
           </div>
 
           <div class="adm-form-actions">
             <button type="button" class="adm-btn adm-btn--primary" data-role="publish">
               Publish
             </button>
-            <button type="button" class="adm-btn adm-btn--quiet" data-role="save-draft">
+            <button type="button" class="adm-btn" data-role="save-draft">
               Save as draft
             </button>
-            <button type="button" class="adm-link adm-link--quiet" data-role="retake">Retake</button>
+            <button type="button" class="adm-btn adm-btn--quiet" data-role="retake">Retake</button>
           </div>
         </div>
 
@@ -382,7 +410,12 @@ defmodule WebWeb.AdminLive.LogsManager do
           <div class="adm-progress">
             <div class="adm-progress-bar" style={"width: #{entry.progress}%"}></div>
           </div>
-          <button type="button" class="adm-link" phx-click="cancel_upload" phx-value-ref={entry.ref}>
+          <button
+            type="button"
+            class="adm-link"
+            phx-click="cancel_upload"
+            phx-value-ref={entry.ref}
+          >
             Cancel
           </button>
           <p :for={err <- upload_errors(@uploads.media, entry)} class="adm-error">
@@ -814,6 +847,11 @@ defmodule WebWeb.AdminLive.LogsManager do
         <h2 class="adm-panel-title adm-sheet-title">
           {if @editing, do: "Editing #{Log.title(@editing)}", else: "Details for the next take"}
         </h2>
+        <p class="adm-help adm-booth-about">
+          {if @editing,
+            do: "The log is already filed; changing these does not touch its media.",
+            else: "Whatever is here when you publish goes with the recording."}
+        </p>
 
         <.form for={@form} phx-change="validate" phx-submit="save" id="log-form">
           <%!-- Must stay inside this form. The recorder hands its blob to
@@ -861,30 +899,42 @@ defmodule WebWeb.AdminLive.LogsManager do
     </div>
 
     <.panel title="Archive" count={length(@logs)}>
-      <.empty :if={@logs == []}>Nothing recorded yet.</.empty>
+      <.empty :if={@logs == []}>
+        Nothing recorded yet. Arm the camera above, or drop a file onto the screen.
+        <a href="#theater" class="adm-btn adm-btn--primary">Go to the booth</a>
+      </.empty>
 
       <div :if={@logs != []} class="adm-list" id="logs">
-        <article :for={log <- @logs} id={"log-#{log.id}"} class="adm-item adm-item--thumb">
-          <img
-            :if={Log.poster_url(log)}
-            src={Log.poster_url(log)}
-            alt=""
-            class="adm-item-thumb"
-            loading="lazy"
-          />
-          <span :if={is_nil(Log.poster_url(log))} class="adm-item-thumb">{log.kind}</span>
+        <article :for={log <- @logs} id={"log-#{log.id}"} class="adm-item adm-item--thumb adm-log">
+          <div class="adm-log-poster">
+            <img
+              :if={Log.poster_url(log)}
+              src={Log.poster_url(log)}
+              alt=""
+              class="adm-item-thumb"
+              loading="lazy"
+            />
+            <span :if={is_nil(Log.poster_url(log))} class="adm-item-thumb">{log.kind}</span>
+            <span :if={format_duration(log.duration)} class="adm-log-length">
+              {format_duration(log.duration)}
+            </span>
+          </div>
 
           <div class="adm-item-main">
             <h3 class="adm-item-title">{Log.title(log)}</h3>
-            <div class="adm-item-meta">
+            <div class="adm-log-pills">
               <.pill tone={status_tone(log.status)}>{status_label(log.status)}</.pill>
               <.pill :if={not log.published} tone="draft">Draft</.pill>
+              <.pill :if={log.published} tone="quiet">Published</.pill>
+            </div>
+            <div class="adm-item-meta">
               <span>{log.kind}</span>
-              <span>{format_duration(log.duration) || "—"}</span>
               <span>{log.slug}</span>
             </div>
 
             <p :if={presence(log.caption)} class="adm-item-body">{log.caption}</p>
+
+            <.keyword_chips keywords={Log.keyword_list(log)} />
 
             <div :if={Map.has_key?(@progress, log.id)} class="theater-transcode">
               <div class="adm-progress">
@@ -893,7 +943,9 @@ defmodule WebWeb.AdminLive.LogsManager do
               <span class="adm-help">Transcoding — {@progress[log.id]}%</span>
             </div>
 
-            <p :if={log.status == "failed"} class="adm-error">{log.transcode_error}</p>
+            <p :if={log.status == "failed"} class="adm-error adm-log-error">
+              {log.transcode_error}
+            </p>
 
             <div
               :if={log.status == "ready" and is_nil(presence(log.keywords))}
@@ -905,21 +957,31 @@ defmodule WebWeb.AdminLive.LogsManager do
           </div>
 
           <div class="adm-item-actions">
-            <.link :if={log.status == "ready"} navigate={~p"/logs/#{log.slug}"} class="adm-link">
-              View
-            </.link>
-            <button phx-click="edit" phx-value-id={log.id} class="adm-link">Edit</button>
             <button
               :if={log.status == "failed"}
               phx-click="retry"
               phx-value-id={log.id}
-              class="adm-link"
+              class="adm-btn adm-btn--small adm-btn--primary"
             >
-              Retry
+              <.icon name="hero-arrow-path" class="size-4" /> Try again
             </button>
-            <button phx-click="toggle_published" phx-value-id={log.id} class="adm-link">
+            <button phx-click="edit" phx-value-id={log.id} class="adm-btn adm-btn--small">
+              Edit
+            </button>
+            <button
+              phx-click="toggle_published"
+              phx-value-id={log.id}
+              class="adm-btn adm-btn--small"
+            >
               {if log.published, do: "Unpublish", else: "Publish"}
             </button>
+            <.link
+              :if={log.status == "ready"}
+              navigate={~p"/logs/#{log.slug}"}
+              class="adm-link adm-link--quiet"
+            >
+              View
+            </.link>
             <button
               phx-click="delete"
               phx-value-id={log.id}
