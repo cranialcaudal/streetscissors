@@ -143,11 +143,11 @@ defmodule WebWeb.AdminLive.Cuts do
             aria-hidden="true"
           >
           </video>
-          <span :if={is_nil(card.picture)} class="adm-cut-card-blank">
+          <span :if={is_nil(card.picture)} class="adm-cut-card-blank st-bay">
             <.icon name="hero-film" class="size-6" />
             <span>Nothing on the timeline yet</span>
           </span>
-          <span class="adm-cut-card-length" title="Length">
+          <span class="adm-cut-card-length st-bay" title="Length">
             <span class="adm-sr">Length </span>{clock(card.length)}
           </span>
         </:picture>

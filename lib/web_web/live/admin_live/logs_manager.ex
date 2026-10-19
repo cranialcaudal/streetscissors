@@ -906,7 +906,7 @@ defmodule WebWeb.AdminLive.LogsManager do
 
       <div :if={@logs != []} class="adm-list" id="logs">
         <article :for={log <- @logs} id={"log-#{log.id}"} class="adm-item adm-item--thumb adm-log">
-          <div class="adm-log-poster">
+          <div class="adm-log-poster st-bay">
             <img
               :if={Log.poster_url(log)}
               src={Log.poster_url(log)}
