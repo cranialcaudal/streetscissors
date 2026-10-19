@@ -346,6 +346,9 @@ defmodule WebWeb.AdminLive.CuttingRoom do
   defp secs(ms), do: :erlang.float_to_binary(ms / 1000, decimals: 2)
   defp clock(ms), do: WebWeb.AdminLive.Cuts.clock(ms)
 
+  defp counted(1, one, _many), do: "1 #{one}"
+  defp counted(n, _one, many), do: "#{n} #{many}"
+
   defp proxy_url(cut, %{proxy: proxy}), do: ~p"/admin/cuts/#{cut.id}/media/#{proxy}"
 
   defp print_url(frame) do
@@ -454,15 +457,26 @@ defmodule WebWeb.AdminLive.CuttingRoom do
       )
 
     ~H"""
-    <.page_head slug="Write / Cutting room" title={@cut.name}>
+    <.page_head slug="Cutting room" title={@cut.name}>
       <:lede>
-        {clock(@plan.length)} · {length(@plan.clips)} clips
+        <span class="adm-cut-fig">{clock(@plan.length)}</span>
+        · {counted(length(@plan.clips), "clip", "clips")} · {counted(
+          length(@plan.titles),
+          "title",
+          "titles"
+        )} · {counted(length(@plan.sounds), "sound", "sounds")}
         <span :if={@cut.audio_log}>· rendered into the log of {Log.title(@cut.audio_log)}</span>
       </:lede>
       <:actions>
-        <.link navigate={~p"/admin/cuts"} class="adm-btn adm-btn--quiet">All cuts</.link>
-        <.link :if={@cut.audio_log} navigate={~p"/admin/logs"} class="adm-btn adm-btn--quiet">
-          Captain's Logs
+        <.link navigate={~p"/admin/cuts"} class="adm-btn adm-btn--quiet">
+          <.icon name="hero-arrow-left" class="size-4" /> All cuts
+        </.link>
+        <.link
+          :if={@cut.audio_log}
+          navigate={~p"/admin/logs#log-#{@cut.audio_log.id}"}
+          class="adm-btn"
+        >
+          Its log
         </.link>
         <button
           type="submit"
@@ -482,45 +496,54 @@ defmodule WebWeb.AdminLive.CuttingRoom do
     <div class="adm-cut-bench">
       <aside class="adm-cut-bin" aria-label="Bin">
         <form id="upload-form" phx-change="upload" phx-submit="upload" class="adm-cut-section">
-          <h2 class="adm-cut-heading">Bin</h2>
+          <div class="adm-cut-headrow">
+            <h2 class="adm-cut-heading">Bin</h2>
+            <span class="adm-cut-count">{length(@cut.media)}</span>
+          </div>
           <label class="adm-cut-drop" phx-drop-target={@uploads.media.ref}>
             <.live_file_input upload={@uploads.media} class="adm-cut-file" />
+            <.icon name="hero-cloud-arrow-up" class="size-5" />
             <span>Drop takes and music here, or choose files</span>
           </label>
           <div :for={entry <- @uploads.media.entries} class="adm-cut-uploading">
-            <span>{entry.client_name}</span>
+            <span class="adm-cut-uploading-name">{entry.client_name}</span>
             <progress value={entry.progress} max="100">{entry.progress}%</progress>
             <button
               type="button"
               phx-click="cancel_upload"
               phx-value-ref={entry.ref}
-              class="adm-dr-reset"
+              class="adm-cut-link"
             >
               Cancel
             </button>
-            <span :for={err <- upload_errors(@uploads.media, entry)} class="adm-dr-error">
+            <span :for={err <- upload_errors(@uploads.media, entry)} class="adm-cut-fail">
               {error_text(err)}
             </span>
           </div>
         </form>
 
-        <div id="recorder" class="adm-cut-section" phx-hook=".Recorder" phx-update="ignore">
+        <div
+          id="recorder"
+          class="adm-cut-section adm-cut-recorder"
+          phx-hook=".Recorder"
+          phx-update="ignore"
+        >
           <video class="adm-cut-camera" muted playsinline hidden></video>
           <button type="button" class="adm-btn adm-btn--small" data-role="record">
-            <.icon name="hero-microphone" class="size-4" /> Record a take
+            Record a take
           </button>
         </div>
 
-        <ul class="adm-cut-media">
+        <ul :if={@cut.media != []} class="adm-cut-media">
           <li
             :for={file <- @cut.media}
             id={"media-#{file.id}"}
-            class={["adm-cut-file-row", "is-#{file.status}"]}
+            class={["adm-cut-file-row", "is-#{file.status}", "is-#{file.kind}"]}
           >
-            <span class="adm-cut-file-name">{file.name}</span>
+            <span class="adm-cut-file-name" title={file.name}>{file.name}</span>
             <span class="adm-cut-file-meta">
               <span :if={file.status == "processing"}>reading…</span>
-              <span :if={file.status == "failed"} class="adm-dr-error" title={file.error}>
+              <span :if={file.status == "failed"} class="adm-cut-fail" title={file.error}>
                 could not be read
               </span>
               <span :if={file.status == "ready"}>
@@ -533,7 +556,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
                 type="button"
                 phx-click="add_take"
                 phx-value-id={file.id}
-                class="adm-dr-reset"
+                class="adm-btn adm-btn--small"
               >
                 Add to picture
               </button>
@@ -541,7 +564,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
                 :if={file.status == "ready" and (file.kind == "audio" or file.has_audio)}
                 type="button"
                 data-add-sound={file.id}
-                class="adm-dr-reset"
+                class="adm-btn adm-btn--small"
               >
                 Add as sound
               </button>
@@ -549,7 +572,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
                 type="button"
                 phx-click="remove_media"
                 phx-value-id={file.id}
-                class="adm-dr-reset"
+                class="adm-cut-link adm-cut-link--danger"
                 data-confirm="Take this file out of the bin, and off the timeline?"
               >
                 Remove
@@ -559,13 +582,17 @@ defmodule WebWeb.AdminLive.CuttingRoom do
         </ul>
 
         <div class="adm-cut-section">
-          <h2 class="adm-cut-heading">Prints</h2>
+          <h2 class="adm-cut-heading">Prints from the archive</h2>
           <form id="roll-picker" phx-change="pick_roll">
-            <select name="roll" class="adm-input">
+            <label for="roll-select" class="adm-sr">Roll</label>
+            <select id="roll-select" name="roll" class="adm-input">
               <option value="">Choose a roll</option>
               <option :for={roll <- @rolls} value={roll} selected={roll == @roll}>Roll {roll}</option>
             </select>
           </form>
+          <p :if={@roll && @prints == []} class="adm-cut-hint">
+            Roll {@roll} has no finished prints yet.
+          </p>
           <ul :if={@prints != []} class="adm-cut-prints">
             <li :for={print <- @prints}>
               <button
@@ -580,6 +607,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
                   alt={"Frame #{print.frame}"}
                   loading="lazy"
                 />
+                <span class="adm-cut-print-n">{print.frame}</span>
               </button>
             </li>
           </ul>
@@ -593,24 +621,32 @@ defmodule WebWeb.AdminLive.CuttingRoom do
         data-program={@program}
         data-selected={@selected}
       >
-        <div id="screen" class="adm-cut-screen" phx-update="ignore">
-          <video data-role="a" playsinline preload="auto"></video>
-          <video data-role="b" playsinline preload="auto"></video>
-          <div data-role="still" class="adm-cut-still"><img alt="" /></div>
-          <div data-role="titles"></div>
+        <div class="adm-cut-stage">
+          <div id="screen" class="adm-cut-screen" phx-update="ignore">
+            <video data-role="a" playsinline preload="auto"></video>
+            <video data-role="b" playsinline preload="auto"></video>
+            <div data-role="still" class="adm-cut-still"><img alt="" /></div>
+            <div data-role="titles"></div>
+          </div>
+          <p :if={@plan.clips == []} class="adm-cut-stage-empty">
+            Nothing on the picture track yet. Add a take or a print from the bin.
+          </p>
         </div>
         <div class="adm-cut-transport">
-          <button type="button" class="adm-btn adm-btn--small" data-role="play" aria-label="Play">
-            <.icon name="hero-play" class="size-4" />
+          <button type="button" class="adm-btn adm-cut-play" data-role="play" aria-label="Play">
+            <.icon name="hero-play" class="size-5 adm-cut-play-on" />
+            <.icon name="hero-pause" class="size-5 adm-cut-play-off" />
           </button>
           <span id="timecode" class="adm-cut-timecode" phx-update="ignore">0:00.0</span>
           <span class="adm-cut-length">/ {clock(@plan.length)}</span>
-          <button type="button" class="adm-btn adm-btn--small adm-btn--quiet" data-role="split">
-            Split (S)
-          </button>
-          <button type="button" class="adm-btn adm-btn--small adm-btn--quiet" data-role="title">
-            Add a title
-          </button>
+          <span class="adm-cut-tools">
+            <button type="button" class="adm-btn adm-btn--small" data-role="split">
+              <.icon name="hero-scissors" class="size-4" /> Split <kbd class="adm-cut-kbd">S</kbd>
+            </button>
+            <button type="button" class="adm-btn adm-btn--small" data-role="title">
+              <.icon name="hero-plus" class="size-4" /> Add a title
+            </button>
+          </span>
           <form id="zoom" phx-change="zoom" class="adm-cut-zoom">
             <label>Zoom <input type="range" name="pps" min="5" max="200" value={@pps} /></label>
           </form>
@@ -640,6 +676,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
             >
               <span class="adm-cut-handle" data-edge="left"></span>
               <span class="adm-cut-block-label">{title["text"]}</span>
+              <span class="adm-cut-block-time">{clock(title["length"])}</span>
               <span class="adm-cut-handle" data-edge="right"></span>
             </div>
           </div>
@@ -659,6 +696,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
             >
               <span class="adm-cut-handle" data-edge="left"></span>
               <span class="adm-cut-block-label">{label(clip, @media)}</span>
+              <span class="adm-cut-block-time">{clock(clip["length"])}</span>
               <span class="adm-cut-handle" data-edge="right"></span>
             </div>
           </div>
@@ -678,21 +716,38 @@ defmodule WebWeb.AdminLive.CuttingRoom do
             >
               <span class="adm-cut-handle" data-edge="left"></span>
               <span class="adm-cut-block-label">{label(sound, @media)}</span>
+              <span class="adm-cut-block-time">{clock(sound["length"])}</span>
               <span class="adm-cut-handle" data-edge="right"></span>
             </div>
           </div>
           <div id="playhead" class="adm-cut-playhead" phx-update="ignore"></div>
         </div>
+
+        <p class="adm-cut-keys">
+          <span><kbd class="adm-cut-kbd">Space</kbd> plays</span>
+          <span><kbd class="adm-cut-kbd">S</kbd> splits at the playhead</span>
+          <span><kbd class="adm-cut-kbd">Delete</kbd> removes the selection</span>
+          <span><kbd class="adm-cut-kbd">←</kbd><kbd class="adm-cut-kbd">→</kbd> step a frame</span>
+        </p>
       </section>
 
       <aside class="adm-cut-inspector" aria-label="Inspector">
         <form :if={@item} id="inspector" phx-change="inspect" class="adm-cut-section">
-          <div class="adm-dr-section-head">
+          <div class="adm-cut-headrow">
             <h2 class="adm-cut-heading">{kind_name(@item)}</h2>
-            <button type="button" phx-click="delete" class="adm-dr-reset">Remove</button>
+            <button type="button" phx-click="delete" class="adm-cut-link adm-cut-link--danger">
+              Remove
+            </button>
           </div>
           <.inspect_fields item={@item} media={@media} />
         </form>
+
+        <div :if={!@item} class="adm-cut-section adm-cut-idle">
+          <h2 class="adm-cut-heading">Selection</h2>
+          <p class="adm-cut-hint">
+            Nothing selected. Click a clip, title or sound on the timeline to change it.
+          </p>
+        </div>
 
         <div class="adm-cut-section">
           <h2 class="adm-cut-heading">The cut</h2>
@@ -703,7 +758,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
               type="text"
               name="name"
               value={@cut.name}
-              class="adm-input"
+              class="adm-input adm-input--prose"
               maxlength="120"
             />
           </form>
@@ -718,26 +773,29 @@ defmodule WebWeb.AdminLive.CuttingRoom do
                 class="adm-input"
               />
               <label class="adm-label" for="caption">Caption</label>
-              <input id="caption" type="text" name="caption" class="adm-input" maxlength="200" />
+              <input
+                id="caption"
+                type="text"
+                name="caption"
+                class="adm-input adm-input--prose"
+                maxlength="200"
+              />
             </div>
-            <p :if={@cut.audio_log} class="adm-dr-hint">
+            <p :if={@cut.audio_log} class="adm-cut-hint">
               Rendering again gives the log of {Log.title(@cut.audio_log)} the new film. It is off the site while it transcodes.
             </p>
           </form>
-          <p :if={@cut.status == "rendering"} class="adm-dr-hint">
+          <p :if={@cut.status == "rendering"} class="adm-cut-hint adm-cut-rendering">
             <progress value={@progress || 0} max="100"></progress> Rendering…
           </p>
           <details :if={@cut.status == "failed" and @cut.render_error} class="adm-cut-error" open>
             <summary>What ffmpeg said</summary>
             <pre>{@cut.render_error}</pre>
           </details>
-          <p class="adm-dr-hint">
-            Select anything on the timeline to change it. Space plays, S splits at the playhead, Delete takes the selected item out.
-          </p>
           <button
             type="button"
             phx-click="delete_cut"
-            class="adm-btn adm-btn--small adm-btn--danger"
+            class="adm-btn adm-btn--small adm-btn--danger adm-cut-delete"
             data-confirm="Delete this cut and every file in its bin? A log it was rendered into stays."
           >
             Delete the cut
@@ -1103,69 +1161,87 @@ defmodule WebWeb.AdminLive.CuttingRoom do
 
   defp inspect_fields(%{item: %{"kind" => "take"}} = assigns) do
     ~H"""
-    <p class="adm-dr-hint">{@media[@item["media"]] && @media[@item["media"]].name}</p>
-    <.num_field name="in" label="In (s)" value={secs(@item["in"])} step="0.01" />
-    <.num_field name="out" label="Out (s)" value={secs(@item["out"])} step="0.01" />
-    <.num_field name="gain" label="Gain (dB)" value={@item["gain"]} step="0.5" />
+    <p class="adm-cut-source" title={@media[@item["media"]] && @media[@item["media"]].name}>
+      {@media[@item["media"]] && @media[@item["media"]].name}
+    </p>
+    <div class="adm-cut-fields">
+      <.num_field name="in" label="In (s)" value={secs(@item["in"])} step="0.01" />
+      <.num_field name="out" label="Out (s)" value={secs(@item["out"])} step="0.01" />
+      <.num_field name="gain" label="Gain (dB)" value={@item["gain"]} step="0.5" />
+    </div>
     """
   end
 
   defp inspect_fields(%{item: %{"kind" => "still"}} = assigns) do
     ~H"""
     <img src={print_url(@item["frame"])} alt="" class="adm-cut-inspect-print" />
-    <.num_field name="duration" label="Length (s)" value={secs(@item["duration"])} step="0.1" />
-    <label class="adm-label" for="move">Camera</label>
-    <select id="move" name="move" class="adm-input">
-      <option
-        :for={
-          {value, text} <- [
-            {"in", "Slowly closer"},
-            {"out", "Slowly further"},
-            {"pan-left", "Across, to the left"},
-            {"pan-right", "Across, to the right"},
-            {"none", "Still"}
-          ]
-        }
-        value={value}
-        selected={@item["move"] == value}
-      >
-        {text}
-      </option>
-    </select>
+    <div class="adm-cut-fields">
+      <.num_field name="duration" label="Length (s)" value={secs(@item["duration"])} step="0.1" />
+      <div class="adm-cut-field adm-cut-field--wide">
+        <label class="adm-label" for="move">Camera</label>
+        <select id="move" name="move" class="adm-input">
+          <option
+            :for={
+              {value, text} <- [
+                {"in", "Slowly closer"},
+                {"out", "Slowly further"},
+                {"pan-left", "Across, to the left"},
+                {"pan-right", "Across, to the right"},
+                {"none", "Still"}
+              ]
+            }
+            value={value}
+            selected={@item["move"] == value}
+          >
+            {text}
+          </option>
+        </select>
+      </div>
+    </div>
     """
   end
 
   defp inspect_fields(%{item: %{"text" => _}} = assigns) do
     ~H"""
-    <label class="adm-label" for="title-text">Words</label>
-    <input
-      id="title-text"
-      type="text"
-      name="text"
-      value={@item["text"]}
-      class="adm-input"
-      maxlength="120"
-      phx-debounce="300"
-    />
-    <label class="adm-label" for="style">Style</label>
-    <select id="style" name="style" class="adm-input">
-      <option value="title" selected={@item["style"] == "title"}>Across the middle</option>
-      <option value="lower" selected={@item["style"] == "lower"}>Along the foot</option>
-    </select>
-    <.num_field name="at" label="Starts at (s)" value={secs(@item["at"])} step="0.1" />
-    <.num_field name="duration" label="Length (s)" value={secs(@item["duration"])} step="0.1" />
+    <div class="adm-cut-fields">
+      <div class="adm-cut-field adm-cut-field--wide">
+        <label class="adm-label" for="title-text">Words</label>
+        <input
+          id="title-text"
+          type="text"
+          name="text"
+          value={@item["text"]}
+          class="adm-input adm-input--prose"
+          maxlength="120"
+          phx-debounce="300"
+        />
+      </div>
+      <div class="adm-cut-field adm-cut-field--wide">
+        <label class="adm-label" for="style">Style</label>
+        <select id="style" name="style" class="adm-input">
+          <option value="title" selected={@item["style"] == "title"}>Across the middle</option>
+          <option value="lower" selected={@item["style"] == "lower"}>Along the foot</option>
+        </select>
+      </div>
+      <.num_field name="at" label="Starts at (s)" value={secs(@item["at"])} step="0.1" />
+      <.num_field name="duration" label="Length (s)" value={secs(@item["duration"])} step="0.1" />
+    </div>
     """
   end
 
   defp inspect_fields(assigns) do
     ~H"""
-    <p class="adm-dr-hint">{@media[@item["media"]] && @media[@item["media"]].name}</p>
-    <.num_field name="at" label="Starts at (s)" value={secs(@item["at"])} step="0.1" />
-    <.num_field name="in" label="From (s) into the file" value={secs(@item["in"])} step="0.1" />
-    <.num_field name="out" label="To (s) into the file" value={secs(@item["out"])} step="0.1" />
-    <.num_field name="gain" label="Gain (dB)" value={@item["gain"]} step="0.5" />
-    <.num_field name="fade_in" label="Fade in (s)" value={secs(@item["fade_in"])} step="0.1" />
-    <.num_field name="fade_out" label="Fade out (s)" value={secs(@item["fade_out"])} step="0.1" />
+    <p class="adm-cut-source" title={@media[@item["media"]] && @media[@item["media"]].name}>
+      {@media[@item["media"]] && @media[@item["media"]].name}
+    </p>
+    <div class="adm-cut-fields">
+      <.num_field name="at" label="Starts at (s)" value={secs(@item["at"])} step="0.1" />
+      <.num_field name="gain" label="Gain (dB)" value={@item["gain"]} step="0.5" />
+      <.num_field name="in" label="From (s) into the file" value={secs(@item["in"])} step="0.1" />
+      <.num_field name="out" label="To (s) into the file" value={secs(@item["out"])} step="0.1" />
+      <.num_field name="fade_in" label="Fade in (s)" value={secs(@item["fade_in"])} step="0.1" />
+      <.num_field name="fade_out" label="Fade out (s)" value={secs(@item["fade_out"])} step="0.1" />
+    </div>
     <input type="hidden" name="duck_shown" value="1" />
     <label class="adm-cut-check">
       <input type="checkbox" name="duck" value="true" checked={@item["duck"]} />
@@ -1181,16 +1257,18 @@ defmodule WebWeb.AdminLive.CuttingRoom do
 
   defp num_field(assigns) do
     ~H"""
-    <label class="adm-label" for={"inspect-#{@name}"}>{@label}</label>
-    <input
-      id={"inspect-#{@name}"}
-      type="number"
-      name={@name}
-      value={@value}
-      step={@step}
-      class="adm-input"
-      phx-debounce="300"
-    />
+    <div class="adm-cut-field">
+      <label class="adm-label" for={"inspect-#{@name}"}>{@label}</label>
+      <input
+        id={"inspect-#{@name}"}
+        type="number"
+        name={@name}
+        value={@value}
+        step={@step}
+        class="adm-input"
+        phx-debounce="300"
+      />
+    </div>
     """
   end
 end

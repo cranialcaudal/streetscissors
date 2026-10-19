@@ -1,6 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════
    ADMIN / Cutting room and the Captain's Logs booth
-   Moved out of admin.css unchanged; imported after base.css.
+   Imported after base.css. Tokens only; the screen, the timeline and the
+   theater are editing bays (dark in both themes: the selectors are in the
+   bay list at the top of base.css), so everything inside them reads the
+   dark set. The literal colours left are the picture's own (the title and
+   lower-third overlays), which the render draws the same way.
+   Interface in Plex Sans, sentence case; timecodes and lengths in Plex
+   Mono; a cut's name, a log's caption and the words of a title in Fraunces.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Captain's logs: the recording booth ──────────────────────────── */
@@ -8,15 +14,90 @@
 .adm-booth {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
-  gap: 1.5rem;
+  gap: 1.25rem;
   align-items: start;
-  margin-bottom: 2.75rem;
+  margin-bottom: 2rem;
+}
+
+.adm-booth-about {
+  margin: -0.5rem 0 1.25rem;
 }
 
 .theater-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 1rem;
+}
+
+/* The four steps, as a guide: where the take is now is read off the booth's
+   own state (armed, recording, under review), so nothing here is a script's. */
+.theater-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.theater-step {
+  --step-ink: var(--st-ink-3);
+  --n-bg: transparent;
+  --n-line: var(--st-line-strong);
+  --n-ink: var(--st-ink-3);
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  color: var(--step-ink);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+}
+
+/* A hairline joins one step to the next. */
+.theater-step + .theater-step::before {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  margin-right: 0.25rem;
+  background: var(--st-line-strong);
+}
+
+.theater-step-n {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  background: var(--n-bg);
+  border: 1px solid var(--n-line);
+  border-radius: 50%;
+  color: var(--n-ink);
+  font-family: var(--st-font-data);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where it is: preview first; armed, record; under review, trim and poster. */
+.theater .theater-step--preview,
+.theater.is-armed .theater-step--record,
+.theater:has([data-role="review"]:not([hidden])) .theater-step--trim,
+.theater:has([data-role="review"]:not([hidden])) .theater-step--poster {
+  --step-ink: var(--st-ink);
+  --n-bg: var(--st-accent);
+  --n-line: var(--st-accent);
+  --n-ink: var(--st-on-accent);
+}
+
+.theater.is-armed .theater-step--preview,
+.theater:has([data-role="review"]:not([hidden])) .theater-step--preview,
+.theater:has([data-role="review"]:not([hidden])) .theater-step--record {
+  --step-ink: var(--st-ink-2);
+  --n-bg: transparent;
+  --n-line: var(--st-accent);
+  --n-ink: var(--st-accent);
 }
 
 /* The screen: always 16/9, always dark, whether or not anything is in it. */
@@ -27,15 +108,16 @@
   justify-content: center;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
 }
 
 .theater-video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: var(--paper-deep);
+  background: var(--st-bay);
 }
 
 .theater.is-armed .theater-placeholder {
@@ -56,10 +138,9 @@
 
 .theater-placeholder-title {
   margin: 0;
-  color: var(--ink-3);
-  font-size: 0.74rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  color: var(--st-ink-2);
+  font-size: var(--st-fs);
+  font-weight: 500;
 }
 
 /* Tally light: the one thing in the booth allowed to glow. */
@@ -70,20 +151,21 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 0.6rem;
-  background: rgba(10, 9, 8, 0.72);
-  color: var(--ink);
-  font-family: var(--font-data);
+  padding: 0.25rem 0.65rem;
+  background: color-mix(in srgb, var(--st-bay) 78%, transparent);
+  border-radius: 999px;
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
+  font-size: var(--st-fs-sm);
 }
 
 .theater-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--adm-fail);
-  box-shadow: 0 0 10px var(--adm-fail);
+  background: var(--st-fail);
+  box-shadow: 0 0 10px var(--st-fail);
   animation: theater-blink 1.4s infinite;
 }
 
@@ -106,73 +188,94 @@
   pointer-events: none;
 }
 
+/* Setup on the first row (mode, camera, microphone), record on the second. */
 .theater-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "modes devices"
+    "record note"
+    "error error";
+  gap: 0.75rem 1rem;
   align-items: center;
-  gap: 1rem;
   margin-top: 1rem;
 }
 
 .theater-modes {
-  display: flex;
-  border: 1px solid var(--rule-strong);
+  display: inline-flex;
+  grid-area: modes;
+  justify-self: start;
+  overflow: hidden;
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
 }
 
-.theater-mode {
+.theater-mode,
+.theater-mode:hover {
   min-height: 40px;
-  padding: 0 0.95rem;
+  padding: 0 1rem;
   background: none;
   border: 0;
-  color: var(--ink-3);
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  border-radius: 0;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
   cursor: pointer;
 }
 
 .theater-mode:hover {
-  background: var(--paper-raised);
-  color: var(--ink);
+  background: var(--st-raised);
+  color: var(--st-ink);
 }
 
 .theater-mode.is-active,
 .theater-mode.is-active:hover {
-  background: var(--ink);
-  color: var(--paper);
+  background: color-mix(in srgb, var(--st-accent) 16%, transparent);
+  color: var(--st-accent);
 }
 
-/* 48px tall, so the one control that matters clears the target minimum.
+/* 44px tall, so the one control that matters clears the target minimum.
    The only round thing in the admin: a record button is a record button. */
-.theater-record {
+.theater-record,
+.theater-record:hover {
   display: inline-flex;
+  grid-area: record;
+  justify-self: start;
   align-items: center;
   gap: 0.65rem;
-  min-height: 48px;
-  padding: 0 1.3rem;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule-strong);
+  min-height: 44px;
+  padding: 0 1.4rem 0 1.15rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
   border-radius: 999px;
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.74rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
+  font-weight: 500;
   cursor: pointer;
 }
 
 .theater-record:hover {
-  background: var(--paper-sunk);
-  border-color: var(--adm-act);
-  color: var(--ink);
+  background: var(--st-raised);
+  border-color: var(--st-accent);
+}
+
+.theater.is-armed .theater-record,
+.theater.is-armed .theater-record:hover {
+  border-color: var(--st-accent);
+}
+
+.theater.is-recording .theater-record,
+.theater.is-recording .theater-record:hover {
+  border-color: var(--st-fail);
 }
 
 .theater-record-mark {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--adm-fail);
+  background: var(--st-fail);
 }
 
 .theater.is-recording .theater-record-mark {
@@ -181,64 +284,105 @@
 
 .theater-devices {
   display: flex;
+  grid-area: devices;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-left: auto;
+  justify-content: flex-end;
+  gap: 0.75rem 1rem;
 }
 
 .theater-device {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  color: var(--ink-3);
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
 }
 
 .theater-device select {
-  max-width: 220px;
-  min-height: 34px;
-  padding: 0.3rem 0.5rem;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule-strong);
-  color: var(--ink-2);
-  font-family: var(--font-ui);
+  min-width: 9rem;
+  max-width: 14rem;
+  min-height: 40px;
+  padding: 0.35rem 0.6rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+}
+
+.theater-note {
+  grid-area: note;
+  margin: 0;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
 }
 
 .theater-review {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--st-line);
 }
 
 .theater-trim {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.theater-group {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.theater-group-title {
+  margin: 0;
+  color: var(--st-ink);
+  font-size: var(--st-fs-dense);
+  font-weight: 600;
 }
 
 .theater-range {
   display: grid;
-  gap: 0.3rem;
-  color: var(--ink-3);
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 0.25rem;
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-sm);
+}
+
+.theater-range > span {
+  display: flex;
+  justify-content: space-between;
 }
 
 .theater-range b {
-  color: var(--adm-act);
-  font-family: var(--font-data);
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .theater-range input[type="range"] {
   width: 100%;
-  accent-color: var(--adm-act);
+  height: 1.5rem;
+  accent-color: var(--st-accent);
 }
 
 .theater-upload {
   margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+}
+
+.theater-upload .adm-help {
+  margin-top: 0;
+  font-family: var(--st-font-data);
+}
+
+.theater-upload .adm-link {
+  margin-top: 0.4rem;
 }
 
 .theater-transcode {
@@ -253,104 +397,371 @@
   margin-top: 0;
 }
 
+.theater-transcode .adm-help {
+  margin: 0;
+  font-family: var(--st-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The booth says device failures here rather than writing over the plate's
    own caption. */
 .theater-device-error {
+  grid-area: error;
   width: 100%;
-  margin-top: 0.75rem;
+  margin-top: 0;
 }
 
-@media (max-width: 1200px) {
-  .adm-booth {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+/* ── The archive of logs ──────────────────────────────────────────── */
 
-@media (max-width: 640px) {
-  .theater-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .theater-devices {
-    margin-left: 0;
-  }
-}
-
-/* ── The cutting room (Web.Cuts) ───────────────────────────────────────
-   The bin, the program and the inspector side by side, the timeline under
-   the program. Blocks sit on the timeline by --at and --len in seconds,
-   times --pps, the timeline's pixels per second. The program's titles are
-   sized in fractions of the screen's height (cqh), so they stand where the
-   render's 1280x720 titles do (Web.Cuts.Titles).
-   ─────────────────────────────────────────────────────────────────── */
-
-.adm-page:has(.adm-cut-bench) { max-width: none; }
-
-.adm-cut-bench {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 280px;
-  gap: 1rem;
+.adm-log {
+  grid-template-columns: 176px minmax(0, 1fr) auto;
   align-items: start;
 }
 
+.adm-log-poster {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--st-radius-sm);
+}
+
+.adm-log-poster .adm-item-thumb {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.adm-log-length {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  background: color-mix(in srgb, var(--st-bay) 82%, transparent);
+  border-radius: 6px;
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-log-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.adm-log .adm-chips {
+  margin-top: 0.6rem;
+}
+
+.adm-log-error {
+  align-items: flex-start;
+  margin-top: 0.5rem;
+  font-family: var(--st-font-data);
+  overflow-wrap: anywhere;
+}
+
+.adm-log .adm-item-actions {
+  width: 15rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── The cuts list ────────────────────────────────────────────────── */
+
+.adm-cut-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-cut-new .adm-input {
+  width: 16rem;
+}
+
+.adm-cut-cards {
+  --st-card-picture-ratio: 16 / 9;
+}
+
+.adm-cut-cards .st-card-picture {
+  position: relative;
+}
+
+.adm-cut-cards .st-card-picture :is(img, video) {
+  object-fit: cover;
+}
+
+/* A cut's name is words he wrote. */
+.adm-cut-cards .st-card-title {
+  font-family: var(--st-font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.adm-cut-card-length {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+  padding: 0.1rem 0.5rem;
+  background: color-mix(in srgb, var(--st-bay) 85%, transparent);
+  border-radius: 6px;
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cut-card-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-cut-loglink {
+  color: var(--st-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.adm-cut-loglink:hover {
+  text-decoration-color: currentColor;
+}
+
+.adm-cut-changed {
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-cut-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin: 2rem auto;
+  padding: 2.5rem 1.5rem;
+  background: var(--st-surface);
+  border: 1px dashed var(--st-line-strong);
+  border-radius: var(--st-radius);
+  color: var(--st-ink-2);
+  text-align: center;
+}
+
+.adm-cut-empty > [class*="hero-"] {
+  color: var(--st-accent);
+}
+
+.adm-cut-empty p {
+  margin: 0;
+}
+
+.adm-cut-empty-title {
+  margin: 0;
+  color: var(--st-ink);
+  font-family: var(--st-font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+/* ── The cutting room (Web.Cuts) ───────────────────────────────────────
+   One workspace: the program (screen, transport, timeline) on the left, and
+   on the right the desk: the selection's inspector, the cut itself and the
+   bin. Blocks sit on the timeline by --at and --len in seconds, times --pps,
+   the timeline's pixels per second. The program's titles are sized in
+   fractions of the screen's height (cqh), so they stand where the render's
+   1280x720 titles do (Web.Cuts.Titles).
+   ─────────────────────────────────────────────────────────────────── */
+
+.adm-page:has(.adm-cut-bench) { max-width: none; }
+.adm-main:has(.adm-cut-bench) { padding-inline: clamp(1rem, 2.2vw, 2rem); }
+
+.adm-cut-bench {
+  /* What each kind of thing is drawn in, on the timeline and in the bin:
+     takes in ink blue, prints in the darkroom's safelight, titles in
+     tungsten, sound in steel teal. */
+  --tint-take: var(--st-writing);
+  --tint-still: var(--st-darkroom);
+  --tint-title: var(--st-cuts);
+  --tint-sound: var(--st-training);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "main insp"
+    "main bin";
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.adm-cut-main { grid-area: main; }
+.adm-cut-inspector { grid-area: insp; }
+.adm-cut-bin { grid-area: bin; }
+
 .adm-cut-bin,
 .adm-cut-inspector {
-  position: sticky;
-  top: 1rem;
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  border: 1px solid var(--rule);
-  background: var(--paper-raised);
+  min-width: 0;
+  overflow: hidden;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
 }
 
 .adm-cut-section {
   display: flex;
   flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.adm-cut-section:last-child { border-bottom: 0; }
+
+.adm-cut-headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.8rem;
-  border-bottom: 1px solid var(--rule);
+  min-height: 1.5rem;
 }
 
 .adm-cut-heading {
   margin: 0;
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
-.adm-cut-drop {
-  position: relative;
-  padding: 1rem 0.8rem;
-  border: 1px dashed var(--rule-strong);
-  color: var(--ink-3);
-  font-size: 0.75rem;
-  text-align: center;
+.adm-cut-count {
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cut-hint {
+  margin: 0;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+  line-height: 1.5;
+}
+
+/* A text button inside the desk: quiet, the accent on hover. */
+.adm-cut-link,
+.adm-cut-link:hover {
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
   cursor: pointer;
 }
 
+.adm-cut-link:hover {
+  color: var(--st-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.adm-cut-link--danger,
+.adm-cut-link--danger:hover { color: var(--st-fail); }
+
+.adm-cut-fail {
+  color: var(--st-fail);
+  font-size: var(--st-fs-sm);
+}
+
+/* The bin */
+
+.adm-cut-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem 0.8rem;
+  border: 1px dashed var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
 .adm-cut-drop:hover,
-.adm-cut-drop.phx-drop-target-active { border-color: var(--adm-act); color: var(--ink); }
+.adm-cut-drop.phx-drop-target-active {
+  background: var(--st-raised);
+  border-color: var(--st-accent);
+  color: var(--st-ink);
+}
 
 .adm-cut-file {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   cursor: pointer;
 }
 
 .adm-cut-uploading {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.2rem 0.5rem;
-  font-family: var(--font-data);
-  font-size: 0.7rem;
+  font-size: var(--st-fs-sm);
 }
 
-.adm-cut-uploading progress { grid-column: 1 / -1; width: 100%; }
-.adm-cut-camera { width: 100%; background: var(--paper-deep); }
+.adm-cut-uploading-name {
+  overflow: hidden;
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-cut-uploading progress { grid-column: 1 / -1; }
+
+.adm-cut-bench progress {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--st-accent);
+}
+
+.adm-cut-recorder .adm-btn { width: 100%; }
+
+/* The dot is the button's own, so it stays when the hook writes the label. */
+.adm-cut-recorder [data-role="record"]::before {
+  content: "";
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--st-fail);
+}
+
+.adm-cut-camera {
+  width: 100%;
+  background: var(--st-bay);
+  border-radius: var(--st-radius-sm);
+}
 
 .adm-cut-media {
   margin: 0;
@@ -359,29 +770,60 @@
 }
 
 .adm-cut-file-row {
+  --tint: var(--tint-take);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid var(--rule);
-  font-size: 0.75rem;
+  gap: 0.3rem;
+  padding: 0.7rem 1rem 0.7rem 1.2rem;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.adm-cut-file-row.is-audio { --tint: var(--tint-sound); }
+
+/* The tint is the same as the clip's on the timeline. */
+.adm-cut-file-row::before {
+  content: "";
+  position: absolute;
+  top: 0.7rem;
+  bottom: 0.7rem;
+  left: 0;
+  width: 3px;
+  background: var(--tint);
+  border-radius: 0 2px 2px 0;
 }
 
 .adm-cut-file-name {
   overflow: hidden;
-  color: var(--ink);
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.adm-cut-file-meta { color: var(--ink-3); font-family: var(--font-data); font-size: 0.68rem; }
-.adm-cut-file-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
-.adm-cut-file-row.is-processing .adm-cut-file-name { color: var(--ink-3); }
+.adm-cut-file-meta {
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cut-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.45rem;
+}
+
+.adm-cut-file-actions .adm-btn { padding: 0 0.5rem; }
+
+.adm-cut-file-row.is-processing .adm-cut-file-name { color: var(--st-ink-3); }
 
 .adm-cut-prints {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.3rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -389,21 +831,37 @@
 
 .adm-cut-print,
 .adm-cut-print:hover {
+  position: relative;
   display: block;
   width: 100%;
   padding: 0;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
+  overflow: hidden;
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: 6px;
   cursor: copy;
 }
 
-.adm-cut-print:hover { border-color: var(--adm-act); }
+.adm-cut-print:hover { border-color: var(--st-accent); }
 
 .adm-cut-print img {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 2;
   object-fit: cover;
+}
+
+.adm-cut-print-n {
+  position: absolute;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  padding: 0 0.3rem;
+  background: color-mix(in srgb, var(--st-bay) 82%, transparent);
+  border-radius: 4px;
+  color: var(--st-ink);
+  font-family: var(--st-font-data);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The program */
@@ -415,15 +873,22 @@
   min-width: 0;
 }
 
+/* Always exactly 16:9, as the render is, so the titles stand where they will;
+   no taller than most of the window. */
+.adm-cut-stage {
+  position: relative;
+  width: min(100%, calc(56vh * 16 / 9));
+  margin: 0 auto;
+}
+
 .adm-cut-screen {
   position: relative;
   width: 100%;
-  max-height: 56vh;
   aspect-ratio: 16 / 9;
-  margin: 0 auto;
   overflow: hidden;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
   container-type: size;
 }
 
@@ -447,6 +912,21 @@
 
 .adm-cut-screen [hidden] { display: none; }
 
+.adm-cut-stage-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 1rem;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-dense);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* The picture's own colours: the render draws the same (Web.Cuts.Titles, in
+   Goudy across the middle and Plex Mono Medium, in capitals, along the foot). */
 .adm-cut-overlay--title {
   position: absolute;
   top: 50%;
@@ -472,7 +952,7 @@
   padding-left: calc(56 / 1280 * 100%);
   background: rgba(10, 9, 8, 0.62);
   color: #f3eee4;
-  font-family: var(--font-ui);
+  font-family: var(--st-font-data);
   font-size: calc(26 / 720 * 100cqh);
   letter-spacing: 0.08em;
 }
@@ -481,40 +961,105 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
 }
 
-.adm-cut-transport .adm-btn.is-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
+.adm-cut-play { width: 40px; padding: 0; }
+.adm-cut-play .adm-cut-play-off { display: none; }
+
+.adm-cut-transport .adm-cut-play.is-on {
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: var(--st-on-accent);
 }
+
+.adm-cut-transport .adm-cut-play.is-on .adm-cut-play-on { display: none; }
+.adm-cut-transport .adm-cut-play.is-on .adm-cut-play-off { display: inline-block; }
 
 .adm-cut-timecode,
 .adm-cut-length {
-  color: var(--ink);
-  font-family: var(--font-data);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.85rem;
 }
 
-.adm-cut-length { color: var(--ink-3); }
+.adm-cut-timecode {
+  min-width: 5.5ch;
+  color: var(--st-ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.adm-cut-length {
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-dense);
+}
+
+.adm-cut-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
 
 .adm-cut-zoom {
   margin-left: auto;
-  color: var(--ink-3);
-  font-size: 0.7rem;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-cut-zoom label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-cut-zoom input[type="range"] {
+  width: 8rem;
+  accent-color: var(--st-accent);
+}
+
+.adm-cut-kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0 0.35em;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
+  border-radius: 4px;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-ui);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.adm-cut-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-cut-fig {
+  font-family: var(--st-font-data);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The timeline */
 
 .adm-cut-timeline {
-  --track-name-w: 72px;
+  --track-name-w: 84px;
   --span: calc(var(--track-name-w) + (var(--length) + 10) * var(--pps) * 1px);
   position: relative;
   overflow-x: auto;
-  border: 1px solid var(--rule);
-  background: var(--paper-sunk);
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
   user-select: none;
 }
 
@@ -522,22 +1067,25 @@
   position: relative;
   width: var(--span);
   min-width: 100%;
-  height: 22px;
-  border-bottom: 1px solid var(--rule);
-  background-image: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px calc(var(--pps) * 1px));
-  background-position: var(--track-name-w) 0;
+  height: 26px;
+  background-color: var(--st-raised);
+  background-image: repeating-linear-gradient(to right, var(--st-line-strong) 0 1px, transparent 1px calc(var(--pps) * 1px));
+  background-position: var(--track-name-w) 100%;
   background-repeat: repeat-x;
+  background-size: auto 9px;
+  border-bottom: 1px solid var(--st-line);
   cursor: text;
 }
 
 .adm-cut-mark {
   position: absolute;
-  top: 3px;
+  top: 5px;
   left: calc(var(--track-name-w) + var(--at) * var(--pps) * 1px);
-  padding-left: 3px;
-  color: var(--ink-3);
-  font-family: var(--font-data);
-  font-size: 0.62rem;
+  padding-left: 4px;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
 
@@ -546,10 +1094,15 @@
   width: var(--span);
   min-width: 100%;
   height: 44px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--st-line);
 }
 
-.adm-cut-track--picture { height: 60px; }
+.adm-cut-track--picture {
+  height: 60px;
+  background-color: color-mix(in srgb, var(--st-bay) 50%, var(--st-surface));
+}
+
+.adm-cut-track--sound { border-bottom: 0; }
 
 /* Titles and sounds that overlap stack in rows (--lane), and the track is as
    tall as its rows (--lanes). */
@@ -566,60 +1119,113 @@
 .adm-cut-track-name {
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   align-items: center;
+  gap: 0.45rem;
   width: var(--track-name-w);
   height: 100%;
-  padding-left: 0.5rem;
-  background: var(--paper-raised);
-  border-right: 1px solid var(--rule);
-  color: var(--ink-3);
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  padding-left: 0.65rem;
+  background: var(--st-surface);
+  border-right: 1px solid var(--st-line);
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+}
+
+.adm-cut-track-name::before {
+  content: "";
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--st-ink-3);
+  border-radius: 2px;
+}
+
+.adm-cut-track--titles .adm-cut-track-name::before { background: var(--tint-title); }
+.adm-cut-track--sound .adm-cut-track-name::before { background: var(--tint-sound); }
+
+.adm-cut-track--picture .adm-cut-track-name::before {
+  background: linear-gradient(135deg, var(--tint-take) 50%, var(--tint-still) 50%);
 }
 
 .adm-cut-block {
-  --tint: var(--adm-info);
+  --tint: var(--tint-take);
   position: absolute;
   top: 5px;
   bottom: 5px;
   left: calc(var(--track-name-w) + var(--at) * var(--pps) * 1px);
-  width: max(calc(var(--len) * var(--pps) * 1px), 6px);
   display: flex;
   align-items: center;
+  width: max(calc(var(--len) * var(--pps) * 1px), 6px);
   overflow: hidden;
-  background: color-mix(in srgb, var(--tint) 32%, var(--paper));
-  border: 1px solid var(--tint);
-  color: var(--ink);
-  font-size: 0.7rem;
+  container-type: inline-size;
+  background: color-mix(in srgb, var(--tint) 28%, var(--st-raised));
+  border: 1px solid color-mix(in srgb, var(--tint) 75%, transparent);
+  border-radius: 6px;
+  color: var(--st-ink);
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
   cursor: grab;
   touch-action: none;
 }
 
-.adm-cut-block--take { --tint: var(--adm-info); }
-.adm-cut-block--still { --tint: var(--adm-live); }
-.adm-cut-block--title { --tint: var(--adm-held); }
-.adm-cut-block--sound { --tint: var(--adm-act); }
-.adm-cut-block.is-selected { outline: 2px solid var(--ink); outline-offset: -1px; z-index: 1; }
+.adm-cut-block--take { --tint: var(--tint-take); }
+.adm-cut-block--still { --tint: var(--tint-still); }
+.adm-cut-block--title { --tint: var(--tint-title); }
+.adm-cut-block--sound { --tint: var(--tint-sound); }
+
+.adm-cut-block.is-selected {
+  z-index: 1;
+  background: color-mix(in srgb, var(--tint) 42%, var(--st-raised));
+  outline: 2px solid var(--st-ink);
+  outline-offset: -2px;
+}
 
 .adm-cut-block-label {
   flex: 1;
   min-width: 0;
-  padding: 0 0.4rem;
+  padding: 0 0.45rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
 }
 
-.adm-cut-handle {
+.adm-cut-block-time {
   flex: none;
-  width: 8px;
+  padding-right: 0.4rem;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-data);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* A block too narrow for its length leaves the name the room. */
+@container (max-width: 7rem) {
+  .adm-cut-block-time { display: none; }
+}
+
+.adm-cut-handle {
+  position: relative;
+  flex: none;
+  width: 9px;
   height: 100%;
-  background: color-mix(in srgb, var(--tint) 60%, transparent);
+  background: color-mix(in srgb, var(--tint) 55%, transparent);
   cursor: ew-resize;
+}
+
+.adm-cut-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 40%;
+  background: color-mix(in srgb, var(--st-ink) 70%, transparent);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
 }
 
 .adm-cut-playhead {
@@ -627,37 +1233,168 @@
   top: 0;
   bottom: 0;
   left: var(--track-name-w);
-  z-index: 3;
+  z-index: 2;
   width: 2px;
-  background: var(--adm-act);
+  margin-left: -1px;
+  background: var(--st-ink);
   pointer-events: none;
 }
 
-/* The inspector and the list */
-
-.adm-cut-inspect-print { width: 100%; background: var(--paper-deep); }
-.adm-cut-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-2); }
-.adm-cut-publish { display: flex; flex-direction: column; gap: 0.4rem; }
-.adm-cut-error pre { margin: 0.4rem 0 0; white-space: pre-wrap; color: var(--adm-fail); font-family: var(--font-data); font-size: 0.66rem; }
-
-.adm-cut-list { margin: 0; padding: 0; list-style: none; }
-
-.adm-cut-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.2rem 1rem;
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--rule);
-  color: var(--ink);
-  text-decoration: none;
+.adm-cut-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 10px;
+  height: 9px;
+  background: var(--st-ink);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
-.adm-cut-row:hover .adm-cut-row-name { color: var(--adm-act); }
-.adm-cut-row-name { font-family: var(--font-heading); font-size: 1.05rem; }
-.adm-cut-row-figures { grid-column: 1; color: var(--ink-3); font-family: var(--font-data); font-size: 0.7rem; }
-.adm-cut-row-state { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--ink-2); font-size: 0.75rem; }
+/* The inspector */
+
+.adm-cut-inspect-print {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: 6px;
+}
+
+.adm-cut-source {
+  margin: 0;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.adm-cut-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 0.75rem;
+}
+
+.adm-cut-field--wide { grid-column: 1 / -1; }
+.adm-cut-field .adm-label { margin-bottom: 0.25rem; }
+
+.adm-cut-field input[type="number"] {
+  font-family: var(--st-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cut-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 32px;
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-sm);
+}
+
+.adm-cut-publish {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.adm-cut-publish .adm-input + .adm-label { margin-top: 0.75rem; }
+
+.adm-cut-rendering {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-cut-error pre {
+  margin: 0.4rem 0 0;
+  color: var(--st-fail);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  white-space: pre-wrap;
+}
+
+.adm-cut-error summary {
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-sm);
+  cursor: pointer;
+}
+
+.adm-cut-delete {
+  align-self: flex-start;
+  margin-top: 0.4rem;
+}
+
+/* ── Narrower screens ─────────────────────────────────────────────── */
 
 @media (max-width: 1200px) {
-  .adm-cut-bench { grid-template-columns: minmax(0, 1fr); }
-  .adm-cut-bin, .adm-cut-inspector { position: static; max-height: none; }
+  .adm-booth { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The program takes the width, and the desk sits beneath it in two. */
+@media (max-width: 1180px) {
+  .adm-cut-bench {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    grid-template-areas:
+      "main main"
+      "insp bin";
+  }
+}
+
+@media (max-width: 900px) {
+  .adm-log {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .adm-log .adm-item-actions {
+    grid-column: 1 / -1;
+    width: auto;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .adm-cut-bench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "main"
+      "insp"
+      "bin";
+  }
+
+  .adm-cut-zoom {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .adm-cut-zoom input[type="range"] { flex: 1; width: auto; }
+  .adm-cut-tools { margin-left: 0; }
+  .adm-cut-keys { display: none; }
+  .adm-cut-new { width: 100%; }
+  .adm-cut-new .adm-input { flex: 1 1 10rem; width: auto; }
+}
+
+@media (max-width: 640px) {
+  .theater-row { grid-template-columns: minmax(0, 1fr); }
+
+  .theater-step { flex: 1 1 calc(50% - 0.25rem); }
+  .theater-step + .theater-step::before { display: none; }
+
+  .theater-controls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "modes"
+      "devices"
+      "record"
+      "note"
+      "error";
+  }
+
+  .theater-devices { justify-content: flex-start; }
+  .theater-device { flex: 1 1 9rem; }
+  .theater-device select { width: 100%; max-width: none; min-height: 44px; }
+  .theater-mode { min-height: 44px; }
+  .theater-trim { grid-template-columns: minmax(0, 1fr); }
 }
