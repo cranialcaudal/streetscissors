@@ -132,10 +132,10 @@ defmodule Web.Fitness.TrainingTest do
     assert %{week: 2, pain: 1.0, sleep: 7.5} = Enum.at(rows8, 1)
 
     sore = [%{date: ~D[2026-11-02], pain: 6, sleep_hours: nil, energy: nil}]
+
     assert %{answer: "Not as hoped: pain stopped the block on 1 day."} =
              Training.report(rows, @block, weeks, sore, [2, 3])
 
     assert %{answer: nil} = Training.report(rows, @block, [1, 2, 3], calm, [2, 3])
   end
 end
-
