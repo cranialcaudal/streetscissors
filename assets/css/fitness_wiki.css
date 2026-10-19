@@ -462,3 +462,17 @@
   .wiki-tags,
   .wiki-overlay { display: none; }
 }
+
+/* The admin's record of an exercise (FitnessLive.Show's `#wiki-history`). */
+.wiki-history { margin-top: 1.5rem; }
+.wiki-history-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin: 0 0 1rem;
+}
+.wiki-history-facts dt { font-family: var(--font-ui); font-size: 0.75rem; color: var(--ink-3); }
+.wiki-history-facts dd { margin: 0; font-family: var(--font-data); color: var(--ink); }
+.wiki-history-recent { margin: 1rem 0 0; padding-left: 0; list-style: none; }
+.wiki-history-recent li { padding: 0.25rem 0; border-top: 1px solid var(--rule); font-size: 0.9rem; }
+.wiki-history-date { display: inline-block; min-width: 4.5rem; font-family: var(--font-data); color: var(--ink-3); }

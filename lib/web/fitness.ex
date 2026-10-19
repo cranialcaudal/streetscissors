@@ -116,6 +116,17 @@ defmodule Web.Fitness do
     )
   end
 
+  @doc "Every entry for an exercise by its slug, exercise loaded; `[]` when it has none."
+  def exercise_logs_for(slug) when is_binary(slug) do
+    Repo.all(
+      from l in ExerciseLog,
+        join: e in assoc(l, :exercise),
+        where: e.slug == ^slug,
+        order_by: [asc: l.date, asc: l.id],
+        preload: [exercise: e]
+    )
+  end
+
   @doc "Everything logged on a day, in the order it was entered, exercise loaded."
   def exercise_logs_on(%Date{} = date) do
     Repo.all(

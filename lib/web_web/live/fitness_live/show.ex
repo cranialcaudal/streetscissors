@@ -1,12 +1,27 @@
 defmodule WebWeb.FitnessLive.Show do
   use WebWeb, :live_view
 
-  alias Web.Fitness.Vault
+  alias Web.Fitness.{Training, Vault}
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, socket}
+  def mount(_params, session, socket) do
+    {:ok, assign(socket, is_admin: session["admin_user"] == true, history: nil)}
   end
+
+  defp assign_history(%{assigns: %{is_admin: true}} = socket, slug) do
+    logs = Web.Fitness.exercise_logs_for(slug)
+    by_id = Map.new(logs, &{&1.id, &1})
+
+    history =
+      case Training.history(Training.entries(logs), slug) do
+        nil -> nil
+        h -> %{h | recent: Enum.map(h.recent, &Map.put(&1, :log, by_id[&1.id]))}
+      end
+
+    assign(socket, :history, history)
+  end
+
+  defp assign_history(socket, _slug), do: assign(socket, :history, nil)
 
   @impl true
   def handle_params(%{"slug" => slug} = params, _, socket) do
@@ -28,6 +43,7 @@ defmodule WebWeb.FitnessLive.Show do
          |> assign(:return_to, "/fitness/wiki")
          |> assign(:return_label, "return to exercise wiki")
          |> assign(:exercise, exercise)
+         |> assign_history(slug)
          |> assign_figure(exercise)
          |> assign(:tag_overlay, tag_overlay)
          |> assign(:tag_label, tag_label)
@@ -175,6 +191,49 @@ defmodule WebWeb.FitnessLive.Show do
       <div class="glass-panel markdown-body wiki-body">
         {raw(@exercise.html)}
       </div>
+
+      <%!-- The admin's own record of the exercise. A visitor's page has no
+            trace of it: `@history` is only ever read for the admin. --%>
+      <section
+        :if={@history}
+        class="glass-panel wiki-history"
+        id="wiki-history"
+        aria-label="Your history"
+      >
+        <h3 class="wiki-sources-title">Your history</h3>
+        <dl class="wiki-history-facts">
+          <div>
+            <dt>Entries</dt>
+            <dd>{@history.count}</dd>
+          </div>
+          <div>
+            <dt>First</dt>
+            <dd>{Calendar.strftime(@history.first.date, "%-d %b %Y")}</dd>
+          </div>
+          <div :if={@history.best}>
+            <dt>Best e1RM</dt>
+            <dd>
+              {round(@history.best.e1rm)} lb, {Calendar.strftime(@history.best.date, "%-d %b")}
+            </dd>
+          </div>
+        </dl>
+        <WebWeb.FitnessCharts.line_chart
+          :if={length(@history.series) > 1}
+          id="wiki-history-e1rm"
+          title="Estimated one-rep max"
+          xs={
+            Enum.map(@history.series, fn {date, _} -> {date, Calendar.strftime(date, "%-d %b")} end)
+          }
+          series={[%{name: @exercise.name, values: Map.new(@history.series)}]}
+          unit="lb"
+        />
+        <ol class="wiki-history-recent">
+          <li :for={entry <- @history.recent}>
+            <span class="wiki-history-date">{Calendar.strftime(entry.date, "%-d %b")}</span>
+            {WebWeb.FitnessLive.Index.log_line(entry.log)}
+          </li>
+        </ol>
+      </section>
 
       <%!-- Verified PubMed / DOI citations, resolved from the shared bibliography. --%>
       <section :if={@exercise.references != []} class="glass-panel wiki-sources" aria-label="Sources">

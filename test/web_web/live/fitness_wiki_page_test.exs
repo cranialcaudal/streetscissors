@@ -131,4 +131,40 @@ defmodule WebWeb.FitnessWikiPageTest do
     refute main =~ ~r/style="[^"]*#[0-9a-fA-F]{3,6}/
     refute main =~ "rgba("
   end
+
+  describe "the admin's history on a page" do
+    setup do
+      {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+      for {date, weight} <- [{~D[2026-10-27], "20 lbs"}, {~D[2026-11-03], "25 lbs"}] do
+        {:ok, _} =
+          Web.Fitness.create_exercise_log(%{
+            exercise_id: exercise.id,
+            date: date,
+            metrics: %{"weight" => weight, "sets" => "3", "reps" => "10"}
+          })
+      end
+
+      :ok
+    end
+
+    test "the admin sees the record and its line", %{conn: conn} do
+      conn = Plug.Test.init_test_session(conn, %{"admin_user" => true})
+      {:ok, _view, html} = live(conn, ~p"/fitness/wiki/push-ups")
+
+      assert html =~ ~s(id="wiki-history")
+      assert html =~ "Best e1RM"
+      assert html =~ "33 lb"
+      assert html =~ ~s(id="wiki-history-e1rm")
+      assert html =~ "25 lbs · 3 x 10"
+    end
+
+    test "a visitor's page has no trace of it", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/fitness/wiki/push-ups")
+
+      refute html =~ "wiki-history"
+      refute html =~ "Your history"
+      refute html =~ "25 lbs"
+    end
+  end
 end

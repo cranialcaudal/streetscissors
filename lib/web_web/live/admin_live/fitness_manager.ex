@@ -4,7 +4,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
   a markdown file under `content/fitness/` (`Web.Fitness.Vault`), so the vault
   in Obsidian and this page write the same files.
 
-  Which list is showing is in the URL (`?tab=wiki|regimen`). Editing opens in
+  Which list is showing is in the URL (`?tab=wiki|regimen|progress`); the
+  progress tab is the training block's charts (`WebWeb.FitnessCharts`). Editing opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
   """
@@ -13,9 +14,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   import WebWeb.AdminComponents
 
-  alias Web.Fitness.Vault
+  alias Web.Fitness.{Block, Training, Vault}
 
-  @tabs ~w(wiki regimen)
+  @tabs ~w(wiki regimen progress)
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -39,8 +40,32 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   def handle_params(params, _uri, socket) do
     tab = if params["tab"] in @tabs, do: params["tab"], else: "wiki"
-    {:noreply, assign(socket, tab: tab, editor_mode: nil, editing_item: nil)}
+
+    {:noreply,
+     socket
+     |> assign(tab: tab, editor_mode: nil, editing_item: nil)
+     |> assign_progress(tab)}
   end
+
+  # The block's figures are read only for the tab that shows them.
+  defp assign_progress(socket, "progress") do
+    today = Web.Clock.local_today()
+
+    case Block.latest(today) do
+      nil ->
+        assign(socket, block: nil)
+
+      block ->
+        assign(socket,
+          block: block,
+          entries: Training.all_entries(block),
+          weeks: Training.weeks_so_far(block, today),
+          started?: Date.compare(today, block.start) != :lt
+        )
+    end
+  end
+
+  defp assign_progress(socket, _tab), do: socket
 
   # --- The lists ---
 
@@ -239,10 +264,41 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <:tab patch={~p"/admin/fitness?tab=regimen"} active={@tab == "regimen"} count={length(@days)}>
           Regimen
         </:tab>
+        <:tab patch={~p"/admin/fitness?tab=progress"} active={@tab == "progress"}>
+          Progress
+        </:tab>
       </.tabs>
 
-      {if @tab == "wiki", do: render_exercises(assigns), else: render_days(assigns)}
+      {case @tab do
+        "wiki" -> render_exercises(assigns)
+        "regimen" -> render_days(assigns)
+        "progress" -> render_progress(assigns)
+      end}
     <% end %>
+    """
+  end
+
+  defp render_progress(%{block: nil} = assigns) do
+    ~H"""
+    <.empty>
+      No training block in the vault. A block is a file in <code>content/fitness/blocks/</code>.
+    </.empty>
+    """
+  end
+
+  defp render_progress(assigns) do
+    ~H"""
+    <section class="adm-fit-progress" id="fitness-progress">
+      <p class="adm-fit-block">
+        <strong>{@block.title}</strong>
+        <%= if @started? do %>
+          · Week {@block.week} of {@block.weeks} — {@block.phase}
+        <% else %>
+          · begins {Calendar.strftime(@block.start, "%-d %B %Y")}
+        <% end %>
+      </p>
+      <WebWeb.FitnessCharts.block_charts block={@block} entries={@entries} weeks={@weeks} />
+    </section>
     """
   end
 

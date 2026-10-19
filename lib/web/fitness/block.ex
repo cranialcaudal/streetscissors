@@ -46,6 +46,32 @@ defmodule Web.Fitness.Block do
     end)
   end
 
+  @doc """
+  The block to report on for `date`: the one running, else the latest to
+  have started, else the next to start, with the week clamped into its
+  length (week 1 before it begins). Nil when the vault has no block.
+  """
+  def latest(%Date{} = date) do
+    blocks = load()
+
+    block =
+      current(date) ||
+        blocks |> Enum.filter(&(Date.compare(&1.start, date) != :gt)) |> List.last() ||
+        List.first(blocks)
+
+    case block do
+      nil ->
+        nil
+
+      %{week: _} = running ->
+        running
+
+      block ->
+        week = (div(Date.diff(date, block.start), 7) + 1) |> max(1) |> min(block.weeks)
+        Map.merge(block, %{week: week, phase: block.phases[week]})
+    end
+  end
+
   @doc "A lift's rule in a block, or nil when the block does not track it."
   def lift(%{lifts: lifts}, slug), do: Map.get(lifts, slug)
   def lift(_block, _slug), do: nil

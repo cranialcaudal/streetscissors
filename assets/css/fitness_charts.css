@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════════════════════
+   The training block's charts (WebWeb.FitnessCharts): inline SVG drawn in
+   the admin's progress tab and block report, and on a wiki page for the
+   admin. Each colour reads the studio's token first and the site's
+   pigment second, so one chart is legible under either. No literal colour.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.fc-grid-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 1.5rem;
+}
+
+.fc-chart { margin: 0; min-width: 0; }
+
+.fc-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--st-font-ui, var(--font-ui));
+  font-size: 0.9rem;
+  color: var(--st-ink-2, var(--ink-2));
+}
+
+.fc-svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.fc-grid { stroke: var(--st-line, var(--rule)); stroke-width: 1; }
+.fc-rule { stroke: var(--st-fail, var(--color-orange)); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.fc-band { fill: var(--st-ok, var(--color-jade)); opacity: 0.12; }
+
+.fc-tick {
+  font-family: var(--st-font-data, var(--font-data));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--st-ink-3, var(--ink-3));
+}
+
+.fc-series-0 { --fc-colour: var(--st-training, var(--color-orange)); }
+.fc-series-1 { --fc-colour: var(--st-writing, var(--color-dodger)); }
+.fc-series-2 { --fc-colour: var(--st-darkroom, var(--color-jade)); }
+.fc-series-3 { --fc-colour: var(--st-cuts, var(--ink-2)); }
+.fc-series-4 { --fc-colour: var(--st-mail, var(--ink-3)); }
+.fc-series-5 { --fc-colour: var(--st-ink-2, var(--ink)); }
+
+.fc-line { fill: none; stroke: var(--fc-colour); stroke-width: 2; stroke-linejoin: round; }
+.fc-dot { fill: var(--fc-colour); }
+
+.fc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--st-ink-2, var(--ink-2));
+}
+
+.fc-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.35rem;
+  vertical-align: -1px;
+  background: var(--fc-colour);
+}
+
+.fc-bars { margin: 0; display: grid; gap: 0.4rem; }
+.fc-bar-row { display: grid; grid-template-columns: 3rem 1fr; align-items: center; gap: 0.5rem; }
+.fc-bar-row dt,
+.fc-bar-note {
+  font-family: var(--st-font-data, var(--font-data));
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--st-ink-3, var(--ink-3));
+}
+.fc-bar-row dd { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.fc-bar { display: block; height: 0.9rem; background: var(--st-training, var(--color-orange)); }
+
+.fc-empty { margin: 0; font-size: 0.85rem; color: var(--st-ink-3, var(--ink-3)); }
+
+/* The progress tab's head line. */
+.adm-fit-block { margin: 0 0 1.25rem; color: var(--st-ink-2); }

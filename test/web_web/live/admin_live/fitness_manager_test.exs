@@ -52,4 +52,24 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
     assert has_element?(view, "button[phx-click=delete_exercise][data-confirm]")
   end
+
+  test "the progress tab draws the block's charts", %{conn: conn} do
+    {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+    {:ok, _} =
+      Web.Fitness.create_exercise_log(%{
+        exercise_id: exercise.id,
+        date: Web.Clock.local_today(),
+        metrics: %{"weight" => "20 lbs", "sets" => "3", "reps" => "10"}
+      })
+
+    {:ok, _view, html} = live(admin_conn(conn), "/admin/fitness?tab=progress")
+
+    assert html =~ "Test Block"
+    assert html =~ ~s(id="chart-e1rm")
+    assert html =~ ~s(id="chart-compliance")
+    # One lift, one dot this week; one series needs no legend.
+    [e1rm] = Regex.run(~r{<figure class="fc-chart" id="chart-e1rm">.*?</figure>}s, html)
+    assert e1rm =~ "<circle"
+  end
 end
