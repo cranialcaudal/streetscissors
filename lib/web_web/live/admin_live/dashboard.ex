@@ -538,8 +538,9 @@ defmodule WebWeb.AdminLive.Dashboard do
 
   # ── The status strip ──────────────────────────────────────────────────
 
-  # The machine first (one item when all is well, else each check that is not
-  # as it should be), then today's traffic once it has been read, then what
+  # The machine first, as one item whatever its state (each check that is not
+  # as it should be is already a line under "Needs you", and the strip is
+  # read in passing), then today's traffic once it has been read, then what
   # is on file.
   defp strip_items(checks, monitored?, on_file, traffic) do
     machine(checks, monitored?) ++ traffic_items(traffic) ++ file_items(on_file)
@@ -554,8 +555,12 @@ defmodule WebWeb.AdminLive.Dashboard do
         [%{label: "Machine", value: "not yet looked at", tone: :warn, href: "#system"}]
 
       bad ->
-        for check <- bad,
-            do: %{label: check.label, value: check.detail, tone: check.state, href: "#system"}
+        tone = if Enum.any?(bad, &(&1.state == :fail)), do: :fail, else: :warn
+
+        value =
+          if length(bad) == 1, do: "1 check needs you", else: "#{length(bad)} checks need you"
+
+        [%{label: "Machine", value: value, tone: tone, href: "#system"}]
     end
   end
 

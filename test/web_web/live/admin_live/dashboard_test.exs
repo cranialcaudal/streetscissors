@@ -330,7 +330,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
       refute has_element?(view, "#figures .st-strip-item--fail")
     end
 
-    test "a check that is failing is an item of its own, toned", %{conn: conn} do
+    test "a failing check tones the machine once, and is named under Needs you", %{conn: conn} do
       Web.SiteSettings.put_setting(
         "monitor_state",
         Jason.encode!(%{
@@ -349,8 +349,12 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
       {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
 
-      assert has_element?(view, "#figures .st-strip-item--fail", "Certificate")
+      # The strip says so once, in the failing tone; the check itself is named
+      # under "Needs you", not repeated in the strip.
+      assert has_element?(view, "#figures .st-strip-item--fail", "Machine")
+      refute has_element?(view, "#figures", "Certificate")
       refute has_element?(view, "#figures", "all well")
+      assert has_element?(view, "#needs-you", "Certificate: 6 days left")
     end
 
     test "the counts on file are links, and traffic arrives after the page is up", %{conn: conn} do

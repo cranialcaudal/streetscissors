@@ -1342,10 +1342,23 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     `--primary` filled with the accent, `--quiet` text only, `--danger`, `--small`; targets are at
     least 40px (44px on phones). Tables stack on a phone; **nothing scrolls sideways at 390px**.
   - **View state is in the URL** here too: `?box=` (inbox), `?show=` (guestbook, keywords),
-    `?filter=missing|drafts` (blog), `?tab=` (fitness). `/admin/dashboard` is the **Overview**: a
-    "Needs you" queue (each row a link to where the thing gets done, shown only when non-zero),
-    counts, traffic, and `Web.SystemStatus` (snapshots, the content's versions, the mirror drive,
-    Komoot's last run, ride privacy, failed mail jobs). Contact messages live at `/admin/inbox`,
+    `?filter=missing|drafts` (blog), `?tab=` (fitness). `/admin/dashboard` is **the studio**
+    (the rail's "Studio"): "Needs you" first (calm lines, each a link to where the thing gets
+    done, shown only when something waits; red only for a real failure), then a
+    `program_card/1` per program built from **`Web.Studio.floor/1`** (the roll on the scanner's
+    bench, singles owed, rolls waiting to publish, the newest edited prints as a contact strip,
+    Taste choices; cuts in progress and logs unpublished, transcoding or failed; drafts, the
+    last post, posts missing a description or keywords; today's regimen word, the newest
+    activity, Komoot's last pass; open messages, held signatures and citations), then the
+    passive `status_strip/1`: the machine as **one** item (all well, or how many checks need
+    him, in the worst tone, linking to the checks; each check is already a "Needs you" line),
+    traffic, and what is on file. `Web.SystemStatus`'s full list ("The machine in full") and
+    the most viewed pages sit in closed `<details>` under it. The page reads only stored state
+    (`Web.Monitor.last/0`, folder listings, counts); content health is a link, never computed,
+    and the year of traffic (`Analytics.get_biweekly_trends/0`, which loads every hit of 56
+    weeks: 0.6 s for 50,000) comes by `assign_async` after the page is up. **Prints**
+    (`/admin/darkroom`) is a shelf of roll cards with a "Recently edited" row, not the newest
+    roll as it was; a roll is `?roll=`. Contact messages live at `/admin/inbox`,
     and site settings at `/admin/settings` (the Spotify playlist, the newsletter's test address).
     The newsletter page holds drafts (`newsletter_drafts.status = "draft"`, which becomes the
     send's record when sent), a sandboxed preview built from `Web.Email.preview_page/2`, a `[Test]`
