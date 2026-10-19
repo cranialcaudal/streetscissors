@@ -1165,6 +1165,7 @@ defmodule Web.Scanner.Pipeline do
       {"raw-frames", "frame-#{name}.tiff"},
       {"developed", "#{name}.png"},
       {"developed", "#{name}.repaired.png"},
+      {"developed", "#{name}.candidate.png"},
       {"edits", "#{name}.json"},
       {"edits", "#{name}.mask.png"}
     ]

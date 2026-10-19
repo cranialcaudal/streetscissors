@@ -161,6 +161,42 @@ defmodule WebWeb.AdminLive.DarkroomTest do
       assert File.exists?(Darkroom.mask_path(folder, 3))
       refute has_element?(view, "button[phx-click=save][disabled]")
     end
+
+    test "Stable Diffusion's fill is looked at, then kept or discarded", %{
+      conn: conn,
+      folder: folder
+    } do
+      print = Path.join([folder, "frames", "03.png"])
+      {_, 0} = System.cmd("magick", ["-size", "30x20", "gradient:white-gray", print])
+
+      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+      view |> element("button", "Repair") |> render_click()
+      assert has_element?(view, "button[phx-click=diffuse][disabled]")
+      view |> element("button", "Find scanner lines") |> render_click()
+      render_async(view)
+
+      view |> element("button", "Fill with Stable Diffusion") |> render_click()
+      render_async(view)
+      assert render(view) =~ "Stable Diffusion filled 1 place."
+      assert has_element?(view, ~s|#candidate-box img[src^="/admin/darkroom/candidate/007/3"]|)
+      refute has_element?(view, "#repair-box")
+      assert conn |> admin_conn() |> get(~p"/admin/darkroom/candidate/007/3") |> response(200)
+      assert conn |> get(~p"/admin/darkroom/candidate/007/3") |> response(404)
+
+      view |> element("button", "Show before") |> render_click()
+      assert has_element?(view, ~s|#candidate-box img[src="/admin/darkroom/developed/007/3"]|)
+
+      view |> element("button", "Discard it") |> render_click()
+      refute File.exists?(Darkroom.candidate_path(folder, 3))
+      assert has_element?(view, "#repair-box")
+
+      view |> element("button", "Fill with Stable Diffusion") |> render_click()
+      render_async(view)
+      view |> element("button", "Keep the fill") |> render_click()
+      assert render(view) =~ "The fill is the repair now."
+      assert Darkroom.source_path(folder, 3) == Darkroom.repaired_path(folder, 3)
+      refute has_element?(view, "button[phx-click=save][disabled]")
+    end
   end
 
   test "an unknown print is not a page", %{conn: conn} do

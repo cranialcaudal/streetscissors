@@ -77,6 +77,47 @@ defmodule Web.Darkroom.RepairTest do
       assert Darkroom.dimensions(Darkroom.repaired_path(folder, 3)) == {20, 40}
     end
 
+    test "Stable Diffusion's fill is a candidate until it is kept", %{folder: folder} do
+      assert {:error, _} = Repair.diffuse(folder, 3)
+
+      {:ok, _} = Repair.find_lines(folder, 3)
+      assert {:ok, %{lines: 1, places: 1}} = Repair.diffuse(folder, 3)
+      assert Repair.candidate?(folder, 3)
+      refute Repair.repaired?(folder, 3)
+      assert Darkroom.source_path(folder, 3) == Darkroom.base_path(folder, 3)
+
+      :ok = Repair.discard(folder, 3)
+      refute Repair.candidate?(folder, 3)
+      assert {:error, _} = Repair.keep(folder, 3)
+
+      {:ok, _} = Repair.diffuse(folder, 3)
+      :ok = Repair.keep(folder, 3)
+      refute Repair.candidate?(folder, 3)
+      assert Darkroom.source_path(folder, 3) == Darkroom.repaired_path(folder, 3)
+
+      {:ok, _} = Repair.diffuse(folder, 3)
+      :ok = Darkroom.revert(folder, 3)
+      refute Repair.candidate?(folder, 3)
+    end
+
+    test "one fill at a time on the machine", %{folder: folder} do
+      {:ok, _} = Repair.find_lines(folder, 3)
+      parent = self()
+
+      holder =
+        spawn(fn ->
+          true = :global.set_lock({Repair.Diffusion, self()}, [node()])
+          send(parent, :held)
+          receive do: (:done -> :ok)
+        end)
+
+      assert_receive :held
+      assert {:error, reason} = Repair.diffuse(folder, 3)
+      assert reason =~ "already filling"
+      refute Repair.candidate?(folder, 3)
+      send(holder, :done)
+    end
+
     test "a failed repair says so and changes nothing", %{folder: folder} do
       {:ok, _} = Repair.find_lines(folder, 3)
       System.put_env("STUB_FILM_REPAIR_FAIL", "1")

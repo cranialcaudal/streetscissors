@@ -6,7 +6,8 @@
 #   detect IMAGE MASK --lines   a black mask the picture's size with one
 #                               white line across it
 #   lama IMAGE MASK OUT ...     copies IMAGE to OUT, saying one line was
-#                               corrected and one place painted
+#   diffuse IMAGE MASK OUT ...  corrected and one place painted, after a line
+#                               of its own as PyTorch's libraries print
 #
 # STUB_FILM_REPAIR_FAIL=1 fails instead.
 set -euo pipefail
@@ -19,7 +20,8 @@ case "$1" in
   detect)
     magick "$2" -fill black -colorize 100 -fill white -draw "rectangle 0,2 10000,3" -colorspace Gray "$3"
     echo '{"lines": 1, "marked": 0.01}' ;;
-  lama)
+  lama|diffuse)
+    echo "Loading weights: 100%"
     cp "$2" "$4"
     echo '{"lines": 1, "windows": 1, "repaired": 0.01}' ;;
 esac

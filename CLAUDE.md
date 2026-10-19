@@ -1018,6 +1018,18 @@ components, plugs in `lib/web_web/`. The pieces that take reading several files 
     loss of red, and green and blue kept every row under the bar. LaMa works in 512-pixel
     windows at full resolution, at most 1.2 GB. Turn, revert, redevelop and deleting a print
     carry or remove the mask and the repair.
+  - **Stable Diffusion fills large damage as a candidate** (`Repair.diffuse/2`,
+    `developed/NN.candidate.png`, shown in the editor with Show before, Keep, Discard): it
+    invents (over a shelf it stood a canister that was never there), so nothing it makes is
+    used until kept. SD 1.5 inpainting in its own Python (`:sd_python`, `:sd_model`). **It runs
+    under `systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 nice -n 19`**
+    (`:sd_memory_max`, nil in the suite): its first try loaded whole, needed 5 GB, and the
+    kernel's global OOM killer took it on this machine, which is also the server. Under the cap
+    the kernel stops it alone. It fits in 2.1 GB by loading its parts one after another with
+    `malloc_trim` between, and by working each layer at full precision on a borrowed copy of its
+    half-precision weights (`lift/1`); diffusers' own layerwise casting hooks the whole UNet
+    when given nothing to skip, and rewrites every layer after use, which crept past 3 GB.
+    About two minutes a window; one at a time on the machine (`:global.trans`).
   - **A crop's edges are snapped to whole pixels** (`Darkroom.commands/2` with the picture's
     size): LightCraft resamples a crop whose edge falls between pixels, and a measured slide lost
     two fifths of its fine detail that way.

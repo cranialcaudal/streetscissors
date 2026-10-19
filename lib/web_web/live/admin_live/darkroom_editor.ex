@@ -64,6 +64,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           masked: Repair.mask?(dir, frame),
           repaired: Repair.repaired?(dir, frame),
           repair_unsaved: repair_unsaved?(dir, frame),
+          candidate: Repair.candidate?(dir, frame),
+          comparing: false,
+          candidate_stamp: System.system_time(:millisecond),
           on_print: Darkroom.edited?(dir, frame),
           mask_stamp: System.system_time(:millisecond),
           working: nil,
@@ -358,7 +361,40 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
      |> open(Darkroom.source_path(dir, frame))}
   end
 
-  def handle_event(event, _params, socket) when event in ["find_lines", "lama"],
+  def handle_event("diffuse", _params, %{assigns: %{working: nil}} = socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(working: :diffuse)
+     |> start_async(:repair, fn -> {:diffuse, Repair.diffuse(dir, frame)} end)}
+  end
+
+  def handle_event("compare", _params, socket),
+    do: {:noreply, assign(socket, comparing: !socket.assigns.comparing)}
+
+  def handle_event("keep_candidate", _params, socket) do
+    %{dir: dir, frame: frame} = socket.assigns
+
+    case Repair.keep(dir, frame) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(candidate: false, comparing: false, repaired: true, repair_unsaved: true)
+         |> open(Darkroom.source_path(dir, frame))
+         |> put_flash(:info, "The fill is the repair now. Save keeps it on the print.")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Not kept: #{reason}")}
+    end
+  end
+
+  def handle_event("discard_candidate", _params, socket) do
+    Repair.discard(socket.assigns.dir, socket.assigns.frame)
+    {:noreply, assign(socket, candidate: false, comparing: false)}
+  end
+
+  def handle_event(event, _params, socket) when event in ["find_lines", "lama", "diffuse"],
     do: {:noreply, socket}
 
   # ── The bench ─────────────────────────────────────────────────────────
@@ -430,6 +466,21 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
      |> put_flash(:info, "Repaired: #{done}. Save keeps it on the print.")}
   end
 
+  def handle_async(:repair, {:ok, {:diffuse, {:ok, %{places: places}}}}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       working: nil,
+       candidate: true,
+       comparing: false,
+       candidate_stamp: System.system_time(:millisecond)
+     )
+     |> put_flash(
+       :info,
+       "Stable Diffusion filled #{count(places, "place", "places")}. Look at it closely, then keep it or discard it."
+     )}
+  end
+
   def handle_async(:repair, {:ok, {_what, {:error, reason}}}, socket) do
     {:noreply, socket |> assign(working: nil) |> put_flash(:error, "Not repaired: #{reason}")}
   end
@@ -458,6 +509,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
        on_print: on_print,
        repaired: Repair.repaired?(dir, frame),
        masked: Repair.mask?(dir, frame),
+       candidate: Repair.candidate?(dir, frame),
        repair_unsaved: false,
        stamp: System.system_time(:second)
      )
@@ -711,7 +763,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </button>
         </div>
         <div
-          :if={@repairing}
+          :if={@repairing and !@candidate}
           id="repair-box"
           class="adm-dr-frame adm-dr-frame--repair"
           style={dust_box(@size)}
@@ -728,6 +780,22 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             draggable="false"
           />
           <canvas class="adm-dr-mask"></canvas>
+        </div>
+        <div
+          :if={@repairing and @candidate}
+          id="candidate-box"
+          class="adm-dr-frame"
+          style={dust_box(@size)}
+        >
+          <img
+            src={
+              if @comparing,
+                do: ~p"/admin/darkroom/developed/#{@roll}/#{@frame}",
+                else: ~p"/admin/darkroom/candidate/#{@roll}/#{@frame}?v=#{@candidate_stamp}"
+            }
+            alt={if @comparing, do: "As developed", else: "Stable Diffusion's fill"}
+            class="adm-dr-frame-picture adm-dr-frame-picture--flat"
+          />
         </div>
         <img
           :if={!@cropping and !@dusting and !@repairing}
@@ -840,7 +908,47 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </p>
         </form>
 
-        <section :if={@repairing} id="repair" class="adm-dr-section">
+        <section :if={@repairing and @candidate} id="candidate" class="adm-dr-section">
+          <div class="adm-dr-section-head">
+            <h2 class="adm-dr-section-title">Stable Diffusion's fill</h2>
+            <a
+              href={~p"/admin/darkroom/candidate/#{@roll}/#{@frame}?v=#{@candidate_stamp}"}
+              target="_blank"
+              class="adm-dr-reset"
+            >
+              Open it large
+            </a>
+          </div>
+          <button
+            type="button"
+            phx-click="compare"
+            class={["adm-btn adm-btn--small", @comparing && "is-on"]}
+            aria-pressed={to_string(@comparing)}
+          >
+            {if @comparing, do: "Show the fill", else: "Show before"}
+          </button>
+          <button
+            type="button"
+            phx-click="keep_candidate"
+            class="adm-btn adm-btn--small adm-btn--primary"
+          >
+            Keep the fill
+          </button>
+          <button
+            type="button"
+            phx-click="discard_candidate"
+            class="adm-btn adm-btn--small adm-btn--quiet"
+          >
+            Discard it
+          </button>
+          <p class="adm-dr-hint">
+            It paints what could have been there, not what was: over a shelf it may stand a
+            thing that never stood there. Look at every filled place before keeping it. Kept, it
+            is the print's repair, and Save puts it on the print.
+          </p>
+        </section>
+
+        <section :if={@repairing and !@candidate} id="repair" class="adm-dr-section">
           <div class="adm-dr-section-head">
             <h2 class="adm-dr-section-title">Repair</h2>
             <button :if={@masked} type="button" phx-click="clear_mask" class="adm-dr-reset">
@@ -883,6 +991,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             {if @working == :lama, do: "Repairing…", else: "Repair what is marked"}
           </button>
           <button
+            type="button"
+            phx-click="diffuse"
+            class="adm-btn adm-btn--small"
+            disabled={@working != nil or !@masked}
+          >
+            {if @working == :diffuse,
+              do: "Filling… (about two minutes a place)",
+              else: "Fill with Stable Diffusion"}
+          </button>
+          <button
             :if={@repaired}
             type="button"
             phx-click="undo_repair"
@@ -894,8 +1012,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             Paint over scratches, hairs and other marks on the picture as it was developed, or let
             it find the scanner's lines. A scanner line is corrected, so what was under it comes
             back as it was; anything else marked is painted by LaMa from what is around it, at the
-            picture's own size, with the grain put back (about seven seconds a place). {if @repaired,
-              do: "This print is repaired."}
+            picture's own size, with the grain put back (about seven seconds a place). For large
+            damage, Stable Diffusion fills what is marked instead, and shows you its fill before
+            anything is kept. {if @repaired, do: "This print is repaired."}
           </p>
         </section>
 

@@ -88,6 +88,8 @@ config :web, :cuts_async, false
 # The print editor's repairs (Web.Darkroom.Repair): a stub stands in for the
 # Python that runs LaMa.
 config :web, :film_repair_python, Path.expand("../test/support/stub_film_repair", __DIR__)
+config :web, :sd_python, Path.expand("../test/support/stub_film_repair", __DIR__)
+config :web, :sd_memory_max, nil
 
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.

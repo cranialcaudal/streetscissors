@@ -44,12 +44,21 @@ defmodule WebWeb.DarkroomController do
   A frame as it was developed, marks and all, 2000 pixels on its long side,
   for the repair mask to be painted over. Made on request.
   """
-  def developed(conn, %{"roll" => roll, "frame" => frame}) do
+  def developed(conn, params) do
+    send_scaled(conn, params, fn dir, frame ->
+      base = Web.Darkroom.base_path(dir, frame)
+      if File.regular?(base), do: base, else: Web.Darkroom.print_path(dir, frame)
+    end)
+  end
+
+  @doc "Stable Diffusion's fill of a frame, to the admin, to be looked at before it is kept."
+  def candidate(conn, params), do: send_scaled(conn, params, &Web.Darkroom.candidate_path/2)
+
+  defp send_scaled(conn, %{"roll" => roll, "frame" => frame}, path_of) do
     with true <- !!get_session(conn, "admin_user"),
          {:ok, dir} <- Web.Negatives.roll_dir(roll),
          {frame, ""} <- Integer.parse(frame),
-         base = Web.Darkroom.base_path(dir, frame),
-         path = if(File.regular?(base), do: base, else: Web.Darkroom.print_path(dir, frame)),
+         path = path_of.(dir, frame),
          true <- File.regular?(path),
          {jpeg, 0} <-
            System.cmd(Web.Negatives.magick_bin(), [

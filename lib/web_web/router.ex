@@ -199,6 +199,7 @@ defmodule WebWeb.Router do
       get "/admin/darkroom/picture/:token/:file", DarkroomController, :picture
       get "/admin/darkroom/mask/:roll/:frame", DarkroomController, :mask
       get "/admin/darkroom/developed/:roll/:frame", DarkroomController, :developed
+      get "/admin/darkroom/candidate/:roll/:frame", DarkroomController, :candidate
       live "/admin/inbox", AdminLive.Inbox
       live "/admin/guestbook", AdminLive.GuestbookManager
       live "/admin/citations", AdminLive.Citations

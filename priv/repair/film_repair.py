@@ -39,11 +39,14 @@ Carve/LaMa-ONNX) runs on the CPU by onnxruntime:
   measured per channel and drawn again into what was repaired.
 
 diffuse repairs large damage with Stable Diffusion 1.5 inpainting
-(CreativeML OpenRAIL-M), in the same windows, with the same easing and
-grain. It invents what was there, so its result is only ever a candidate the
-author looks at before keeping, and it runs under a Python of its own
-(PyTorch on the CPU, diffusers). The prompt asks for nothing but the film;
-the seed is fixed, so the same mask gives the same candidate.
+(CreativeML OpenRAIL-M), lines corrected first as lama does, in the same
+windows, with the same easing and grain. It invents what was there, so its
+result is only ever a candidate the author looks at before keeping, and it
+runs under a Python of its own (PyTorch on the CPU, diffusers). The prompt
+asks for nothing but the film; the seed is fixed, so the same mask gives the
+same candidate. It peaks at 2.1 GB (the site runs it under a 3 GB cap), and
+takes about two minutes a window at 15 steps on this machine.
+FILM_REPAIR_MEMORY=1 prints the memory it holds at each stage.
 
 Prints one JSON line saying what was done. Nothing is downloaded.
 """
@@ -258,9 +261,13 @@ def grain(f, hole, near):
     return detail[ring].std(axis=0)
 
 
-def repair(args, fill):
-    """Fills what the mask covers, window by window, with `fill(crop, hole)`,
-    taking only the marked pixels, eased in, with the grain put back."""
+def repair(args, fill=None, fill_all=None):
+    """Fills what the mask covers, window by window, taking only the marked
+    pixels, eased in, with the grain put back. `fill(rgb, hole)` fills one
+    window at a time, each seeing what the windows before it filled;
+    `fill_all([(rgb, hole), ...])` is given every window at once, as made
+    before any is filled (Stable Diffusion, which loads its parts one after
+    another)."""
     image = read(args.image)
     f, top = as_float(image)
     mask = cv2.imread(args.mask, cv2.IMREAD_GRAYSCALE)
@@ -285,31 +292,42 @@ def repair(args, fill):
     if lost.any():
         mask |= cv2.dilate(lost, np.ones((3, 3), np.uint8))
 
-    for wx, wy in windows(mask):
-        cw, ch = min(WINDOW, w), min(WINDOW, h)
+    cw, ch = min(WINDOW, w), min(WINDOW, h)
+
+    def prepare(wx, wy):
         crop = out[wy : wy + ch, wx : wx + cw].copy()
         hole = mask[wy : wy + ch, wx : wx + cw]
-        if hole.sum() == 0:
-            continue
         pad_img = crop[:, :, ::-1]
         pad_mask = hole.astype(np.float32)
         if ch < WINDOW or cw < WINDOW:
             pad_img = cv2.copyMakeBorder(pad_img, 0, WINDOW - ch, 0, WINDOW - cw, cv2.BORDER_REFLECT)
             pad_mask = cv2.copyMakeBorder(pad_mask, 0, WINDOW - ch, 0, WINDOW - cw, cv2.BORDER_CONSTANT, value=0)
-        filled = fill(np.ascontiguousarray(pad_img, np.float32), pad_mask)
-        filled = filled[:ch, :cw, ::-1].astype(np.float32)
+        return crop, hole, np.ascontiguousarray(pad_img, np.float32), pad_mask
 
+    def blend(wx, wy, crop, hole, filled):
+        filled = filled[:ch, :cw, ::-1].astype(np.float32)
         near = cv2.dilate(hole, np.ones((15, 15), np.uint8))
         sigma = grain(crop, hole, near)
         noise = rng.standard_normal(filled.shape).astype(np.float32)
         noise = cv2.GaussianBlur(noise, (0, 0), 0.6)
         noise /= noise.std() + 1e-6
         filled = filled + noise * sigma
-
         soft = cv2.GaussianBlur(cv2.dilate(hole, np.ones((3, 3), np.uint8)).astype(np.float32), (0, 0), 1.0)
         soft = np.clip(soft * 1.5, 0, 1)[:, :, None]
         out[wy : wy + ch, wx : wx + cw] = crop * (1 - soft) + filled * soft
-        done += 1
+
+    places = [(wx, wy) for wx, wy in windows(mask) if mask[wy : wy + ch, wx : wx + cw].any()]
+    if fill_all is not None:
+        jobs = [(wx, wy) + prepare(wx, wy) for wx, wy in places]
+        if jobs:
+            for (wx, wy, crop, hole, _, _), filled in zip(jobs, fill_all([(j[4], j[5]) for j in jobs])):
+                blend(wx, wy, crop, hole, filled)
+        done = len(jobs)
+    else:
+        for wx, wy in places:
+            crop, hole, pad_img, pad_mask = prepare(wx, wy)
+            blend(wx, wy, crop, hole, fill(pad_img, pad_mask))
+            done += 1
 
     out = np.clip(out, 0, 1)
     result = (out * top + 0.5).astype(image.dtype)
@@ -337,34 +355,140 @@ def lama(args):
     repair(args, fill)
 
 
+PROMPT = "a photograph on film, natural film grain"
+NEGATIVE = "text, letters, watermark, face, person, frame, border"
+
+
 def diffuse(args):
+    """Stable Diffusion 1.5 inpainting on the CPU in under 3 GB. The model's
+    parts are loaded one after another and each let go before the next: the
+    image encoder (every window's picture, masked), the text encoder (the
+    prompt), the UNet (every window's fill), the image decoder. The UNet is
+    kept at half precision and each layer worked at full precision as it is
+    reached, since this CPU does no half-precision arithmetic of its own and
+    the whole UNet at full precision is 3.4 GB. A window's latent mask covers
+    a cell more than the mark; only the mark is taken back."""
+    import ctypes
+    import gc
+    import os
+
+    # Two allocator pools, not one per thread: with PyTorch's dozen threads
+    # each keeping its own, memory let go is scattered where no part can use it.
+    libc = ctypes.CDLL("libc.so.6")
+    libc.mallopt(-8, 2)  # M_ARENA_MAX
+
     import torch
-    from diffusers import StableDiffusionInpaintPipeline
-    from PIL import Image
+    import torch.nn.functional as F
+    from diffusers import AutoencoderKL, DPMSolverMultistepScheduler, UNet2DConditionModel
+    from transformers import CLIPTextModel, CLIPTokenizer
 
-    torch.set_num_threads(max(1, (__import__("os").cpu_count() or 2) - 2))
-    pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        args.model, variant="fp16", torch_dtype=torch.float32, safety_checker=None, requires_safety_checker=False
-    )
-    pipe.set_progress_bar_config(disable=True)
+    torch.set_num_threads(max(1, (os.cpu_count() or 2) - 2))
+    model = args.model
+    half = {"variant": "fp16"}
 
-    def fill(rgb, hole):
-        picture = Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8))
-        marked = Image.fromarray((hole * 255).astype(np.uint8))
-        result = pipe(
-            prompt="a photograph on film, natural film grain",
-            negative_prompt="text, letters, watermark, face, person, frame, border",
-            image=picture,
-            mask_image=marked,
-            height=WINDOW,
-            width=WINDOW,
-            num_inference_steps=args.steps,
-            guidance_scale=6.0,
-            generator=torch.Generator().manual_seed(7),
-        ).images[0]
-        return np.asarray(result, np.float32) / 255.0
+    # Memory let go is handed back to the system, or the next part loads on
+    # top of the last one: freed, the image encoder kept the process at 0.9 GB.
+    def let_go():
+        gc.collect()
+        libc.malloc_trim(0)
 
-    repair(args, fill)
+    def lift(layer):
+        """A convolution or linear layer works at full precision on a copy of
+        its weights made as it is reached and dropped after; its own weights
+        stay as loaded, at half precision. (diffusers' layerwise casting
+        writes a new half-precision copy of every layer after each use, and
+        the allocator's fragments grew the process past 3 GB in 30 steps.)
+        The norms, under a megabyte, are simply kept at full precision."""
+        if isinstance(layer, (torch.nn.GroupNorm, torch.nn.LayerNorm)):
+            layer.to(torch.float32)
+        elif isinstance(layer, (torch.nn.Conv2d, torch.nn.Linear)):
+            kept = {name: p.data for name, p in layer.named_parameters(recurse=False)}
+
+            def before(module, _inputs):
+                for name, data in kept.items():
+                    getattr(module, name).data = data.float()
+
+            def after(module, _inputs, _output):
+                for name, data in kept.items():
+                    getattr(module, name).data = data
+
+            layer.register_forward_pre_hook(before)
+            layer.register_forward_hook(after)
+
+    def rss(what):
+        if os.environ.get("FILM_REPAIR_MEMORY"):
+            kb = int(open("/proc/self/status").read().split("VmRSS:")[1].split()[0])
+            print(f"memory {what}: {kb // 1024} MB", file=sys.stderr, flush=True)
+
+    def fill_all(jobs):
+        with torch.inference_mode():
+            # The pictures, masked, as the image encoder sees them.
+            rss("start")
+            vae = AutoencoderKL.from_pretrained(model, subfolder="vae", torch_dtype=torch.float32, **half)
+            rss("vae loaded")
+            scale = vae.config.scaling_factor
+            prepared = []
+            for rgb, hole in jobs:
+                wide = cv2.dilate((hole > 0).astype(np.uint8), np.ones((17, 17), np.uint8)).astype(np.float32)
+                image = torch.from_numpy(np.clip(rgb, 0, 1)).permute(2, 0, 1)[None] * 2 - 1
+                marked = torch.from_numpy(wide)[None, None]
+                masked = vae.encode(image * (marked < 0.5)).latent_dist.mode() * scale
+                small = F.interpolate(marked, size=masked.shape[-2:], mode="nearest")
+                prepared.append((masked, small))
+            rss("pictures encoded")
+            del vae
+            let_go()
+            rss("vae let go")
+
+            # The words.
+            tokenizer = CLIPTokenizer.from_pretrained(model, subfolder="tokenizer")
+            text = CLIPTextModel.from_pretrained(model, subfolder="text_encoder", torch_dtype=torch.float32, **half)
+
+            def embed(words):
+                ids = tokenizer(words, padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt").input_ids
+                return text(ids)[0]
+
+            context = torch.cat([embed(NEGATIVE), embed(PROMPT)])
+            del text, tokenizer
+            let_go()
+            rss("words done")
+
+            # The fills.
+            unet = UNet2DConditionModel.from_pretrained(model, subfolder="unet", torch_dtype=torch.float16, **half)
+            rss("unet loaded")
+            for layer in unet.modules():
+                lift(layer)
+            rss("unet hooked")
+            scheduler = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+            latents_out = []
+            for masked, small in prepared:
+                scheduler.set_timesteps(args.steps)
+                generator = torch.Generator().manual_seed(7)
+                latents = torch.randn(masked.shape, generator=generator) * scheduler.init_noise_sigma
+                for t in scheduler.timesteps:
+                    pair = scheduler.scale_model_input(torch.cat([latents] * 2), t)
+                    feed = torch.cat([pair, torch.cat([small] * 2), torch.cat([masked] * 2)], dim=1)
+                    noise = unet(feed, t, encoder_hidden_states=context).sample
+                    plain, guided = noise.chunk(2)
+                    latents = scheduler.step(plain + 6.0 * (guided - plain), t, latents).prev_sample
+                    rss(f"step {t}")
+                latents_out.append(latents)
+                rss("window filled")
+            del unet
+            let_go()
+            rss("unet let go")
+
+            # The pictures again.
+            vae = AutoencoderKL.from_pretrained(model, subfolder="vae", torch_dtype=torch.float32, **half)
+            filled = []
+            rss("vae loaded again")
+            for latents in latents_out:
+                image = vae.decode(latents / scale).sample[0]
+                rss("decoded")
+                filled.append(((image.permute(1, 2, 0).numpy() + 1) / 2).clip(0, 1).astype(np.float32))
+            return filled
+
+    repair(args, fill_all=fill_all)
 
 
 def main():
@@ -384,7 +508,7 @@ def main():
     g.add_argument("mask")
     g.add_argument("out")
     g.add_argument("--model", required=True)
-    g.add_argument("--steps", type=int, default=20)
+    g.add_argument("--steps", type=int, default=15)
     args = parser.parse_args()
     {"detect": detect, "lama": lama, "diffuse": diffuse}[args.command](args)
 
