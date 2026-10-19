@@ -1,60 +1,212 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN — "the composing room", the CMS behind /admin/*
+   ADMIN / base — "the studio", the CMS behind /admin/*
    ═══════════════════════════════════════════════════════════════════
-   The back office of the print shop the public site is set in. It is a
-   deliberate dark exception, in the manner of `.darkroom`/`.steel`: the
-   same token names, re-inked, so admin markup styles with the ordinary
-   --paper/--ink vocabulary and comes out dark.
+   This file is the shared ground: the tokens, the layout, the rail, and every
+   component class the pages are built from (buttons, panels, the page head,
+   tabs, rows and tables, pills, stats, forms, drop zones, flash under the
+   admin). Each program's own rules are in its file beside this one
+   (overview, darkroom, cuts, write, mail, sync, settings), imported after it.
 
-   **Every admin rule lives here.** Pages are built from
-   `WebWeb.AdminComponents` and carry no `<style>` block and no literal
-   colour; the old per-page blocks (CmsStyles, the fitness "mission
-   control", the rides table, the booth) were folded in when the admin was
-   rebuilt on 2026-09-29.
+   Rules for anything written here or in those files:
 
-   Type: IBM Plex Mono is the instrument voice (nav, labels, buttons,
-   figures, tables). Sorts Mill Goudy is kept for page titles and for words
-   people wrote — post titles, log captions, signatures, messages.
+   * Colour is a token, never a literal. The tokens are `--st-*`, defined once
+     below: graphite, dark by default and light when the system asks for it.
+   * `--st-accent` is the page's program colour (the layout puts
+     `st-program--darkroom`, `--cuts`, `--writing`, `--training`, `--mail` on
+     `.adm-main`; the Studio and Settings stay neutral, accent = ink). Buttons,
+     links, the active tab, focus rings and the rail's mark read it.
+   * Editing bays stay dark in both themes (the darkroom bench, the scanner's
+     previews, the cutting room's screen and timeline, the Taste pair):
+     pictures are judged on a neutral dark surround, never on white. Put
+     `st-bay` on the element that holds them, or see the list at the foot.
+   * Interface text is IBM Plex Sans in sentence case at 15px (14px in dense
+     tables); figures, timecodes, ids and file names are IBM Plex Mono with
+     tabular numerals; page titles and words people wrote are Fraunces.
+   * Spacing is a 4px scale; cards and panels 10px radius, buttons and inputs
+     8px; one hairline border; a soft shadow only on what floats.
+   * The old names (`--paper`, `--ink`, `--rule`, `--adm-act`, …) are kept as
+     aliases of the new tokens, so a rule written against them still wears
+     the palette. New rules should use `--st-*`.
 
-   Colour follows the site's rule, **ink reads, poppy acts**: anything
-   pressable wears --adm-act at rest, and solid ink marks the current
-   choice. The pigments are lifted for the dark ground; each clears 4.5:1
-   on --paper and --paper-raised (poppy 5.5/5.0, jade 7.0/6.4, amber
-   8.2/7.5, red 5.4/4.9). The site's own #c2451d falls to 3.6 here.
-
-   theme.css styles every bare `button` (and `button:hover`, which outranks
-   a single class), so each button class below states its hover in full —
-   background, border and colour — rather than inheriting a poppy fill.
+   theme.css styles every bare `button` (and `button:hover`), so each button
+   class below states its hover in full.
    ─────────────────────────────────────────────────────────────────── */
 
+/* ── Tokens ───────────────────────────────────────────────────────── */
+
+/* The program colours of the dark set never change with the theme: bays
+   (dark in both) read them, and so does the dark set itself. */
+.admin-layout,
+.adm-login,
+.st-bay {
+  --st-dk-darkroom: #ff7b6b;
+  --st-dk-cuts: #f0a640;
+  --st-dk-writing: #7aaeff;
+  --st-dk-training: #5ec8c1;
+  --st-dk-mail: #5bc794;
+}
+
+/* Dark, the default. Zero specificity, so the light set below and the
+   program classes always win. The bay selectors re-declare it inside a light
+   page, which is how a bay stays dark. */
+:where(
+    .admin-layout,
+    .adm-login,
+    .st-bay,
+    .adm-dr-bench,
+    .adm-cut-bench,
+    .adm-taste,
+    .theater,
+    .adm-scan-look,
+    .adm-scan-sheet,
+    .adm-item-thumb
+  ) {
+  color-scheme: dark;
+
+  --st-bg: #111214;
+  --st-surface: #18191c;
+  --st-raised: #1f2024;
+  --st-line: #2a2b30;
+  --st-line-strong: #3a3b41;
+  --st-ink: #ececee;
+  --st-ink-2: #b4b5ba;
+  --st-ink-3: #8f9096;
+  --st-bay: #0c0d0e;
+
+  --st-darkroom: var(--st-dk-darkroom);
+  --st-cuts: var(--st-dk-cuts);
+  --st-writing: var(--st-dk-writing);
+  --st-training: var(--st-dk-training);
+  --st-mail: var(--st-dk-mail);
+
+  --st-ok: #5bc794;
+  --st-warn: #f0a640;
+  --st-fail: #ff6b81;
+  --st-on-accent: #111214;
+  --st-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
+
+  /* The page's accent. Neutral pages leave it at ink; a program class sets
+     it (and `--st-accent-dk`, its dark-set twin, which a bay inside a light
+     page reads instead so the accent keeps its contrast on the dark). */
+  --st-accent: var(--st-accent-dk, var(--st-ink));
+
+  /* The old names, as aliases. */
+  --paper: var(--st-bg);
+  --paper-raised: var(--st-surface);
+  --paper-sunk: var(--st-raised);
+  --paper-deep: var(--st-bay);
+  --ink: var(--st-ink);
+  --ink-2: var(--st-ink-2);
+  --ink-3: var(--st-ink-3);
+  --ink-4: var(--st-ink-3);
+  --rule: var(--st-line);
+  --rule-strong: var(--st-line-strong);
+  --hairline: var(--rule);
+  --adm-act: var(--st-accent);
+  --adm-act-strong: color-mix(in srgb, var(--st-accent) 88%, var(--st-bg));
+  --adm-live: var(--st-ok);
+  --adm-held: var(--st-warn);
+  --adm-fail: var(--st-fail);
+  --adm-info: var(--st-writing);
+}
+
+/* Fonts, shape and scale: the same in both themes, set on the layout and the
+   login dialog (bays inherit them). */
 .admin-layout,
 .adm-login {
-  --paper: #17140f;
-  --paper-raised: #211d17;
-  --paper-sunk: #100e0b;
-  --paper-deep: #0a0908;
+  --st-font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --st-font-data: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --st-font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
 
-  --ink: #f3eee4;
-  --ink-2: #cfc7b8;
-  --ink-3: #98907f;
-  --ink-4: #857e6d;
+  /* The old names for the fonts: ui and data are Plex Sans and Plex Mono;
+     heading and body (titles, words people wrote) are Fraunces. */
+  --font-ui: var(--st-font-ui);
+  --font-data: var(--st-font-data);
+  --font-heading: var(--st-font-display);
+  --font-body: var(--st-font-display);
 
-  --rule: rgba(243, 238, 228, 0.14);
-  --rule-strong: rgba(243, 238, 228, 0.34);
-  --hairline: var(--rule);
+  /* Type scale: 15px interface, 14px dense tables, 13px and 12px for the
+     quiet lines. */
+  --st-fs-xs: 0.75rem;
+  --st-fs-sm: 0.8125rem;
+  --st-fs-dense: 0.875rem;
+  --st-fs: 0.9375rem;
+  --st-fs-lg: 1.125rem;
 
-  --adm-act: #e2683a;
-  --adm-act-strong: #ec7446;
-  --adm-live: #6fae7d;
-  --adm-held: #d9a441;
-  --adm-fail: #e0655a;
-  --adm-info: #7fa3d1;
+  /* A 4px scale. */
+  --st-space-1: 0.25rem;
+  --st-space-2: 0.5rem;
+  --st-space-3: 0.75rem;
+  --st-space-4: 1rem;
+  --st-space-5: 1.25rem;
+  --st-space-6: 1.5rem;
+  --st-space-8: 2rem;
+  --st-space-12: 3rem;
 
-  --adm-rail-w: 232px;
+  --st-radius: 10px;
+  --st-radius-sm: 8px;
 
-  color: var(--ink);
-  font-family: var(--font-ui);
+  --adm-rail-w: 240px;
 }
+
+@media (prefers-color-scheme: light) {
+  .admin-layout,
+  .adm-login {
+    color-scheme: light;
+
+    --st-bg: #f5f4f1;
+    --st-surface: #ffffff;
+    --st-raised: #fbfaf7;
+    --st-line: #e3e1dc;
+    --st-line-strong: #cfccc5;
+    --st-ink: #18191b;
+    --st-ink-2: #45464b;
+    --st-ink-3: #66676d;
+    /* --st-bay is dark in both themes. */
+
+    --st-darkroom: #b8332a;
+    --st-cuts: #985a06;
+    --st-writing: #1d5bc9;
+    --st-training: #0b7570;
+    --st-mail: #17744b;
+
+    --st-ok: #17744b;
+    --st-warn: #985a06;
+    --st-fail: #b42341;
+    --st-on-accent: #ffffff;
+    --st-shadow: 0 8px 28px rgb(24 25 27 / 0.14);
+  }
+}
+
+/* The page's program sets its accent. `.adm-main` carries one (the layout
+   computes it from the path, WebWeb.AdminNav.program/1), each rail group and
+   each program card carries its own. */
+.st-program--darkroom {
+  --st-accent: var(--st-darkroom);
+  --st-accent-dk: var(--st-dk-darkroom);
+}
+
+.st-program--cuts {
+  --st-accent: var(--st-cuts);
+  --st-accent-dk: var(--st-dk-cuts);
+}
+
+.st-program--writing {
+  --st-accent: var(--st-writing);
+  --st-accent-dk: var(--st-dk-writing);
+}
+
+.st-program--training {
+  --st-accent: var(--st-training);
+  --st-accent-dk: var(--st-dk-training);
+}
+
+.st-program--mail {
+  --st-accent: var(--st-mail);
+  --st-accent-dk: var(--st-dk-mail);
+}
+
+/* ── The layout ───────────────────────────────────────────────────── */
 
 /* The root layout pads every page to clear the public sticky header; the
    admin has no such header. (Not `> .admin-layout`: LiveView's own
@@ -67,14 +219,52 @@
   display: grid;
   grid-template-columns: var(--adm-rail-w) minmax(0, 1fr);
   min-height: 100vh;
-  background: var(--paper);
-  font-size: 0.9rem;
+  background: var(--st-bg);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
   line-height: 1.5;
 }
 
 /* Zero-specificity, so every class below outranks it. */
 :where(.admin-layout) a {
   color: inherit;
+}
+
+/* theme.css gives every bare button a mono, uppercase, letter-spaced poppy
+   box and fills it poppy on hover. Under the admin a bare button is quiet
+   (and a class below, being more specific, restyles it). */
+:where(.admin-layout) button {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  letter-spacing: normal;
+  text-transform: none;
+  border-radius: var(--st-radius-sm);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+:where(.admin-layout) button:hover {
+  background: var(--st-raised);
+  border-color: var(--st-line-strong);
+  color: var(--st-ink);
+}
+
+/* Keyboard focus: a 2px ring in the page's accent, offset 2px, everywhere. */
+.admin-layout :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible,
+.adm-login :is(a, button, input):focus-visible {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout *,
+  .admin-layout *::before,
+  .admin-layout *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── The rail ─────────────────────────────────────────────────────── */
@@ -86,8 +276,8 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: var(--paper-sunk);
-  border-right: 1px solid var(--rule);
+  background: var(--st-surface);
+  border-right: 1px solid var(--st-line);
 }
 
 .adm-rail-bar {
@@ -95,109 +285,138 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.5rem 1.25rem 1.25rem;
+  padding: 1rem 1.25rem 0.85rem;
 }
 
 .adm-brand {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.2rem;
+  border-radius: var(--st-radius-sm);
   text-decoration: none;
 }
 
 .adm-brand-mark {
-  font-family: var(--font-heading);
+  font-family: var(--st-font-display);
   font-size: 1.3rem;
   line-height: 1;
-  color: var(--ink);
+  color: var(--st-ink);
   white-space: nowrap;
 }
 
 .adm-brand-slug {
-  font-size: 0.62rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--adm-act);
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-3);
 }
 
 .adm-menu-btn {
   display: none;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 40px;
-  padding: 0 0.8rem;
-  background: none;
-  border: 1px solid var(--rule-strong);
-  color: var(--ink-2);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  background: transparent;
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
   cursor: pointer;
 }
 
 .adm-menu-btn:hover {
-  background: none;
-  border-color: var(--ink);
-  color: var(--ink);
+  background: var(--st-raised);
+  border-color: var(--st-ink-3);
+  color: var(--st-ink);
 }
 
 .adm-rail-body {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 0 0.6rem 1rem;
+  padding: 0 0.75rem 1rem;
 }
 
 .adm-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.7rem;
   flex: 1;
 }
 
 .adm-nav-group {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
-.adm-nav-group + .adm-nav-group {
-  border-top: 1px solid var(--rule);
-  padding-top: 0.9rem;
+/* Settings sits at the foot of the rail, above the way out. */
+.adm-nav-group--foot {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--st-line);
 }
 
+/* The group's program colour, as a small mark beside its name. */
 .adm-nav-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0;
-  padding: 0 0.75rem 0.35rem;
-  font-size: 0.6rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-4);
+  padding: 0 0.75rem 0.15rem;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
+  font-weight: 600;
+}
+
+.adm-nav-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--st-accent);
 }
 
 .adm-nav-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  min-height: 40px;
+  min-height: 34px;
   padding: 0 0.75rem;
-  border-left: 2px solid transparent;
-  color: var(--ink-2);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
   text-decoration: none;
   transition: background 0.12s, color 0.12s;
 }
 
 .adm-nav-link:hover {
-  background: var(--paper-raised);
-  color: var(--ink);
+  background: var(--st-raised);
+  color: var(--st-ink);
 }
 
 .adm-nav-link[aria-current="page"] {
-  background: var(--ink);
-  color: var(--paper);
-  border-left-color: var(--adm-act);
+  background: var(--st-raised);
+  color: var(--st-ink);
+}
+
+/* The page you are on: a bar of its program's colour at the rail's edge. */
+.adm-nav-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: -0.75rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--st-accent);
+}
+
+.adm-nav-link[aria-current="page"] [class*="hero-"] {
+  color: var(--st-accent);
 }
 
 .adm-nav-label {
@@ -205,54 +424,69 @@
 }
 
 .adm-nav-link--quiet {
-  color: var(--ink-3);
+  color: var(--st-ink-3);
 }
 
+/* A small pill: how many are waiting. */
 .adm-badge {
-  min-width: 1.5rem;
+  min-width: 1.35rem;
   padding: 0 0.4rem;
-  background: var(--adm-held);
-  color: var(--paper);
-  font-family: var(--font-data);
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
+  border-radius: 999px;
+  color: var(--st-warn);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.68rem;
+  font-size: var(--st-fs-xs);
   font-weight: 600;
-  line-height: 1.45rem;
+  line-height: 1.2rem;
   text-align: center;
 }
 
-.adm-badge--fail {
-  background: var(--adm-fail);
+.adm-nav-link[aria-current="page"] .adm-badge {
+  background: var(--st-surface);
 }
 
+.adm-badge--fail {
+  color: var(--st-fail);
+}
+
+/* View site and Log out, side by side at the very foot. */
 .adm-rail-foot {
   display: flex;
-  flex-direction: column;
-  margin-top: 1.5rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--rule);
+  gap: 2px;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--st-line);
+}
+
+.adm-rail-foot .adm-nav-link {
+  flex: 1;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  font-size: var(--st-fs-sm);
 }
 
 /* ── Page furniture ───────────────────────────────────────────────── */
 
 .adm-main {
   min-width: 0;
-  padding: 2.75rem clamp(1rem, 3.5vw, 3.5rem) 5rem;
+  padding: 2.5rem clamp(1rem, 3.5vw, 3rem) 5rem;
 }
 
 .adm-page {
   max-width: 1120px;
 }
 
+/* Title and lede at the left, the page's actions at the right; the actions
+   go under the title on a phone. */
 .adm-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 1.25rem 2rem;
-  margin-bottom: 2.25rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--rule-strong);
+  gap: 1rem 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .adm-head-text {
@@ -260,113 +494,136 @@
 }
 
 .adm-slug {
-  margin: 0 0 0.55rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--adm-act);
+  margin: 0 0 0.35rem;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
 }
 
 .adm-title {
   margin: 0;
-  font-family: var(--font-heading);
-  font-weight: 400;
-  font-size: clamp(2rem, 3.4vw, 2.75rem);
-  line-height: 1.05;
-  color: var(--ink);
+  font-family: var(--st-font-display);
+  font-weight: 500;
+  font-size: clamp(1.75rem, 1.3rem + 1.5vw, 2.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--st-ink);
 }
 
 .adm-lede {
   max-width: 62ch;
-  margin: 0.6rem 0 0;
-  font-family: var(--font-body);
-  font-size: 1.05rem;
+  margin: 0.5rem 0 0;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
   line-height: 1.5;
-  color: var(--ink-3);
+  color: var(--st-ink-2);
 }
 
 .adm-head-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem 0.75rem;
 }
 
+/* A panel is a card: a surface, a hairline, 10px corners. */
 .adm-panel {
-  margin-bottom: 2.75rem;
+  margin: 0 0 1.25rem;
+  padding: 1.25rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
+}
+
+/* The head without the card, for content that brings its own surface. */
+.adm-panel--bare {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 .adm-panel-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
   margin-bottom: 1rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--rule);
 }
 
 .adm-panel-title {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: 0.5rem;
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-family: var(--st-font-ui);
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+  letter-spacing: 0;
+  color: var(--st-ink);
 }
 
 .adm-count {
-  font-family: var(--font-data);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
+  font-size: var(--st-fs-sm);
   font-weight: 400;
   letter-spacing: 0;
-  color: var(--ink-4);
+  color: var(--st-ink-3);
 }
 
 .adm-panel-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem 0.75rem;
 }
 
-/* A raised sheet for a form or an instrument that is worked at. */
+/* A sheet for a form or an instrument that is worked at: a card, or, inside
+   a panel, a raised well. */
 .adm-sheet {
-  padding: clamp(1rem, 2.2vw, 1.75rem);
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
+  padding: clamp(1rem, 2.2vw, 1.5rem);
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
+}
+
+.adm-panel .adm-sheet {
+  background: var(--st-raised);
 }
 
 .adm-sheet-title {
   margin-bottom: 1.25rem;
 }
 
+/* What a list says when there is nothing in it: a sentence, and the button
+   that does it. */
 .adm-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.9rem;
   margin: 0;
-  padding: 1.25rem 0;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 1rem;
-  color: var(--ink-3);
+  padding: 1.75rem 0.5rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
+  text-align: center;
+  color: var(--st-ink-2);
 }
 
 .adm-help {
   margin: 0.35rem 0 0;
-  font-size: 0.74rem;
+  font-size: var(--st-fs-sm);
   line-height: 1.5;
-  color: var(--ink-3);
+  color: var(--st-ink-3);
 }
 
 .adm-help code,
 .adm-lede code {
-  font-family: var(--font-data);
-  font-size: 0.85em;
-  color: var(--ink-2);
+  font-family: var(--st-font-data);
+  font-size: 0.9em;
+  color: var(--st-ink-2);
 }
 
 .adm-sr {
@@ -380,6 +637,7 @@
 
 /* ── Buttons and links ────────────────────────────────────────────── */
 
+/* The secondary button: outlined, in ink. */
 .adm-btn {
   display: inline-flex;
   align-items: center;
@@ -388,14 +646,14 @@
   min-height: 40px;
   padding: 0 1rem;
   background: transparent;
-  border: 1px solid var(--adm-act);
-  border-radius: 0;
-  color: var(--adm-act);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
@@ -403,47 +661,51 @@
 }
 
 .adm-btn:hover {
-  background: var(--adm-act);
-  border-color: var(--adm-act);
-  color: var(--paper);
+  background: var(--st-raised);
+  border-color: var(--st-ink-3);
+  color: var(--st-ink);
 }
 
+/* The primary: filled with the page's accent. */
 .adm-btn--primary {
-  background: var(--adm-act);
-  color: var(--paper);
+  background: var(--st-accent);
+  border-color: var(--st-accent);
+  color: var(--st-on-accent);
 }
 
 .adm-btn--primary:hover {
   background: var(--adm-act-strong);
   border-color: var(--adm-act-strong);
+  color: var(--st-on-accent);
 }
 
+/* The quiet one: text only. */
 .adm-btn--quiet {
-  border-color: var(--rule-strong);
-  color: var(--ink-2);
+  border-color: transparent;
+  color: var(--st-ink-2);
 }
 
 .adm-btn--quiet:hover {
-  background: transparent;
-  border-color: var(--ink);
-  color: var(--ink);
+  background: var(--st-raised);
+  border-color: transparent;
+  color: var(--st-ink);
 }
 
 .adm-btn--danger {
-  border-color: var(--adm-fail);
-  color: var(--adm-fail);
+  border-color: var(--st-fail);
+  color: var(--st-fail);
 }
 
 .adm-btn--danger:hover {
-  background: var(--adm-fail);
-  border-color: var(--adm-fail);
-  color: var(--paper);
+  background: var(--st-fail);
+  border-color: var(--st-fail);
+  color: var(--st-on-accent);
 }
 
 .adm-btn--small {
   min-height: 32px;
   padding: 0 0.7rem;
-  font-size: 0.66rem;
+  font-size: var(--st-fs-sm);
 }
 
 .adm-btn:disabled,
@@ -453,6 +715,8 @@
   pointer-events: none;
 }
 
+/* A link that acts, inline: in the accent, underlined so it is not only a
+   colour. */
 .adm-link {
   display: inline-flex;
   align-items: center;
@@ -461,31 +725,34 @@
   padding: 0;
   background: none;
   border: 0;
-  color: var(--adm-act);
-  font-family: var(--font-ui);
-  font-size: 0.74rem;
-  letter-spacing: 0.04em;
-  text-decoration: none;
+  border-radius: 4px;
+  color: var(--st-accent);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
   text-transform: none;
   cursor: pointer;
 }
 
 .admin-layout .adm-link {
-  color: var(--adm-act);
+  color: var(--st-accent);
 }
 
 .adm-link:hover {
   background: none;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration-color: currentColor;
 }
 
 .admin-layout .adm-link--danger {
-  color: var(--adm-fail);
+  color: var(--st-fail);
 }
 
 .admin-layout .adm-link--quiet {
-  color: var(--ink-3);
+  color: var(--st-ink-3);
 }
 
 .adm-actions {
@@ -493,12 +760,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 1.1rem;
-}
-
-.admin-layout :is(a, button, input, select, textarea, summary):focus-visible,
-.adm-login :is(a, button, input):focus-visible {
-  outline: 2px solid var(--adm-act);
-  outline-offset: 2px;
 }
 
 /* ── Forms ────────────────────────────────────────────────────────── */
@@ -516,34 +777,33 @@
 .admin-layout .label,
 .adm-label {
   display: block;
-  margin-bottom: 0.4rem;
-  font-family: var(--font-ui);
-  font-size: 0.64rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  margin-bottom: 0.35rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--st-ink-2);
 }
 
 .adm-input {
   width: 100%;
   min-height: 40px;
-  padding: 0.55rem 0.75rem;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule-strong);
-  border-radius: 0;
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line-strong);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
 }
 
 .adm-input::placeholder {
-  color: var(--ink-4);
+  color: var(--st-ink-3);
 }
 
 .adm-input:focus {
-  outline: none;
-  border-color: var(--adm-act);
-  box-shadow: 0 0 0 1px var(--adm-act);
+  border-color: var(--st-accent);
 }
 
 textarea.adm-input {
@@ -552,14 +812,15 @@ textarea.adm-input {
   resize: vertical;
 }
 
+/* Words people wrote, in the display face. */
 .adm-input--prose {
-  font-family: var(--font-body);
-  font-size: 1.02rem;
+  font-family: var(--st-font-display);
+  font-size: 1.0625rem;
 }
 
 .adm-input--code {
-  font-family: var(--font-data);
-  font-size: 0.82rem;
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
 }
 
 .admin-layout input[type="checkbox"] {
@@ -567,16 +828,14 @@ textarea.adm-input {
   height: 1rem;
   margin-right: 0.55rem;
   vertical-align: middle;
-  accent-color: var(--adm-act);
+  accent-color: var(--st-accent);
 }
 
 .admin-layout .label:has(input[type="checkbox"]) {
   display: inline-flex;
   align-items: center;
-  font-size: 0.82rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-2);
+  font-size: var(--st-fs-dense);
+  color: var(--st-ink-2);
 }
 
 .adm-field {
@@ -594,7 +853,7 @@ textarea.adm-input {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.25rem;
+  gap: 0.75rem 1rem;
   margin-top: 1.25rem;
 }
 
@@ -617,51 +876,55 @@ textarea.adm-input {
   align-items: center;
   gap: 0.4rem;
   margin: 0.35rem 0 0;
-  color: var(--adm-fail);
-  font-size: 0.78rem;
+  color: var(--st-fail);
+  font-size: var(--st-fs-sm);
 }
 
 /* ── Status marks ─────────────────────────────────────────────────── */
 
+/* A small rounded tag in the tone's colour on a tint of itself. */
 .adm-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.12rem 0.45rem;
-  border: 1px solid currentColor;
-  font-family: var(--font-data);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  line-height: 1.35;
-  text-transform: uppercase;
+  padding: 0.1rem 0.55rem;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 999px;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
   white-space: nowrap;
 }
 
-.adm-pill--live { color: var(--adm-live); }
-.adm-pill--held { color: var(--adm-held); }
-.adm-pill--attention { color: var(--adm-act); }
-.adm-pill--draft { color: var(--adm-info); }
-.adm-pill--quiet { color: var(--ink-3); }
+.adm-pill--live { color: var(--st-ok); }
+.adm-pill--held { color: var(--st-warn); }
+.adm-pill--attention { color: var(--st-accent); }
+.adm-pill--draft { color: var(--st-writing); }
+.adm-pill--quiet { color: var(--st-ink-3); }
 
 .adm-pill--failed {
-  background: var(--adm-fail);
-  border-color: var(--adm-fail);
-  color: var(--paper);
+  background: var(--st-fail);
+  border-color: var(--st-fail);
+  color: var(--st-on-accent);
 }
 
-.adm-tone--live .adm-stat-value { color: var(--adm-live); }
-.adm-tone--held .adm-stat-value { color: var(--adm-held); }
-.adm-tone--failed .adm-stat-value { color: var(--adm-fail); }
-.adm-tone--act .adm-stat-value { color: var(--adm-act); }
+.adm-tone--live .adm-stat-value { color: var(--st-ok); }
+.adm-tone--held .adm-stat-value { color: var(--st-warn); }
+.adm-tone--failed .adm-stat-value { color: var(--st-fail); }
+.adm-tone--act .adm-stat-value { color: var(--st-accent); }
 
 /* ── Tabs: links, so the view lives in the URL ────────────────────── */
 
 .adm-tabs {
   display: flex;
+  gap: 0.25rem;
   margin-bottom: 1.25rem;
   overflow-x: auto;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--st-line);
 }
 
 .adm-tab {
@@ -670,18 +933,17 @@ textarea.adm-input {
   gap: 0.5rem;
   min-height: 40px;
   margin-bottom: -1px;
-  padding: 0 1rem;
+  padding: 0 0.9rem;
   border-bottom: 2px solid transparent;
-  color: var(--ink-3);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .admin-layout .adm-tab {
-  color: var(--ink-3);
+  color: var(--st-ink-3);
 }
 
 /* The editor's Write/Preview switch is buttons, not links; strip theme.css's
@@ -691,29 +953,31 @@ button.adm-tab:hover {
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  border-radius: 0;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  letter-spacing: normal;
 }
 
 .admin-layout .adm-tab:hover {
-  color: var(--ink);
+  color: var(--st-ink);
 }
 
 .admin-layout .adm-tab[aria-current="page"] {
-  color: var(--ink);
-  border-bottom-color: var(--adm-act);
+  color: var(--st-ink);
+  border-bottom-color: var(--st-accent);
 }
 
 .admin-layout button.adm-tab[aria-current="page"] {
-  border-bottom: 2px solid var(--adm-act);
+  border-bottom: 2px solid var(--st-accent);
 }
 
 .adm-tab-count {
-  font-family: var(--font-data);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
+  font-size: var(--st-fs-xs);
   letter-spacing: 0;
-  color: var(--ink-4);
+  color: var(--st-ink-3);
 }
 
 /* ── Tables ───────────────────────────────────────────────────────── */
@@ -725,38 +989,39 @@ button.adm-tab:hover {
 .adm-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--font-data);
+  font-family: var(--st-font-ui);
   font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
+  font-size: var(--st-fs-dense);
 }
 
 .adm-table th {
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--rule-strong);
-  color: var(--ink-3);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  border-bottom: 1px solid var(--st-line-strong);
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
+  letter-spacing: normal;
   text-align: left;
-  text-transform: uppercase;
+  text-transform: none;
   white-space: nowrap;
 }
 
 .adm-table td {
   padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--rule);
-  color: var(--ink-2);
+  border-bottom: 1px solid var(--st-line);
+  color: var(--st-ink-2);
   vertical-align: middle;
 }
 
 .adm-table tbody tr:hover td {
-  background: var(--paper-raised);
+  background: var(--st-raised);
 }
 
 .adm-table td.adm-cell-title {
-  font-family: var(--font-heading);
-  font-size: 1.02rem;
-  color: var(--ink);
+  font-family: var(--st-font-display);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--st-ink);
 }
 
 .adm-table .adm-cell-num {
@@ -778,7 +1043,7 @@ button.adm-tab:hover {
 /* ── Item lists: posts, logs, messages, signatures ────────────────── */
 
 /* No rule of its own on top: a list always sits under a panel head or a
-   row of tabs, which already draws one. */
+   row of tabs. */
 .adm-list {
   display: flex;
   flex-direction: column;
@@ -787,9 +1052,13 @@ button.adm-tab:hover {
 .adm-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem 1.75rem;
-  padding: 1.1rem 0;
-  border-bottom: 1px solid var(--rule);
+  gap: 0.5rem 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.adm-item:last-child {
+  border-bottom: 0;
 }
 
 .adm-item--thumb {
@@ -803,25 +1072,25 @@ button.adm-tab:hover {
   width: 128px;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
-  color: var(--ink-4);
-  font-size: 0.6rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
 }
 
 .adm-item-main {
   min-width: 0;
 }
 
+/* A post's or a log's title: words people wrote. */
 .adm-item-title {
   margin: 0;
-  font-family: var(--font-heading);
-  font-weight: 400;
-  font-size: 1.2rem;
+  font-family: var(--st-font-display);
+  font-weight: 500;
+  font-size: var(--st-fs-lg);
   line-height: 1.25;
-  color: var(--ink);
+  color: var(--st-ink);
   overflow-wrap: anywhere;
 }
 
@@ -830,27 +1099,27 @@ button.adm-tab:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 1rem;
-  margin-top: 0.4rem;
-  font-family: var(--font-data);
+  margin-top: 0.35rem;
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.72rem;
-  color: var(--ink-3);
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-3);
 }
 
 .adm-item-body {
-  margin: 0.65rem 0 0;
-  font-family: var(--font-body);
-  font-size: 1.05rem;
+  margin: 0.6rem 0 0;
+  font-family: var(--st-font-display);
+  font-size: 1.0625rem;
   line-height: 1.55;
-  color: var(--ink-2);
+  color: var(--st-ink-2);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .adm-item-note {
   margin: 0.5rem 0 0;
-  font-size: 0.78rem;
-  color: var(--ink-3);
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-3);
 }
 
 .adm-item-actions {
@@ -868,54 +1137,76 @@ button.adm-tab:hover {
 }
 
 .adm-chip {
-  padding: 0.05rem 0.45rem;
-  border: 1px solid var(--rule-strong);
-  color: var(--ink-2);
-  font-family: var(--font-data);
-  font-size: 0.68rem;
+  padding: 0.05rem 0.55rem;
+  border: 1px solid var(--st-line-strong);
+  border-radius: 999px;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
 }
 
 /* ── Figures ──────────────────────────────────────────────────────── */
 
+/* A row of figures, quiet: no boxes, a small mono number over a muted
+   label. (The studio floor's own are status_strip/1.) */
 .adm-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  border-top: 1px solid var(--rule);
-  border-left: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2.25rem;
 }
 
 .adm-stat {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 1rem 1.1rem;
-  border-right: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+  gap: 0.1rem;
+  border-radius: var(--st-radius-sm);
   text-decoration: none;
 }
 
-.adm-stat--link:hover {
-  background: var(--paper-raised);
+.adm-stat--link:hover .adm-stat-label {
+  color: var(--st-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .adm-stat-value {
-  font-family: var(--font-data);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 1.9rem;
-  line-height: 1.1;
-  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--st-ink);
 }
 
 .adm-stat-label {
-  color: var(--ink-3);
-  font-size: 0.64rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
 }
 
 .adm-stat-note {
-  color: var(--ink-4);
-  font-size: 0.7rem;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-xs);
+}
+
+.adm-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 1.75rem 0 0.5rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-dense);
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--st-ink-2);
+}
+
+.adm-group-title:first-child {
+  margin-top: 0;
+}
+
+.adm-group-title--spaced {
+  margin-top: 2rem;
 }
 
 /* The machine's own state: one row per thing that should be quietly true. */
@@ -930,32 +1221,240 @@ button.adm-tab:hover {
   grid-template-columns: 0.6rem minmax(8rem, 12rem) minmax(0, 1fr);
   align-items: baseline;
   gap: 0.85rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid var(--rule);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--st-line);
 }
 
 .adm-status-dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  background: var(--ink-4);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--st-ink-3);
 }
 
-.adm-status-dot--ok { background: var(--adm-live); }
-.adm-status-dot--warn { background: var(--adm-held); }
-.adm-status-dot--fail { background: var(--adm-fail); }
+.adm-status-dot--ok { background: var(--st-ok); }
+.adm-status-dot--warn { background: var(--st-warn); }
+.adm-status-dot--fail { background: var(--st-fail); }
 
 .adm-status-name {
-  color: var(--ink-2);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-dense);
+  font-weight: 500;
 }
 
 .adm-status-detail {
-  color: var(--ink-3);
-  font-family: var(--font-data);
-  font-size: 0.8rem;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
   overflow-wrap: anywhere;
+}
+
+/* ── The studio floor: program cards ──────────────────────────────── */
+
+/* WebWeb.AdminComponents.program_card/1. A responsive grid to lay them in. */
+.st-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.st-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
+  transition: border-color 0.12s;
+}
+
+.st-card:hover {
+  border-color: color-mix(in srgb, var(--st-accent) 55%, var(--st-line));
+}
+
+.st-card:has(.st-card-link:focus-visible) {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
+}
+
+/* Pictures are judged on the dark surround, whatever the theme. */
+.st-card-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: var(--st-card-picture-ratio, 3 / 2);
+  overflow: hidden;
+  background: var(--st-bay);
+}
+
+.st-card-picture :is(img, video, svg, canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.st-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.st-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-lg);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--st-ink);
+}
+
+.st-card-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--st-accent);
+}
+
+/* The title is the card's one link, stretched over the whole card so the
+   card is a target; everything pressable inside it sits above. */
+.st-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.st-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.st-card-link:focus-visible {
+  outline: none;
+}
+
+.st-card-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--st-ink-2);
+  font-size: var(--st-fs-dense);
+}
+
+/* Lines align with the title's text; a toned line's dot hangs under the
+   title's own. */
+.st-card-line {
+  position: relative;
+  padding-left: calc(9px + 0.6rem);
+}
+
+.st-card-line--ok::before,
+.st-card-line--warn::before,
+.st-card-line--fail::before {
+  content: "";
+  position: absolute;
+  top: 0.55em;
+  left: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.st-card-line--ok::before { background: var(--st-ok); }
+.st-card-line--warn::before { background: var(--st-warn); }
+.st-card-line--fail::before { background: var(--st-fail); }
+.st-card-line--fail { color: var(--st-fail); }
+
+.st-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+.st-card :is(.st-card-state, .st-card-actions, .st-card-picture) :is(a, button, form, input, select, label) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── The studio floor: the status strip ───────────────────────────── */
+
+/* WebWeb.AdminComponents.status_strip/1: passive figures in one quiet,
+   wrapping line of small mono type. */
+.st-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--st-fs-xs);
+  line-height: 1.5;
+}
+
+.st-strip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.st-strip-link:hover {
+  color: var(--st-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.st-strip-value {
+  color: var(--st-ink-2);
+}
+
+.st-strip-spark {
+  flex: none;
+  width: 48px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.st-strip-item--warn .st-strip-value,
+.st-strip-item--warn .st-strip-label {
+  color: var(--st-warn);
+}
+
+.st-strip-item--fail .st-strip-value,
+.st-strip-item--fail .st-strip-label {
+  color: var(--st-fail);
+}
+
+.st-strip-item--warn .st-strip-value::before,
+.st-strip-item--fail .st-strip-value::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* ── Uploads ──────────────────────────────────────────────────────── */
@@ -966,15 +1465,16 @@ button.adm-tab:hover {
   align-items: center;
   gap: 0.5rem;
   padding: 1.75rem 1.25rem;
-  border: 1px dashed var(--rule-strong);
+  border: 1px dashed var(--st-line-strong);
+  border-radius: var(--st-radius);
   text-align: center;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .adm-drop:hover,
 .adm-drop.phx-drop-target-active {
-  background: var(--paper-raised);
-  border-color: var(--adm-act);
+  background: var(--st-raised);
+  border-color: var(--st-accent);
 }
 
 .adm-drop--spaced {
@@ -982,15 +1482,14 @@ button.adm-tab:hover {
 }
 
 .adm-drop-icon {
-  color: var(--ink-3);
+  color: var(--st-ink-3);
 }
 
 .adm-drop-title {
   margin: 0;
-  color: var(--ink);
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  color: var(--st-ink);
+  font-size: var(--st-fs);
+  font-weight: 500;
 }
 
 .adm-file-input {
@@ -1004,21 +1503,22 @@ button.adm-tab:hover {
 }
 
 .adm-upload-name {
-  color: var(--ink-2);
-  font-family: var(--font-data);
-  font-size: 0.75rem;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
 }
 
 .adm-progress {
-  height: 3px;
+  height: 4px;
   margin-top: 0.35rem;
   overflow: hidden;
-  background: var(--paper-deep);
+  background: var(--st-line);
+  border-radius: 2px;
 }
 
 .adm-progress-bar {
   height: 100%;
-  background: var(--adm-act);
+  background: var(--st-accent);
   transition: width 0.3s;
 }
 
@@ -1032,8 +1532,10 @@ button.adm-tab:hover {
 .adm-image {
   display: flex;
   flex-direction: column;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
+  overflow: hidden;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
 }
 
 .adm-image img {
@@ -1041,7 +1543,7 @@ button.adm-tab:hover {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  background: var(--paper-deep);
+  background: var(--st-bay);
 }
 
 .adm-image-body {
@@ -1064,33 +1566,69 @@ button.adm-tab:hover {
 .adm-copy-input {
   flex: 1;
   min-width: 0;
-  padding: 0.3rem 0.4rem;
-  background: var(--paper-sunk);
-  border: 1px solid var(--rule);
-  color: var(--ink-3);
-  font-family: var(--font-data);
-  font-size: 0.68rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line);
+  border-radius: 6px;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
 }
 
-.adm-group-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  margin: 2rem 0 0.5rem;
-  font-family: var(--font-ui);
+/* ── Flash, inside the admin ──────────────────────────────────────── */
+
+/* The notices put_flash raises (flash.css draws them for the public site).
+   Here a notice is a floating card: surface, hairline, a rule of its tone at
+   the left, the one soft shadow. */
+.admin-layout .flash-group {
+  top: 1rem;
+  right: 1rem;
+}
+
+.admin-layout .flash-notice {
+  --flash-poppy: var(--st-fail);
+
+  background: var(--st-surface);
+  border: 1px solid var(--st-line-strong);
+  border-left: 3px solid var(--st-ok);
+  border-radius: var(--st-radius);
+  box-shadow: var(--st-shadow);
+  color: var(--st-ink);
+}
+
+.admin-layout .flash-notice--error {
+  border-left-color: var(--st-fail);
+}
+
+.admin-layout .flash-notice-title {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
   font-weight: 600;
-  color: var(--ink-3);
-  font-size: 0.66rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--st-ink-3);
 }
 
-.adm-group-title:first-child {
-  margin-top: 0;
+.admin-layout .flash-notice-message {
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
+  line-height: 1.45;
 }
 
-.adm-group-title--spaced {
-  margin-top: 2.25rem;
+.admin-layout .flash-notice-close {
+  border-radius: var(--st-radius-sm);
+  color: var(--st-ink-2);
+}
+
+.admin-layout .flash-notice-close:hover,
+.admin-layout .flash-notice-close:focus-visible {
+  background: var(--st-raised);
+  color: var(--st-ink);
+}
+
+.admin-layout .flash-notice-close:focus-visible {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
 }
 
 /* ── Login: a dialog over whatever page asked for it ──────────────── */
@@ -1104,7 +1642,10 @@ button.adm-tab:hover {
   justify-content: center;
   padding: 1rem;
   overflow-y: auto;
-  background: rgba(10, 9, 8, 0.9);
+  background: rgb(8 9 10 / 0.88);
+  color: var(--st-ink);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs);
 }
 
 /* The dialog says its own error, so the layout's notice beneath it would
@@ -1118,9 +1659,10 @@ button.adm-tab:hover {
   width: 100%;
   max-width: 400px;
   padding: 2.5rem 2rem 2rem;
-  background: var(--paper);
-  border: 1px solid var(--rule-strong);
-  border-top: 3px solid var(--adm-act);
+  background: var(--st-surface);
+  border: 1px solid var(--st-line-strong);
+  border-radius: 12px;
+  box-shadow: var(--st-shadow);
 }
 
 .adm-login-close {
@@ -1135,13 +1677,13 @@ button.adm-tab:hover {
   padding: 0;
   background: none;
   border: 0;
-  color: var(--ink-3);
+  color: var(--st-ink-3);
   cursor: pointer;
 }
 
 .adm-login-close:hover {
-  background: none;
-  color: var(--adm-act);
+  background: var(--st-raised);
+  color: var(--st-ink);
 }
 
 .adm-login .adm-slug {
@@ -1155,16 +1697,16 @@ button.adm-tab:hover {
 .adm-login-error {
   margin: 0 0 1.25rem;
   padding: 0.75rem 1rem;
-  border-left: 2px solid var(--adm-fail);
-  background: var(--paper-raised);
-  color: var(--adm-fail);
-  font-size: 0.82rem;
+  border-left: 3px solid var(--st-fail);
+  border-radius: 0 var(--st-radius-sm) var(--st-radius-sm) 0;
+  background: var(--st-raised);
+  color: var(--st-fail);
+  font-size: var(--st-fs-dense);
 }
 
 .adm-login .adm-input {
   min-height: 48px;
   font-size: 1rem;
-  letter-spacing: 0.08em;
 }
 
 .adm-login .adm-btn {
@@ -1176,25 +1718,25 @@ button.adm-tab:hover {
 .adm-login-foot {
   margin-top: 1.75rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--st-line);
 }
 
 .adm-login-foot a {
-  color: var(--ink-3);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-dense);
   text-decoration: none;
-  text-transform: uppercase;
 }
 
 .adm-login-foot a:hover {
-  color: var(--adm-act);
+  color: var(--st-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ── The indicator an admin sees on public pages ─────────────────── */
 
 /* Rendered by root.html.heex outside every theme wrapper, so it wears the
-   public paper tokens, not the composing room's. */
+   public paper tokens, not the studio's. */
 #admin-indicator {
   position: fixed;
   right: 1rem;
@@ -1247,8 +1789,11 @@ button.adm-tab:hover {
 
 /* The rail folds to a bar; Menu opens the navigation beneath it. */
 @media (max-width: 900px) {
+  /* One column, and the rail's row is only as tall as its bar: a short page
+     must not stretch it to fill the screen. */
   .admin-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .adm-rail {
@@ -1257,11 +1802,11 @@ button.adm-tab:hover {
     height: auto;
     overflow: visible;
     border-right: 0;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--st-line);
   }
 
   .adm-rail-bar {
-    padding: 0.55rem 1rem;
+    padding: 0.5rem 1rem;
   }
 
   .adm-brand {
@@ -1271,7 +1816,7 @@ button.adm-tab:hover {
   }
 
   .adm-brand-mark {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
   }
 
   .adm-menu-btn {
@@ -1284,19 +1829,37 @@ button.adm-tab:hover {
     top: 100%;
     right: 0;
     left: 0;
-    max-height: calc(100vh - 58px);
+    max-height: calc(100vh - 62px);
     overflow-y: auto;
-    padding: 0.6rem;
-    background: var(--paper-sunk);
-    border-bottom: 1px solid var(--rule-strong);
+    padding: 0.75rem 0.75rem 1rem;
+    background: var(--st-surface);
+    border-bottom: 1px solid var(--st-line-strong);
+    box-shadow: var(--st-shadow);
   }
 
   .adm-rail.is-open .adm-rail-body {
     display: flex;
   }
 
+  .adm-nav {
+    flex: none;
+  }
+
+  .adm-nav-link {
+    min-height: 44px;
+  }
+
+  .adm-nav-link[aria-current="page"]::before {
+    top: 10px;
+    bottom: 10px;
+  }
+
   .adm-main {
-    padding: 1.75rem 1rem 3.5rem;
+    padding: 1.5rem 1rem 3.5rem;
+  }
+
+  .admin-layout .flash-group {
+    top: 4.25rem;
   }
 
   .adm-item,
@@ -1329,10 +1892,97 @@ button.adm-tab:hover {
   }
 }
 
+/* Phones: tables become stacked rows, one block per row, each cell led by
+   its column's label where the table is built by `rows/1`. */
 @media (max-width: 640px) {
-
   .adm-head-actions {
     width: 100%;
+  }
+
+  .adm-panel {
+    padding: 1rem;
+  }
+
+  .adm-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .adm-table,
+  .adm-table tbody,
+  .adm-table tr,
+  .adm-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .adm-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .adm-table tr {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--st-line);
+  }
+
+  .adm-table td {
+    padding: 0.15rem 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .adm-table tbody tr:hover td {
+    background: none;
+  }
+
+  .adm-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 6.5rem;
+    margin-right: 0.5rem;
+    color: var(--st-ink-3);
+    font-size: var(--st-fs-xs);
+  }
+
+  .adm-table td.adm-cell-title::before {
+    display: block;
+  }
+
+  .adm-table .adm-cell-num {
+    text-align: left;
+  }
+
+  .adm-table-actions {
+    width: 100%;
+    padding-top: 0.4rem;
+  }
+
+  .adm-table-actions .adm-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .adm-table .adm-w-name,
+  .adm-table .adm-w-mid {
+    width: 100%;
+  }
+
+  .adm-btn,
+  .adm-input {
+    min-height: 44px;
+  }
+
+  .adm-btn--small {
+    min-height: 40px;
+  }
+
+  .st-cards {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1345,4 +1995,27 @@ button.adm-tab:hover {
   .adm-link {
     min-height: 44px;
   }
+}
+
+/* ── Editing bays: dark in both themes ────────────────────────────── */
+
+/* Pictures and video are judged on a neutral dark surround, so these stay
+   dark when the page is light. The tokens themselves are re-declared at the
+   top of this file (the same selector list); this gives a bay its surround.
+   A new bay is just an element with `st-bay` on it. The scanner's own
+   bench is not listed: its previews, `.adm-scan-look` and `.adm-scan-sheet`,
+   are. */
+.st-bay,
+.adm-dr-bench,
+.adm-cut-bench,
+.adm-taste {
+  background: var(--st-bay);
+  border-radius: var(--st-radius);
+  color: var(--st-ink);
+}
+
+.adm-dr-bench,
+.adm-cut-bench,
+.adm-taste {
+  padding: 0.75rem;
 }

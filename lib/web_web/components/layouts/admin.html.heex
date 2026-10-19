@@ -1,13 +1,15 @@
-<%!-- The composing room: rail on the left, the page on the right. Everything
-      it wears is in assets/css/admin.css; the rail and its counts come from
-      WebWeb.AdminNav (on_mount), so a page only renders its own content. --%>
+<%!-- The studio: rail on the left, the page on the right. Everything it wears
+      is in assets/css/admin/ (base.css first); the rail and its counts come
+      from WebWeb.AdminNav (on_mount), so a page only renders its own content.
+      `.adm-main` carries the page's program (`st-program--darkroom`, …), which
+      sets the accent every button, tab and focus ring reads. --%>
 <div class="admin-layout">
   <WebWeb.AdminComponents.rail
     path={assigns[:admin_path]}
     counts={assigns[:admin_counts] || %{}}
   />
 
-  <main id="adm-main" class="adm-main">
+  <main id="adm-main" class={["adm-main", WebWeb.AdminNav.program_class(assigns[:admin_path])]}>
     <.flash_group flash={@flash} />
     <div class="adm-page">
       {@inner_content}

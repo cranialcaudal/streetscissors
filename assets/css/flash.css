@@ -19,7 +19,7 @@
    admin table. It renders from the layout, *outside* `.steel` and
    `.darkroom`, so on those pages it keeps paper tokens: a paper plate
    hanging from the paper header, legible on either ground. Inside
-   `.admin-layout` it inherits that chrome's dark re-inking.
+   `.admin-layout` it is the studio's own card (admin/base.css).
 
    Full-screen dialogs (the dispatch overlay, admin login) sit above it at
    z-index 100000 and say their own notices inside the dialog.
@@ -44,11 +44,8 @@
   pointer-events: none;
 }
 
-/* The admin chrome has no sticky header to hang from. */
-.admin-layout .flash-group {
-  top: 1rem;
-  right: 1rem;
-}
+/* The admin chrome has no sticky header to hang from; its notices are
+   styled in assets/css/admin/base.css. */
 
 /* The outer box is the one JS.show/JS.hide toggle, and JS.show sets
    `display: block` — so it declares no display of its own (the `hidden`
@@ -67,11 +64,6 @@
 }
 
 .flash-notice--error { border-left-color: var(--flash-poppy); }
-
-/* The admin chrome re-inks paper to near-black but not the poppy, and
-   --accent-ink falls to about 2:1 on that ground. The undeepened pigment
-   clears 3:1 there. */
-.admin-layout .flash-notice { --flash-poppy: var(--accent-color); }
 
 .flash-notice-body {
   display: flex;
