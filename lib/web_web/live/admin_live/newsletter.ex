@@ -179,7 +179,7 @@ defmodule WebWeb.AdminLive.Newsletter do
     <.page_head slug="Mail / Newsletter" title="Newsletter">
       <:lede>
         {@subscribers_count} active {if @subscribers_count == 1, do: "subscriber", else: "subscribers"}.
-        A broadcast goes out as one queued job per reader.
+        A broadcast is queued as one job per reader, so a restart partway through loses no one.
       </:lede>
       <:actions>
         <.link href={~p"/admin/subscribers/export"} class="adm-btn adm-btn--quiet">
@@ -188,15 +188,15 @@ defmodule WebWeb.AdminLive.Newsletter do
       </:actions>
     </.page_head>
 
-    <.panel title={if @draft, do: "Editing a draft", else: "Compose"}>
+    <.panel title={if @draft, do: "Editing a draft", else: "Compose"} class="adm-compose-panel">
       <:actions>
-        <button :if={@draft} type="button" phx-click="new_message" class="adm-link">
+        <button :if={@draft} type="button" phx-click="new_message" class="adm-btn adm-btn--quiet">
           <.icon name="hero-plus" class="size-4" /> New message
         </button>
       </:actions>
 
       <div class="adm-compose">
-        <div class="adm-sheet">
+        <div class="adm-compose-write">
           <.form for={@form} id="newsletter-form" phx-change="validate" phx-submit="send">
             <.input
               field={@form[:subject]}
@@ -229,33 +229,39 @@ defmodule WebWeb.AdminLive.Newsletter do
               >
                 <.icon name="hero-paper-airplane" class="size-4" /> Broadcast to {@subscribers_count}
               </button>
-              <button type="button" phx-click="save_draft" class="adm-btn adm-btn--quiet">
+              <button type="button" phx-click="save_draft" class="adm-btn">
                 Save draft
               </button>
             </div>
           </.form>
 
-          <form id="newsletter-test-form" phx-submit="send_test" class="adm-test-send">
-            <label class="adm-label" for="test_email">Send a test to</label>
-            <div class="adm-inline-form">
-              <input
-                type="email"
-                id="test_email"
-                name="test_email"
-                value={@test_email}
-                class="adm-input"
-                placeholder="you@example.com"
-                autocomplete="email"
-              />
-              <button type="submit" class="adm-btn adm-btn--small">
-                <.icon name="hero-envelope-open" class="size-4" /> Send test
-              </button>
-            </div>
-          </form>
+          <section class="adm-test-send" aria-labelledby="newsletter-test-title">
+            <h3 id="newsletter-test-title" class="adm-mail-subhead">Send a test</h3>
+            <p class="adm-help">
+              One copy, marked [Test], to this one address. It is not recorded as a send.
+            </p>
+            <form id="newsletter-test-form" phx-submit="send_test">
+              <label class="adm-label" for="test_email">Send a test to</label>
+              <div class="adm-inline-form">
+                <input
+                  type="email"
+                  id="test_email"
+                  name="test_email"
+                  value={@test_email}
+                  class="adm-input"
+                  placeholder="you@example.com"
+                  autocomplete="email"
+                />
+                <button type="submit" class="adm-btn">
+                  <.icon name="hero-envelope-open" class="size-4" /> Send test
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
 
-        <div>
-          <p class="adm-label">What a reader sees</p>
+        <section class="adm-compose-look" aria-labelledby="newsletter-look-title">
+          <h3 id="newsletter-look-title" class="adm-mail-subhead">What a reader sees</h3>
           <iframe
             id="newsletter-preview"
             class="adm-preview-frame"
@@ -264,23 +270,33 @@ defmodule WebWeb.AdminLive.Newsletter do
             srcdoc={@preview}
           >
           </iframe>
-        </div>
+          <p class="adm-help">
+            The paper shell and footer a reader gets. The unsubscribe link is a placeholder; each
+            reader's copy has their own.
+          </p>
+        </section>
       </div>
     </.panel>
 
     <.panel :if={@drafts != []} title="Drafts" count={length(@drafts)}>
       <.rows id="drafts" rows={@drafts}>
         <:col :let={draft} label="Subject" class="adm-cell-title">{draft.subject}</:col>
-        <:col :let={draft} label="Saved">{stamp(draft.updated_at)}</:col>
+        <:col :let={draft} label="Saved" class="adm-mail-when">{stamp(draft.updated_at)}</:col>
         <:action :let={draft}>
-          <button phx-click="open_draft" phx-value-id={draft.id} class="adm-link">Open</button>
+          <button
+            phx-click="open_draft"
+            phx-value-id={draft.id}
+            class="adm-btn adm-btn--quiet adm-btn--small"
+          >
+            Open
+          </button>
         </:action>
         <:action :let={draft}>
           <button
             phx-click="delete_draft"
             phx-value-id={draft.id}
             data-confirm="Delete this draft?"
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
           >
             Delete
           </button>
@@ -292,31 +308,31 @@ defmodule WebWeb.AdminLive.Newsletter do
       <.rows id="sent" rows={@sent}>
         <:col :let={sent} label="Subject" class="adm-cell-title">{sent.subject}</:col>
         <:col :let={sent} label="Readers" class="adm-cell-num">{sent.recipient_count} sent</:col>
-        <:col :let={sent} label="When">{stamp(sent.sent_at)}</:col>
-        <:empty>Nothing sent yet.</:empty>
+        <:col :let={sent} label="When" class="adm-mail-when">{stamp(sent.sent_at)}</:col>
+        <:empty>Nothing sent yet. A broadcast is listed here once it is queued.</:empty>
       </.rows>
     </.panel>
 
     <.panel title="Subscribers" count={length(@subscribers)}>
       <.rows id="subscribers" rows={@subscribers}>
-        <:col :let={sub} label="Email">{sub.email}</:col>
+        <:col :let={sub} label="Email" class="adm-mail-address">{sub.email}</:col>
         <:col :let={sub} label="Status">
           <.pill :if={sub.active} tone="live">Active</.pill>
           <.pill :if={!sub.active} tone="quiet">Unsubscribed</.pill>
         </:col>
-        <:col :let={sub} label="Joined">{stamp(sub.inserted_at)}</:col>
+        <:col :let={sub} label="Joined" class="adm-mail-when">{stamp(sub.inserted_at)}</:col>
         <:action :let={sub}>
           <button
             phx-click="delete_subscriber"
             phx-value-id={sub.id}
             data-confirm={"Remove #{sub.email} from the subscriber list? This cannot be undone."}
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
             aria-label={"Remove #{sub.email}"}
           >
             <.icon name="hero-trash" class="size-4" /> Remove
           </button>
         </:action>
-        <:empty>No subscribers yet.</:empty>
+        <:empty>No subscribers yet. Readers join through the sign-up on the site.</:empty>
       </.rows>
     </.panel>
     """

@@ -94,7 +94,10 @@ defmodule WebWeb.AdminLive.Inbox do
   def render(assigns) do
     ~H"""
     <.page_head slug="Mail / Inbox" title="Inbox">
-      <:lede>Messages from the contact page. Nothing here is public.</:lede>
+      <:lede>
+        Messages from the contact page, and letters about a piece. Nothing here is public until
+        you publish it under the piece.
+      </:lede>
     </.page_head>
 
     <.tabs label="Boxes">
@@ -123,38 +126,44 @@ defmodule WebWeb.AdminLive.Inbox do
 
     <.empty :if={@messages == []}>{empty_line(@box)}</.empty>
 
-    <div :if={@messages != []} class="adm-list" id="messages">
-      <article :for={msg <- @messages} id={"message-#{msg.id}"} class="adm-item">
-        <div class="adm-item-main">
-          <h2 class="adm-item-title">{msg.name}</h2>
-          <div class="adm-item-meta">
-            <span>{msg.email}</span>
-            <span>{stamp(msg.inserted_at)}</span>
+    <div :if={@messages != []} class="adm-list adm-letters" id="messages">
+      <article
+        :for={msg <- @messages}
+        id={"message-#{msg.id}"}
+        class={["adm-item adm-letter", msg.status == "attention" && "adm-letter--flagged"]}
+      >
+        <header class="adm-letter-head">
+          <h2 class="adm-letter-from">{msg.name}</h2>
+          <div class="adm-item-meta adm-letter-meta">
+            <span class="adm-mail-address">{msg.email}</span>
+            <span class="adm-mail-when">{stamp(msg.inserted_at)}</span>
             <.pill :if={msg.status == "attention"} tone="attention">Needs attention</.pill>
             <.pill :if={msg.piece && msg.published_at} tone="live">Published</.pill>
             <.pill :if={msg.piece && !msg.may_publish} tone="quiet">Private</.pill>
           </div>
-          <p :if={msg.piece} class="adm-item-note">
-            A letter about
-            <%= case @pieces[msg.piece] do %>
-              <% {:ok, piece} -> %>
-                <.link href={piece.path} target="_blank" class="adm-link">{piece.title}</.link>
-              <% _ -> %>
-                a piece that is no longer on the site ({msg.piece})
-            <% end %>
-          </p>
-          <p class="adm-item-body">{msg.message}</p>
-        </div>
+        </header>
 
-        <div class="adm-item-actions">
-          <a href={"mailto:#{msg.email}"} class="adm-link">
+        <p :if={msg.piece} class="adm-letter-about">
+          About
+          <%= case @pieces[msg.piece] do %>
+            <% {:ok, piece} -> %>
+              <.link href={piece.path} target="_blank" class="adm-letter-piece">{piece.title}</.link>
+            <% _ -> %>
+              a piece that is no longer on the site ({msg.piece})
+          <% end %>
+        </p>
+
+        <p class="adm-letter-body">{msg.message}</p>
+
+        <div class="adm-item-actions adm-letter-actions">
+          <a href={"mailto:#{msg.email}"} class="adm-btn adm-btn--quiet adm-btn--small">
             <.icon name="hero-arrow-uturn-left" class="size-4" /> Reply
           </a>
           <button
             :if={msg.piece && msg.may_publish && is_nil(msg.published_at)}
             phx-click="publish_letter"
             phx-value-id={msg.id}
-            class="adm-btn adm-btn--primary adm-btn--small"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-accent"
           >
             Publish under the piece
           </button>
@@ -171,7 +180,7 @@ defmodule WebWeb.AdminLive.Inbox do
             phx-click="message_status"
             phx-value-id={msg.id}
             phx-value-status="attention"
-            class="adm-link"
+            class="adm-btn adm-btn--quiet adm-btn--small"
           >
             <.icon name="hero-flag" class="size-4" /> Flag
           </button>
@@ -180,7 +189,7 @@ defmodule WebWeb.AdminLive.Inbox do
             phx-click="message_status"
             phx-value-id={msg.id}
             phx-value-status="inbox"
-            class="adm-link"
+            class="adm-btn adm-btn--quiet adm-btn--small"
           >
             <.icon name="hero-inbox" class="size-4" /> Move to inbox
           </button>
@@ -189,7 +198,7 @@ defmodule WebWeb.AdminLive.Inbox do
             phx-click="message_status"
             phx-value-id={msg.id}
             phx-value-status="archive"
-            class="adm-link adm-link--quiet"
+            class="adm-btn adm-btn--quiet adm-btn--small"
           >
             <.icon name="hero-archive-box" class="size-4" /> Archive
           </button>
@@ -198,7 +207,7 @@ defmodule WebWeb.AdminLive.Inbox do
             phx-click="delete_message"
             phx-value-id={msg.id}
             data-confirm="Delete this message? This cannot be undone."
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
           >
             <.icon name="hero-trash" class="size-4" /> Delete
           </button>
@@ -208,7 +217,9 @@ defmodule WebWeb.AdminLive.Inbox do
     """
   end
 
-  defp empty_line("attention"), do: "Nothing flagged."
-  defp empty_line("inbox"), do: "The inbox is empty."
-  defp empty_line("archive"), do: "Nothing archived yet."
+  defp empty_line("attention"),
+    do: "Nothing flagged. Flag a message from the inbox to keep it in view here."
+
+  defp empty_line("inbox"), do: "The inbox is empty. Messages from the contact page land here."
+  defp empty_line("archive"), do: "Nothing archived yet. Archive a message once it is answered."
 end

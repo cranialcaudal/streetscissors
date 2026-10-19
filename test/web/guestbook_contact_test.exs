@@ -238,11 +238,12 @@ defmodule Web.GuestbookContactTest do
       assert General.get_guestbook_entry!(entry.id).message == "hey :)"
     end
 
-    test "deleting the signature deletes the contact with it", %{conn: conn} do
+    test "rejecting the signature deletes the contact with it", %{conn: conn} do
       {:ok, entry} = sign(%{contact: @email})
       {:ok, view, _html} = live(conn, ~p"/admin/guestbook")
 
-      view |> element("#signature-#{entry.id} button", "Delete") |> render_click()
+      # A waiting signature is rejected (the same delete), an approved one deleted.
+      view |> element("#signature-#{entry.id} button", "Reject") |> render_click()
       assert Web.Repo.aggregate(GuestbookEntry, :count) == 0
     end
   end

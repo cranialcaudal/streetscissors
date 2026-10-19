@@ -58,7 +58,8 @@ defmodule WebWeb.AdminLive.Citations do
   end
 
   defp load(socket) do
-    mentions = Webmentions.list(@views[socket.assigns.show])
+    # Waiting ones first, whichever list they are in: the ones that ask something of you.
+    mentions = Enum.sort_by(Webmentions.list(@views[socket.assigns.show]), &(&1.status != "held"))
 
     pieces =
       mentions |> Enum.map(& &1.piece) |> Enum.uniq() |> Map.new(&{&1, Pieces.resolve(&1)})
@@ -100,29 +101,33 @@ defmodule WebWeb.AdminLive.Citations do
       </:tab>
     </.tabs>
 
-    <div :if={@show == "sent"} id="citations-sent">
-      <p class="adm-help">
+    <div :if={@show == "sent"} id="citations-sent" class="adm-sent">
+      <p class="adm-sent-note">
         Each link a post makes to another site is announced to that site once, within the hour.
         A site that takes no webmentions is noted and not asked again.
       </p>
       <.rows id="sent" rows={@sent} row_id={&"sent-#{&1.id}"}>
-        <:col :let={row} label="From" class="adm-cell-title">
+        <:col :let={row} label="From" class="adm-mail-url">
           <.link href={row.source} target="_blank" class="adm-link">{row.source}</.link>
         </:col>
-        <:col :let={row} label="To">
-          <a href={row.target} target="_blank" rel="noopener nofollow">{row.target}</a>
+        <:col :let={row} label="To" class="adm-mail-url">
+          <a href={row.target} target="_blank" rel="noopener nofollow" class="adm-link">
+            {row.target}
+          </a>
         </:col>
         <:col :let={row} label="Outcome">
           <.pill tone={sent_tone(row.status)}>{sent_label(row.status)}</.pill>
-          <span :if={row.detail}>{row.detail}</span>
+          <span :if={row.detail} class="adm-sent-detail">{row.detail}</span>
         </:col>
-        <:col :let={row} label="When">{stamp(row.sent_at || row.updated_at)}</:col>
+        <:col :let={row} label="When" class="adm-mail-when">
+          {stamp(row.sent_at || row.updated_at)}
+        </:col>
         <:action :let={row}>
           <button
             :if={row.status in ["failed", "no_endpoint"]}
             phx-click="retry"
             phx-value-id={row.id}
-            class="adm-link"
+            class="adm-btn adm-btn--quiet adm-btn--small"
           >
             Try again
           </button>
@@ -133,45 +138,59 @@ defmodule WebWeb.AdminLive.Citations do
 
     <.empty :if={@show != "sent" and @mentions == []}>{empty_line(@show)}</.empty>
 
-    <div :if={@show != "sent" and @mentions != []} class="adm-list" id="citations">
-      <article :for={mention <- @mentions} id={"citation-#{mention.id}"} class="adm-item">
-        <div class="adm-item-main">
-          <h2 class="adm-item-title">
-            <a href={mention.source} target="_blank" rel="noopener nofollow">
+    <div :if={@show != "sent" and @mentions != []} class="adm-list adm-citations" id="citations">
+      <article
+        :for={mention <- @mentions}
+        id={"citation-#{mention.id}"}
+        class={["adm-item adm-citation", mention.status == "held" && "adm-citation--held"]}
+      >
+        <header class="adm-citation-head">
+          <h2 class="adm-citation-title">
+            <a
+              href={mention.source}
+              target="_blank"
+              rel="noopener nofollow"
+              class={["adm-citation-link", is_nil(mention.title) && "adm-mail-address"]}
+            >
               {mention.title || mention.source}
             </a>
           </h2>
           <div class="adm-item-meta">
-            <span>{mention.source_host}</span>
+            <span class="adm-mail-address">{mention.source_host}</span>
             <span :if={mention.author_name}>by {mention.author_name}</span>
-            <span>{stamp(mention.updated_at)}</span>
+            <span class="adm-mail-when">{stamp(mention.updated_at)}</span>
             <.pill tone={status_tone(mention.status)}>{status_label(mention.status)}</.pill>
           </div>
-          <p class="adm-item-note">
-            Cites
-            <%= case @pieces[mention.piece] do %>
-              <% {:ok, piece} -> %>
-                <.link href={piece.path} target="_blank" class="adm-link">{piece.title}</.link>
-              <% _ -> %>
-                a piece no longer on the site ({mention.piece})
-            <% end %>
-          </p>
-        </div>
+        </header>
 
-        <div class="adm-item-actions">
+        <p :if={mention.title} class="adm-citation-source adm-mail-address">{mention.source}</p>
+
+        <p class="adm-citation-cites">
+          Cites
+          <%= case @pieces[mention.piece] do %>
+            <% {:ok, piece} -> %>
+              <.link href={piece.path} target="_blank" class="adm-citation-piece">
+                {piece.title}
+              </.link>
+            <% _ -> %>
+              a piece no longer on the site ({mention.piece})
+          <% end %>
+        </p>
+
+        <div class="adm-item-actions adm-citation-actions">
           <button
             :if={mention.status == "held"}
             phx-click="approve"
             phx-value-id={mention.id}
-            class="adm-btn adm-btn--primary adm-btn--small"
+            class="adm-btn adm-btn--primary"
           >
-            Approve
+            <.icon name="hero-check" class="size-4" /> Approve
           </button>
           <button
             :if={mention.status in ["held", "approved"]}
             phx-click="reject"
             phx-value-id={mention.id}
-            class="adm-link adm-link--quiet"
+            class="adm-btn adm-btn--quiet adm-btn--small"
           >
             {if mention.status == "approved", do: "Take down", else: "Reject"}
           </button>
@@ -179,9 +198,9 @@ defmodule WebWeb.AdminLive.Citations do
             phx-click="delete"
             phx-value-id={mention.id}
             data-confirm="Delete this citation? A new ping from its source would bring it back."
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
           >
-            Delete
+            <.icon name="hero-trash" class="size-4" /> Delete
           </button>
         </div>
       </article>
@@ -212,6 +231,9 @@ defmodule WebWeb.AdminLive.Citations do
   defp sent_label("withdrawn"), do: "Withdrawn"
 
   defp empty_line("held"), do: "Nothing waiting. No site has cited a piece since you last looked."
-  defp empty_line("approved"), do: "No citations shown yet."
+
+  defp empty_line("approved"),
+    do: "Nothing shown yet. Approve a waiting citation and it appears under its piece."
+
   defp empty_line(_), do: "No site has sent a webmention yet."
 end

@@ -113,7 +113,8 @@ defmodule WebWeb.AdminLive.GuestbookManager do
 
   defp filter(entries, "held"), do: Enum.reject(entries, & &1.approved)
   defp filter(entries, "live"), do: Enum.filter(entries, & &1.approved)
-  defp filter(entries, "all"), do: entries
+  # Waiting ones first: an approval that is not yet made is what asks something of you.
+  defp filter(entries, "all"), do: Enum.sort_by(entries, & &1.approved)
 
   def render(assigns) do
     ~H"""
@@ -140,69 +141,91 @@ defmodule WebWeb.AdminLive.GuestbookManager do
 
     <.empty :if={@entries == []}>{empty_line(@show)}</.empty>
 
-    <div :if={@entries != []} class="adm-list" id="signatures">
-      <article :for={entry <- @entries} id={"signature-#{entry.id}"} class="adm-item">
-        <div class="adm-item-main">
-          <h2 class="adm-item-title">{entry.name}</h2>
+    <div :if={@entries != []} class="adm-list adm-signatures" id="signatures">
+      <article
+        :for={entry <- @entries}
+        id={"signature-#{entry.id}"}
+        class={[
+          "adm-item adm-signature",
+          entry.approved && "adm-signature--live",
+          !entry.approved && "adm-signature--held"
+        ]}
+      >
+        <header class="adm-signature-head">
+          <h2 class="adm-signature-name">{entry.name}</h2>
           <div class="adm-item-meta">
-            <span>{stamp(entry.inserted_at)}</span>
-            <span>{entry.ip_address || "no IP"}</span>
+            <span class="adm-mail-when">{stamp(entry.inserted_at)}</span>
+            <span class="adm-signature-ip">{entry.ip_address || "no IP"}</span>
             <.pill :if={entry.approved} tone="live">Live</.pill>
             <.pill :if={!entry.approved} tone="held">Waiting</.pill>
           </div>
-          <p class="adm-item-body">{entry.message}</p>
+        </header>
 
-          <%!-- A contact is opened one at a time, on request, and stays on
-                screen only while this page does. --%>
-          <div :if={entry.has_contact} class="adm-item-meta" id={"contact-#{entry.id}"}>
-            <%= case @revealed[entry.id] do %>
-              <% nil -> %>
-                <span>Left a way to reach them</span>
-                <button
-                  phx-click="reveal_contact"
-                  phx-value-id={entry.id}
-                  class="adm-btn adm-btn--quiet adm-btn--small"
-                >
-                  <.icon name="hero-eye" class="size-4" /> Show
-                </button>
-              <% :unreadable -> %>
-                <span>
-                  A contact was left, but it can no longer be opened (the site's secret has changed since).
-                </span>
-              <% :none -> %>
-                <span>No contact.</span>
-              <% contact -> %>
-                <a :if={contact_href(contact)} href={contact_href(contact)} class="adm-link">
-                  {contact}
-                </a>
-                <span :if={!contact_href(contact)}>{contact}</span>
-                <button
-                  phx-click="hide_contact"
-                  phx-value-id={entry.id}
-                  class="adm-btn adm-btn--quiet adm-btn--small"
-                >
-                  Hide
-                </button>
-                <button
-                  phx-click="forget_contact"
-                  phx-value-id={entry.id}
-                  data-confirm="Forget this contact permanently? The signature stays."
-                  class="adm-link adm-link--danger"
-                >
-                  Forget it
-                </button>
-            <% end %>
-          </div>
+        <p class="adm-signature-message">{entry.message}</p>
+
+        <%!-- A contact is opened one at a time, on request, and stays on
+              screen only while this page does. --%>
+        <div :if={entry.has_contact} class="adm-signature-contact" id={"contact-#{entry.id}"}>
+          <%= case @revealed[entry.id] do %>
+            <% nil -> %>
+              <span>Left a way to reach them</span>
+              <button
+                phx-click="reveal_contact"
+                phx-value-id={entry.id}
+                class="adm-btn adm-btn--quiet adm-btn--small"
+              >
+                <.icon name="hero-eye" class="size-4" /> Show
+              </button>
+            <% :unreadable -> %>
+              <span>
+                A contact was left, but it can no longer be opened (the site's secret has changed since).
+              </span>
+            <% :none -> %>
+              <span>No contact.</span>
+            <% contact -> %>
+              <a
+                :if={contact_href(contact)}
+                href={contact_href(contact)}
+                class="adm-link adm-mail-address"
+              >
+                {contact}
+              </a>
+              <span :if={!contact_href(contact)} class="adm-mail-address">{contact}</span>
+              <button
+                phx-click="hide_contact"
+                phx-value-id={entry.id}
+                class="adm-btn adm-btn--quiet adm-btn--small"
+              >
+                Hide
+              </button>
+              <button
+                phx-click="forget_contact"
+                phx-value-id={entry.id}
+                data-confirm="Forget this contact permanently? The signature stays."
+                class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
+              >
+                Forget it
+              </button>
+          <% end %>
         </div>
 
-        <div class="adm-item-actions">
+        <div class="adm-item-actions adm-signature-actions">
           <button
             :if={!entry.approved}
             phx-click="toggle_approved"
             phx-value-id={entry.id}
-            class="adm-btn adm-btn--primary adm-btn--small"
+            class="adm-btn adm-btn--primary"
           >
             <.icon name="hero-check" class="size-4" /> Approve
+          </button>
+          <button
+            :if={!entry.approved}
+            phx-click="delete"
+            phx-value-id={entry.id}
+            data-confirm="Reject this signature? It is deleted permanently."
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
+          >
+            <.icon name="hero-x-mark" class="size-4" /> Reject
           </button>
           <button
             :if={entry.approved}
@@ -213,10 +236,11 @@ defmodule WebWeb.AdminLive.GuestbookManager do
             Unpublish
           </button>
           <button
+            :if={entry.approved}
             phx-click="delete"
             phx-value-id={entry.id}
             data-confirm="Delete this signature permanently?"
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--quiet adm-btn--small adm-act-danger"
           >
             <.icon name="hero-trash" class="size-4" /> Delete
           </button>
@@ -227,6 +251,9 @@ defmodule WebWeb.AdminLive.GuestbookManager do
   end
 
   defp empty_line("held"), do: "Nothing waiting. Every signature has been seen."
-  defp empty_line("live"), do: "Nothing approved yet."
-  defp empty_line("all"), do: "No one has signed yet."
+
+  defp empty_line("live"),
+    do: "Nothing approved yet. Approve a waiting signature and it shows on the guestbook."
+
+  defp empty_line("all"), do: "No one has signed yet. Signatures appear here as they arrive."
 end
