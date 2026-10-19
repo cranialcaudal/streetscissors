@@ -3,6 +3,8 @@ defmodule WebWeb.AdminLive.DashboardTest do
   import Phoenix.LiveViewTest
   import Web.GeneralFixtures
 
+  import Web.NegativesFixtures
+
   alias Web.Backup
   alias Web.Contact
 
@@ -35,6 +37,17 @@ defmodule WebWeb.AdminLive.DashboardTest do
     end)
 
     :ok
+  end
+
+  # What a card says, as one line of text.
+  defp card_text(view, id) do
+    view
+    |> element("#" <> id)
+    |> render()
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.text()
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
   end
 
   test "anonymous visitors are redirected away", %{conn: conn} do
@@ -155,5 +168,214 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
     assert conn |> get("/blog") |> html_response(200) =~ ~s(id="admin-indicator")
     refute conn |> get("/admin/dashboard") |> html_response(200) =~ ~s(id="admin-indicator")
+  end
+
+  describe "the program cards" do
+    test "each program has a card, with its first action filled in", %{conn: conn} do
+      archive!()
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      for {id, title, action, href} <- [
+            {"program-darkroom", "Darkroom", "Scan", "/admin/scanner"},
+            {"program-cuts", "Cutting room", "Record a log", "/admin/logs"},
+            {"program-writing", "Writing", "New post", "/admin/blog#new-post-form"},
+            {"program-training", "Training", "Fitness", "/admin/fitness"},
+            {"program-mail", "Mail", "Inbox", "/admin/inbox"}
+          ] do
+        assert has_element?(view, "#" <> id <> " .st-card-title", title)
+        assert has_element?(view, "#" <> id <> ~s( a.adm-btn--primary[href="#{href}"]), action)
+      end
+    end
+
+    test "a darkroom with nothing in it says so and offers Scan", %{conn: conn} do
+      archive!()
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert card_text(view, "program-darkroom") =~
+               "Nothing on the bench and no prints yet. Scan a roll to begin."
+
+      refute has_element?(view, "#program-darkroom img")
+    end
+
+    test "the roll on the bench, its strips and the singles still owed", %{conn: conn} do
+      root = archive!()
+      put_roll!(root, roll: "065", format: "35mm", color: "color")
+      dir = Web.Scanner.Pipeline.roll_dir("066", "2026-10-18", "35mm", "color")
+      File.mkdir_p!(dir)
+
+      put_strips!(dir, [
+        {656, 2152, [{1, {0, 0, 656, 700}}, {2, {0, 726, 656, 700}}]},
+        {656, 2152, [{3, {0, 0, 656, 700}}]},
+        {656, 2152, [{4, {0, 0, 656, 700}}]}
+      ])
+
+      File.write!(
+        Path.join(dir, "selects.json"),
+        Jason.encode!(%{"frames" => %{"2" => %{"chosen" => true}}})
+      )
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert card_text(view, "program-darkroom") =~
+               "Roll 066 on the bench, 3 strips, 1 single still to scan"
+
+      refute card_text(view, "program-darkroom") =~ "Nothing on the bench"
+    end
+
+    test "an edited print is the darkroom's picture, with a way to its page", %{conn: conn} do
+      root = archive!()
+      folder = put_roll!(root, roll: "065", format: "35mm", color: "color")
+      put_print!(folder, 6)
+      File.mkdir_p!(Path.join(folder, "edits"))
+      File.write!(Path.join([folder, "edits", "06.json"]), "{}")
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert has_element?(view, ~s(#program-darkroom img[src^="/negatives/frame/65/6"]))
+      assert card_text(view, "program-darkroom") =~ "1 print edited, the last just now"
+      assert card_text(view, "program-darkroom") =~ "frame 6 of roll 065"
+    end
+
+    test "drafts and the last post are on the writing card", %{conn: conn} do
+      blog = Path.join(System.tmp_dir!(), "blog-cards-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(blog)
+      original = Application.get_env(:web, :blog_path)
+      Application.put_env(:web, :blog_path, blog)
+
+      on_exit(fn ->
+        File.rm_rf!(blog)
+        Application.put_env(:web, :blog_path, original)
+      end)
+
+      File.write!(
+        Path.join(blog, "wip.md"),
+        ~s(---\ntitle: "Half a thought"\ndate: "2026-10-10"\ndraft: true\n---\n\nText.\n)
+      )
+
+      File.write!(
+        Path.join(blog, "done.md"),
+        ~s(---\ntitle: "Finished"\ndate: "2026-10-03"\n---\n\nText.\n)
+      )
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      text = card_text(view, "program-writing")
+
+      assert text =~ "1 draft, the newest Half a thought"
+      assert text =~ "Last published Finished, Oct 3"
+      assert text =~ "1 post has no description"
+      assert text =~ "1 post has no keywords"
+      assert has_element?(view, ~s(#program-writing a[href="/admin/blog/wip/edit"]))
+      # Content health renders every page: linked, never built here.
+      assert has_element?(view, ~s(#program-writing a[href="/admin/health"]))
+    end
+
+    test "the mail card quotes the newest open message", %{conn: conn} do
+      {:ok, _} =
+        Contact.create_message(%{
+          name: "Ada Reader",
+          email: "ada@example.com",
+          message: "Which film was that?\nAnd the camera?"
+        })
+
+      guestbook_entry_fixture(%{approved: false})
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      text = card_text(view, "program-mail")
+
+      assert text =~ "1 message open"
+      assert text =~ "1 signature held for approval"
+      assert text =~ "Newest, from Ada Reader"
+      assert text =~ "Which film was that?"
+      refute text =~ "And the camera?"
+    end
+
+    test "a cut and a log waiting are on the cutting room's card", %{conn: conn} do
+      {:ok, cut} = Web.Cuts.create_cut("Sunday log")
+      on_exit(fn -> File.rm_rf(Web.Cuts.bin(cut.id)) end)
+      Web.AudioFixtures.log_fixture(%{published: false})
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      text = card_text(view, "program-cuts")
+
+      assert text =~ "Sunday log, nothing on the timeline yet"
+      assert text =~ "1 log ready, not yet published"
+
+      assert has_element?(
+               view,
+               ~s(#program-cuts a[href="/admin/cuts/#{cut.id}"]),
+               "Open the last cut"
+             )
+    end
+  end
+
+  describe "the figures" do
+    setup :quiet_site
+
+    test "one item says all is well once the monitor has looked", %{conn: conn} do
+      Web.SiteSettings.put_setting(
+        "monitor_state",
+        Jason.encode!(%{
+          "at" => DateTime.to_iso8601(DateTime.utc_now()),
+          "checks" => [
+            %{"key" => "disk", "label" => "Disk", "state" => "ok", "detail" => "26% free"}
+          ],
+          "failing" => %{}
+        })
+      )
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert has_element?(view, "#figures", "all well")
+      refute has_element?(view, "#figures .st-strip-item--warn")
+      refute has_element?(view, "#figures .st-strip-item--fail")
+    end
+
+    test "a check that is failing is an item of its own, toned", %{conn: conn} do
+      Web.SiteSettings.put_setting(
+        "monitor_state",
+        Jason.encode!(%{
+          "at" => DateTime.to_iso8601(DateTime.utc_now()),
+          "checks" => [
+            %{
+              "key" => "certificate",
+              "label" => "Certificate",
+              "state" => "fail",
+              "detail" => "6 days left"
+            }
+          ],
+          "failing" => %{}
+        })
+      )
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert has_element?(view, "#figures .st-strip-item--fail", "Certificate")
+      refute has_element?(view, "#figures", "all well")
+    end
+
+    test "the counts on file are links, and traffic arrives after the page is up", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), "/admin/dashboard")
+
+      assert has_element?(view, ~s(#figures a[href="/admin/blog"]), "Posts")
+      assert has_element?(view, ~s(#figures a[href="/admin/guestbook"]), "Signatures")
+      refute html =~ "Visitors today"
+
+      render_async(view)
+
+      assert has_element?(view, "#figures", "Visitors today")
+      assert has_element?(view, "#figures", "Views today")
+      assert has_element?(view, "#figures", "Views in 56 weeks")
+    end
+
+    test "the full machine and the most viewed are there, closed", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      render_async(view)
+
+      assert has_element?(view, "details#machine > summary", "The machine in full")
+      assert has_element?(view, "details#machine #system", "Database snapshots")
+      assert has_element?(view, "details#most-viewed > summary", "Most viewed")
+      assert has_element?(view, "details#most-viewed", "No views recorded yet.")
+      refute has_element?(view, "details[open]")
+    end
   end
 end

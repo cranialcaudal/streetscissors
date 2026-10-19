@@ -1,159 +1,330 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN / Overview: the dashboard (WebWeb.AdminLive.Dashboard)
-   Moved out of admin.css unchanged; imported after base.css.
+   ADMIN / Overview: the studio floor (WebWeb.AdminLive.Dashboard)
+   Imported after base.css, which holds the tokens and the shared
+   `st-cards` / `st-card` / `st-strip` classes. This file is only what the
+   floor adds: the "needs you" lines, what goes inside a card, and the two
+   quiet details under the strip. Colour is a token; type is Plex Sans, with
+   Plex Mono for figures and Fraunces for words people wrote.
    ═══════════════════════════════════════════════════════════════════ */
 
-.adm-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: 0 3rem;
-  align-items: start;
+/* ── Needs you ─────────────────────────────────────────────────────── */
+
+/* A few calm lines, there only when something waits. Each is a link to where
+   it is done; only a real failure is coloured. */
+.ov-needs {
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius);
 }
 
-/* The overview's "needs you" queue: one row per kind of waiting thing. */
-.adm-queue {
+.ov-needs-title {
   margin: 0;
-  padding: 0;
+  padding: 0.85rem 1.1rem 0.25rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--st-ink-2);
+}
+
+.ov-needs-list {
+  margin: 0;
+  padding: 0 0 0.25rem;
   list-style: none;
 }
 
-.adm-queue-link {
+.ov-needs-list li + li .ov-need {
+  border-top: 1px solid var(--st-line);
+}
+
+.ov-need {
   display: grid;
-  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 0.5rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
-  min-height: 54px;
-  padding: 0.5rem 0.5rem 0.5rem 0;
-  border-bottom: 1px solid var(--rule);
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.4rem 1.1rem;
+  color: var(--st-ink);
+  font-size: var(--st-fs);
   text-decoration: none;
 }
 
-.adm-queue-link:hover {
-  background: var(--paper-raised);
+.ov-need:hover {
+  background: var(--st-raised);
 }
 
-.adm-queue-count {
-  font-family: var(--font-data);
+.ov-need-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--st-line-strong);
+}
+
+.ov-need--warn .ov-need-dot {
+  background: var(--st-warn);
+}
+
+.ov-need--fail .ov-need-dot {
+  background: var(--st-fail);
+}
+
+.ov-need--fail .ov-need-text {
+  color: var(--st-fail);
+}
+
+.ov-need-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ov-need-go {
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+.ov-need:hover .ov-need-go {
+  color: var(--st-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── The cards ─────────────────────────────────────────────────────── */
+
+/* The five programs do not weigh the same: the Darkroom has pictures, Mail
+   has a line or two. In a grid, a row is as tall as its tallest card and the
+   rest stand half empty, so the cards flow in columns instead and each is as
+   tall as what it says. One column on a phone. */
+.st-cards.ov-floor {
+  display: block;
+  columns: 19rem 3;
+  column-gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ov-floor > .st-card {
+  margin-bottom: 1rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.ov-floor .st-card-actions {
+  margin-top: 0.25rem;
+}
+
+/* ── Inside a program card ─────────────────────────────────────────── */
+
+/* A figure in a sentence: the number in the data face, the noun after it. */
+.ov-num {
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 1.45rem;
-  text-align: right;
-  color: var(--adm-held);
+  font-size: 0.93em;
+  font-weight: 500;
+  color: var(--st-ink);
 }
 
-.adm-queue--fail .adm-queue-count { color: var(--adm-fail); }
-.adm-queue--info .adm-queue-count { color: var(--adm-info); }
-
-.adm-queue-text {
-  font-family: var(--font-body);
-  font-size: 1.08rem;
-  color: var(--ink);
+/* Words somebody wrote (a cut's name, a log's caption, a post's title, a
+   letter): the display face, as everywhere in the admin. */
+.ov-words {
+  font-family: var(--st-font-display);
+  font-size: 1.02em;
+  color: var(--st-ink);
 }
 
-.adm-queue-go {
-  color: var(--adm-act);
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+a.ov-words {
+  text-decoration: underline;
+  text-decoration-color: var(--st-line-strong);
+  text-underline-offset: 3px;
 }
 
-.adm-clear {
+a.ov-words:hover {
+  text-decoration-color: currentcolor;
+}
+
+.ov-quote {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+/* A link inside a card's lines reads as text until it is pointed at. */
+.st-card-line a:not(.ov-words) {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--st-line-strong);
+  text-underline-offset: 3px;
+}
+
+.st-card-line a:not(.ov-words):hover {
+  text-decoration-color: currentcolor;
+}
+
+/* The Darkroom's picture: the prints touched last, side by side on the bay
+   (a lone print fills it). The card's own rule sizes an image to its slot, so
+   these say what a cell is. */
+.ov-prints {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+.ov-prints img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Two or three prints are a strip of squares, each cut to fill its cell,
+   like thumbnails on a contact sheet. */
+.ov-strip-2 {
+  --st-card-picture-ratio: 2 / 1;
+}
+
+.ov-strip-3 {
+  --st-card-picture-ratio: 3 / 1;
+}
+
+:is(.ov-strip-2, .ov-strip-3) .ov-prints img {
+  object-fit: cover;
+}
+
+/* ── Under the strip ───────────────────────────────────────────────── */
+
+/* The full machine and the most viewed pages: closed, quiet, nothing lost. */
+.ov-details {
   margin: 0;
-  padding: 0.4rem 0 1.1rem;
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--font-body);
-  font-size: 1.1rem;
-  color: var(--adm-live);
+  border-top: 1px solid var(--st-line);
 }
 
-/* Traffic: a row of bars, the current fortnight in poppy. The hover label
-   is CSS, so it needs no script and survives a LiveView patch. */
-.adm-trend {
+.ov-details:last-of-type {
+  border-bottom: 1px solid var(--st-line);
+}
+
+.ov-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ov-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ov-details > summary::before {
+  content: "";
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: rotate(-45deg);
+  transition: transform 0.12s;
+}
+
+.ov-details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.ov-details > summary:hover {
+  color: var(--st-ink);
+}
+
+.ov-details[open] {
+  padding-bottom: 1rem;
+}
+
+.ov-details[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
+.ov-quiet {
+  margin: 0;
+  color: var(--st-ink-3);
+  font-size: var(--st-fs-sm);
+}
+
+/* Views by fortnight: bars, the newest one in the accent. The figure is in
+   each bar's own title, so there is no tooltip to run off the page. */
+.ov-trend {
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 128px;
-  padding-top: 1.5rem;
-  border-bottom: 1px solid var(--rule-strong);
+  height: 64px;
+  border-bottom: 1px solid var(--st-line-strong);
 }
 
-.adm-trend-bar {
-  position: relative;
+.ov-trend-bar {
   flex: 1;
-  min-width: 3px;
+  min-width: 2px;
   height: var(--h, 2%);
-  background: var(--ink-4);
+  background: var(--st-line-strong);
 }
 
-.adm-trend-bar.is-current {
-  background: var(--adm-act);
+.ov-trend-bar.is-current {
+  background: var(--st-ink-2);
 }
 
-.adm-trend-bar:hover {
-  background: var(--ink);
+.ov-trend-bar:hover {
+  background: var(--st-ink);
 }
 
-.adm-trend-bar::after {
-  content: attr(data-label);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  z-index: 2;
-  padding: 0.2rem 0.45rem;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--font-data);
-  font-size: 0.66rem;
-  white-space: nowrap;
-  transform: translateX(-50%);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.adm-trend-bar:hover::after {
-  opacity: 1;
-}
-
-.adm-trend-axis {
+.ov-trend-axis {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.35rem;
-  color: var(--ink-4);
-  font-family: var(--font-data);
-  font-size: 0.66rem;
+  margin: 0.35rem 0 1.25rem;
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
 }
 
-.adm-ranked {
+.ov-ranked {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.adm-ranked li {
+.ov-ranked li {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--rule);
-  font-family: var(--font-data);
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--st-line);
+  font-family: var(--st-font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
+  font-size: var(--st-fs-sm);
 }
 
-.adm-ranked-path {
+.ov-ranked-path {
   min-width: 0;
   overflow: hidden;
-  color: var(--ink-2);
+  color: var(--st-ink-2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.adm-ranked-count {
-  color: var(--ink-3);
+.ov-ranked-count {
+  color: var(--st-ink-3);
   white-space: nowrap;
 }
 
-@media (max-width: 1100px) {
-  .adm-split {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 600px) {
+  .ov-need {
+    padding-inline: 0.9rem;
+  }
+
+  .ov-need-go {
+    display: none;
+  }
+
+  .ov-need {
+    grid-template-columns: 0.5rem minmax(0, 1fr);
   }
 }
