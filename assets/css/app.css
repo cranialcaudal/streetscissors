@@ -26,7 +26,16 @@
 @import "./guestbook.css";
 @import "./logs.css";
 @import "./theme.css";
-@import "./admin.css";
+/* The admin, one file per area (base first: tokens, layout, the rail and every
+   shared component class; the rest are the programs' own rules). */
+@import "./admin/base.css";
+@import "./admin/overview.css";
+@import "./admin/darkroom.css";
+@import "./admin/cuts.css";
+@import "./admin/write.css";
+@import "./admin/mail.css";
+@import "./admin/sync.css";
+@import "./admin/settings.css";
 @import "./negatives.css";
 @import "./pc.css";
 @import "./header.css";

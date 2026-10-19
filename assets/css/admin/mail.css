@@ -1,0 +1,33 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ADMIN / Mail: inbox, guestbook, citations, newsletter
+   Moved out of admin.css unchanged; imported after base.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Newsletter: composer beside its preview ─────────────────────── */
+
+.adm-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.adm-test-send {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.adm-preview-frame {
+  display: block;
+  width: 100%;
+  height: 560px;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+@media (max-width: 1100px) {
+  .adm-compose {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
