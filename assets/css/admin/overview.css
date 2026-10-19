@@ -90,6 +90,29 @@
   text-underline-offset: 3px;
 }
 
+/* ── The cards ─────────────────────────────────────────────────────── */
+
+/* The five programs do not weigh the same: the Darkroom has pictures, Mail
+   has a line or two. In a grid, a row is as tall as its tallest card and the
+   rest stand half empty, so the cards flow in columns instead and each is as
+   tall as what it says. One column on a phone. */
+.st-cards.ov-floor {
+  display: block;
+  columns: 19rem 3;
+  column-gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ov-floor > .st-card {
+  margin-bottom: 1rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.ov-floor .st-card-actions {
+  margin-top: 0.25rem;
+}
+
 /* ── Inside a program card ─────────────────────────────────────────── */
 
 /* A figure in a sentence: the number in the data face, the noun after it. */
@@ -152,6 +175,20 @@ a.ov-words:hover {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* Two or three prints are a strip of squares, each cut to fill its cell,
+   like thumbnails on a contact sheet. */
+.ov-strip-2 {
+  --st-card-picture-ratio: 2 / 1;
+}
+
+.ov-strip-3 {
+  --st-card-picture-ratio: 3 / 1;
+}
+
+:is(.ov-strip-2, .ov-strip-3) .ov-prints img {
+  object-fit: cover;
 }
 
 /* ── Under the strip ───────────────────────────────────────────────── */

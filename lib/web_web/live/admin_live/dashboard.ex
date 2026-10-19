@@ -161,7 +161,7 @@ defmodule WebWeb.AdminLive.Dashboard do
   def render(assigns) do
     ~H"""
     <.page_head title="The studio">
-      <:lede>{today_line()}.<span :if={@queue == []}> Nothing needs you.</span></:lede>
+      <:lede>{today_line()}<span :if={@queue == []}>. Nothing needs you.</span></:lede>
     </.page_head>
 
     <section :if={@queue != []} id="needs-you" class="ov-needs" aria-labelledby="needs-you-title">
@@ -182,7 +182,7 @@ defmodule WebWeb.AdminLive.Dashboard do
       </ul>
     </section>
 
-    <div class="st-cards">
+    <div class="st-cards ov-floor">
       <.darkroom_card d={@floor.darkroom} />
       <.cutting_card c={@floor.cuts} />
       <.writing_card w={@floor.writing} />
@@ -256,6 +256,10 @@ defmodule WebWeb.AdminLive.Dashboard do
 
   # ── The programs ──────────────────────────────────────────────────────
 
+  # The lines of a card are sentences with their figures in the data face.
+  # A figure is made by `num/3` and set inside `{}`, never as a component of
+  # its own, so no stray space is left before the comma that follows it.
+
   attr :d, :map, required: true
 
   defp darkroom_card(assigns) do
@@ -273,6 +277,7 @@ defmodule WebWeb.AdminLive.Dashboard do
       program={:darkroom}
       title="Darkroom"
       href={~p"/admin/scanner"}
+      class={length(@prints) > 1 && "ov-strip-#{length(@prints)}"}
     >
       <:picture :if={@prints != []}>
         <div class={["ov-prints", "ov-prints--#{length(@prints)}"]}>
@@ -290,24 +295,24 @@ defmodule WebWeb.AdminLive.Dashboard do
       </:state>
       <:state :if={!@quiet? and @d.bench}>
         Roll <b class="ov-num">{@d.bench.roll}</b>
-        on the bench,
-        <.count n={@d.bench.strips} one="strip" many="strips" /><span :if={@d.bench.owed > 0}>
-          , <.count n={@d.bench.owed} one="single" many="singles" /> still to scan
-        </span>
+        on the bench, {num(@d.bench.strips, "strip", "strips")}{owed(@d.bench.owed)}
       </:state>
       <:state :if={!@quiet? and is_nil(@d.bench)}>Nothing on the bench</:state>
       <:state :if={@d.waiting != []}>
-        <.count n={length(@d.waiting)} one="roll" many="rolls" /> scanned, waiting to be published
+        {num(length(@d.waiting), "roll", "rolls")} scanned, waiting to be published
       </:state>
       <:state :if={!@quiet? and @d.edited > 0}>
-        <.count n={@d.edited} one="print" many="prints" />
-        edited<span :if={@d.recent != []}>, the last {ago(
-          hd(@d.recent).at
-        )}</span>
+        {num(@d.edited, "print", "prints")} edited{last_edit(@d.recent)}
       </:state>
       <:state :if={!@quiet? and @d.edited == 0}>No print edited yet</:state>
+      <:state :if={@d.recent != []}>
+        In the picture, newest edit first: {print_names(@d.recent)}
+      </:state>
+      <:state :if={@d.newest_print}>
+        In the picture, the newest print: {print_name(@d.newest_print)}
+      </:state>
       <:state :if={!@quiet? and @d.choices > 0}>
-        <.count n={@d.choices} one="Taste choice" many="Taste choices" /> kept
+        {num(@d.choices, "Taste choice", "Taste choices")} kept
       </:state>
       <:state :if={!@quiet? and @d.choices == 0}>No Taste choices yet</:state>
       <:actions>
@@ -319,21 +324,21 @@ defmodule WebWeb.AdminLive.Dashboard do
     """
   end
 
+  defp owed(0), do: ""
+  defp owed(n), do: ", #{n} #{plural(n, "single", "singles")} still to scan"
+
+  defp last_edit([]), do: ""
+  defp last_edit([newest | _]), do: ", the last #{ago(newest.at)}"
+
   attr :c, :map, required: true
 
   defp cutting_card(assigns) do
     c = assigns.c
-    logs = c.logs
     quiet? = c.total == 0 and is_nil(c.newest_log)
-    assigns = assign(assigns, quiet?: quiet?, logs: logs, last_cut: List.first(c.cuts))
+    assigns = assign(assigns, quiet?: quiet?, logs: c.logs, last_cut: List.first(c.cuts))
 
     ~H"""
-    <.program_card
-      id="program-cuts"
-      program={:cuts}
-      title="Cutting room"
-      href={~p"/admin/cuts"}
-    >
+    <.program_card id="program-cuts" program={:cuts} title="Cutting room" href={~p"/admin/cuts"}>
       <:picture :if={@c.newest_log && @c.newest_log.poster}>
         <img src={@c.newest_log.poster} alt="" loading="lazy" decoding="async" />
       </:picture>
@@ -341,34 +346,29 @@ defmodule WebWeb.AdminLive.Dashboard do
         No cuts and no logs yet. Record a log, or begin a cut.
       </:state>
       <:state :for={cut <- @c.cuts} tone={cut_tone(cut)}>
-        <span class="ov-words">{cut.name}</span>
-        <b class="ov-num">{clock(cut.length_ms)}</b>,
-        <.count n={cut.clips} one="clip" many="clips" />, {cut_state(cut)}
+        <span class="ov-words">{cut.name}</span>, {cut_figures(cut)} {cut_state(cut)}
       </:state>
       <:state :if={@c.total > length(@c.cuts)}>
-        and <.count n={@c.total - length(@c.cuts)} one="other cut" many="other cuts" />
+        and {num(@c.total - length(@c.cuts), "other cut", "other cuts")}
       </:state>
       <:state :if={@logs.unpublished > 0}>
-        <.count n={@logs.unpublished} one="log" many="logs" /> ready, not yet published
+        {num(@logs.unpublished, "log", "logs")} ready, not yet published
       </:state>
       <:state :if={@logs.transcoding > 0}>
-        <.count n={@logs.transcoding} one="log" many="logs" /> transcoding now
+        {num(@logs.transcoding, "log", "logs")} transcoding now
       </:state>
       <:state :if={@logs.failed > 0} tone={:fail}>
-        <.count n={@logs.failed} one="log" many="logs" /> failed to transcode
+        {num(@logs.failed, "log", "logs")} failed to transcode
       </:state>
       <:state :if={@c.newest_log}>
-        Newest log {short_date(@c.newest_log.recorded_on)}<span :if={
-          @c.newest_log.caption not in [nil, ""]
-        }>,
-          <span class="ov-words">{@c.newest_log.caption}</span></span>
+        Newest log {short_date(@c.newest_log.recorded_on)}{newest_caption(@c.newest_log)}
       </:state>
       <:actions>
         <.link navigate={~p"/admin/logs"} class="adm-btn adm-btn--primary">Record a log</.link>
         <.link :if={@last_cut} navigate={~p"/admin/cuts/#{@last_cut.id}"} class="adm-btn">
           Open the last cut
         </.link>
-        <.link navigate={~p"/admin/cuts#new-cut"} class="adm-btn">New cut</.link>
+        <.link :if={!@last_cut} navigate={~p"/admin/cuts#new-cut"} class="adm-btn">New cut</.link>
       </:actions>
     </.program_card>
     """
@@ -377,11 +377,28 @@ defmodule WebWeb.AdminLive.Dashboard do
   defp cut_tone(%{status: "failed"}), do: :fail
   defp cut_tone(_cut), do: nil
 
+  # `0:42, 3 clips,` for a cut with something on its timeline.
+  defp cut_figures(%{clips: 0}), do: ""
+
+  defp cut_figures(cut) do
+    assigns = %{length: clock(cut.length_ms), clips: num(cut.clips, "clip", "clips")}
+
+    ~H'<b class="ov-num">{@length}</b>, {@clips},'
+  end
+
   defp cut_state(%{status: "rendering"}), do: "rendering now"
   defp cut_state(%{status: "failed"}), do: "the render failed"
   defp cut_state(%{rendered?: true, log: log}) when is_binary(log), do: "rendered as log #{log}"
   defp cut_state(%{rendered?: true}), do: "rendered"
+  defp cut_state(%{clips: 0}), do: "nothing on the timeline yet"
   defp cut_state(_cut), do: "not rendered yet"
+
+  defp newest_caption(%{caption: caption}) when caption in [nil, ""], do: ""
+
+  defp newest_caption(%{caption: caption}) do
+    assigns = %{caption: caption}
+    ~H', <span class="ov-words">{@caption}</span>'
+  end
 
   attr :w, :map, required: true
 
@@ -392,7 +409,7 @@ defmodule WebWeb.AdminLive.Dashboard do
         No posts yet. Start the first one.
       </:state>
       <:state :if={@w.drafts > 0}>
-        <.count n={@w.drafts} one="draft" many="drafts" />, the newest
+        {num(@w.drafts, "draft", "drafts")}, the newest
         <.link navigate={~p"/admin/blog/#{@w.newest_draft.slug}/edit"} class="ov-words">
           {@w.newest_draft.title}
         </.link>
@@ -405,19 +422,22 @@ defmodule WebWeb.AdminLive.Dashboard do
         Every published post has a description and keywords
       </:state>
       <:state :if={@w.no_description > 0}>
-        <.count n={@w.no_description} one="post has" many="posts have" /> no description
+        {num(@w.no_description, "post has", "posts have")} no description
       </:state>
       <:state :if={@w.no_keywords > 0}>
         <.link navigate={~p"/admin/blog?filter=missing"}>
-          <.count n={@w.no_keywords} one="post has" many="posts have" /> no keywords
+          {num(@w.no_keywords, "post has", "posts have")} no keywords
         </.link>
+      </:state>
+      <:state :if={@w.published > 0}>
+        <.link navigate={~p"/admin/health"}>Content health</.link>
+        checks every page, so it runs when you open it
       </:state>
       <:actions>
         <.link navigate={~p"/admin/blog#new-post-form"} class="adm-btn adm-btn--primary">
           New post
         </.link>
         <.link navigate={~p"/admin/keywords"} class="adm-btn">Keywords</.link>
-        <.link navigate={~p"/admin/health"} class="adm-btn adm-btn--quiet">Content health</.link>
       </:actions>
     </.program_card>
     """
@@ -487,15 +507,13 @@ defmodule WebWeb.AdminLive.Dashboard do
         Nothing waits in the inbox, the guestbook or the citations.
       </:state>
       <:state :if={@m.open > 0}>
-        <.count n={@m.open} one="message" many="messages" />
-        open<span :if={@m.flagged > 0}>, {@m.flagged}
-          flagged</span>
+        {num(@m.open, "message", "messages")} open{flagged(@m.flagged)}
       </:state>
       <:state :if={@m.held > 0}>
-        <.count n={@m.held} one="signature" many="signatures" /> held for approval
+        {num(@m.held, "signature", "signatures")} held for approval
       </:state>
       <:state :if={@m.citations > 0}>
-        <.count n={@m.citations} one="citation" many="citations" /> awaiting approval
+        {num(@m.citations, "citation", "citations")} awaiting approval
       </:state>
       <:state :if={@m.newest}>
         Newest, from <span class="ov-words">{@m.newest.name}</span>, {ago(@m.newest.at)}:
@@ -509,15 +527,13 @@ defmodule WebWeb.AdminLive.Dashboard do
     """
   end
 
-  # A number in a sentence: the figure in the data face, the noun after it.
-  attr :n, :integer, required: true
-  attr :one, :string, required: true
-  attr :many, :string, required: true
+  defp flagged(0), do: ""
+  defp flagged(n), do: ", #{n} flagged"
 
-  defp count(assigns) do
-    ~H"""
-    <b class="ov-num">{@n}</b> {plural(@n, @one, @many)}
-    """
+  # A number in a sentence: the figure in the data face, the noun after it.
+  defp num(n, one, many) do
+    assigns = %{n: n, noun: plural(n, one, many)}
+    ~H'<b class="ov-num">{@n}</b> {@noun}'
   end
 
   # ── The status strip ──────────────────────────────────────────────────
@@ -578,6 +594,10 @@ defmodule WebWeb.AdminLive.Dashboard do
   defp today_line do
     Calendar.strftime(Web.Clock.local_today(DateTime.utc_now()), "%A, %B %-d")
   end
+
+  defp print_name(%{roll: roll, frame: frame}), do: "frame #{frame} of roll #{roll}"
+
+  defp print_names(prints), do: Enum.map_join(prints, ", ", &print_name/1)
 
   # `0:42` for a cut's length.
   defp clock(ms) do
