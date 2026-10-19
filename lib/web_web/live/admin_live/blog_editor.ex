@@ -118,7 +118,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
     assigns = assign(assigns, :dirty, assigns.content != assigns.saved)
 
     ~H"""
-    <.page_head slug="Write / Blog / Edit" title={@post.title}>
+    <.page_head slug="Writing / Blog / Edit" title={@post.title}>
       <:lede>
         <code>{@slug}.md</code>, the file itself. Saving writes it back to the vault.
       </:lede>
@@ -159,7 +159,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
         >
           Save mine over it
         </button>
-        <button type="button" phx-click="keep_editing" class="adm-link adm-link--quiet">
+        <button type="button" phx-click="keep_editing" class="adm-btn adm-btn--quiet">
           Keep editing
         </button>
       </div>
@@ -199,14 +199,19 @@ defmodule WebWeb.AdminLive.BlogEditor do
           <.pill :if={@post.draft} tone="draft">draft</.pill>
           <.pill :if={!@post.draft} tone="live">published</.pill>
         </p>
+        <h2 class="adm-preview-title">{@post.title}</h2>
         <dl class="adm-facts">
           <div>
             <dt>Date</dt>
-            <dd>{stamp(@post.date)}</dd>
+            <dd class="adm-figure">{stamp(@post.date)}</dd>
           </div>
           <div>
             <dt>Length</dt>
-            <dd>{@post.word_count} words, {@post.read_min} min</dd>
+            <dd>
+              <span class="adm-figure">{@post.word_count}</span>
+              words, <span class="adm-figure">{@post.read_min}</span>
+              min
+            </dd>
           </div>
           <div>
             <dt>Keywords</dt>

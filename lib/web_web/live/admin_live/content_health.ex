@@ -62,7 +62,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
 
   def render(assigns) do
     ~H"""
-    <.page_head slug="Write / Content health" title="Content health">
+    <.page_head slug="Writing / Content health" title="Content health">
       <:lede>
         The vault read the way the site reads it: every link asked of the site itself, every
         embed looked up, every file accounted for. Nothing here changes anything.
@@ -78,7 +78,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
     <.empty :if={is_nil(@report)}>Reading the vault…</.empty>
 
     <div :if={@report} id="health-report">
-      <p class="adm-help" id="health-summary">
+      <p class="adm-summary" id="health-summary">
         {case ContentHealth.count(@report) do
           0 -> "Nothing needs fixing."
           1 -> "1 thing to look at."
@@ -87,7 +87,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
       </p>
 
       <.panel title="Links that go nowhere" count={length(@report.broken)} id="health-broken">
-        <.rows id="broken" rows={@report.broken}>
+        <.rows id="broken" class="adm-rows--grid" rows={@report.broken}>
           <:col :let={row} label="In" class="adm-cell-title">
             <.link :if={row.source.edit} navigate={row.source.edit} class="adm-link">
               {row.source.label}
@@ -101,7 +101,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
       </.panel>
 
       <.panel title="Embeds that point at nothing" count={length(@report.embeds)} id="health-embeds">
-        <.rows id="embeds" rows={@report.embeds}>
+        <.rows id="embeds" class="adm-rows--grid" rows={@report.embeds}>
           <:col :let={row} label="In" class="adm-cell-title">
             <.link :if={row.source.edit} navigate={row.source.edit} class="adm-link">
               {row.source.label}
@@ -115,7 +115,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
       </.panel>
 
       <.panel title="Posts missing their particulars" count={length(@report.posts)} id="health-posts">
-        <.rows id="undescribed" rows={@report.posts}>
+        <.rows id="undescribed" class="adm-rows--grid" rows={@report.posts}>
           <:col :let={row} label="Post" class="adm-cell-title">
             <.link navigate={~p"/admin/blog/#{row.post.slug}/edit"} class="adm-link">
               {row.post.title}
@@ -131,7 +131,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
       </.panel>
 
       <.panel title="Files nothing uses" count={length(@report.unused)} id="health-unused">
-        <.rows id="unused" rows={@report.unused}>
+        <.rows id="unused" class="adm-rows--grid" rows={@report.unused}>
           <:col :let={row} label="Kind">{kind_label(row.kind)}</:col>
           <:col :let={row} label="File" class="adm-cell-title"><code>{row.name}</code></:col>
           <:col :let={row} label="Why it is listed">{row.detail}</:col>
@@ -144,7 +144,7 @@ defmodule WebWeb.AdminLive.ContentHealth do
         count={length(@report.archive)}
         id="health-archive"
       >
-        <.rows id="archive" rows={@report.archive}>
+        <.rows id="archive" class="adm-rows--grid" rows={@report.archive}>
           <:col :let={row} label="Roll" class="adm-cell-title">
             <.link href={~p"/negatives/roll/#{row.roll}"} target="_blank" class="adm-link">
               {row.roll}

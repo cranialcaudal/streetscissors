@@ -197,7 +197,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
     <%= if @editor_mode do %>
       {render_editor(assigns)}
     <% else %>
-      <.page_head slug="Write / Fitness" title="Fitness">
+      <.page_head slug="Training / Fitness" title="Fitness">
         <:lede>
           The exercise wiki and the regimen's days, as markdown in the vault. The public side is <.link
             href={~p"/fitness"}
@@ -269,12 +269,18 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
     <section :for={{group, exercises} <- @shown} class="adm-panel">
       <h2 class="adm-group-title">{group}<span class="adm-count">{length(exercises)}</span></h2>
-      <.rows id={"exercises-#{group}"} rows={exercises}>
+      <.rows id={"exercises-#{group}"} class="adm-rows--grid" rows={exercises}>
         <:col :let={ex} label="Exercise" class="adm-cell-title adm-w-name">{ex.name}</:col>
         <:col :let={ex} label="Category" class="adm-w-mid">{ex.functional_category || "—"}</:col>
         <:col :let={ex} label="Anatomy">{ex.anatomy || "—"}</:col>
         <:action :let={ex}>
-          <button phx-click="edit_exercise" phx-value-slug={ex.slug} class="adm-link">Edit</button>
+          <button
+            phx-click="edit_exercise"
+            phx-value-slug={ex.slug}
+            class="adm-btn adm-btn--small adm-btn--quiet"
+          >
+            Edit
+          </button>
         </:action>
         <:action :let={ex}>
           <button
@@ -282,7 +288,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
             phx-value-slug={ex.slug}
             phx-value-group={group}
             data-confirm={"Delete #{ex.name} from the wiki? The file goes too."}
-            class="adm-link adm-link--danger"
+            class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
           >
             Delete
           </button>
@@ -294,12 +300,18 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   defp render_days(assigns) do
     ~H"""
-    <.rows id="days" rows={@days}>
+    <.rows id="days" class="adm-rows--grid" rows={@days}>
       <:col :let={day} label="Day" class="adm-cell-title">{day.title}</:col>
       <:col :let={day} label="Tab">{day.tab}</:col>
       <:col :let={day} label="File">{day.slug}.md</:col>
       <:action :let={day}>
-        <button phx-click="edit_day" phx-value-slug={day.slug} class="adm-link">Edit</button>
+        <button
+          phx-click="edit_day"
+          phx-value-slug={day.slug}
+          class="adm-btn adm-btn--small adm-btn--quiet"
+        >
+          Edit
+        </button>
       </:action>
       <:empty>No days in the regimen yet.</:empty>
     </.rows>
@@ -309,7 +321,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
   defp render_editor(assigns) do
     ~H"""
     <.page_head
-      slug={"Write / Fitness / " <> if(@editor_mode == :exercise, do: "Exercise", else: "Day")}
+      slug={"Training / Fitness / " <> if(@editor_mode == :exercise, do: "Exercise", else: "Day")}
       title={presence(@form_data["title"]) || new_title(@editor_mode)}
     >
       <:actions>

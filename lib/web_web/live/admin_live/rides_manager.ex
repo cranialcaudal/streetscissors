@@ -162,7 +162,7 @@ defmodule WebWeb.AdminLive.RidesManager do
 
   def render(assigns) do
     ~H"""
-    <.page_head slug="Sync / Activities" title="Activities">
+    <.page_head slug="Training / Activities" title="Activities">
       <:lede>
         Every tour recorded on Komoot, checked hourly and drawn by Komoot's own embed. Edits,
         privacy changes and deletions in the app carry over on their own.
@@ -268,7 +268,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           type="button"
           phx-click="create_token"
           id="health-token-create"
-          class="adm-btn adm-btn--quiet"
+          class="adm-btn"
         >
           Make a token for automatic delivery
         </button>
@@ -277,7 +277,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           type="button"
           phx-click="revoke_token"
           id="health-token-revoke"
-          class="adm-link adm-link--danger"
+          class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
           data-confirm="Revoke the token? Whatever is posting workouts with it will be refused."
         >
           Revoke the token
@@ -308,7 +308,7 @@ defmodule WebWeb.AdminLive.RidesManager do
     </.panel>
 
     <.panel title="Archive" count={length(@rides)}>
-      <.rows id="rides" rows={@rides} row_id={&"ride-#{&1.id}"}>
+      <.rows id="rides" class="adm-rows--grid" rows={@rides} row_id={&"ride-#{&1.id}"}>
         <:col :let={ride} label="Name" class="adm-cell-title">{ride.name || "Untitled"}</:col>
         <:col :let={ride} label="Date">{Units.date(ride.started_at)}</:col>
         <:col :let={ride} label="Sport">{Units.sport(ride.sport)}</:col>
@@ -327,7 +327,12 @@ defmodule WebWeb.AdminLive.RidesManager do
           <.pill :if={is_nil(ride.stranger_view)} tone="held">Not checked yet</.pill>
         </:col>
         <:action :let={ride}>
-          <.link navigate={~p"/fitness/rides/#{ride.id}"} class="adm-link">View</.link>
+          <.link
+            navigate={~p"/fitness/rides/#{ride.id}"}
+            class="adm-btn adm-btn--small adm-btn--quiet"
+          >
+            View
+          </.link>
         </:action>
         <:empty>Nothing synced yet.</:empty>
       </.rows>
