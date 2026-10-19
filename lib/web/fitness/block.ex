@@ -10,10 +10,13 @@ defmodule Web.Fitness.Block do
       weeks: 8
       phases: 1 Baseline; 2-3 Accumulate; 4 Deload; 5-7 Intensify; 8 Test
       lifts: hexbar-rdl 5-8 +5 hinge; box-jumps 3-3 +0 plyo_locomotion
+      substitutes: box-jumps step-ups; single-leg-calf-raises holds
 
   A lift is `<wiki slug> <low>-<high> +<pounds> <pattern>`: the rep range,
-  what a step up adds, and the movement pattern its load counts toward. A
-  file that cannot be read as a block is no block; nothing here raises.
+  what a step up adds, and the movement pattern its load counts toward.
+  `substitutes` (optional) names what a lift becomes when the guardrails
+  stop it: a wiki slug, or a word. A file that cannot be read as a block is
+  no block; nothing here raises.
   """
 
   alias Web.Fitness.Vault
@@ -91,7 +94,8 @@ defmodule Web.Fitness.Block do
          weeks: weeks,
          finish: Date.add(start, weeks * 7 - 1),
          phases: phases,
-         lifts: lifts(meta["lifts"] || "")
+         lifts: lifts(meta["lifts"] || ""),
+         substitutes: substitutes(meta["substitutes"] || "")
        }}
     else
       _ -> :error
@@ -132,6 +136,13 @@ defmodule Web.Fitness.Block do
       {n, ""} -> n
       _ -> nil
     end
+  end
+
+  defp substitutes(text) do
+    for part <- String.split(text, ";", trim: true),
+        [slug, instead] <- [String.split(String.trim(part), " ", parts: 2)],
+        into: %{},
+        do: {slug, String.trim(instead)}
   end
 
   # A lift that does not read is left out rather than spoiling the block.

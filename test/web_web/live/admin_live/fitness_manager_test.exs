@@ -72,4 +72,35 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     [e1rm] = Regex.run(~r{<figure class="fc-chart" id="chart-e1rm">.*?</figure>}s, html)
     assert e1rm =~ "<circle"
   end
+
+  test "a check-in is saved for the day, and a second one replaces it", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
+    today = Date.to_iso8601(Web.Clock.local_today())
+
+    view
+    |> form("#checkin-form", checkin: %{date: today, pain: "3", sleep_hours: "7.5", energy: "6"})
+    |> render_submit()
+
+    assert has_element?(view, "#flash-info", "Check-in saved.")
+    assert has_element?(view, "#checkin-guard", "Hold: pain 3 of 10")
+
+    view |> form("#checkin-form", checkin: %{date: today, pain: "1"}) |> render_submit()
+
+    assert [%{pain: 1}] = Web.Fitness.recent_checkins(Web.Clock.local_today())
+    refute has_element?(view, "#checkin-guard")
+  end
+
+  test "a check-in out of range is refused", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
+
+    html =
+      view
+      |> form("#checkin-form",
+        checkin: %{date: Date.to_iso8601(Web.Clock.local_today()), pain: "11"}
+      )
+      |> render_submit()
+
+    assert html =~ "Pain must be less than or equal to 10"
+    assert Web.Fitness.recent_checkins(Web.Clock.local_today()) == []
+  end
 end

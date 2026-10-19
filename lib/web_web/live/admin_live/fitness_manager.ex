@@ -4,8 +4,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
   a markdown file under `content/fitness/` (`Web.Fitness.Vault`), so the vault
   in Obsidian and this page write the same files.
 
-  Which list is showing is in the URL (`?tab=wiki|regimen|progress`); the
-  progress tab is the training block's charts (`WebWeb.FitnessCharts`). Editing opens in
+  Which list is showing is in the URL (`?tab=wiki|regimen|progress|checkin`):
+  the progress tab is the training block's charts (`WebWeb.FitnessCharts`),
+  the check-in tab the day's pain, sleep, soreness and energy, which the
+  guardrails read (`Web.Fitness.Guardrails`). Editing opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
   """
@@ -14,9 +16,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   import WebWeb.AdminComponents
 
-  alias Web.Fitness.{Block, Training, Vault}
+  alias Web.Fitness
+  alias Web.Fitness.{Block, Guardrails, Training, Vault}
 
-  @tabs ~w(wiki regimen progress)
+  @tabs ~w(wiki regimen progress checkin)
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -65,7 +68,33 @@ defmodule WebWeb.AdminLive.FitnessManager do
     end
   end
 
+  defp assign_progress(socket, "checkin"), do: assign_checkins(socket)
   defp assign_progress(socket, _tab), do: socket
+
+  defp assign_checkins(socket) do
+    today = Web.Clock.local_today()
+    recent = Fitness.recent_checkins(today)
+    todays = Enum.find(recent, &(&1.date == today))
+
+    assign(socket,
+      checkins: recent,
+      checkin_form:
+        to_form(Fitness.change_checkin(todays || %Fitness.Checkin{date: today}), as: :checkin),
+      guard: Guardrails.line(Guardrails.state(nil, recent, [], today))
+    )
+  end
+
+  def handle_event("save_checkin", %{"checkin" => params}, socket) do
+    params = Map.update(params, "date", nil, &parse_date/1)
+
+    case Fitness.save_checkin(params) do
+      {:ok, _} ->
+        {:noreply, socket |> put_flash(:info, "Check-in saved.") |> assign_checkins()}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, checkin_form: to_form(changeset, as: :checkin))}
+    end
+  end
 
   # --- The lists ---
 
@@ -267,14 +296,106 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <:tab patch={~p"/admin/fitness?tab=progress"} active={@tab == "progress"}>
           Progress
         </:tab>
+        <:tab patch={~p"/admin/fitness?tab=checkin"} active={@tab == "checkin"}>
+          Check-in
+        </:tab>
       </.tabs>
 
       {case @tab do
         "wiki" -> render_exercises(assigns)
         "regimen" -> render_days(assigns)
         "progress" -> render_progress(assigns)
+        "checkin" -> render_checkin(assigns)
       end}
     <% end %>
+    """
+  end
+
+  defp render_checkin(assigns) do
+    ~H"""
+    <section class="adm-fit-checkin" id="fitness-checkin">
+      <p :if={@guard} class="adm-fit-guard" id="checkin-guard">{@guard}</p>
+      <.form
+        for={@checkin_form}
+        id="checkin-form"
+        phx-submit="save_checkin"
+        class="adm-fit-checkin-form"
+      >
+        <.field label="Day">
+          <input
+            type="date"
+            name="checkin[date]"
+            value={@checkin_form[:date].value}
+            class="adm-input"
+            required
+          />
+        </.field>
+        <.field label="Pain, Achilles or worst joint (0–10)">
+          <input
+            type="number"
+            min="0"
+            max="10"
+            name="checkin[pain]"
+            value={@checkin_form[:pain].value}
+            class="adm-input"
+          />
+        </.field>
+        <.field label="Sleep (hours)">
+          <input
+            type="number"
+            min="0"
+            max="24"
+            step="0.25"
+            name="checkin[sleep_hours]"
+            value={@checkin_form[:sleep_hours].value}
+            class="adm-input"
+          />
+        </.field>
+        <.field label="Soreness (0–10)">
+          <input
+            type="number"
+            min="0"
+            max="10"
+            name="checkin[soreness]"
+            value={@checkin_form[:soreness].value}
+            class="adm-input"
+          />
+        </.field>
+        <.field label="Energy (0–10)">
+          <input
+            type="number"
+            min="0"
+            max="10"
+            name="checkin[energy]"
+            value={@checkin_form[:energy].value}
+            class="adm-input"
+          />
+        </.field>
+        <.field label="Note">
+          <input
+            type="text"
+            name="checkin[note]"
+            value={@checkin_form[:note].value}
+            class="adm-input"
+          />
+        </.field>
+        <p :for={{field, error} <- @checkin_form.errors} class="adm-error">
+          {Phoenix.Naming.humanize(field)} {WebWeb.CoreComponents.translate_error(error)}
+        </p>
+        <div>
+          <button type="submit" class="adm-btn adm-btn--primary">Save check-in</button>
+        </div>
+      </.form>
+
+      <.rows :if={@checkins != []} id="checkins" rows={@checkins}>
+        <:col :let={c} label="Day">{Calendar.strftime(c.date, "%a %-d %b")}</:col>
+        <:col :let={c} label="Pain">{c.pain}</:col>
+        <:col :let={c} label="Sleep">{c.sleep_hours}</:col>
+        <:col :let={c} label="Soreness">{c.soreness}</:col>
+        <:col :let={c} label="Energy">{c.energy}</:col>
+        <:col :let={c} label="Note">{c.note}</:col>
+      </.rows>
+    </section>
     """
   end
 
@@ -521,6 +642,13 @@ defmodule WebWeb.AdminLive.FitnessManager do
       {render_slot(@inner_block)}
     </label>
     """
+  end
+
+  defp parse_date(text) do
+    case Date.from_iso8601(text || "") do
+      {:ok, date} -> date
+      _ -> nil
+    end
   end
 
   defp presence(nil), do: nil

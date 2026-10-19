@@ -375,3 +375,18 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Fitness: the training block's check-in (?tab=checkin) ─────────── */
+
+.adm-fit-checkin-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--st-space-3, 0.75rem) var(--st-space-4, 1rem);
+  align-items: end;
+  margin-bottom: var(--st-space-6, 1.5rem);
+}
+
+.adm-fit-guard {
+  margin: 0 0 var(--st-space-4, 1rem);
+  color: var(--st-warn);
+}

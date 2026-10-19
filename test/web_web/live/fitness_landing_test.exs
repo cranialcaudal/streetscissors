@@ -273,6 +273,26 @@ defmodule WebWeb.FitnessLandingTest do
       assert has_element?(view, "#log-target", "Target: 3 x 8 @ 25 lbs")
     end
 
+    test "a painful check-in holds the target and says why", %{conn: conn} do
+      {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+      {:ok, _} =
+        Web.Fitness.create_exercise_log(%{
+          exercise_id: exercise.id,
+          date: Web.Clock.local_today(),
+          metrics: %{"weight" => "20 lbs", "sets" => "3", "reps" => "12"}
+        })
+
+      {:ok, _} = Web.Fitness.save_checkin(%{date: Web.Clock.local_today(), pain: 4})
+
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      assert has_element?(view, "#block-guard", "Hold: pain 4 of 10")
+
+      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+      assert has_element?(view, "#log-target", "Target: 3 x 8 @ 20 lbs")
+      assert has_element?(view, "#log-guard", "Hold: pain 4 of 10")
+    end
+
     test "a name the wiki does not have is refused, and makes no row", %{view: view} do
       render_click(view, "close_log")
       render_click(view, "open_log", %{"slug" => "no-such-exercise"})
@@ -298,7 +318,8 @@ defmodule WebWeb.FitnessLandingTest do
 
       refute html =~ "Logged today"
       refute html =~ "3 x 12"
-      # The block is the admin's: no week, no phase, no target.
+      # The block is the admin's: no week, no phase, no target, no verdict.
+      refute html =~ "block-guard"
       refute html =~ "block-week"
       refute html =~ "Test Block"
       refute html =~ "Accumulate"

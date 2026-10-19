@@ -2,7 +2,7 @@ defmodule WebWeb.FitnessLive.Index do
   use WebWeb, :live_view
 
   alias Web.Fitness
-  alias Web.Fitness.{Block, Progression, Vault}
+  alias Web.Fitness.{Block, Guardrails, Progression, Training, Vault}
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   @fuelling "nutrition-module"
@@ -55,10 +55,13 @@ defmodule WebWeb.FitnessLive.Index do
     # The block's week is the admin's: a visitor's page says nothing of
     # training state (see the privacy tests).
     |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
+    |> assign_guard()
     |> assign(:logging_slug, nil)
     |> assign(:logging_name, nil)
     |> assign(:logging_last, nil)
     |> assign(:logging_target, nil)
+    |> assign(:logging_guard, nil)
+    |> assign(:logging_instead, nil)
     |> assign_logged_today()
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
@@ -123,7 +126,7 @@ defmodule WebWeb.FitnessLive.Index do
          |> assign(:logging_slug, slug)
          |> assign(:logging_name, exercise.name)
          |> assign(:logging_last, Fitness.last_exercise_log(exercise.id))
-         |> assign(:logging_target, target(socket.assigns.block, exercise))}
+         |> assign_target(exercise)}
 
       :error ->
         {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
@@ -183,15 +186,53 @@ defmodule WebWeb.FitnessLive.Index do
     |> assign(:logging_name, nil)
     |> assign(:logging_last, nil)
     |> assign(:logging_target, nil)
+    |> assign(:logging_guard, nil)
+    |> assign(:logging_instead, nil)
+  end
+
+  # The day's guardrail, before any lift is chosen: pain alone, which the
+  # admin sees beside the block's week.
+  defp assign_guard(%{assigns: %{block: nil}} = socket), do: assign(socket, :guard, nil)
+
+  defp assign_guard(socket) do
+    today = Web.Clock.local_today()
+    state = Guardrails.state(nil, Fitness.recent_checkins(today), [], today)
+    assign(socket, :guard, Guardrails.line(state))
   end
 
   # What to aim at next time, when the exercise is one of the running
-  # block's lifts and the rule has something to say (not in Baseline week).
-  defp target(nil, _exercise), do: nil
+  # block's lifts and the rule has something to say (not in Baseline week),
+  # with the guardrails' verdict for that lift applied.
+  defp assign_target(%{assigns: %{block: nil}} = socket, _exercise), do: socket
 
-  defp target(block, exercise) do
-    if rule = Block.lift(block, exercise.slug) do
-      Progression.next_target(rule, Fitness.recent_exercise_logs(exercise.id), block)
+  defp assign_target(%{assigns: %{block: block}} = socket, exercise) do
+    case Block.lift(block, exercise.slug) do
+      nil ->
+        socket
+
+      rule ->
+        today = Web.Clock.local_today()
+
+        state =
+          Guardrails.state(
+            rule,
+            Fitness.recent_checkins(today),
+            Training.all_entries(block),
+            today
+          )
+
+        target =
+          rule
+          |> Progression.next_target(Fitness.recent_exercise_logs(exercise.id), block)
+          |> Guardrails.apply_to(rule, state)
+
+        instead = if elem(state, 0) == :stop, do: Guardrails.substitute(block, rule)
+
+        assign(socket,
+          logging_target: target,
+          logging_guard: Guardrails.line(state),
+          logging_instead: instead
+        )
     end
   end
 
@@ -292,6 +333,7 @@ defmodule WebWeb.FitnessLive.Index do
                 <h1 class="day-page-title">{@day.title}</h1>
                 <p :if={@block} class="day-page-block" id="block-week">
                   {@block.title} · Week {@block.week} of {@block.weeks} — {@block.phase}
+                  <span :if={@guard} class="day-page-guard" id="block-guard">· {@guard}</span>
                 </p>
                 <ul :if={@blocks != []} class="week-chips day-page-blocks">
                   <li
@@ -419,6 +461,9 @@ defmodule WebWeb.FitnessLive.Index do
             <p :if={@logging_target} class="log-modal-target" id="log-target">
               Target: {Progression.target_line(@logging_target)}
             </p>
+            <p :if={@logging_guard} class="log-modal-guard" id="log-guard">
+              {@logging_guard}<span :if={@logging_instead}>. Instead: {@logging_instead}</span>
+            </p>
             <form phx-submit="save_log">
               <label>
                 Weight <input type="text" name="log[weight]" placeholder="e.g. 200 lbs" autofocus />
@@ -518,6 +563,7 @@ defmodule WebWeb.FitnessLive.Index do
       .log-modal input { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; background: rgba(23, 20, 15, 0.05); border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); font-size: 0.9rem; }
       .log-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
       .log-modal-target { margin: -0.5rem 0 1rem; color: var(--ink); font-family: var(--font-data); font-size: 0.85rem; }
+      .log-modal-guard { margin: -0.5rem 0 1rem; color: var(--accent-ink, var(--ink)); font-size: 0.85rem; }
       .log-modal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
       .log-save-btn { background: var(--theme-color); border: none; color: var(--paper); padding: 0.4rem 1rem; border-radius: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-weight: bold; }
     </style>

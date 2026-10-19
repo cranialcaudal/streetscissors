@@ -145,4 +145,42 @@ defmodule Web.Fitness do
     Repo.all(ExerciseLog)
     |> Repo.preload(:exercise)
   end
+
+  # --- Check-ins (the training block's guardrails read these) ---
+
+  alias Web.Fitness.Checkin
+
+  @doc "The check-in for a day, or nil."
+  def checkin_on(%Date{} = date), do: Repo.get_by(Checkin, date: date)
+
+  @doc "Check-ins on or before a day, newest first."
+  def recent_checkins(%Date{} = date, limit \\ 14) do
+    Repo.all(from c in Checkin, where: c.date <= ^date, order_by: [desc: c.date], limit: ^limit)
+  end
+
+  @doc "Check-ins between two days, oldest first."
+  def checkins_between(%Date{} = from, %Date{} = to) do
+    Repo.all(
+      from c in Checkin,
+        where: c.date >= ^from and c.date <= ^to,
+        order_by: [asc: c.date]
+    )
+  end
+
+  @doc "Records a day's check-in, replacing the one already made that day."
+  def save_checkin(attrs) do
+    date = attrs["date"] || attrs[:date]
+
+    existing =
+      case date do
+        %Date{} -> checkin_on(date)
+        _ -> nil
+      end
+
+    (existing || %Checkin{})
+    |> Checkin.changeset(attrs)
+    |> Repo.insert_or_update()
+  end
+
+  def change_checkin(checkin \\ %Checkin{}, attrs \\ %{}), do: Checkin.changeset(checkin, attrs)
 end
