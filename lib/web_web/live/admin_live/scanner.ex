@@ -1831,6 +1831,9 @@ defmodule WebWeb.AdminLive.Scanner do
 
     ~H"""
     <.page_head slug="Darkroom / Scanner" title="Scanner">
+      <:lede>
+        Film on the glass to a roll on /negatives: look, choose the singles, scan, publish.
+      </:lede>
       <:actions>
         <.pill :if={@scanner} tone="live">{@scanner.name}</.pill>
         <.pill :if={is_nil(@devices)} tone="quiet">Looking for a scanner…</.pill>
@@ -1896,7 +1899,9 @@ defmodule WebWeb.AdminLive.Scanner do
       <%!-- The roll, and the one thing to press now. --%>
       <div class="adm-scan-bar" id="hardware-scan">
         <div class="adm-scan-roll">
-          <strong>Roll {@roll_num}</strong>
+          <strong class="adm-scan-roll-name">
+            Roll <span class="adm-scan-roll-num">{@roll_num}</span>
+          </strong>
           <span :if={@roll_initialized}>
             {film_line(@roll_format, @roll_color)} · {@roll_date} · {count_line(
               length(@strips),
@@ -2023,8 +2028,8 @@ defmodule WebWeb.AdminLive.Scanner do
 
         <%!-- Where the loop is, and what it wants. --%>
         <ol :if={@step} class="adm-scan-steps" aria-label="The loop for each load">
-          <li class={@step in [0, 1] && "is-current"}>Preview</li>
-          <li class={@step == 2 && "is-current"}>Select</li>
+          <li class={[@step in [0, 1] && "is-current", @step > 1 && "is-done"]}>Preview</li>
+          <li class={[@step == 2 && "is-current", @step > 2 && "is-done"]}>Select</li>
           <li class={@step == 3 && "is-current"}>Scan</li>
         </ol>
         <p class="adm-scan-now" role="status">
@@ -2102,140 +2107,163 @@ defmodule WebWeb.AdminLive.Scanner do
       </section>
 
       <section id="roll-config" class="adm-scan-drawer" hidden={@drawer != :roll}>
-        <form phx-change="update_roll_config" class="adm-form-row">
-          <label class="adm-field">
-            <span class="adm-label">Roll number</span>
-            <input
-              type="text"
-              name="roll_num"
-              value={@roll_num}
-              class="adm-input"
-              inputmode="numeric"
-            />
-          </label>
-          <label class="adm-field">
-            <span class="adm-label">Scan date</span>
-            <input type="date" name="date" value={@roll_date} class="adm-input" />
-          </label>
-          <label class="adm-field">
-            <span class="adm-label">Format</span>
-            <select name="format" class="adm-input">
-              <option :for={{value, label} <- @formats} value={value} selected={@roll_format == value}>
-                {label}
-              </option>
-            </select>
-          </label>
-          <label class="adm-field">
-            <span class="adm-label">Film</span>
-            <select name="color" class="adm-input">
-              <option :for={{value, label} <- @colors} value={value} selected={@roll_color == value}>
-                {label}
-              </option>
-            </select>
-          </label>
-        </form>
+        <h2 class="adm-scan-drawer-title">Roll settings</h2>
+        <div class="adm-scan-drawer-cols">
+          <div class="adm-scan-drawer-col">
+            <form phx-change="update_roll_config" class="adm-form-row">
+              <label class="adm-field">
+                <span class="adm-label">Roll number</span>
+                <input
+                  type="text"
+                  name="roll_num"
+                  value={@roll_num}
+                  class="adm-input"
+                  inputmode="numeric"
+                />
+              </label>
+              <label class="adm-field">
+                <span class="adm-label">Scan date</span>
+                <input type="date" name="date" value={@roll_date} class="adm-input" />
+              </label>
+              <label class="adm-field">
+                <span class="adm-label">Format</span>
+                <select name="format" class="adm-input">
+                  <option
+                    :for={{value, label} <- @formats}
+                    value={value}
+                    selected={@roll_format == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+              <label class="adm-field">
+                <span class="adm-label">Film</span>
+                <select name="color" class="adm-input">
+                  <option
+                    :for={{value, label} <- @colors}
+                    value={value}
+                    selected={@roll_color == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+            </form>
 
-        <div class="adm-form-actions">
-          <code class="adm-scan-path">
-            {Scanner.format_dir_name(@roll_format)}/{@roll_slug}
-          </code>
-          <.pill :if={@roll_initialized} tone="live">Folder exists</.pill>
-          <button
-            :if={@roll_initialized}
-            type="button"
-            class="adm-btn adm-btn--quiet"
-            phx-click="new_roll"
-            disabled={@busy?}
-          >
-            <.icon name="hero-plus" class="size-4" /> Start a new roll
-          </button>
-          <button
-            :if={!@roll_initialized}
-            type="button"
-            class="adm-btn adm-btn--quiet"
-            phx-click="initialize_roll"
-          >
-            <.icon name="hero-plus" class="size-4" /> Create the folder
-          </button>
-        </div>
-        <p class="adm-help">
-          The first preview reads format and film off the glass and names the roll. Set them
-          here only to overrule it. 620 reads as 120, so set that one by hand first.
-        </p>
-
-        <form phx-change="update_batch" id="roll-batch" class="adm-scan-meta">
-          <h2 class="adm-panel-title">Batch</h2>
-          <label class="adm-field adm-scan-frame">
-            <span class="adm-label">Strips per roll</span>
-            <input
-              type="text"
-              name="strips"
-              value={@batch}
-              class="adm-input"
-              inputmode="numeric"
-              phx-debounce="600"
-            />
-          </label>
-          <p class="adm-help">
-            When a roll reaches this many strips, and its singles are scanned, it is published
-            without asking and the next roll is put on the bench. Leave blank to finish rolls
-            by hand with Publish roll.
-          </p>
-        </form>
-
-        <form phx-change="update_roll_meta" id="roll-meta" class="adm-scan-meta">
-          <h2 class="adm-panel-title">About this roll</h2>
-          <div class="adm-form-row">
-            <label class="adm-field">
-              <span class="adm-label">Shot</span>
-              <input
-                type="text"
-                name="shot"
-                value={@meta.shot}
-                class="adm-input"
-                placeholder="2023, 2023-06 or 2023-06-14"
-                phx-debounce="600"
-              />
-            </label>
-            <label class="adm-field">
-              <span class="adm-label">Camera</span>
-              <input
-                type="text"
-                name="camera"
-                value={@meta.camera}
-                class="adm-input"
-                phx-debounce="600"
-              />
-            </label>
-            <label class="adm-field">
-              <span class="adm-label">Film stock</span>
-              <input type="text" name="film" value={@meta.film} class="adm-input" phx-debounce="600" />
-            </label>
-            <label class="adm-field">
-              <span class="adm-label">Place</span>
-              <input
-                type="text"
-                name="place"
-                value={@meta.place}
-                class="adm-input"
-                phx-debounce="600"
-              />
-            </label>
+            <div class="adm-form-actions">
+              <code class="adm-scan-path">
+                {Scanner.format_dir_name(@roll_format)}/{@roll_slug}
+              </code>
+              <.pill :if={@roll_initialized} tone="live">Folder exists</.pill>
+              <button
+                :if={@roll_initialized}
+                type="button"
+                class="adm-btn adm-btn--quiet"
+                phx-click="new_roll"
+                disabled={@busy?}
+              >
+                <.icon name="hero-plus" class="size-4" /> Start a new roll
+              </button>
+              <button
+                :if={!@roll_initialized}
+                type="button"
+                class="adm-btn adm-btn--quiet"
+                phx-click="initialize_roll"
+              >
+                <.icon name="hero-plus" class="size-4" /> Create the folder
+              </button>
+            </div>
+            <p class="adm-help">
+              The first preview reads format and film off the glass and names the roll. Set them
+              here only to overrule it. 620 reads as 120, so set that one by hand first.
+            </p>
           </div>
-          <label class="adm-field">
-            <span class="adm-label">Notes</span>
-            <textarea name="notes" class="adm-input" rows="2" phx-debounce="600">{@meta.notes}</textarea>
-          </label>
-          <p :if={@meta_error} class="adm-scan-fault" role="alert">{@meta_error}</p>
-          <p class="adm-help">
-            Saved as you type, with the roll, and shown on its page on /negatives. Shot is as
-            exact as you know it: a year, a month or a day. The roll is still filed by the day
-            it was scanned.
-          </p>
-        </form>
+          <div class="adm-scan-drawer-col">
+            <form phx-change="update_batch" id="roll-batch" class="adm-scan-meta">
+              <h2 class="adm-scan-meta-title">Batch</h2>
+              <label class="adm-field adm-scan-frame">
+                <span class="adm-label">Strips per roll</span>
+                <input
+                  type="text"
+                  name="strips"
+                  value={@batch}
+                  class="adm-input"
+                  inputmode="numeric"
+                  phx-debounce="600"
+                />
+              </label>
+              <p class="adm-help">
+                When a roll reaches this many strips, and its singles are scanned, it is published
+                without asking and the next roll is put on the bench. Leave blank to finish rolls
+                by hand with Publish roll.
+              </p>
+            </form>
+
+            <form phx-change="update_roll_meta" id="roll-meta" class="adm-scan-meta">
+              <h2 class="adm-scan-meta-title">About this roll</h2>
+              <div class="adm-form-row">
+                <label class="adm-field">
+                  <span class="adm-label">Shot</span>
+                  <input
+                    type="text"
+                    name="shot"
+                    value={@meta.shot}
+                    class="adm-input"
+                    placeholder="2023, 2023-06 or 2023-06-14"
+                    phx-debounce="600"
+                  />
+                </label>
+                <label class="adm-field">
+                  <span class="adm-label">Camera</span>
+                  <input
+                    type="text"
+                    name="camera"
+                    value={@meta.camera}
+                    class="adm-input"
+                    phx-debounce="600"
+                  />
+                </label>
+                <label class="adm-field">
+                  <span class="adm-label">Film stock</span>
+                  <input
+                    type="text"
+                    name="film"
+                    value={@meta.film}
+                    class="adm-input"
+                    phx-debounce="600"
+                  />
+                </label>
+                <label class="adm-field">
+                  <span class="adm-label">Place</span>
+                  <input
+                    type="text"
+                    name="place"
+                    value={@meta.place}
+                    class="adm-input"
+                    phx-debounce="600"
+                  />
+                </label>
+              </div>
+              <label class="adm-field">
+                <span class="adm-label">Notes</span>
+                <textarea name="notes" class="adm-input" rows="2" phx-debounce="600">{@meta.notes}</textarea>
+              </label>
+              <p :if={@meta_error} class="adm-scan-fault" role="alert">{@meta_error}</p>
+              <p class="adm-help">
+                Saved as you type, with the roll, and shown on its page on /negatives. Shot is as
+                exact as you know it: a year, a month or a day. The roll is still filed by the day
+                it was scanned.
+              </p>
+            </form>
+          </div>
+        </div>
       </section>
 
       <section id="strips" class="adm-scan-drawer" hidden={@drawer != :strips}>
+        <h2 class="adm-scan-drawer-title">
+          Strips on this roll<span class="adm-count">{length(@strips)}</span>
+        </h2>
         <.empty :if={@strips == []}>No strips yet.</.empty>
 
         <ol :if={@strips != []} class="adm-scan-strips">
@@ -2243,8 +2271,8 @@ defmodule WebWeb.AdminLive.Scanner do
             <div class="adm-scan-strip-name">
               <strong>{strip.file}</strong>
               <span>
-                {strip.dimensions} · {div(strip.size, 1024)} KB{if strip.file in @on_glass,
-                  do: " · on the glass"}
+                {strip.dimensions} · {div(strip.size, 1024)} KB
+                <.pill :if={strip.file in @on_glass} tone="live">on the glass</.pill>
               </span>
             </div>
             <div class="adm-scan-strip-actions">
@@ -2388,8 +2416,9 @@ defmodule WebWeb.AdminLive.Scanner do
       </section>
 
       <%!-- This load: what is on the glass now. --%>
-      <section id="keeper-rescan" class="adm-scan-stage">
+      <section id="keeper-rescan" class="adm-scan-stage st-bay">
         <div :if={@shown_frames == []} class="adm-scan-blank">
+          <.icon name="hero-film" class="adm-scan-blank-icon size-8" />
           <p :if={@stage == :published}>
             Roll {@published_roll} is published.
             <.link href={~p"/negatives/roll/#{@published_roll}"} class="adm-link">
@@ -2436,7 +2465,11 @@ defmodule WebWeb.AdminLive.Scanner do
           </button>
         </div>
 
-        <p :if={@owed_here != [] and @stage == :select} class="adm-scan-fault" role="status">
+        <p
+          :if={@owed_here != [] and @stage == :select}
+          class="adm-scan-fault is-note"
+          role="status"
+        >
           Chosen but not yet scanned: {frames_line(@owed_here)}. The scan was cut short. They
           are ticked again: press Scan to finish.
         </p>
@@ -2499,7 +2532,10 @@ defmodule WebWeb.AdminLive.Scanner do
       </section>
 
       <%!-- The roll so far: what will be on the site. --%>
-      <section id="collection" class="adm-scan-collection">
+      <section
+        id="collection"
+        class={["adm-scan-collection", (@keeper_frames != [] or @developing_here != []) && "st-bay"]}
+      >
         <div class="adm-scan-stage-head">
           <h2 class="adm-panel-title">
             Singles in roll {@roll_num}<span class="adm-count">{length(@keeper_frames)}</span>
@@ -2522,7 +2558,7 @@ defmodule WebWeb.AdminLive.Scanner do
 
         <p :if={@publish_error} class="adm-scan-fault" role="alert">{@publish_error}</p>
 
-        <div :if={@owed_away != []} class="adm-scan-fault" role="status">
+        <div :if={@owed_away != []} class="adm-scan-fault is-note" role="status">
           <p>
             Chosen but never scanned: {frames_line(Enum.map(@owed_away, & &1.frame))}, on {@owed_away
             |> Enum.map(& &1.strip)

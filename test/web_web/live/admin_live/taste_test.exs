@@ -36,7 +36,7 @@ defmodule WebWeb.AdminLive.TasteTest do
       assert has_element?(view, ~s(img[alt="The first grade"]))
 
       view |> element(~s(button[phx-value-side="left"])) |> render_click()
-      assert render(view) =~ "1 choices so far"
+      assert render(view) =~ "1 choice so far"
 
       assert [%{"roll" => "065", "frame" => 6, "chosen" => chosen, "other" => other}] =
                Taste.choices()
