@@ -38,7 +38,7 @@ defmodule Web.Media.Transcoder do
   use GenServer
   require Logger
 
-  alias Web.Audio
+  alias Web.Logs
   alias Web.Media
   alias Web.Media.FFmpeg
   alias Web.Uploads
@@ -97,7 +97,7 @@ defmodule Web.Media.Transcoder do
 
   @doc false
   def requeue_unfinished(state) do
-    case Audio.list_unfinished_logs() do
+    case Logs.list_unfinished_logs() do
       [] ->
         state
 
@@ -186,8 +186,8 @@ defmodule Web.Media.Transcoder do
   # --- One job ---
 
   defp start_job(log_id) do
-    with %Web.Audio.Log{} = log <- Audio.get_log(log_id),
-         {:ok, log} <- Audio.mark_processing(log),
+    with %Web.Logs.Log{} = log <- Logs.get_log(log_id),
+         {:ok, log} <- Logs.mark_processing(log),
          {:ok, source} <- source_for(log),
          {:ok, probe} <- FFmpeg.probe(source) do
       media_dir = Uploads.new_media_dir(log.slug)
@@ -361,7 +361,7 @@ defmodule Web.Media.Transcoder do
 
     with :ok <- verify_output(job, dir),
          {:ok, poster} <- make_poster(job, dir),
-         {:ok, log} <- Audio.get_log(job.log_id) |> mark_ready(job, poster, dir) do
+         {:ok, log} <- Logs.get_log(job.log_id) |> mark_ready(job, poster, dir) do
       {:ok, log}
     end
   end
@@ -435,7 +435,7 @@ defmodule Web.Media.Transcoder do
       |> put_poster(job.media_dir, poster?)
       |> put_dimensions(output, job.probe)
 
-    Audio.mark_ready(log, attrs)
+    Logs.mark_ready(log, attrs)
   end
 
   defp put_poster(attrs, media_dir, true),
@@ -487,9 +487,9 @@ defmodule Web.Media.Transcoder do
     reason = if is_binary(reason), do: reason, else: inspect(reason)
     Logger.error("[transcoder] log #{log_id} failed: #{reason}")
 
-    case Audio.get_log(log_id) do
+    case Logs.get_log(log_id) do
       nil -> :ok
-      log -> Audio.mark_failed(log, reason)
+      log -> Logs.mark_failed(log, reason)
     end
 
     broadcast(log_id, {:transcode_done, log_id, :failed})

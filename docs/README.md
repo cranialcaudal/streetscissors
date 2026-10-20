@@ -11,7 +11,6 @@ want to do:
 | [`negatives-pipeline.md`](negatives-pipeline.md) | Go deep on the film pipeline: the scanner's geometry, the colour maths, how a frame is circled on the contact sheet, and (§9) how `film-develop` learned to read strips scanned on bare glass | Long, technical |
 | [`colour/research.md`](colour/research.md) | Read the research behind measured colour from film: what the literature and other tools do | Technical |
 | [`colour/contracts.md`](colour/contracts.md) | See the promises each colour stage must keep, and how they are tested | Technical |
-| [`archive/handoffs.md`](archive/handoffs.md) | Look at the briefs once written for other AI agents. **A historical record, not instructions** | — |
 
 The folder READMEs (`lib/README.md`, `tools/README.md` and the others) explain the code folder
 by folder, and [`CLAUDE.md`](../CLAUDE.md) at the top lists the rules and traps for anyone

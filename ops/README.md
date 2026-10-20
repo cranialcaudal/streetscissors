@@ -8,6 +8,7 @@ what keep it up.
 |---|---|---|
 | [`redeploy.sh`](redeploy.sh) | **The deploy.** Builds a new release and swaps it in, then checks that it really works before saying so | Every time code changes on the live site |
 | [`rollback.sh`](rollback.sh) | **The undo.** Puts back the release that was running before the last deploy, in seconds. Run it twice to go forward again | When a deploy went wrong |
+| [`preview.sh`](preview.sh) | **A look before deploying.** Serves the working tree on 127.0.0.1:4100 against a fresh copy of the live database, with every scheduled job, mail and the scanner off | Before a deploy, to see a change on real data. It shares `content/` with the live site, so look rather than write |
 | [`start_prod.sh`](start_prod.sh) | Starts the release by hand in a terminal, with the same settings the service uses, to see its output directly | Rarely; for debugging. It refuses to run while the service is up |
 | [`systemd/streetscissors.service`](systemd/streetscissors.service) | The service that runs the site and restarts it if it stops | Installed once (below) |
 | [`systemd/caddy-streetscissors.service`](systemd/caddy-streetscissors.service) | The service that runs Caddy, the web server in front of the site | Installed once |

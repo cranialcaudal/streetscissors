@@ -38,10 +38,12 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   use WebWeb, :live_view
 
+  require Logger
+
   import WebWeb.AdminComponents
 
   alias Web.Darkroom
-  alias Web.Darkroom.{Archive, Prior, Repair, Session, Taste}
+  alias Web.Darkroom.{Archive, Prior, Repair, Scopes, Session, Stats, Taste}
   alias Web.Negatives
   alias Web.Negatives.RollMeta
 
@@ -77,6 +79,13 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           showing_before: false,
           cropping: false,
           dusting: false,
+          picking: false,
+          copied: Darkroom.copied_controls(),
+          history: [],
+          last_step: nil,
+          scopes: nil,
+          roll_apply: nil,
+          roll_progress: nil,
           repairing: false,
           masked: Repair.mask?(dir, frame),
           repaired: Repair.repaired?(dir, frame),
@@ -122,6 +131,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           before: picture(info.token, info.before),
           error: nil
         )
+        |> warn_unknown(socket.assigns.recipe.controls, info.schema, "This print's saved edit")
+        |> drop_unknown(info.schema)
         |> draw()
 
       {:error, reason} ->
@@ -135,21 +146,24 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   # (Web.Darkroom.Taste), worked out off the page: the first time, the
   # archive's prints are measured, which takes a minute or so.
   defp suggest(socket) do
-    %{dir: dir, frame: frame, grey: grey, recipe: recipe, schema: schema} = socket.assigns
+    %{dir: dir, frame: frame, grey: grey, schema: schema} = socket.assigns
     source = Darkroom.source_path(dir, frame)
-    temp = Map.get(recipe.controls, "wb.temp", 6500.0)
     color = if grey, do: "bw", else: "color"
     defaults = Map.new(schema, &{&1["id"], &1["default"]})
-    start_async(socket, :prior, fn -> work_out(dir, frame, source, color, temp, defaults) end)
+    start_async(socket, :prior, fn -> work_out(dir, frame, source, color, defaults) end)
   end
 
-  defp work_out(dir, frame, source, color, temp, defaults) do
+  # The cast is read off the print as developed, so the suggestion starts from
+  # the sliders' defaults, never from where they stand now.
+  defp work_out(dir, frame, source, color, defaults) do
     prints = Archive.prints()
     groups = Archive.groups(prints)
-    model = Taste.fit(prints, groups, defaults)
+    model = Taste.fit_cached(prints, groups, defaults)
     {group, _stock} = Archive.group_of(dir, color)
     taste = Taste.taste_for(model, group)
-    opts = [temp: temp, groups: groups, taste: taste]
+    temp = (defaults["wb.temp"] || 6500.0) * 1.0
+    tint = (defaults["wb.tint"] || 0.0) * 1.0
+    opts = [temp: temp, tint: tint, groups: groups, taste: taste]
 
     with {:ok, prior} <- Prior.suggest(dir, frame, source, color, opts) do
       predicted = Taste.predict(model, prior.stats, group, Taste.condition(dir))
@@ -179,8 +193,14 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     controls =
       Map.merge(kept, Darkroom.clean_controls(Map.take(params, shown), socket.assigns.schema))
 
-    {:noreply, socket |> put_recipe(controls: controls) |> draw()}
+    {:noreply, socket |> put_recipe([controls: controls], {:slider, params["_target"]}) |> draw()}
   end
+
+  def handle_event("undo", _params, %{assigns: %{history: [previous | rest]}} = socket) do
+    {:noreply, socket |> assign(recipe: previous, history: rest, last_step: nil) |> draw()}
+  end
+
+  def handle_event("undo", _params, socket), do: {:noreply, socket}
 
   def handle_event("reset_section", %{"section" => key}, socket) do
     ids =
@@ -194,7 +214,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   end
 
   def handle_event("reset", _params, socket) do
-    {:noreply, socket |> assign(recipe: Darkroom.empty(), cropping: false) |> draw()}
+    {:noreply,
+     socket |> assign(cropping: false) |> put_recipe(Map.to_list(Darkroom.empty())) |> draw()}
   end
 
   # ── The film ──────────────────────────────────────────────────────────
@@ -210,18 +231,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> assign(seconds: seconds) |> suggest()}
   end
 
-  # Temp is set where the suggestion puts it and Tint moved by it; the
-  # sliders his taste predicts are set to its values.
+  # Temp and Tint are set where the suggestion puts them (absolute values,
+  # so a second press changes nothing); the sliders his taste predicts are set
+  # to its values.
   def handle_event("apply_prior", _params, %{assigns: %{prior: %{} = prior}} = socket) do
     controls = socket.assigns.recipe.controls
 
     colour =
       case prior.sliders do
         %{"wb.temp" => temp, "wb.tint" => tint} ->
-          %{
-            "wb.temp" => Float.round(temp / 50) * 50,
-            "wb.tint" => Float.round(Map.get(controls, "wb.tint", 0.0) + tint)
-          }
+          %{"wb.temp" => Float.round(temp / 50) * 50, "wb.tint" => Float.round(tint * 1.0)}
 
         _ ->
           %{}
@@ -233,6 +252,108 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   end
 
   def handle_event("apply_prior", _params, socket), do: {:noreply, socket}
+
+  # ── One edit for many prints ──────────────────────────────────────────
+
+  # Copy keeps this print's sliders (never its crop, dust or repair); Paste
+  # puts copied sliders on this one, to look at before it is saved.
+  def handle_event("copy_recipe", _params, socket) do
+    controls = socket.assigns.recipe.controls
+
+    case Darkroom.copy_controls(controls) do
+      :ok -> {:noreply, socket |> assign(copied: controls) |> put_flash(:info, "Sliders copied.")}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, "Not copied: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("paste_recipe", _params, %{assigns: %{copied: %{} = copied}} = socket) do
+    controls = Darkroom.clean_controls(copied, socket.assigns.schema)
+
+    {:noreply,
+     socket
+     |> warn_unknown(copied, socket.assigns.schema, "The copied sliders")
+     |> put_recipe(controls: controls)
+     |> draw()}
+  end
+
+  def handle_event("paste_recipe", _params, socket), do: {:noreply, socket}
+
+  # The roll's other frames, printed with these sliders. The first press
+  # names what would be overwritten; nothing is printed until it is confirmed.
+  def handle_event("apply_roll", _params, %{assigns: %{working: nil}} = socket) do
+    %{dir: dir, frame: frame, frames: frames} = socket.assigns
+    others = frames -- [frame]
+    {:noreply, assign(socket, roll_apply: %{others: others, edited: Enum.filter(others, &Darkroom.edited?(dir, &1))})}
+  end
+
+  def handle_event("apply_roll", _params, socket), do: {:noreply, socket}
+
+  def handle_event("cancel_apply_roll", _params, socket),
+    do: {:noreply, assign(socket, roll_apply: nil)}
+
+  def handle_event("confirm_apply_roll", _params, %{assigns: %{roll_apply: %{others: others}}} = socket) do
+    %{dir: dir, recipe: recipe} = socket.assigns
+    controls = recipe.controls
+    me = self()
+
+    {:noreply,
+     socket
+     |> assign(working: :roll, roll_apply: nil, roll_progress: {0, length(others)})
+     |> start_async(:roll, fn ->
+       Darkroom.apply_controls(dir, others, controls, &send(me, {:roll_progress, &1}))
+     end)}
+  end
+
+  def handle_event("confirm_apply_roll", _params, socket), do: {:noreply, socket}
+
+  # A grey point: the author shows a patch that should be grey, on the print
+  # as developed, and Temp and Tint are set to make it so (Prior.grey_point/2).
+  def handle_event("pick_grey", _params, socket) do
+    {:noreply,
+     assign(socket, picking: !socket.assigns.picking, dusting: false, repairing: false)}
+  end
+
+  def handle_event("grey_point", %{"x" => x, "y" => y}, socket) do
+    %{dir: dir, frame: frame, roll: roll, size: size, schema: schema} = socket.assigns
+    {x, y} = {x |> number_or(0.5) |> clamp01(), y |> number_or(0.5) |> clamp01()}
+    radius = 0.01
+    source = Darkroom.source_path(dir, frame)
+
+    case Stats.read_region(source, {x, y}, radius, size) do
+      {:ok, %{cast: cast, rgb: rgb}} ->
+        defaults = Map.new(schema, &{&1["id"], &1["default"]})
+
+        %{"wb.temp" => temp, "wb.tint" => tint} =
+          Prior.grey_point(cast,
+            temp: (defaults["wb.temp"] || 6500.0) * 1.0,
+            tint: (defaults["wb.tint"] || 0.0) * 1.0
+          )
+
+        colour = %{"wb.temp" => Float.round(temp / 50) * 50, "wb.tint" => Float.round(tint * 1.0)}
+        controls = socket.assigns.recipe.controls |> Map.merge(colour) |> Darkroom.clean_controls(schema)
+
+        Prior.record_grey_point(%{
+          roll: roll,
+          frame: frame,
+          x: x,
+          y: y,
+          radius: radius,
+          rgb: rgb,
+          recipe_v: 1,
+          at: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+        })
+
+        {:noreply,
+         socket
+         |> assign(picking: false)
+         |> put_recipe(controls: controls)
+         |> draw()
+         |> put_flash(:info, "Grey point: that patch read #{Prior.cast_words(cast)}.")}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "That patch could not be read.")}
+    end
+  end
 
   # ── Crop ──────────────────────────────────────────────────────────────
 
@@ -540,6 +661,32 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> assign(working: nil) |> put_flash(:error, "Not printed: #{reason}")}
   end
 
+  def handle_async(:scopes, {:ok, {:ok, scopes}}, socket), do: {:noreply, assign(socket, scopes: scopes)}
+  def handle_async(:scopes, _result, socket), do: {:noreply, socket}
+
+  def handle_async(:roll, {:ok, []}, socket) do
+    {:noreply,
+     socket
+     |> assign(working: nil, roll_progress: nil)
+     |> put_flash(:info, "The roll's other frames are printed with these sliders.")}
+  end
+
+  def handle_async(:roll, {:ok, failed}, socket) do
+    frames = Enum.map_join(failed, ", ", fn {frame, _reason} -> frame end)
+
+    {:noreply,
+     socket
+     |> assign(working: nil, roll_progress: nil)
+     |> put_flash(:error, "Printed the roll, except frames #{frames}.")}
+  end
+
+  def handle_async(:roll, {:exit, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(working: nil, roll_progress: nil)
+     |> put_flash(:error, "The roll was not finished: #{inspect(reason)}")}
+  end
+
   def handle_async(:print, {:exit, reason}, socket) do
     {:noreply,
      socket |> assign(working: nil) |> put_flash(:error, "Not printed: #{inspect(reason)}")}
@@ -550,11 +697,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   def handle_info({:darkroom_preview, n, file}, socket) do
     if n >= socket.assigns.shown do
       {:noreply,
-       assign(socket, shown: n, preview: picture(socket.assigns.token, file), error: nil)}
+       socket
+       |> assign(shown: n, preview: picture(socket.assigns.token, file), error: nil)
+       |> measure(file)}
     else
       {:noreply, socket}
     end
   end
+
+  def handle_info({:roll_progress, progress}, socket),
+    do: {:noreply, assign(socket, roll_progress: progress)}
 
   def handle_info({:darkroom_error, _n, reason}, socket) do
     {:noreply, assign(socket, error: reason)}
@@ -586,6 +738,93 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp number_or(_value, default), do: default
 
+  defp clamp01(v), do: v |> max(0.0) |> min(1.0)
+
+  # The scopes of the preview just drawn (Web.Darkroom.Scopes), read off the
+  # page; a newer preview's reading replaces an older one still running.
+  defp measure(socket, file) do
+    case Session.dir(socket.assigns.token) do
+      {:ok, dir} ->
+        path = Path.join(dir, file)
+        start_async(socket, :scopes, fn -> Scopes.read(path) end)
+
+      _ ->
+        socket
+    end
+  end
+
+  # The histogram and the RGB parade (Web.Darkroom.Scopes), as SVG in a
+  # 64-by-32 box each: lines for the histogram, and for the parade a band per
+  # channel from its 5th to its 95th percentile with the median drawn in.
+  attr :scopes, :map, required: true
+
+  defp scopes(assigns) do
+    ~H"""
+    <figure class="adm-dr-scopes" id="scopes" aria-label="Scopes of the preview">
+      <svg viewBox="0 0 64 32" preserveAspectRatio="none" class="adm-dr-scope" role="img" aria-label="Histogram">
+        <polyline
+          :for={channel <- [:l, :r, :g, :b]}
+          points={histogram_points(@scopes.histogram[channel])}
+          class={"adm-dr-scope-line adm-dr-scope-line--#{channel}"}
+        />
+      </svg>
+      <svg viewBox="0 0 192 32" preserveAspectRatio="none" class="adm-dr-scope" role="img" aria-label="RGB parade">
+        <g :for={{channel, i} <- Enum.with_index([:r, :g, :b])} transform={"translate(#{i * 64} 0)"}>
+          <polygon points={band_points(@scopes.parade[channel])} class={"adm-dr-scope-band adm-dr-scope-band--#{channel}"} />
+          <polyline points={mid_points(@scopes.parade[channel])} class={"adm-dr-scope-line adm-dr-scope-line--#{channel}"} />
+        </g>
+      </svg>
+      <figcaption class="adm-dr-hint">Histogram and RGB parade of the preview, as the screen shows it.</figcaption>
+    </figure>
+    """
+  end
+
+  defp histogram_points(values) do
+    values |> Enum.with_index() |> Enum.map_join(" ", fn {v, x} -> "#{x + 0.5},#{Float.round(32 - v * 32, 2)}" end)
+  end
+
+  defp band_points(columns) do
+    top = columns |> Enum.with_index() |> Enum.map(fn {{_l, _m, h}, x} -> "#{x + 0.5},#{y(h)}" end)
+    bottom = columns |> Enum.with_index() |> Enum.reverse() |> Enum.map(fn {{l, _m, _h}, x} -> "#{x + 0.5},#{y(l)}" end)
+    Enum.join(top ++ bottom, " ")
+  end
+
+  defp mid_points(columns) do
+    columns |> Enum.with_index() |> Enum.map_join(" ", fn {{_l, m, _h}, x} -> "#{x + 0.5},#{y(m)}" end)
+  end
+
+  defp y(value), do: Float.round(32 - value * 32, 2)
+
+  # What the warning says: an unknown id would fail the whole develop.set,
+  # so the bench works without it.
+  defp drop_unknown(socket, schema) do
+    controls = socket.assigns.recipe.controls
+
+    case Darkroom.unknown_controls(controls, schema) do
+      [] -> socket
+      ids -> put_recipe(socket, controls: Map.drop(controls, ids))
+    end
+  end
+
+  # Settings LightCraft no longer offers are left out of what is drawn and
+  # saved; the page says which, and the log keeps it, rather than losing
+  # them without a word (Darkroom.unknown_controls/2).
+  defp warn_unknown(socket, controls, schema, whose) do
+    case Darkroom.unknown_controls(controls, schema) do
+      [] ->
+        socket
+
+      ids ->
+        Logger.warning("darkroom: #{whose} names settings LightCraft does not offer: #{Enum.join(ids, ", ")}")
+
+        put_flash(
+          socket,
+          :error,
+          "#{whose} has settings LightCraft does not offer (#{Enum.join(ids, ", ")}). They are left out, and saving drops them."
+        )
+    end
+  end
+
   defp count(1, one, _many), do: "1 #{one}"
   defp count(n, _one, many), do: "#{n} #{many}"
 
@@ -595,8 +834,30 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     socket |> assign(mask_stamp: stamp) |> push_event("mask-reload", %{url: url})
   end
 
-  defp put_recipe(socket, changes),
-    do: assign(socket, recipe: Map.merge(socket.assigns.recipe, Map.new(changes)))
+  # Every change to the recipe can be taken back (Undo), for as long as the
+  # page is open. A slider dragged through many values is one step: `step`
+  # names what moved, and the same thing moving again does not add another.
+  @history 50
+
+  defp put_recipe(socket, changes, step \\ nil) do
+    old = socket.assigns.recipe
+    new = Map.merge(old, Map.new(changes))
+
+    cond do
+      new == old ->
+        socket
+
+      step != nil and step == socket.assigns.last_step ->
+        assign(socket, recipe: new)
+
+      true ->
+        assign(socket,
+          recipe: new,
+          history: Enum.take([old | socket.assigns.history], @history),
+          last_step: step
+        )
+    end
+  end
 
   defp put_crop(socket, params) do
     crop = Darkroom.clean_crop(params) || %{rect: [0.0, 0.0, 1.0, 1.0], angle: 0.0}
@@ -707,6 +968,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           </button>
           <button
             type="button"
+            phx-click="undo"
+            id="undo"
+            class="adm-btn adm-btn--quiet"
+            disabled={@working != nil or @history == []}
+            title="Take back the last change"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
             phx-click="save"
             class="adm-btn adm-btn--primary"
             disabled={@working != nil or !@dirty}
@@ -789,6 +1060,22 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           >
           </button>
         </div>
+        <%!-- Picking a grey point: the print as developed, uncropped, since the
+              patch is measured there (Prior.grey_point/2). --%>
+        <div
+          :if={@picking and !@cropping and !@dusting and !@repairing}
+          id="grey-box"
+          class="adm-dr-frame adm-dr-frame--pick"
+          style={dust_box(@size)}
+          phx-hook=".GreyPick"
+        >
+          <img
+            src={~p"/admin/darkroom/developed/#{@roll}/#{@frame}"}
+            alt="The print as developed: click a patch that should be grey"
+            class="adm-dr-frame-picture adm-dr-frame-picture--flat"
+            draggable="false"
+          />
+        </div>
         <div
           :if={@repairing and !@candidate}
           id="repair-box"
@@ -825,7 +1112,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           />
         </div>
         <img
-          :if={!@cropping and !@dusting and !@repairing}
+          :if={!@cropping and !@dusting and !@repairing and !@picking}
           src={(@showing_before && @before) || @preview || @print}
           alt={"Roll #{@roll}, frame #{@frame}"}
           class="adm-dr-picture"
@@ -839,6 +1126,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
       </figure>
 
       <aside class="adm-dr-panel" aria-label="Adjustments">
+        <.scopes :if={@scopes} scopes={@scopes} />
         <div class="adm-dr-tools">
           <div class="adm-dr-tools-head">
             <span class="adm-dr-tools-title">Tools</span>
@@ -1097,6 +1385,65 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
                 else: "Start from the film"}
             </button>
           </div>
+          <div :if={!@grey} class="adm-dr-actions">
+            <button
+              type="button"
+              id="pick-grey"
+              phx-click="pick_grey"
+              class={["adm-btn adm-btn--small", @picking && "is-on"]}
+              aria-pressed={to_string(@picking)}
+            >
+              {if @picking, do: "Cancel", else: "Pick a grey"}
+            </button>
+          </div>
+          <p :if={@picking} class="adm-dr-hint">
+            Click something in the picture that should be grey: a road, a shadow on white, a
+            grey card. Temp and Tint are set to make it so.
+          </p>
+          <%!-- One edit for many prints: the sliders only; each frame keeps
+                its own crop, dust and repair. --%>
+          <div class="adm-dr-actions" id="many-prints">
+            <button type="button" phx-click="copy_recipe" class="adm-btn adm-btn--small adm-btn--quiet">
+              Copy sliders
+            </button>
+            <button
+              :if={@copied}
+              type="button"
+              phx-click="paste_recipe"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
+              Paste sliders
+            </button>
+            <button
+              :if={length(@frames) > 1}
+              type="button"
+              phx-click="apply_roll"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+              disabled={@working != nil}
+            >
+              Apply to the roll
+            </button>
+          </div>
+          <div :if={@roll_apply} class="adm-dr-confirm" id="roll-apply" role="alertdialog" aria-labelledby="roll-apply-text">
+            <p id="roll-apply-text">
+              Print the roll's other {length(@roll_apply.others)} frames with these sliders, each
+              keeping its own crop, dust and repair?
+              <span :if={@roll_apply.edited != []}>
+                This replaces the sliders already saved on frames {Enum.join(@roll_apply.edited, ", ")}.
+              </span>
+            </p>
+            <div class="adm-dr-actions">
+              <button type="button" phx-click="confirm_apply_roll" class="adm-btn adm-btn--small adm-btn--primary">
+                Print them
+              </button>
+              <button type="button" phx-click="cancel_apply_roll" class="adm-btn adm-btn--small">
+                Cancel
+              </button>
+            </div>
+          </div>
+          <p :if={@roll_progress} class="adm-dr-hint" id="roll-progress" role="status">
+            Printing the roll: {elem(@roll_progress, 0)} of {elem(@roll_progress, 1)}.
+          </p>
           <form id="exposure" phx-change="exposure">
             <label class="adm-dr-control">
               <span class="adm-dr-label">Exposure time (s), if long</span>
@@ -1272,6 +1619,21 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             if (ring) return this.pushEvent("remove_spot", {index: ring.dataset.index})
             const box = this.el.getBoundingClientRect()
             this.pushEvent("add_spot", {
+              x: (event.clientX - box.left) / box.width,
+              y: (event.clientY - box.top) / box.height
+            })
+          })
+        }
+      }
+    </script>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".GreyPick">
+      // A grey point: where the click fell, in fractions of the picture.
+      export default {
+        mounted() {
+          this.el.addEventListener("click", (event) => {
+            const box = this.el.getBoundingClientRect()
+            this.pushEvent("grey_point", {
               x: (event.clientX - box.left) / box.width,
               y: (event.clientY - box.top) / box.height
             })

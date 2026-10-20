@@ -34,8 +34,9 @@ config :web, Web.Repo,
 # to bundle .js and .css sources.
 config :web, WebWeb.Endpoint,
   # PORT lets a development server run beside the live site, which holds 4000
-  # on this machine.
-  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  # on this machine (ops/preview.sh uses 4100). Loopback only, like the
+  # release: this server has the dev admin password and renders stack traces.
+  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
   url: [host: "localhost", port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   # Both of these leak, which is why production has neither: debug_errors
@@ -188,3 +189,29 @@ config :web, :scanner_areas, %{
   "35mm" => System.get_env("SCANNER_AREA_35MM"),
   "120" => System.get_env("SCANNER_AREA_120")
 }
+
+# A preview (ops/preview.sh, PREVIEW=1) is this server pointed at a copy of
+# the live database, to look at a change before it is deployed. It must do
+# nothing the live site does on its own: no cron, no queued jobs, no snapshots
+# at boot, no drive watcher, no encodes picked up from the copied rows, no
+# monitor, and no mail (the local adapter keeps it at /dev/mailbox).
+if System.get_env("PREVIEW") == "1" do
+  # The copy ops/preview.sh makes, never the live file.
+  config :web, Web.Repo, database: Path.expand("../tmp/db/preview.db", __DIR__)
+  config :web, Web.Scheduler, jobs: []
+  config :web, Oban, testing: :manual
+  config :web, :backup_on_boot, false
+  config :web, :backup_mirror_watch, false
+  config :web, :backup_mirror_path, nil
+  config :web, :photos_mirror_path, nil
+  config :web, :content_mirror_path, nil
+  config :web, :uploads_mirror_path, nil
+  config :web, :transcoder_requeue_on_boot, false
+  config :web, :monitor_probes, []
+  config :web, :komoot, email: nil, password: nil
+  config :web, Web.Mailer, adapter: Swoosh.Adapters.Local
+  config :swoosh, :api_client, false
+  # The scanner is the live site's: an invented scan would land in the real
+  # archive, and a real one would fight the live site for the device.
+  config :web, :scanner_simulation, false
+end

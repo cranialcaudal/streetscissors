@@ -8,7 +8,11 @@
   "background_color": "#f3eee4",
   "theme_color": "#17140f",
   "orientation": "any",
-  "categories": ["photography", "magazines", "lifestyle"],
+  "categories": [
+    "photography",
+    "magazines",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "/images/icon-192.png",
@@ -25,6 +29,34 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick add",
+      "short_name": "Add",
+      "description": "Log a set, check in, or jot a note",
+      "url": "/admin/quick",
+      "icons": [
+        {
+          "src": "/images/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Check in",
+      "short_name": "Check in",
+      "description": "Today's check-in",
+      "url": "/admin/quick?tab=checkin",
+      "icons": [
+        {
+          "src": "/images/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

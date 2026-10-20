@@ -27,7 +27,7 @@ defmodule WebWeb.HealthWebhookController do
   @window :timer.hours(1)
 
   def ingest(conn, params) do
-    ip = WebWeb.ClientIP.from_conn(conn)
+    ip = WebWeb.Visitor.ip(conn)
 
     with {:ok, _remaining} <- Web.RateLimit.hit("health:#{ip}", limit: @limit, window: @window),
          :ok <- authorized(conn),

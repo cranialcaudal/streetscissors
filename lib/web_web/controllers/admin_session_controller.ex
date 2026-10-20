@@ -17,7 +17,7 @@ defmodule WebWeb.AdminSessionController do
   @attempt_window :timer.minutes(15)
 
   def create(conn, %{"password" => password}) do
-    case Web.RateLimit.hit("admin_login:#{client_ip(conn)}",
+    case Web.RateLimit.hit("admin_login:#{WebWeb.Visitor.ip(conn)}",
            limit: @attempt_limit,
            window: @attempt_window
          ) do
@@ -37,15 +37,6 @@ defmodule WebWeb.AdminSessionController do
           |> put_flash(:error, "Wrong password")
           |> redirect(to: "/admin/login")
         end
-    end
-  end
-
-  # Caddy fronts the app, so remote_ip is always the proxy — the real client is
-  # the first entry of x-forwarded-for.
-  defp client_ip(conn) do
-    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
-      [value | _] -> value |> String.split(",") |> List.first() |> String.trim()
-      [] -> conn.remote_ip |> :inet.ntoa() |> to_string()
     end
   end
 

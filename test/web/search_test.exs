@@ -165,6 +165,7 @@ defmodule Web.SearchTest do
       "/admin/login" => "the admin's door",
       "/admin/logout" => "the admin's door",
       "/sitemap.xml" => "for crawlers",
+      "/indexnow.txt" => "the IndexNow key, for search engines",
       "/Christ/bible/go" => "the citation box's target, a redirect",
       "/search/suggest" => "what the search field asks as it is typed in (JSON)",
       "/archive" => "the old address of /negatives",

@@ -1,8 +1,8 @@
 defmodule WebWeb.LogsLive.Index do
   use WebWeb, :live_view
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias WebWeb.LogEntry
   import WebWeb.Navigation, only: [return_context: 1]
   import WebWeb.LogsLive.Format
@@ -31,12 +31,25 @@ defmodule WebWeb.LogsLive.Index do
      |> assign(:page_title, "Captain's Logs")
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
-     |> assign(:client_ip, client_ip(socket))
-     # The admin watching the entries back is not a view.
-     |> assign(:is_admin, session["admin_user"] == true)
-     |> assign(:keywords, Audio.list_keywords())
-     |> assign(:logs, Audio.list_ready_logs())
+     |> assign_viewer(session)
+     |> assign(:keywords, Logs.list_keywords())
+     |> assign(:logs, Logs.list_ready_logs())
      |> assign_views()}
+  end
+
+  # Whether this viewer's plays count, by the rule page hits use
+  # (WebWeb.Visitor): never the admin watching the entries back, a bot, or an
+  # excluded address. connect_info is readable only while mounting.
+  defp assign_viewer(socket, session) do
+    ip = WebWeb.Visitor.ip(socket)
+    agent = WebWeb.Visitor.user_agent(socket)
+    admin? = session["admin_user"] == true
+
+    assign(socket,
+      viewer_agent: agent,
+      is_admin: admin?,
+      counts_views: WebWeb.Visitor.counted?(ip, agent, admin?)
+    )
   end
 
   def handle_params(params, _uri, socket) do
@@ -53,8 +66,8 @@ defmodule WebWeb.LogsLive.Index do
   # String.to_integer/1 raised on any non-numeric value, and an unknown id hit
   # the audio_plays foreign key — either one crashed the LiveView. The hook
   # sends this only after 30 seconds have actually played; `witness` is the
-  # browser's own token, checked in Audio.record_play/4.
-  def handle_event("track_play", _params, %{assigns: %{is_admin: true}} = socket),
+  # browser's own token, checked in Logs.record_play/3.
+  def handle_event("track_play", _params, %{assigns: %{counts_views: false}} = socket),
     do: {:noreply, socket}
 
   def handle_event("track_play", %{"id" => id} = params, socket) do
@@ -63,7 +76,7 @@ defmodule WebWeb.LogsLive.Index do
         {:noreply, socket}
 
       log_id ->
-        Audio.record_play(log_id, params["witness"], socket.assigns.client_ip)
+        Logs.record_play(log_id, params["witness"], socket.assigns.viewer_agent)
 
         # The readouts move; the running order does not. Re-sorting here
         # would let watching something reorder the page underneath the
@@ -88,19 +101,13 @@ defmodule WebWeb.LogsLive.Index do
   # this page count, so the readout can never exceed what the archive below
   # it accounts for.
   defp assign_views(socket) do
-    counts = Audio.get_all_play_counts()
+    counts = Logs.get_all_play_counts()
     total = socket.assigns.logs |> Enum.map(&Map.get(counts, &1.id, 0)) |> Enum.sum()
 
     socket
     |> assign(:play_counts, counts)
     |> assign(:total_plays, total)
   end
-
-  # Captured at mount and kept in assigns: connect_info is only readable while
-  # mounting, and reaching for it from handle_event/3 raises — which is what
-  # the first real play on this page would have done. Behind Caddy the peer is
-  # always the proxy, so the viewer's address comes from x-forwarded-for.
-  defp client_ip(socket), do: WebWeb.ClientIP.from_socket(socket)
 
   # Total functions: an unknown value falls back to the default rather than
   # crashing on a hand-edited URL.
@@ -146,8 +153,8 @@ defmodule WebWeb.LogsLive.Index do
     |> assign(:featured, List.first(visible))
     # The featured entry keeps its place in the run below, so the count in the
     # readout and the rows on the page never disagree.
-    |> assign(:years, Audio.yearly_totals(visible))
-    |> assign(:runtime, Audio.total_runtime(visible))
+    |> assign(:years, Logs.yearly_totals(visible))
+    |> assign(:runtime, Logs.total_runtime(visible))
   end
 
   defp plays(socket_play_counts, log), do: Map.get(socket_play_counts, log.id, 0)

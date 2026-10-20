@@ -1,7 +1,7 @@
 defmodule Web.GuestbookContactTest do
   @moduledoc """
   The optional email address or phone number left with a signature
-  (`Web.General.Contact`). Each test is one plank of the fence around it.
+  (`Web.Guestbook.Contact`). Each test is one plank of the fence around it.
   """
   use WebWeb.ConnCase
 
@@ -10,14 +10,14 @@ defmodule Web.GuestbookContactTest do
   use Oban.Testing, repo: Web.Repo
   import Web.DataCase, only: [errors_on: 1]
 
-  alias Web.General
-  alias Web.General.{Contact, GuestbookEntry}
+  alias Web.Guestbook
+  alias Web.Guestbook.{Contact, GuestbookEntry}
 
   @email "hunter@example.com"
   @phone "+1 (530) 555-0142"
 
   defp sign(attrs \\ %{}) do
-    General.create_guestbook_entry(Map.merge(%{name: "Hunter", message: "hey :)"}, attrs))
+    Guestbook.create_guestbook_entry(Map.merge(%{name: "Hunter", message: "hey :)"}, attrs))
   end
 
   defp stored(id) do
@@ -29,7 +29,7 @@ defmodule Web.GuestbookContactTest do
       assert {:ok, entry} = sign()
       refute entry.has_contact
       assert stored(entry.id) == nil
-      assert General.guestbook_contact(entry.id) == :none
+      assert Guestbook.guestbook_contact(entry.id) == :none
 
       assert {:ok, blank} = sign(%{contact: "   "})
       assert stored(blank.id) == nil
@@ -70,7 +70,7 @@ defmodule Web.GuestbookContactTest do
     end
 
     test "what creating a signature hands back carries no contact, open or sealed" do
-      General.subscribe_guestbook_admin()
+      Guestbook.subscribe_guestbook_admin()
       {:ok, entry} = sign(%{contact: @phone})
 
       assert entry.has_contact
@@ -87,18 +87,18 @@ defmodule Web.GuestbookContactTest do
       {:ok, entry} = sign(%{contact: @email})
 
       {:ok, _} =
-        entry |> then(&General.get_guestbook_entry!(&1.id)) |> General.approve_guestbook_entry()
+        entry |> then(&Guestbook.get_guestbook_entry!(&1.id)) |> Guestbook.approve_guestbook_entry()
 
       for loaded <-
-            [General.get_guestbook_entry!(entry.id)] ++
-              General.list_approved_guestbook_entries() ++
-              General.list_all_guestbook_entries() ++ General.list_guestbook_entries() do
+            [Guestbook.get_guestbook_entry!(entry.id)] ++
+              Guestbook.list_approved_guestbook_entries() ++
+              Guestbook.list_all_guestbook_entries() ++ Guestbook.list_guestbook_entries() do
         assert loaded.contact_sealed == nil
         assert loaded.contact == nil
       end
 
       # The admin's list knows that there is one, and nothing more.
-      assert [%{has_contact: true}] = General.list_all_guestbook_entries()
+      assert [%{has_contact: true}] = Guestbook.list_all_guestbook_entries()
     end
 
     test "approving, unpublishing and editing a signature leave its contact as it was" do
@@ -106,12 +106,12 @@ defmodule Web.GuestbookContactTest do
       sealed = stored(entry.id)
 
       {:ok, approved} =
-        entry.id |> General.get_guestbook_entry!() |> General.approve_guestbook_entry()
+        entry.id |> Guestbook.get_guestbook_entry!() |> Guestbook.approve_guestbook_entry()
 
-      {:ok, _} = General.unapprove_guestbook_entry(approved)
+      {:ok, _} = Guestbook.unapprove_guestbook_entry(approved)
 
       assert stored(entry.id) == sealed
-      assert General.guestbook_contact(entry.id) == {:ok, @email}
+      assert Guestbook.guestbook_contact(entry.id) == {:ok, @email}
     end
 
     test "an inspected entry or changeset shows it redacted" do
@@ -163,14 +163,14 @@ defmodule Web.GuestbookContactTest do
         Keyword.put(config, :secret_key_base, String.duplicate("z", 64))
       )
 
-      assert General.guestbook_contact(entry.id) == :error
+      assert Guestbook.guestbook_contact(entry.id) == :error
     end
   end
 
   describe "the public page" do
     test "offers the field, says what becomes of it, and never prints one", %{conn: conn} do
       {:ok, entry} = sign(%{contact: @email})
-      {:ok, _} = entry.id |> General.get_guestbook_entry!() |> General.approve_guestbook_entry()
+      {:ok, _} = entry.id |> Guestbook.get_guestbook_entry!() |> Guestbook.approve_guestbook_entry()
 
       {:ok, view, html} = live(conn, ~p"/guestbook")
 
@@ -235,7 +235,7 @@ defmodule Web.GuestbookContactTest do
       refute html =~ "hunter@"
       refute has_element?(view, "#contact-#{entry.id}")
       assert stored(entry.id) == nil
-      assert General.get_guestbook_entry!(entry.id).message == "hey :)"
+      assert Guestbook.get_guestbook_entry!(entry.id).message == "hey :)"
     end
 
     test "rejecting the signature deletes the contact with it", %{conn: conn} do

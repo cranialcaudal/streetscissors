@@ -60,6 +60,25 @@ config :web,
        |> Enum.map(&String.trim/1)
        |> Enum.filter(&String.starts_with?(&1, "https://"))
 
+# The codes Google Search Console and Bing Webmaster Tools give for proving
+# the domain is the owner's, each written as a <meta> tag on every page. Unset,
+# no tag. (Google is also verified by the file in priv/static.)
+config :web, :search_verify,
+  google: System.get_env("SEARCH_VERIFY_GOOGLE"),
+  bing: System.get_env("SEARCH_VERIFY_BING")
+
+# IndexNow's key: set, the site serves it at /<key>.txt and tells Bing and the
+# others which address changed when a post, log or roll is published
+# (Web.IndexNow). Unset, nothing is sent.
+config :web, :indexnow_key, System.get_env("INDEXNOW_KEY")
+
+# The address the newsletter/contact panel offers at its foot. Unset, none.
+config :web, :contact_email, System.get_env("CONTACT_EMAIL")
+
+# Developed prints at sixteen bits a channel (Web.Scanner.Pipeline.print_depth/0):
+# no banding under strong edits, about twice the disk. Unset, eight.
+config :web, :print_depth, if(System.get_env("PRINT_DEPTH") == "16", do: 16, else: 8)
+
 # What the /pc terminal calls itself. Unset, it is "The Machine".
 if machine_name = System.get_env("MACHINE_NAME") do
   config :web, :machine_name, machine_name
@@ -182,8 +201,6 @@ if config_env() == :prod do
     config :web, :backup_path, backup_path
   end
 
-  config :web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
-
   config :web, WebWeb.Endpoint,
     # Caddy terminates TLS in front of us, so the canonical public URL is
     # https on 443. This drives Endpoint.url/0, which the sitemap, canonical
@@ -202,38 +219,6 @@ if config_env() == :prod do
     ],
     check_origin: ["//#{host}", "//www.#{host}"],
     secret_key_base: secret_key_base
-
-  # ## SSL Support
-  #
-  # To get SSL working, you will need to add the `https` key
-  # to your endpoint configuration:
-  #
-  #     config :web, WebWeb.Endpoint,
-  #       https: [
-  #         ...,
-  #         port: 443,
-  #         cipher_suite: :strong,
-  #         keyfile: System.get_env("SOME_APP_SSL_KEY_PATH"),
-  #         certfile: System.get_env("SOME_APP_SSL_CERT_PATH")
-  #       ]
-  #
-  # The `cipher_suite` is set to `:strong` to support only the
-  # latest and more secure SSL ciphers. This means old browsers
-  # and clients may not be supported. You can set it to
-  # `:compatible` for wider support.
-  #
-  # `:keyfile` and `:certfile` expect an absolute path to the key
-  # and cert in disk or a relative path inside priv, for example
-  # "priv/ssl/server.key". For all supported SSL configuration
-  # options, see https://hexdocs.pm/plug/Plug.SSL.html#configure/1
-  #
-  # We also recommend setting `force_ssl` in your config/prod.exs,
-  # ensuring no data is ever sent via http, always redirecting to https:
-  #
-  #     config :web, WebWeb.Endpoint,
-  #       force_ssl: [hsts: true]
-  #
-  # Check `Plug.SSL` for all available options in `force_ssl`.
 
   # ## Configuring the mailer
   #

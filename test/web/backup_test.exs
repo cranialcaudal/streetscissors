@@ -45,7 +45,7 @@ defmodule Web.BackupTest do
     # Unique per run: these writes are real, so a fixed name would collide with
     # rows left behind by any earlier run that died before its cleanup.
     canary = "backup-canary-#{System.unique_integer([:positive])}"
-    {:ok, entry} = Web.General.create_guestbook_entry(%{name: canary, message: "canary"})
+    {:ok, entry} = Web.Guestbook.create_guestbook_entry(%{name: canary, message: "canary"})
 
     try do
       assert {:ok, path} = Backup.run()
@@ -60,7 +60,7 @@ defmodule Web.BackupTest do
     after
       # Cleanup has to happen inside the test: on_exit runs after the
       # connection is checked back into the pool, and the delete would fail.
-      Web.General.delete_guestbook_entry(entry)
+      Web.Guestbook.delete_guestbook_entry(entry)
     end
   end
 

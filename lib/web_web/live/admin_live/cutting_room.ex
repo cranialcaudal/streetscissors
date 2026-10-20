@@ -42,7 +42,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
 
   import WebWeb.AdminComponents
 
-  alias Web.Audio.Log
+  alias Web.Logs.Log
   alias Web.Cuts
   alias Web.Cuts.Timeline
   alias Web.Negatives

@@ -40,8 +40,8 @@ defmodule Web.Search do
   outside the checkout) answers nothing rather than raising.
   """
 
-  alias Web.{Audio, Bible, Blog, Negatives, Rides}
-  alias Web.Audio.Log
+  alias Web.{Bible, Blog, Logs, Negatives, Rides}
+  alias Web.Logs.Log
   alias Web.Bible.Citation
   alias Web.Fitness.Vault
   alias Web.Liturgy.Saints
@@ -211,7 +211,7 @@ defmodule Web.Search do
       for {title, path, context, words} <- @fixed,
           do: %{title: title, path: path, context: context, words: words <> named(path)}
 
-    fixed ++ safe(&regimen_days/0) ++ safe(&almanac_years/0) ++ rosary_sets()
+    fixed ++ safe(&regimen_days/0) ++ safe(&daybook_years/0) ++ rosary_sets()
   end
 
   # The author's page is also found by the author's name, which is the
@@ -237,8 +237,8 @@ defmodule Web.Search do
     end
   end
 
-  defp almanac_years do
-    for year <- Web.Almanac.years() do
+  defp daybook_years do
+    for year <- Web.Daybook.years() do
       %{
         title: "The Daybook, #{year}",
         path: "/daybook/#{year}",
@@ -283,7 +283,7 @@ defmodule Web.Search do
   end
 
   defp logs(q, words, deep) do
-    for {log, order} <- Enum.with_index(Audio.list_ready_logs()),
+    for {log, order} <- Enum.with_index(Logs.list_ready_logs()),
         title = Log.title(log),
         fields = [log.slug, log.caption | Log.keyword_list(log)],
         hit = hit(q, words, title, fields, deep && fn -> log.description || "" end) do
@@ -352,7 +352,10 @@ defmodule Web.Search do
 
   # Rolls first, then each roll's finished prints: a frame is a page too,
   # found the way it is said ("roll 7 frame 3") or through its roll's film.
-  defp rolls(q, words, _deep) do
+  # Listing the prints reads every roll's folder, so the suggestions under the
+  # search field (deep: false, asked at each pause in typing) look at them only
+  # when the words name a frame or a roll; the results page always does.
+  defp rolls(q, words, deep) do
     sheets = Enum.with_index(Negatives.list_contact_sheets())
 
     rolls =
@@ -366,6 +369,7 @@ defmodule Web.Search do
 
     frames =
       for {sheet, order} <- sheets,
+          deep or frame_query?(q),
           %{frame: frame} <- sheet.roll |> Negatives.list_frames() |> Enum.sort_by(& &1.frame),
           title = "Roll #{pad(sheet.roll_num)}, frame #{frame}",
           fields = [sheet.roll_num, sheet.slug, sheet.date, sheet.format, sheet.color, "print"],
@@ -378,6 +382,8 @@ defmodule Web.Search do
 
     rolls ++ frames
   end
+
+  defp frame_query?(q), do: q =~ ~r/\b(frame|print|roll)\b|\d/
 
   # A roll the way a person says it: 7, 007, roll7, roll 007.
   defp roll?(sheet, q) do
@@ -526,7 +532,7 @@ defmodule Web.Search do
   defp presence(value),
     do: if(String.trim(to_string(value)) == "", do: nil, else: to_string(value))
 
-  defp pad(n), do: n |> to_string() |> String.pad_leading(3, "0")
+  defp pad(n), do: Negatives.Roll.pad(n)
 
   defp safe(fun) do
     fun.()

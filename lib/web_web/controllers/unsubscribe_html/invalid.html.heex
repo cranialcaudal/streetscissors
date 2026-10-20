@@ -10,9 +10,9 @@
     </p>
 
     <p class="unsub-aside">
-      Try copying the whole link out of the email, or write to
-      <a href="mailto:streetscissors@gmail.com">streetscissors@gmail.com</a>
-      and you'll be taken off by hand.
+      Try copying the whole link out of the email<%= if email = Application.get_env(:web, :contact_email) do %>, or write to
+        <a href={"mailto:#{email}"}>{email}</a>
+        and you'll be taken off by hand<% end %>.
     </p>
   </div>
 </div>

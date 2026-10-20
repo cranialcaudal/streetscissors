@@ -1,0 +1,23 @@
+<%!-- One book of the Bible (its chapters), `/Christ/bible/:book`. Rendered by
+      `WebWeb.ChristController.book/2`. --%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav current={:bible} />
+
+    <header class="christ-day">
+      <p class="christ-eyebrow"><a href={~p"/Christ/bible"}>The Bible</a></p>
+      <h1 class="christ-day-title">{@book.name}</h1>
+    </header>
+
+    <ul class="christ-chapters">
+      <li :for={number <- 1..@book.chapters}>
+        <a
+          href={~p"/Christ/bible/#{@book.slug}/#{number}"}
+          aria-label={chapter_title(@book, number)}
+        >
+          {number}
+        </a>
+      </li>
+    </ul>
+  </article>
+</div>

@@ -106,6 +106,43 @@ defmodule Web.Darkroom.FilmTest do
       assert Enum.any?(result.lines, &(&1 =~ "12.5M"))
     end
 
+    test "the suggestion is absolute, anchored where the print was developed" do
+      film = %{n: 20, cast: {0.02, 0.0}, var: {0.0004, 0.0004}}
+      taste = %{alpha: 1.0, offset: {0.0, 0.0}}
+      plain = Prior.compute(@stats, "C-41", nil, nil, film, taste)
+      anchored = Prior.compute(@stats, "C-41", nil, nil, film, taste, temp: 6500.0, tint: 10.0)
+
+      # Same anchor, same answer: pressing it twice cannot move the print twice.
+      assert plain.sliders["wb.temp"] == anchored.sliders["wb.temp"]
+      assert_in_delta anchored.sliders["wb.tint"], plain.sliders["wb.tint"] + 10.0, 1.0e-9
+
+      warmer_anchor = Prior.compute(@stats, "C-41", nil, nil, film, taste, temp: 5000.0)
+      assert warmer_anchor.sliders["wb.temp"] < plain.sliders["wb.temp"]
+    end
+
+    test "a grey point's Temp and Tint take the patch's cast to neutral" do
+      cast = {0.05, -0.03}
+      %{"wb.temp" => temp, "wb.tint" => tint} = Prior.grey_point(cast)
+
+      {rg, bg} = Film.cast_of(6500.0, temp, tint)
+      assert_in_delta rg, -0.05, 1.0e-6
+      assert_in_delta bg, 0.03, 1.0e-6
+    end
+
+    test "a patch is read as its mean colour, in linear light" do
+      warm = :binary.copy(<<200, 180, 150>>, 64)
+      assert {:ok, %{cast: {rg, bg}, rgb: [r, g, b]}} = Web.Darkroom.Stats.region_from_bytes(warm)
+      assert r > g and g > b
+      assert rg > 0 and bg < 0
+
+      grey = :binary.copy(<<128, 128, 128>>, 64)
+      assert {:ok, %{cast: {rg, bg}}} = Web.Darkroom.Stats.region_from_bytes(grey)
+      assert_in_delta rg, 0.0, 1.0e-9
+      assert_in_delta bg, 0.0, 1.0e-9
+
+      assert Web.Darkroom.Stats.region_from_bytes(:binary.copy(<<0, 0, 0>>, 64)) == :error
+    end
+
     test "black and white is offered no colour" do
       result = Prior.compute(@stats, "BW", nil, nil, nil, %{alpha: 1.0, offset: {0.0, 0.0}})
       assert result.sliders == %{}
@@ -114,6 +151,7 @@ defmodule Web.Darkroom.FilmTest do
 
   # The slider response is measured, so it is measured again where LightCraft is.
   if System.find_executable("lightcraft-cli") && System.find_executable("magick") do
+    @tag :external
     test "LightCraft's Temp and Tint move a grey by the cast asked for" do
       dir = Path.join(System.tmp_dir!(), "film_cal_#{System.unique_integer([:positive])}")
       File.mkdir_p!(dir)

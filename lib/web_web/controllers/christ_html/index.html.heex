@@ -1,0 +1,171 @@
+<%!--
+The whole day on one page: what the Church keeps, whom it keeps, what the day
+asks by way of fasting, and the day's prayer in the order it is prayed. Each
+prayer opens in place; app.js opens the one it is time for when the page is
+showing today. Nothing else: a saint's life is on the saint's own page.
+--%>
+<div class="container faith">
+  <article class="glass-panel about-panel christ-panel">
+    <.christ_nav current={:today} />
+
+    <header class={"christ-day christ-day--#{@day.colour}"}>
+      <p class="christ-eyebrow">
+        {long_date(@date)}, {@date.year}
+        <span :if={@date != @today} class="christ-eyebrow-flag">not today</span>
+      </p>
+      <h1 class="christ-day-title">{@day.celebration.title}</h1>
+      <p class="christ-day-meta">
+        <span class="christ-swatch" aria-hidden="true"></span>
+        <span>{rank_name(@day.celebration.rank)}</span>
+        <span>{String.capitalize(to_string(@day.colour))}</span>
+        <span>{upcase_first(@day.season_name)}</span>
+        <span>Psalter week {roman(@day.psalter_week)}</span>
+        <span>Sunday cycle {@day.sunday_cycle}, weekday cycle {@day.weekday_cycle}</span>
+      </p>
+      <p :if={@day.celebration.source == :sanctoral} class="christ-day-under">
+        {@day.temporal.title}
+      </p>
+    </header>
+
+    <ul :if={@saints != []} class="christ-kept" aria-label="Kept today">
+      <li :for={%{entry: entry, saint: saint} <- @saints}>
+        <span class="christ-label">{rank_name(entry.rank)}</span>
+        <%= if entry.symbol && saint do %>
+          <a href={~p"/Christ/saints/#{entry.symbol}"}>{entry.title}</a>
+        <% else %>
+          {entry.title}
+        <% end %>
+      </li>
+    </ul>
+    <p :if={@saints != [] and @day.celebration.source != :sanctoral} class="christ-note">
+      <%= if @day.temporal.precedence == 9 do %>
+        In this season a memorial may be kept only as a commemoration.
+      <% else %>
+        Optional memorials: any one of them may be kept today, or none.
+      <% end %>
+    </p>
+
+    <section class="christ-discipline" aria-label="Fasting today">
+      <p class={@fast.carmelite.fast && "is-fast"}>
+        <span class="christ-label">The fast of the Rule</span>
+        {@fast.carmelite.text}
+      </p>
+      <p :if={@fast.church} class="is-fast">
+        <span class="christ-label">{@fast.church.title}</span>
+        {@fast.church.text}
+      </p>
+    </section>
+
+    <section
+      class="christ-hours"
+      aria-labelledby="christ-hours-title"
+      data-prayer-day={@date == @today && "today"}
+    >
+      <div class="christ-hours-head">
+        <h2 id="christ-hours-title" class="christ-section-title">The day's prayer</h2>
+        <button type="button" class="christ-button" data-prayer-toggle hidden>Open all</button>
+      </div>
+
+      <details class="christ-hour" id="lauds" data-prayer-from="4" data-prayer-until="11">
+        <summary>
+          <span class="christ-hour-when" aria-hidden="true">Morning</span>
+          <span class="christ-hour-name">Morning Prayer</span>
+          <span class="christ-hour-what">{@offices.lauds.summary}</span>
+        </summary>
+        <div class="christ-hour-body">
+          <.office office={@offices.lauds} />
+          <p class="christ-own-page">
+            <a href={~p"/Christ/hours/lauds?date=#{Date.to_iso8601(@date)}"}>
+              Morning Prayer on its own page
+            </a>
+          </p>
+        </div>
+      </details>
+
+      <details class="christ-hour" id="midday" data-prayer-from="11" data-prayer-until="13">
+        <summary>
+          <span class="christ-hour-when">Midday</span>
+          <span class="christ-hour-name">{@midday.title}</span>
+          <span class="christ-hour-what">at noon</span>
+        </summary>
+        <div class="christ-hour-body">
+          <.midday midday={@midday} season={@day.season} />
+        </div>
+      </details>
+
+      <details class="christ-hour" id="readings" data-prayer-from="13" data-prayer-until="16">
+        <summary>
+          <span class="christ-hour-when">Midday</span>
+          <span class="christ-hour-name">Readings at Mass</span>
+          <span class="christ-hour-what">{@readings.summary}</span>
+        </summary>
+        <div class="christ-hour-body">
+          <.masses
+            masses={@readings.masses}
+            from={@readings.from}
+            day={@readings.day}
+            usa_day={@readings.usa_day}
+          />
+        </div>
+      </details>
+
+      <details class="christ-hour" id="vespers" data-prayer-from="16" data-prayer-until="19">
+        <summary>
+          <span class="christ-hour-when" aria-hidden="true">Evening</span>
+          <span class="christ-hour-name">Evening Prayer</span>
+          <span class="christ-hour-what">{@offices.vespers.summary}</span>
+        </summary>
+        <div class="christ-hour-body">
+          <.office office={@offices.vespers} />
+          <p class="christ-own-page">
+            <a href={~p"/Christ/hours/vespers?date=#{Date.to_iso8601(@date)}"}>
+              Evening Prayer on its own page
+            </a>
+          </p>
+        </div>
+      </details>
+
+      <details class="christ-hour" id="rosary" data-prayer-from="19" data-prayer-until="21">
+        <summary>
+          <span class="christ-hour-when">Evening</span>
+          <span class="christ-hour-name">The Rosary</span>
+          <span class="christ-hour-what">{@rosary.title}</span>
+        </summary>
+        <div class="christ-hour-body">
+          <p class="christ-own-page">
+            <a href={~p"/Christ/rosary?set=#{@rosary.key}"}>Pray it bead by bead</a>
+          </p>
+          <.rosary_text set={@rosary} />
+        </div>
+      </details>
+
+      <details class="christ-hour" id="compline" data-prayer-from="21" data-prayer-until="28">
+        <summary>
+          <span class="christ-hour-when" aria-hidden="true">Night</span>
+          <span class="christ-hour-name">Night Prayer</span>
+          <span class="christ-hour-what">{@offices.compline.summary}</span>
+        </summary>
+        <div class="christ-hour-body">
+          <.office office={@offices.compline} />
+          <p class="christ-own-page">
+            <a href={~p"/Christ/hours/compline?date=#{Date.to_iso8601(@date)}"}>
+              Night Prayer on its own page
+            </a>
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <.turn
+      previous={day_path(Date.add(@date, -1), @today)}
+      previous_label={long_date(Date.add(@date, -1))}
+      next={day_path(Date.add(@date, 1), @today)}
+      next_label={long_date(Date.add(@date, 1))}
+      today={@date != @today && ~p"/Christ"}
+    />
+
+    <a href={~p"/pc"} class="pc-easter-egg" aria-label="C:\>">
+      <.icon name="hero-command-line" class="pc-easter-egg-icon" />
+    </a>
+  </article>
+</div>

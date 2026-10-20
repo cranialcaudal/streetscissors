@@ -16,7 +16,7 @@ defmodule WebWeb.NewsletterOverlayLive do
   alias Web.Contact
   alias Web.Contact.Message
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     changeset = Contact.change_message(%Message{})
     captcha = WebWeb.Captcha.new()
 
@@ -24,9 +24,11 @@ defmodule WebWeb.NewsletterOverlayLive do
      assign(socket,
        newsletter_form: to_form(%{"email" => ""}),
        contact_form: to_form(changeset),
-       # connect_info is readable only during mount, so the rate limiter's key
-       # has to be captured here rather than looked up per event.
-       remote_ip: WebWeb.ClientIP.from_socket(socket),
+       # The rate limiter's key. This view is rendered from the root layout,
+       # so the address comes from the page that drew it (Layouts'
+       # overlay_session/1); connect_info, readable only during mount, is the
+       # fallback.
+       remote_ip: session["remote_ip"] || WebWeb.Visitor.ip(socket),
        captcha_question: captcha.question,
        captcha_answer: captcha.answer,
        grammar_matches: nil,
@@ -178,231 +180,196 @@ defmodule WebWeb.NewsletterOverlayLive do
   end
 
   def render(assigns) do
+    assigns = assign(assigns, :contact_email, Application.get_env(:web, :contact_email))
+
     ~H"""
-    <div id={"#{@socket.id}-container"} phx-hook="DispatchOverlay">
-      <%= if @open do %>
-        <div
-          id={"#{@socket.id}-overlay"}
-          class="dispatch-overlay animate-fade-in"
-          style="position: fixed; inset: 0; z-index: 100000; background: rgba(23, 20, 15, 0.55); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;"
-          phx-window-keydown="close_dispatch"
-          phx-key="Escape"
-        >
-          <div
-            class="glass-panel"
-            phx-click-away="close_dispatch"
-            style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: clamp(1.5rem, 5vw, 3rem); position: relative;"
-          >
-            <button phx-click="close_dispatch" class="dispatch-close">
-              &times;
+    <div id={"#{@socket.id}-container"} phx-hook=".DispatchOverlay">
+      <.dialog
+        :if={@open}
+        id={"#{@socket.id}-overlay"}
+        class="dispatch-overlay"
+        label="Newsletter and contact"
+        on_close="close_dispatch"
+      >
+        <div class="dispatch-head">
+          <h2 class="dispatch-title">Dispatch Center</h2>
+          <div class="dispatch-tabs" role="tablist" aria-label="Newsletter or contact">
+            <button
+              :for={{tab, label} <- [newsletter: "Newsletter", contact: "Contact"]}
+              type="button"
+              role="tab"
+              aria-selected={to_string(@active_tab == tab)}
+              phx-click="switch_tab"
+              phx-value-tab={tab}
+              class="dispatch-tab"
+            >
+              {label}
             </button>
-
-            <div style="margin-bottom: 3rem; text-align: center;">
-              <h2 style="font-family: var(--font-heading); font-size: 1.2rem; color: var(--accent-color); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 2rem;">
-                Dispatch Center
-              </h2>
-
-              <div style="display: inline-flex; border: 1px solid var(--hairline);">
-                <button
-                  phx-click="switch_tab"
-                  phx-value-tab="newsletter"
-                  class="dispatch-tab"
-                  style={
-                    if @active_tab == :newsletter,
-                      do: "background: var(--accent-color); color: var(--paper);",
-                      else: "background: transparent; color: var(--ink-3);"
-                  }
-                >
-                  Newsletter
-                </button>
-                <button
-                  phx-click="switch_tab"
-                  phx-value-tab="contact"
-                  class="dispatch-tab"
-                  style={
-                    if @active_tab == :contact,
-                      do: "background: var(--accent-color); color: var(--paper);",
-                      else: "background: transparent; color: var(--ink-3);"
-                  }
-                >
-                  Contact
-                </button>
-              </div>
-            </div>
-
-            <%!-- This overlay is its own LiveView, rendered with no layout, so no
-                  flash group exists to say what it puts: a wrong captcha or a
-                  rate limit was set here and shown nowhere. On /newsletter and
-                  /contact the dialog also covers the page's group. --%>
-            <div class="flash-inline" aria-live="polite">
-              <.flash kind={:error} flash={@flash} id={"#{@socket.id}-flash-error"} />
-              <.flash kind={:info} flash={@flash} id={"#{@socket.id}-flash-info"} />
-            </div>
-
-            <div class="dispatch-content">
-              <%= if @active_tab == :newsletter do %>
-                <%= if @newsletter_subscribed do %>
-                  <div class="animate-fade-in" style="text-align: center; padding: 3rem 0;">
-                    <div style="width: 80px; height: 80px; background: rgba(194, 69, 29, 0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; border: 1px solid var(--accent-color);">
-                      <.icon name="hero-check" class="size-10 text-[var(--accent-color)]" />
-                    </div>
-                    <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: var(--ink); font-family: var(--font-heading);">
-                      CONFIRMED
-                    </h2>
-                    <p style="color: var(--ink-3); letter-spacing: 1px;">YOU ARE ON THE LIST</p>
-                  </div>
-                <% else %>
-                  <p style="margin-bottom: 2rem; color: var(--ink-3); line-height: 1.8; text-align: center; max-width: 450px; margin-left: auto; margin-right: auto; font-style: italic; font-family: var(--font-serif);">
-                    Subscribe for updates on new logs and photographs.
-                  </p>
-
-                  <.form
-                    for={@newsletter_form}
-                    phx-change="validate_newsletter"
-                    phx-submit="subscribe"
-                    style="display: flex; flex-direction: column; gap: 1.5rem;"
-                  >
-                    <div>
-                      <input
-                        name="email"
-                        type="email"
-                        value={@newsletter_form[:email].value}
-                        placeholder="ENTER YOUR EMAIL"
-                        required
-                        class="glass-input"
-                        style="text-align: center; letter-spacing: 2px; padding: 1.2rem; font-size: 1rem;"
-                      />
-                      <%= if @error_message do %>
-                        <p style="color: var(--accent-color); font-size: 0.9rem; margin-top: 0.5rem; text-align: center;">
-                          {@error_message}
-                        </p>
-                      <% end %>
-                    </div>
-
-                    <%!-- Subscribing sends a real email from our own sender
-                          identity, so this form gets the same human check the
-                          contact tab has always had. --%>
-                    <div>
-                      <label style="display: block; font-size: 0.8rem; color: var(--ink-3); margin-bottom: 0.5rem; text-align: center; letter-spacing: 1px;">
-                        {@captcha_question}
-                      </label>
-                      <input
-                        type="text"
-                        name="captcha"
-                        required
-                        autocomplete="off"
-                        class="glass-input"
-                        style="text-align: center; letter-spacing: 2px; padding: 1rem; font-size: 1rem;"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      class="theme-btn"
-                      style="width: 100%; padding: 1.2rem; justify-content: center; font-size: 1rem; border: 1px solid var(--accent-color); color: var(--accent-color); background: transparent; letter-spacing: 2px; text-transform: uppercase; font-weight: bold;"
-                    >
-                      Join the Dispatch
-                    </button>
-                  </.form>
-                <% end %>
-              <% else %>
-                <%= if @contact_sent do %>
-                  <div class="animate-fade-in" style="text-align: center; padding: 3rem 0;">
-                    <h2 style="font-family: var(--font-heading); font-size: 4rem; color: var(--accent-color); margin-bottom: 1rem; text-transform: lowercase;">
-                      boom.. sent
-                    </h2>
-                    <p style="font-size: 1.1rem; color: var(--ink-3); letter-spacing: 1px;">
-                      Message received loud and clear.
-                    </p>
-                    <div style="margin-top: 2rem;">
-                      <button
-                        phx-click="switch_tab"
-                        phx-value-tab="contact"
-                        style="background: transparent; border: 1px solid var(--hairline); color: var(--ink-4); padding: 0.6rem 2rem; cursor: pointer; font-size: 0.9rem;"
-                      >
-                        Send Another?
-                      </button>
-                    </div>
-                  </div>
-                <% else %>
-                  <.form
-                    for={@contact_form}
-                    phx-change="validate_contact"
-                    phx-submit="save_contact"
-                    style="display: flex; flex-direction: column; gap: 1.5rem;"
-                  >
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                      <input
-                        name="message[name]"
-                        type="text"
-                        value={@contact_form[:name].value}
-                        placeholder="NAME"
-                        required
-                        class="glass-input"
-                        style="padding: 1rem; font-size: 0.9rem;"
-                      />
-                      <input
-                        name="message[email]"
-                        type="email"
-                        value={@contact_form[:email].value}
-                        placeholder="EMAIL"
-                        required
-                        class="glass-input"
-                        style="padding: 1rem; font-size: 0.9rem;"
-                      />
-                    </div>
-
-                    <div style="position: relative;">
-                      <textarea
-                        name="message[message]"
-                        placeholder="YOUR MESSAGE..."
-                        required
-                        class="glass-input"
-                        style="min-height: 150px; padding: 1rem; font-size: 0.9rem;"
-                      ><%= @contact_form[:message].value %></textarea>
-                      <div style="position: absolute; bottom: 0.5rem; right: 0.5rem;">
-                        <WebWeb.CoreComponents.grammar_button class="btn-xs" />
-                      </div>
-                    </div>
-
-                    <div style="background: var(--paper-sunk); padding: 1.2rem; border: 1px solid var(--hairline); display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
-                      <span style="color: var(--ink-3); font-size: 0.9rem; flex: 1 1 200px;">
-                        CAPTCHA: {@captcha_question}
-                      </span>
-                      <input
-                        name="captcha"
-                        type="text"
-                        placeholder="ANSWER"
-                        class="glass-input"
-                        style="width: 100px; flex: 0 0 auto; text-align: center; padding: 0.5rem 1rem;"
-                        required
-                        autocomplete="off"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      class="theme-btn"
-                      style="width: 100%; padding: 1.2rem; justify-content: center; border: 1px solid var(--accent-color); color: var(--accent-color); background: transparent; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;"
-                    >
-                      Send Message
-                    </button>
-                  </.form>
-                <% end %>
-              <% end %>
-            </div>
-
-            <div style="margin-top: 3rem; text-align: center; border-top: 1px solid var(--hairline); padding-top: 1.5rem;">
-              <a href="mailto:streetscissors@gmail.com" class="dispatch-footer-link">
-                STREETSCISSORS@GMAIL.COM
-              </a>
-            </div>
-          </div>
-          <div style="position: fixed; bottom: 2rem; right: 2rem; z-index: 100000;">
-            <WebWeb.CoreComponents.grammar_panel matches={@grammar_matches} />
           </div>
         </div>
-      <% end %>
+
+        <%!-- This overlay is its own LiveView, rendered with no layout, so no
+              flash group exists to say what it puts: a wrong captcha or a
+              rate limit was set here and shown nowhere. On /newsletter and
+              /contact the dialog also covers the page's group. --%>
+        <div class="flash-inline" aria-live="polite">
+          <.flash kind={:error} flash={@flash} id={"#{@socket.id}-flash-error"} />
+          <.flash kind={:info} flash={@flash} id={"#{@socket.id}-flash-info"} />
+        </div>
+
+        <div class="dispatch-content" role="tabpanel">
+          <%= if @active_tab == :newsletter do %>
+            <div :if={@newsletter_subscribed} class="dispatch-done">
+              <div class="dispatch-done-mark"><.icon name="hero-check" class="size-10" /></div>
+              <h2 class="dispatch-done-title">CONFIRMED</h2>
+              <p class="dispatch-done-line">YOU ARE ON THE LIST</p>
+            </div>
+
+            <div :if={!@newsletter_subscribed}>
+              <p class="dispatch-lede">Subscribe for updates on new logs and photographs.</p>
+
+              <.form
+                for={@newsletter_form}
+                phx-change="validate_newsletter"
+                phx-submit="subscribe"
+                class="dispatch-form"
+              >
+                <div>
+                  <label for={"#{@socket.id}-email"} class="dispatch-label dispatch-label--center">
+                    Your email
+                  </label>
+                  <input
+                    id={"#{@socket.id}-email"}
+                    name="email"
+                    type="email"
+                    value={@newsletter_form[:email].value}
+                    autocomplete="email"
+                    required
+                    class="dispatch-input dispatch-input--center"
+                  />
+                  <p :if={@error_message} class="dispatch-error">{@error_message}</p>
+                </div>
+
+                <%!-- Subscribing sends a real email from our own sender
+                      identity, so this form gets the same human check the
+                      contact tab has always had. --%>
+                <div>
+                  <label for={"#{@socket.id}-captcha-n"} class="dispatch-label dispatch-label--center">
+                    {@captcha_question}
+                  </label>
+                  <input
+                    id={"#{@socket.id}-captcha-n"}
+                    type="text"
+                    name="captcha"
+                    required
+                    autocomplete="off"
+                    class="dispatch-input dispatch-input--center"
+                  />
+                </div>
+
+                <button type="submit" class="dispatch-submit">Join the Dispatch</button>
+              </.form>
+            </div>
+          <% else %>
+            <div :if={@contact_sent} class="dispatch-done">
+              <h2 class="dispatch-done-title dispatch-done-title--loud">boom.. sent</h2>
+              <p class="dispatch-done-line">Message received loud and clear.</p>
+              <button type="button" phx-click="switch_tab" phx-value-tab="contact" class="dispatch-again">
+                Send Another?
+              </button>
+            </div>
+
+            <.form
+              :if={!@contact_sent}
+              for={@contact_form}
+              phx-change="validate_contact"
+              phx-submit="save_contact"
+              class="dispatch-form"
+            >
+              <div class="dispatch-row">
+                <div>
+                  <label for={"#{@socket.id}-name"} class="dispatch-label">Name</label>
+                  <input
+                    id={"#{@socket.id}-name"}
+                    name="message[name]"
+                    type="text"
+                    value={@contact_form[:name].value}
+                    autocomplete="name"
+                    required
+                    class="dispatch-input"
+                  />
+                </div>
+                <div>
+                  <label for={"#{@socket.id}-from"} class="dispatch-label">Email</label>
+                  <input
+                    id={"#{@socket.id}-from"}
+                    name="message[email]"
+                    type="email"
+                    value={@contact_form[:email].value}
+                    autocomplete="email"
+                    required
+                    class="dispatch-input"
+                  />
+                </div>
+              </div>
+
+              <div class="dispatch-message">
+                <label for={"#{@socket.id}-message"} class="dispatch-label">Your message</label>
+                <textarea
+                  id={"#{@socket.id}-message"}
+                  name="message[message]"
+                  required
+                  class="dispatch-input dispatch-input--message"
+                ><%= @contact_form[:message].value %></textarea>
+                <div class="dispatch-message-tools">
+                  <WebWeb.CoreComponents.grammar_button class="btn-xs" />
+                </div>
+              </div>
+
+              <div class="dispatch-captcha">
+                <label for={"#{@socket.id}-captcha-c"} class="dispatch-label">
+                  CAPTCHA: {@captcha_question}
+                </label>
+                <input
+                  id={"#{@socket.id}-captcha-c"}
+                  name="captcha"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  class="dispatch-input"
+                />
+              </div>
+
+              <button type="submit" class="dispatch-submit">Send Message</button>
+            </.form>
+          <% end %>
+        </div>
+
+        <div :if={@contact_email} class="dispatch-foot">
+          <a href={"mailto:#{@contact_email}"} class="dispatch-footer-link">
+            {String.upcase(@contact_email)}
+          </a>
+        </div>
+
+        <div class="dispatch-grammar">
+          <WebWeb.CoreComponents.grammar_panel matches={@grammar_matches} />
+        </div>
+      </.dialog>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".DispatchOverlay">
+        // Any "Newsletter & Contact" button on any page (data-dispatch, wired
+        // in app.js) asks this overlay to open. The listener is removed with
+        // the hook, so a remount does not open it twice.
+        export default {
+          mounted() {
+            this.open = () => this.pushEvent("open_dispatch", {})
+            window.addEventListener("trigger-dispatch", this.open)
+          },
+          destroyed() {
+            window.removeEventListener("trigger-dispatch", this.open)
+          }
+        }
+      </script>
     </div>
     """
   end

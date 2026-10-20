@@ -7,7 +7,7 @@ defmodule Web.Blog do
   falls back to filename/mtime-derived values when absent.
 
   The blog is strictly typed work. Spoken-word pieces are captain's logs
-  (`Web.Audio`), which are DB-backed and live at `/logs` — a post no longer
+  (`Web.Logs`), which are DB-backed and live at `/logs` — a post no longer
   picks up a sidecar `.mp3` by filename.
 
   **Drafts.** A post whose frontmatter says `draft: true` is off the site:
@@ -22,12 +22,11 @@ defmodule Web.Blog do
   Obsidian as well, and the site does not get to win that race by being last.
   """
 
-  alias Web.Keywords
+  alias Web.{Keywords, SourceFile}
 
   @default_base_path "content/blog"
 
   # Frontmatter is the file-leading block delimited by `---` lines.
-  @frontmatter_re ~r/\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n?(.*)\z/s
   @yaml_line_re ~r/^([A-Za-z_][A-Za-z0-9_-]*):\s*(.*)$/
   @yaml_list_item_re ~r/^\s*-\s+(.+)$/
   # Obsidian's native key is `tags`; this site's is `keywords`. Both read.
@@ -174,8 +173,10 @@ defmodule Web.Blog do
   `draft: false`: a published post reads the same as one that never was one.
   """
   def set_draft(slug, draft?) when is_boolean(draft?) do
-    with {:ok, path} <- resolve_path(slug) do
-      write_atomic(path, mark_draft(File.read!(path), draft?))
+    with {:ok, path} <- resolve_path(slug),
+         :ok <- write_atomic(path, mark_draft(File.read!(path), draft?)) do
+      unless draft?, do: announce(Path.basename(path, ".md"))
+      :ok
     end
   end
 
@@ -205,18 +206,12 @@ defmodule Web.Blog do
   """
   def write_source(slug, content, revision, opts \\ []) do
     with {:ok, path} <- resolve_path(slug) do
-      on_disk = File.read!(path)
+      trash = Path.join(Path.dirname(base_path()), ".trash")
+      opts = Keyword.merge(opts, trash: trash, trash_name: Path.basename(slug))
 
-      cond do
-        revision(on_disk) == revision ->
-          save(path, content)
-
-        Keyword.get(opts, :force, false) ->
-          keep_replaced(slug, on_disk)
-          save(path, content)
-
-        true ->
-          {:error, :conflict, %{content: on_disk, revision: revision(on_disk)}}
+      with {:ok, new_revision} <- SourceFile.write(path, content, revision, opts) do
+        announce(Path.basename(path, ".md"))
+        {:ok, new_revision}
       end
     end
   end
@@ -228,34 +223,20 @@ defmodule Web.Blog do
       else: "---\n" <> yaml <> "\n---\n\n" <> String.trim_leading(body)
   end
 
-  defp save(path, content) do
-    with :ok <- write_atomic(path, content), do: {:ok, revision(content)}
-  end
-
-  # Written beside the file and renamed over it, so nothing reading the vault
-  # at that moment — Obsidian, a request — ever sees half a post.
-  defp write_atomic(path, content) do
-    tmp = path <> ".saving"
-
-    with :ok <- File.write(tmp, content),
-         :ok <- File.rename(tmp, path) do
-      :ok
-    else
-      error ->
-        File.rm(tmp)
-        error
+  # A published post's new text is news to the search engines (Web.IndexNow);
+  # a draft is not (get_post/1 never sees one).
+  defp announce(slug) do
+    case get_post(slug) do
+      {:ok, %{slug: slug}} -> Web.IndexNow.changed("/blog/#{Keywords.slugify(slug)}")
+      _ -> :ok
     end
   end
 
-  defp keep_replaced(slug, content) do
-    trash = Path.join(Path.dirname(base_path()), ".trash")
-    stamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d-%H%M%S")
+  # Written beside the file and renamed over it (Web.SourceFile), so nothing
+  # reading the vault at that moment — Obsidian, a request — sees half a post.
+  defp write_atomic(path, content), do: SourceFile.write_atomic(path, content)
 
-    File.mkdir_p!(trash)
-    File.write!(Path.join(trash, "#{Path.basename(slug)} (replaced #{stamp}).md"), content)
-  end
-
-  defp revision(content), do: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+  defp revision(content), do: SourceFile.revision(content)
 
   defp template do
     path = Path.join([Path.dirname(base_path()), "templates", "blog-template.md"])
@@ -292,13 +273,9 @@ defmodule Web.Blog do
   vault's embeds (`![[roll012]]`, `![[ride:123]]`) through `Web.Blog.Embeds`.
   """
   def to_html(body) do
-    html =
-      case Earmark.as_html(body, gfm: true) do
-        {:ok, html, _} -> html
-        {:error, html, _} -> html
-      end
-
-    Web.Blog.Embeds.transform(html)
+    body
+    |> Web.Markdown.to_html()
+    |> Web.Blog.Embeds.transform()
   end
 
   @doc """
@@ -310,9 +287,14 @@ defmodule Web.Blog do
     join_frontmatter(replace_key(yaml, "draft", if(draft?, do: "true")), body)
   end
 
+  # Parsed once per version of the file (Web.Blog.Cache).
   defp read_post(path, slug) do
     stat = File.stat!(path)
-    build_post(slug, File.read!(path), NaiveDateTime.from_erl!(stat.mtime))
+    stamp = {stat.mtime, stat.size, stat.inode}
+
+    Web.Blog.Cache.fetch(path, stamp, fn ->
+      build_post(slug, File.read!(path), NaiveDateTime.from_erl!(stat.mtime))
+    end)
   end
 
   defp build_post(slug, text, mtime) do
@@ -327,6 +309,9 @@ defmodule Web.Blog do
       mtime: mtime,
       excerpt: presence(meta["description"]) || extract_excerpt(body),
       keywords: Keywords.parse(meta["keywords"] || meta["tags"]),
+      # Pieces this post goes with (`related: frame:012/3, log:2026-09-18`),
+      # as Web.Pieces refs; shown under the post, and on each piece's page.
+      related: Web.Pieces.refs(meta["related"]),
       draft: truthy?(meta["draft"]),
       # Whether the excerpt is the author's own line or the first paragraph
       # standing in for one (the admin's content health asks).
@@ -342,12 +327,7 @@ defmodule Web.Blog do
     {parse_yaml(yaml), body}
   end
 
-  defp split_raw_frontmatter(content) do
-    case Regex.run(@frontmatter_re, content) do
-      [_, yaml, body] -> {yaml, body}
-      nil -> {"", content}
-    end
-  end
+  defp split_raw_frontmatter(content), do: Web.Frontmatter.split(content)
 
   defp parse_yaml(yaml) do
     yaml

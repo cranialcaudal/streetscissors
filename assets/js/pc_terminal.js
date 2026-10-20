@@ -8,10 +8,11 @@
 
 export const PcTerminal = {
   mounted() {
-    // Keep focus on input if clicking anywhere in the container
-    document.getElementById("pc-terminal").addEventListener("click", () => {
-      if (this.el) this.el.focus();
-    });
+    // Keep focus on input if clicking anywhere in the container. The container
+    // belongs to another hook, so the listener is taken off when this one goes.
+    this.terminal = document.getElementById("pc-terminal");
+    this.refocus = () => this.el && this.el.focus();
+    if (this.terminal) this.terminal.addEventListener("click", this.refocus);
 
     this.el.addEventListener("keydown", (e) => {
       if (e.key === "Tab") {
@@ -25,6 +26,9 @@ export const PcTerminal = {
       // Cursor to the end
       this.el.selectionStart = this.el.selectionEnd = this.el.value.length;
     });
+  },
+  destroyed() {
+    if (this.terminal) this.terminal.removeEventListener("click", this.refocus);
   }
 };
 
@@ -37,14 +41,14 @@ export const AutoScroll = {
       if (!log) return;
 
       const lines = [
-        "CÉSAR BIOS v4.20.26",
+        "STREETSCISSORS BIOS v4.20.26",
         "(C) 1994-2026 STREET SCISSORS CORP.",
         "",
         "CPU: EL CARNAL v1.0 @ 3.4GHz",
         "MEMORY TEST: 640KB OK",
         "",
         "DETECTING IDE DRIVES...",
-        "  PRIMARY MASTER: CÉSAR_HD_1 (4.2GB)",
+        "  PRIMARY MASTER: SCISSORS_HD_1 (4.2GB)",
         "  PRIMARY SLAVE:  NONE",
         "",
         "LOADING LA ANIMA... DONE",

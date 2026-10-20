@@ -128,6 +128,7 @@ defmodule WebWeb.AdminLive.Scanner do
          batch: batch_setting(),
          meta: RollMeta.read(""),
          meta_error: nil,
+         known: known_meta(nil),
          queue: [],
          archive_rolls: Negatives.list_contact_sheets()
        )
@@ -200,6 +201,7 @@ defmodule WebWeb.AdminLive.Scanner do
       then_publish?: false,
       meta: RollMeta.read(dir),
       meta_error: nil,
+      known: known_meta(dir),
       queue: []
     )
     |> reload_roll()
@@ -496,6 +498,16 @@ defmodule WebWeb.AdminLive.Scanner do
         {:noreply, assign(socket, meta_error: said)}
     end
   end
+
+  # The newest earlier roll's camera, stock and place, for a roll that is
+  # another of the same.
+  def handle_event("meta_from_last", _params, %{assigns: %{known: %{last: %{} = last}}} = socket) do
+    meta = Map.merge(socket.assigns.meta, Map.take(last, [:camera, :film, :place]))
+    RollMeta.write(socket.assigns.roll_dir, meta)
+    {:noreply, assign(socket, meta: meta, meta_error: nil)}
+  end
+
+  def handle_event("meta_from_last", _params, socket), do: {:noreply, socket}
 
   # The roll's settings and its strips are each a drawer under the bar, one
   # open at a time, so the frames keep the screen.
@@ -1864,6 +1876,16 @@ defmodule WebWeb.AdminLive.Scanner do
     end
   end
 
+  # What earlier rolls said (RollMeta.known/1), offered as the fields'
+  # suggestions. The datasheet's stock names come first in the film list,
+  # spelled as Web.Darkroom.Film knows them, so the colour prior finds the
+  # stock a roll names.
+  defp known_meta(dir) do
+    known = RollMeta.known(dir)
+    names = Enum.map(Web.Darkroom.Film.stocks(), & &1["name"])
+    %{known | film: Enum.uniq(names ++ known.film)}
+  end
+
   # --- Template ---------------------------------------------------------------
 
   # ── The page itself (render) ──────────────────────────────────────────────
@@ -2245,6 +2267,25 @@ defmodule WebWeb.AdminLive.Scanner do
 
             <form phx-change="update_roll_meta" id="roll-meta" class="adm-scan-meta">
               <h2 class="adm-scan-meta-title">About this roll</h2>
+              <button
+                :if={@known.last}
+                type="button"
+                id="meta-from-last"
+                phx-click="meta_from_last"
+                class="adm-btn adm-btn--quiet adm-btn--small"
+                title={RollMeta.gear_line(@known.last)}
+              >
+                Same as last roll
+              </button>
+              <datalist id="known-cameras">
+                <option :for={value <- @known.camera} value={value} />
+              </datalist>
+              <datalist id="known-films">
+                <option :for={value <- @known.film} value={value} />
+              </datalist>
+              <datalist id="known-places">
+                <option :for={value <- @known.place} value={value} />
+              </datalist>
               <div class="adm-form-row">
                 <label class="adm-field">
                   <span class="adm-label">Shot</span>
@@ -2263,6 +2304,7 @@ defmodule WebWeb.AdminLive.Scanner do
                     type="text"
                     name="camera"
                     value={@meta.camera}
+                    list="known-cameras"
                     class="adm-input"
                     phx-debounce="600"
                   />
@@ -2273,6 +2315,7 @@ defmodule WebWeb.AdminLive.Scanner do
                     type="text"
                     name="film"
                     value={@meta.film}
+                    list="known-films"
                     class="adm-input"
                     phx-debounce="600"
                   />
@@ -2283,6 +2326,7 @@ defmodule WebWeb.AdminLive.Scanner do
                     type="text"
                     name="place"
                     value={@meta.place}
+                    list="known-places"
                     class="adm-input"
                     phx-debounce="600"
                   />

@@ -34,6 +34,8 @@ config :web, :blog_path, Path.expand("../test/support/fixtures/blog", __DIR__)
 # are the author's own and never ship with the code; the fixtures are invented.
 # Checks against the real content live in the gitignored test/private/.
 config :web, :fitness_path, Path.expand("../test/support/fixtures/fitness", __DIR__)
+# Quick-add notes are appended to a scratch folder, never the committed fixtures.
+config :web, :notes_path, Path.join(System.tmp_dir!(), "streetscissors_test_notes")
 config :web, :england_path, Path.expand("../test/support/fixtures/england", __DIR__)
 config :web, :emails_path, Path.expand("../test/support/fixtures/emails", __DIR__)
 
@@ -145,6 +147,9 @@ config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
 config :web, :webmention_resolver, {Web.WebmentionsTestResolver, :resolve}
 config :web, :webmention_req_options, plug: {Req.Test, Web.Webmentions}
 
+# IndexNow pings go to a Req.Test stub; the key is unset unless a test sets it.
+config :web, :indexnow_req_options, plug: {Req.Test, Web.IndexNow}
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
@@ -167,6 +172,7 @@ config :web, :happening_ttl_ms, 0
 
 # The weekly training report renders through a stub of Quarto in the suite.
 config :web, :fitness_reports_path, Path.expand("../tmp/test_fitness_reports", __DIR__)
+config :web, :year_books_path, Path.expand("../tmp/test_year_books", __DIR__)
 
 config :web,
        :fitness_scripts_path,

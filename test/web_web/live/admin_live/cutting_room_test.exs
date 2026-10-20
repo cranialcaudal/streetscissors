@@ -140,7 +140,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
 
     assert render(view) =~ "Rendered into the log of Monday, 12 October 2026"
     assert %{status: "done", audio_log_id: log_id} = Cuts.get_cut(cut.id)
-    assert %{status: "pending"} = Web.Audio.get_log!(log_id)
+    assert %{status: "pending"} = Web.Logs.get_log!(log_id)
     assert has_element?(view, "button", "Render again")
   end
 

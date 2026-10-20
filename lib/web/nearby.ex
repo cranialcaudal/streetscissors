@@ -29,8 +29,8 @@ defmodule Web.Nearby do
   thing an error page must not do is fail.
   """
 
-  alias Web.{Almanac, Audio, Blog, Keywords, Negatives}
-  alias Web.Audio.Log
+  alias Web.{Daybook, Blog, Keywords, Logs, Negatives}
+  alias Web.Logs.Log
   alias Web.Fitness.Vault
 
   @limit 3
@@ -98,7 +98,7 @@ defmodule Web.Nearby do
   # A log's address is its date, so a missing one names the day that was
   # wanted. Without a date in it, the newest are the best guess there is.
   defp logs_near(slug) do
-    logs = Audio.list_ready_logs()
+    logs = Logs.list_ready_logs()
 
     case Date.from_iso8601(String.slice(slug, 0, 10)) do
       {:ok, date} -> Enum.sort_by(logs, &abs(Date.diff(&1.recorded_on, date)))
@@ -139,7 +139,7 @@ defmodule Web.Nearby do
   # --- The daybook -----------------------------------------------------------
 
   defp days_near(text) do
-    dates = Almanac.entries() |> Enum.map(& &1.date) |> Enum.uniq()
+    dates = Daybook.entries() |> Enum.map(& &1.date) |> Enum.uniq()
 
     case Date.from_iso8601(text) do
       {:ok, date} -> Enum.sort_by(dates, &abs(Date.diff(&1, date)))
@@ -155,7 +155,7 @@ defmodule Web.Nearby do
   end
 
   defp years do
-    for year <- Almanac.years() do
+    for year <- Daybook.years() do
       %{kind: "Year", title: "#{year}, the year at once", path: "/daybook/#{year}"}
     end
   end

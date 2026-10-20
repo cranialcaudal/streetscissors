@@ -41,7 +41,12 @@ defmodule Web.Darkroom.Prior do
   The suggestion for a print: `%{sliders, lines, ...}`, `sliders` being what
   to set (`wb.temp`, `wb.tint`) and `lines` what was reasoned, in words.
   `opts`: `:groups` (the archive's averages, measured when absent), `:taste`
-  (`%{alpha, offset}`), `:temp` (Temp's value now).
+  (`%{alpha, offset}`), and `:temp` and `:tint`, where those sliders stand on
+  the print as developed (6500 and 0 by default).
+
+  `sliders` are absolute values, not changes: the cast is read off the print
+  as developed, so the answer is anchored there and applying it twice gives
+  the same print.
   """
   def suggest(roll_dir, frame, source, color, opts \\ []) do
     with {:ok, stats} <- Stats.read(source) do
@@ -79,7 +84,12 @@ defmodule Web.Darkroom.Prior do
     delta = add(sub(target, estimate), recip.cast)
 
     sliders =
-      if grey?, do: %{}, else: Film.sliders(delta, Keyword.get(opts, :temp, 6500.0))
+      if grey?,
+        do: %{},
+        else:
+          delta
+          |> Film.sliders(Keyword.get(opts, :temp, 6500.0))
+          |> Map.update!("wb.tint", &(&1 + Keyword.get(opts, :tint, 0.0)))
 
     %{
       stats: stats,
@@ -103,6 +113,31 @@ defmodule Web.Darkroom.Prior do
           &is_nil/1
         )
     }
+  end
+
+  @doc """
+  Temp and Tint that make a picked patch grey: its cast taken all the way to
+  neutral, as absolute slider values anchored, like `compute/7`'s, where the
+  sliders stand on the print as developed (`:temp`, `:tint`; 6500 and 0).
+  The patch must be read off the print as developed too.
+  """
+  def grey_point({rg, bg}, opts \\ []) do
+    {-rg, -bg}
+    |> Film.sliders(Keyword.get(opts, :temp, 6500.0))
+    |> Map.update!("wb.tint", &(&1 + Keyword.get(opts, :tint, 0.0)))
+  end
+
+  @doc """
+  Keeps a picked grey point as ground truth for the neutral gate and this
+  model (`docs/colour/contracts.md`, "Grey points"): one JSON line in
+  `<archive>/.darkroom/neutrals.jsonl`.
+  """
+  def record_grey_point(%{} = entry) do
+    path = Path.join([Web.Negatives.base_path(), ".darkroom", "neutrals.jsonl"])
+
+    with :ok <- File.mkdir_p(Path.dirname(path)) do
+      File.write(path, Jason.encode!(entry) <> "\n", [:append])
+    end
   end
 
   defp color_less?(stats, group, stock) do

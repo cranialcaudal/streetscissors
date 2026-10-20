@@ -26,6 +26,11 @@ cd "$(dirname "$0")/.."
 
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 
+# One line in the deploy log, beside ops/redeploy.sh's, however this ends.
+DEPLOY_LOG="$HOME/streetscissors-data/logs/deploys.log"
+mkdir -p "$(dirname "$DEPLOY_LOG")"
+trap 'status=$?; echo "$(date -Is) rollback $([ $status -eq 0 ] && echo ok || echo failed)" >> "$DEPLOY_LOG"' EXIT
+
 REL=_build/prod/rel
 
 if [ ! -x "$REL/web.previous/bin/web" ]; then

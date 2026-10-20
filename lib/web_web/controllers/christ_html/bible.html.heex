@@ -1,0 +1,45 @@
+<%!-- The Bible's contents (every book), `/Christ/bible`. Rendered by `WebWeb.ChristController.bible/2`. --%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav current={:bible} />
+
+    <header class="christ-day">
+      <p class="christ-eyebrow">{@translation.abbr}</p>
+      <h1 class="christ-day-title">The Holy Bible</h1>
+      <p class="christ-day-under">{@translation.name}. {@translation.note}</p>
+      <p :if={@translation.psalm_numbering == :vulgate} class="christ-note">
+        The psalms carry the Vulgate's numbers, one behind the Hebrew for most of the Psalter.
+      </p>
+    </header>
+
+    <form action={~p"/Christ/bible/go"} method="get" class="christ-go" role="search">
+      <label for="christ-go-q" class="christ-label">Go to a passage</label>
+      <div class="christ-go-row">
+        <input
+          id="christ-go-q"
+          name="q"
+          type="text"
+          value={@missed}
+          placeholder="Luke 10:38, Psalm 22, 1 Cor 13"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          required
+        />
+        <button type="submit" class="christ-button christ-button--main">Open</button>
+      </div>
+      <p :if={@missed} class="christ-note" role="alert">
+        "{@missed}" could not be read as a book, chapter and verse of this Bible.
+      </p>
+    </form>
+
+    <section :for={{testament, heading} <- [ot: "The Old Testament", nt: "The New Testament"]}>
+      <h2 class="christ-label">{heading}</h2>
+      <ul class="christ-books">
+        <li :for={book <- Enum.filter(@books, &(&1.testament == testament))}>
+          <a href={~p"/Christ/bible/#{book.slug}"}>{book.name}</a>
+        </li>
+      </ul>
+    </section>
+  </article>
+</div>

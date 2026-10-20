@@ -208,25 +208,6 @@
   background: var(--paper-sunk);
 }
 
-.status-label {
-  font-family: var(--font-ui);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-
-.status-value {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-data), monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.05rem;
-  color: var(--color-dodger);
-}
-
 /* ── Switch banks ─────────────────────────────────────────
    Sort and filter are physical controls: rectangular keys with
    a machined bevel that light from behind when engaged. */
@@ -238,8 +219,7 @@
   padding: 1.25rem 1.75rem 0;
 }
 
-.bank-label,
-.logs-label {
+.bank-label {
   font-family: var(--font-ui);
   font-size: 0.65rem;
   font-weight: 700;
@@ -248,16 +228,8 @@
   color: var(--ink-4);
 }
 
-.bank-buttons,
-.logs-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
 .console-btn,
-.console-tab,
-.logs-tag {
+.console-tab {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -279,8 +251,7 @@
   letter-spacing: 0.14em;
 }
 
-.console-tab,
-.logs-tag {
+.console-tab {
   padding: 0.25rem 0.65rem;
   font-size: 0.68rem;
   font-weight: 500;
@@ -288,8 +259,7 @@
 }
 
 .console-btn:hover,
-.console-tab:hover,
-.logs-tag:hover {
+.console-tab:hover {
   color: var(--ink);
   border-color: rgba(255, 158, 61, 0.55);
 }
@@ -472,7 +442,6 @@
 
 .log-plate.is-playing .log-video,
 .log-plate.is-playing .log-audio { display: block; }
-
 
 .log-poster--none {
   display: flex;
@@ -965,3 +934,7 @@
   .log-card-plate { border-right: 0; border-bottom: 1px solid var(--rule); }
   .log-card-body { padding: 1rem; }
 }
+
+/* The essay a log goes with (Log.post_ref). */
+.nx01 .log-post { margin: 1rem 0 0; color: var(--ink-3); }
+.nx01 .log-post a { color: var(--color-orange); }

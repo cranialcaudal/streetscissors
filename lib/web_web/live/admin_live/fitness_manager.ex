@@ -6,8 +6,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   Which list is showing is in the URL (`?tab=wiki|regimen|progress|checkin`):
   the progress tab is the training block's charts (`WebWeb.FitnessCharts`),
-  the check-in tab the day's pain, sleep, soreness and energy, which the
-  guardrails read (`Web.Fitness.Guardrails`). Editing opens in
+  the check-in tab a day's answers to the checks `content/fitness/checkins.md`
+  lists (`Web.Fitness.Checks`), which the guardrails read
+  (`Web.Fitness.Guardrails`), with the recent history. Today's check-in can
+  also be made on the day page itself (`/fitness`). Editing opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
 
@@ -26,9 +28,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
   import WebWeb.AdminComponents
 
   alias Web.Fitness
-  alias Web.Fitness.{Block, Checks, Guardrails, Training, Vault}
+  alias Web.Fitness.{Block, Checks, Guardrails, SourceCheck, Training, Vault}
+  alias Web.SourceFile
 
-  @tabs ~w(wiki regimen progress checkin)
+  @tabs ~w(wiki regimen progress checkin files)
 
   # ── Opening the page ──────────────────────────────────────────────────────
 
@@ -55,10 +58,30 @@ defmodule WebWeb.AdminLive.FitnessManager do
   def handle_params(params, _uri, socket) do
     tab = if params["tab"] in @tabs, do: params["tab"], else: "wiki"
 
-    {:noreply,
-     socket
-     |> assign(tab: tab, editor_mode: nil, editing_item: nil)
-     |> assign_progress(tab)}
+    socket =
+      socket
+      |> assign(tab: tab, editor_mode: nil, editing_item: nil)
+      |> assign_progress(tab)
+
+    {:noreply, if(tab == "files", do: assign_source(socket, params["file"]), else: socket)}
+  end
+
+  # The Files tab: one of the vault's hand-written files, whole, as it is on
+  # disk, with its revision (Web.SourceFile) and what its parser reads in it
+  # (Web.Fitness.SourceCheck).
+  defp assign_source(socket, id) do
+    files = SourceCheck.files()
+    file = SourceCheck.file(id || "week") || hd(files)
+    {:ok, %{content: content, revision: revision}} = SourceFile.read(file.path)
+
+    assign(socket,
+      source_files: files,
+      source: file,
+      source_text: content,
+      source_revision: revision,
+      source_check: SourceCheck.check(file.id, content),
+      source_conflict: nil
+    )
   end
 
   # The block's figures are read only for the tab that shows them.
@@ -115,6 +138,58 @@ defmodule WebWeb.AdminLive.FitnessManager do
       {:error, changeset} ->
         {:noreply, assign(socket, checkin_form: to_form(changeset, as: :checkin))}
     end
+  end
+
+  # --- The Files tab ---
+
+  # Checked as it is typed: the parser's reading of the text, before saving.
+  def handle_event("check_source", %{"source" => %{"content" => content}}, socket) do
+    {:noreply,
+     assign(socket,
+       source_text: content,
+       source_check: SourceCheck.check(socket.assigns.source.id, content)
+     )}
+  end
+
+  # Saved only when its parser reads all of it, and only over the revision it
+  # was opened at; "save anyway" keeps the version on disk in the vault's
+  # .trash/ first.
+  def handle_event("save_source", %{"source" => %{"content" => content}} = params, socket) do
+    %{source: file, source_revision: revision} = socket.assigns
+
+    case SourceCheck.check(file.id, content) do
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(source_text: content, source_check: {:error, reason})
+         |> put_flash(:error, "Not saved: #{reason}")}
+
+      {:ok, _} ->
+        trash = Path.join(Path.dirname(Vault.base_path()), ".trash")
+        force? = params["force"] == "true"
+
+        case SourceFile.write(file.path, content, revision, force: force?, trash: trash) do
+          {:ok, new_revision} ->
+            {:noreply,
+             socket
+             |> assign(source_text: content, source_revision: new_revision, source_conflict: nil)
+             |> put_flash(:info, "Saved #{Path.basename(file.path)}.")}
+
+          {:error, :conflict, on_disk} ->
+            {:noreply,
+             socket
+             |> assign(source_text: content, source_conflict: on_disk)
+             |> put_flash(:error, "#{Path.basename(file.path)} changed on disk since it was opened.")}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, "Not saved: #{inspect(reason)}")}
+        end
+    end
+  end
+
+  # Take the version on disk instead, dropping the edit here.
+  def handle_event("take_disk", _params, socket) do
+    {:noreply, assign_source(socket, socket.assigns.source.id)}
   end
 
   # --- The lists ---
@@ -324,6 +399,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <:tab patch={~p"/admin/fitness?tab=checkin"} active={@tab == "checkin"}>
           Check-in
         </:tab>
+        <:tab patch={~p"/admin/fitness?tab=files"} active={@tab == "files"}>
+          Files
+        </:tab>
       </.tabs>
 
       {case @tab do
@@ -331,8 +409,72 @@ defmodule WebWeb.AdminLive.FitnessManager do
         "regimen" -> render_days(assigns)
         "progress" -> render_progress(assigns)
         "checkin" -> render_checkin(assigns)
+        "files" -> render_files(assigns)
       end}
     <% end %>
+    """
+  end
+
+  defp render_files(assigns) do
+    ~H"""
+    <section class="adm-fit-files" id="fitness-files">
+      <nav class="adm-fit-files-list" aria-label="Files">
+        <.link
+          :for={file <- @source_files}
+          patch={~p"/admin/fitness?tab=files&file=#{file.id}"}
+          class={["adm-btn adm-btn--quiet adm-btn--small", file.id == @source.id && "is-on"]}
+          aria-current={file.id == @source.id && "page"}
+        >
+          {file.label}
+        </.link>
+      </nav>
+
+      <form id="source-form" phx-change="check_source" phx-submit="save_source">
+        <textarea
+          name="source[content]"
+          class="adm-input adm-input--code"
+          rows="24"
+          phx-debounce="400"
+          aria-label={@source.label}
+        >{@source_text}</textarea>
+
+        <p
+          id="source-check"
+          class={["adm-help", match?({:error, _}, @source_check) && "adm-error"]}
+          role="status"
+        >
+          {case @source_check do
+            {:ok, summary} -> "Reads as: #{summary}."
+            {:error, reason} -> "Will not be saved: #{reason}"
+          end}
+        </p>
+
+        <div :if={@source_conflict} class="adm-fit-conflict" id="source-conflict" role="alert">
+          <p>
+            The file changed on disk since it was opened (Obsidian, most likely). Take the version
+            on disk, or save this one over it; the version on disk is then kept in the vault's
+            .trash first.
+          </p>
+          <button type="button" phx-click="take_disk" class="adm-btn adm-btn--small">
+            Take the version on disk
+          </button>
+          <button
+            type="submit"
+            name="force"
+            value="true"
+            class="adm-btn adm-btn--small adm-btn--danger"
+          >
+            Save this one over it
+          </button>
+        </div>
+
+        <div>
+          <button type="submit" class="adm-btn adm-btn--primary" phx-disable-with="Saving…">
+            Save
+          </button>
+        </div>
+      </form>
+    </section>
     """
   end
 
@@ -663,7 +805,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
           aria-label="Markdown"
         >{@form_data["content"]}</textarea>
         <div :if={@preview} class="adm-prose">
-          {raw(Earmark.as_html!(@form_data["content"] || "", gfm: true))}
+          {raw(Web.Markdown.to_html(@form_data["content"] || ""))}
         </div>
       </div>
     </form>

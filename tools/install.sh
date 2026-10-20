@@ -26,6 +26,10 @@
 #
 #   `tools/install.sh --all` does all three.
 #
+#   `tools/install.sh --doctor` installs nothing: it lists every outside
+#   program the site runs, where it was found, its version, and the PATH the
+#   live site's service sees, which is the one that matters.
+#
 # WHY LINKS AND NOT COPIES
 #
 #   ~/.local/bin/film-develop is a symbolic link pointing back into this
@@ -47,8 +51,62 @@
 #
 set -euo pipefail
 
-# Work from this folder, wherever the script was started from.
+# Work from this folder, wherever the script was started from. (--help reads
+# this file by its own name, after the cd.)
 cd "$(dirname "$0")"
+SELF="$(basename "$0")"
+
+# One line per program: found or missing, where, and the first line of its
+# version. Exits 1 if anything the site needs is missing.
+doctor() {
+  local missing=0 unit_path
+  unit_path="$(systemctl --user show streetscissors.service -p Environment 2>/dev/null |
+    tr ' ' '\n' | sed -n 's/^PATH=//p' || true)"
+  if [ -n "$unit_path" ]; then
+    echo "The service's PATH: $unit_path"
+  else
+    unit_path="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+    echo "The service is not installed here; checking the PATH it would have: $unit_path"
+  fi
+  echo
+
+  check() {
+    local name="$1" flag="$2" need="$3" where version
+    where="$(PATH="$unit_path" command -v "$name" 2>/dev/null || true)"
+    if [ -z "$where" ]; then
+      printf '  %-28s missing (%s)\n' "$name" "$need"
+      missing=1
+      return
+    fi
+    version="$("$where" $flag 2>&1 | head -n 1 || true)"
+    printf '  %-28s %s  %s\n' "$name" "$where" "$version"
+  }
+
+  check ffmpeg -version "captain's logs, the cutting room"
+  check ffprobe -version "captain's logs"
+  check magick -version "web-sized photos, share cards"
+  check gimp --version "contact sheets"
+  check scanimage --version "the scanner studio"
+  check film-develop --help "the scanner studio: tools/install.sh"
+  check digital-contact-sheet-maker --help "the scanner studio: tools/install.sh"
+  check negatives --help "the archive: tools/install.sh"
+  check lightcraft-cli --version "the print editor: tools/install.sh --lightcraft"
+  check quarto --version "the fitness report, the year as a book"
+  check sqlite3 --version "backups, ops/preview.sh"
+  check rsync --version "backups of the negatives and media"
+  check timeout --version "time limits on the film tools"
+
+  local repair="${FILM_REPAIR_HOME:-$HOME/.local/share/film-repair}"
+  for venv in venv sd-venv; do
+    if [ -x "$repair/$venv/bin/python" ]; then
+      printf '  %-28s %s\n' "repair $venv" "$repair/$venv"
+    else
+      printf '  %-28s missing (Repair tab: tools/install.sh --repair)\n' "repair $venv"
+    fi
+  done
+
+  return "$missing"
+}
 
 want_lightcraft=no
 want_repair=no
@@ -57,7 +115,8 @@ for arg in "$@"; do
     --lightcraft) want_lightcraft=yes ;;
     --repair) want_repair=yes ;;
     --all) want_lightcraft=yes; want_repair=yes ;;
-    -h|--help) sed -n '2,47p' "$0"; exit 0 ;;
+    --doctor) doctor; exit $? ;;
+    -h|--help) sed -n '2,51p' "$SELF"; exit 0 ;;
     *) echo "tools/install.sh: unknown option '$arg' (try --help)" >&2; exit 2 ;;
   esac
 done

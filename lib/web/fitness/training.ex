@@ -168,9 +168,6 @@ defmodule Web.Fitness.Training do
 
   def plan(_block), do: %{}
 
-  @doc "The ISO weekdays (1 = Monday) whose plan carries a block lift."
-  def planned_weekdays(block), do: block |> plan() |> Map.keys() |> Enum.sort()
-
   @doc """
   Planned against done, week by week: `%{week => %{days_done, days_planned,
   sets_done, sets_planned}}`. A strength day is done when anything on its

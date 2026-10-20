@@ -21,10 +21,7 @@ defmodule Web.Happening do
 
   use GenServer
 
-  import Ecto.Query
-
-  alias Web.{Blog, Clock, Negatives, Pieces, Repo, Rides}
-  alias Web.Analytics.Hit
+  alias Web.{Analytics, Blog, Clock, Negatives, Pieces, Rides}
   alias Web.Fitness.{Block, Changelog, Vault}
   alias Web.Rides.Units
 
@@ -122,7 +119,7 @@ defmodule Web.Happening do
 
         _ ->
           text
-          |> String.replace(~r/\A---\n.*?\n---\n?/s, "")
+          |> Web.Frontmatter.strip()
           |> String.split("\n", trim: true)
           |> Enum.map(&String.trim(&1, "# "))
           |> Enum.find(&(&1 != ""))
@@ -150,11 +147,11 @@ defmodule Web.Happening do
   end
 
   defp log do
-    case Web.Audio.list_ready_logs() do
+    case Web.Logs.list_ready_logs() do
       [l | _] ->
         %{
           kind: "Captain's log",
-          title: Web.Audio.Log.title(l),
+          title: Web.Logs.Log.title(l),
           path: "/logs/#{l.slug}",
           date: l.recorded_on
         }
@@ -197,37 +194,30 @@ defmodule Web.Happening do
   `today`: `[%{kind, title, path, people}]`.
   """
   def witnessed(today) do
-    since = today |> Date.add(-6) |> DateTime.new!(~T[00:00:00], "Etc/UTC")
+    since = today |> Date.add(-6) |> Analytics.day_start_utc()
 
-    from(h in Hit,
-      where:
-        h.inserted_at >= ^DateTime.to_naive(since) and not is_nil(h.ip_hash) and
-          (like(h.path, "/blog/%") or like(h.path, "/logs/%") or like(h.path, "/negatives/roll/%")),
-      group_by: h.path,
-      select: {h.path, count(h.ip_hash, :distinct)},
-      order_by: [desc: count(h.ip_hash, :distinct)],
-      limit: 40
-    )
-    |> Repo.all()
+    ["/blog/%", "/logs/%", "/negatives/roll/%"]
+    |> Analytics.visitors_by_page(since)
     |> Enum.reject(fn {path, _} -> Enum.any?(@never, &String.starts_with?(path, &1)) end)
-    |> Enum.flat_map(fn {path, people} ->
+    |> Enum.flat_map(fn {path, visitors} ->
       case piece(path) do
-        {:ok, piece} -> [Map.put(piece, :people, people)]
+        {:ok, piece} -> [{piece, visitors}]
         :error -> []
       end
     end)
-    # A post read at two addresses is one piece: its people are summed.
-    |> Enum.group_by(& &1.path)
-    |> Enum.map(fn {_path, [first | _] = same} ->
-      %{first | people: Enum.sum(Enum.map(same, & &1.people))}
+    # A post read at two addresses is one piece, and a reader who used both
+    # is one person: the visitors are unioned, never summed.
+    |> Enum.group_by(fn {piece, _} -> piece.path end)
+    |> Enum.map(fn {_path, [{first, _} | _] = same} ->
+      people = same |> Enum.map(&elem(&1, 1)) |> Enum.reduce(&MapSet.union/2) |> MapSet.size()
+      Map.put(first, :people, people)
     end)
     |> Enum.sort_by(&{-&1.people, &1.title})
     |> Enum.take(3)
   end
 
+  # `path` is already a page (Analytics.page/1): decoded, without its query.
   defp piece(path) do
-    path = path |> String.split("?") |> hd() |> URI.decode()
-
     with {:ok, ref} <- Pieces.from_path(path),
          {:ok, piece} <- Pieces.resolve(ref) do
       {:ok, %{kind: kind_word(piece.kind), title: piece.title, path: piece.path}}
@@ -245,12 +235,7 @@ defmodule Web.Happening do
     end
   end
 
-  defp pad(roll) do
-    case Integer.parse(String.replace_prefix(roll, "roll", "")) do
-      {n, ""} -> n |> Integer.to_string() |> String.pad_leading(3, "0")
-      _ -> roll
-    end
-  end
+  defp pad(roll), do: Negatives.Roll.pad(roll)
 
   defp kind_word(:post), do: "Writing"
   defp kind_word(:log), do: "Captain's log"

@@ -58,7 +58,6 @@
     .adm-taste,
     .theater,
     .adm-scan-look,
-    .adm-scan-sheet,
     .adm-item-thumb
   ) {
   color-scheme: dark;
@@ -1116,12 +1115,6 @@ button.adm-tab:hover {
   overflow-wrap: anywhere;
 }
 
-.adm-item-note {
-  margin: 0.5rem 0 0;
-  font-size: var(--st-fs-sm);
-  color: var(--st-ink-3);
-}
-
 .adm-item-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1203,10 +1196,6 @@ button.adm-tab:hover {
 
 .adm-group-title:first-child {
   margin-top: 0;
-}
-
-.adm-group-title--spaced {
-  margin-top: 2rem;
 }
 
 /* The machine's own state: one row per thing that should be quietly true. */
@@ -1636,7 +1625,7 @@ a.st-strip-link:hover {
 .adm-login {
   position: fixed;
   inset: 0;
-  z-index: 100000;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2005,8 +1994,7 @@ a.st-strip-link:hover {
    dark when the page is light. The tokens themselves are re-declared at the
    top of this file (the same selector list); this gives a bay its surround.
    A new bay is just an element with `st-bay` on it. The scanner's own
-   bench is not listed: its previews, `.adm-scan-look` and `.adm-scan-sheet`,
-   are. */
+   bench is not listed: its preview, `.adm-scan-look`, is. */
 .st-bay,
 .adm-dr-bench,
 .adm-cut-bench,
@@ -2021,3 +2009,7 @@ a.st-strip-link:hover {
 .adm-taste {
   padding: 0.75rem;
 }
+
+/* Quick add (/admin/quick): one column of large fields, for a phone. */
+.adm-quick { display: grid; gap: var(--st-space-3); max-width: 40rem; margin-top: var(--st-space-3); }
+.adm-quick .adm-input { min-height: 44px; font-size: 1rem; }

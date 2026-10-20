@@ -524,25 +524,23 @@ defmodule Web.Fitness.Vault do
   """
   def parse_frontmatter(path) do
     case File.read(path) do
-      {:ok, content} ->
-        case Regex.run(~r/\A---\n(.*?)\n---/ms, content, capture: :all_but_first) do
-          [yaml] ->
-            yaml
-            |> String.split("\n")
-            |> Enum.reduce(%{}, fn line, acc ->
-              case String.split(line, ": ", parts: 2) do
-                [k, v] -> Map.put(acc, String.trim(k), v |> String.trim() |> strip_quotes())
-                _ -> acc
-              end
-            end)
-
-          _ ->
-            %{}
-        end
-
-      _ ->
-        %{}
+      {:ok, content} -> parse_frontmatter_text(content)
+      _ -> %{}
     end
+  end
+
+  @doc "`parse_frontmatter/1` for text in hand (an editor's, before it is saved)."
+  def parse_frontmatter_text(content) when is_binary(content) do
+    content
+    |> Web.Frontmatter.split()
+    |> elem(0)
+    |> Web.Frontmatter.lines()
+    |> Enum.reduce(%{}, fn line, acc ->
+      case String.split(line, ": ", parts: 2) do
+        [k, v] -> Map.put(acc, String.trim(k), v |> String.trim() |> strip_quotes())
+        _ -> acc
+      end
+    end)
   end
 
   # Frontmatter values are often written quoted (e.g. `title: "Farmer's Walk"`).
@@ -561,11 +559,8 @@ defmodule Web.Fitness.Vault do
     end
   end
 
-  defp strip_frontmatter(content) do
-    case Regex.replace(~r/\A---\n.*?\n---\n?/ms, content, "") do
-      stripped -> String.trim_leading(stripped)
-    end
-  end
+  defp strip_frontmatter(content),
+    do: content |> Web.Frontmatter.strip() |> String.trim_leading()
 
   defp write_markdown_with_frontmatter(path, frontmatter, content) do
     # Filter out nil or empty string values from frontmatter
@@ -583,7 +578,8 @@ defmodule Web.Fitness.Vault do
       end
 
     full_content = yaml_block <> (content || "")
-    File.write!(path, full_content)
+    # Atomic (Web.SourceFile), so Obsidian never reads half a file.
+    :ok = Web.SourceFile.write_atomic(path, full_content)
   end
 
   # Lightweight per-slug metadata for [[wiki-link]] expansion: frontmatter only,
@@ -675,11 +671,7 @@ defmodule Web.Fitness.Vault do
   def render_markdown(md) do
     md = inject_log_markers(md)
 
-    html =
-      case Earmark.as_html(md, gfm: true) do
-        {:ok, html, _} -> html
-        {:error, html, _} -> html
-      end
+    html = Web.Markdown.to_html(md)
 
     # Pre-process Obsidian links [[slug|display text]] -> <a href="...">
     # Must run AFTER Earmark to prevent Earmark from escaping the raw HTML or auto-linking the thumb URL.

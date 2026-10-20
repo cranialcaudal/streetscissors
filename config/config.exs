@@ -64,7 +64,7 @@ config :logger, :default_formatter,
 config :phoenix, :json_library, Jason
 
 # What is never written to a log, whatever logs parameters. `contact` is the
-# guestbook's optional email-or-phone field (Web.General.Contact).
+# guestbook's optional email-or-phone field (Web.Guestbook.Contact).
 config :phoenix, :filter_parameters, ["password", "contact"]
 
 # Extensions the stock MIME table does not resolve, which LiveView's
@@ -106,7 +106,12 @@ config :web, Web.Scheduler,
     {"*/15 * * * *", {Web.Monitor, :run_scheduled, []}},
     # Tell the sites a post links to that it does. Each link is announced
     # once, so most hours this renders the posts and finds nothing new.
-    {"23 * * * *", {Web.Webmentions.Outgoing, :run_scheduled, []}}
+    {"23 * * * *", {Web.Webmentions.Outgoing, :run_scheduled, []}},
+    # Retention for page hits: user agents go after 30 days, hits after 400,
+    # a blog post's readers kept as witnesses first (Web.Analytics.prune/0).
+    {"37 3 * * *", {Web.Analytics, :run_scheduled, []}},
+    # The year's essays as a book, rebuilt only when one of them changed.
+    {"47 3 * * *", {Web.Daybook.Book, :run_scheduled, []}}
   ]
 
 config :web, Oban,

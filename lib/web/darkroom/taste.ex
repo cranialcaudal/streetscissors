@@ -137,9 +137,14 @@ defmodule Web.Darkroom.Taste do
   slider (`predict/4`).
   """
   def fit(prints \\ Archive.prints(), groups \\ nil, defaults \\ %{}) do
-    groups = groups || Archive.groups(prints)
-    examples = examples(prints)
+    fit_examples(examples(prints), groups || Archive.groups(prints), defaults)
+  end
 
+  @doc """
+  The model fitted to the examples given (`examples/1`'s shape), not to
+  everything: what `Web.Darkroom.Eval` needs to leave one out.
+  """
+  def fit_examples(examples, groups, defaults \\ %{}) do
     %{
       n: Enum.count(examples, &(&1.weight == 1.0)),
       choices: Enum.count(examples, &(&1.weight < 1.0)),
@@ -147,6 +152,43 @@ defmodule Web.Darkroom.Taste do
       sliders: fit_sliders(examples, defaults),
       groups: groups
     }
+  end
+
+  @doc """
+  `fit/3`, kept until what it was fitted to changes: the prints and their
+  readings, each print's saved edit (by its file's time), the Taste page's
+  choices and the defaults. Opening a print no longer refits the archive
+  when nothing was saved or chosen since the last time.
+  """
+  def fit_cached(prints \\ Archive.prints(), groups \\ nil, defaults \\ %{}) do
+    groups = groups || Archive.groups(prints)
+
+    fingerprint =
+      :erlang.phash2({
+        Enum.map(prints, &{&1.dir, &1.frame, &1.stats, stamp(Darkroom.edits_path(&1.dir, &1.frame))}),
+        stamp(choices_path()),
+        groups,
+        defaults
+      })
+
+    key = {__MODULE__, :fit}
+
+    case :persistent_term.get(key, nil) do
+      {^fingerprint, model} ->
+        model
+
+      _ ->
+        model = fit(prints, groups, defaults)
+        :persistent_term.put(key, {fingerprint, model})
+        model
+    end
+  end
+
+  defp stamp(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, %{mtime: mtime, size: size}} -> {mtime, size}
+      _ -> nil
+    end
   end
 
   defp fit_colour(examples, groups) do

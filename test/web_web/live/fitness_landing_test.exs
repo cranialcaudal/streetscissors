@@ -315,6 +315,66 @@ defmodule WebWeb.FitnessLandingTest do
       assert has_element?(view, "#log-guard", "Easy on the pressing today.")
     end
 
+    test "a missed session can be filed under the day it was done", %{view: view} do
+      yesterday = Date.add(Web.Clock.local_today(), -1)
+
+      view
+      |> form("form[phx-submit=save_log]",
+        log: %{weight: "0", sets: "3", reps: "12", date: Date.to_iso8601(yesterday)}
+      )
+      |> render_submit()
+
+      assert [%{date: ^yesterday}] = Web.Fitness.list_exercise_logs()
+      assert has_element?(view, "#flash-info", "Logged Push-ups on")
+      # Today's list is today's.
+      refute has_element?(view, "#logged-today")
+    end
+
+    test "a date after today is filed under today", %{view: view} do
+      tomorrow = Date.add(Web.Clock.local_today(), 1)
+      render_submit(view, "save_log", %{"log" => %{"sets" => "3", "date" => Date.to_iso8601(tomorrow)}})
+
+      assert [%{date: date}] = Web.Fitness.list_exercise_logs()
+      assert date == Web.Clock.local_today()
+    end
+
+    test "an entry opens again to be put right, and is changed, not doubled", %{view: view} do
+      view
+      |> form("form[phx-submit=save_log]", log: %{weight: "20", sets: "3", reps: "8", rpe: "8"})
+      |> render_submit()
+
+      [log] = Web.Fitness.list_exercise_logs()
+      view |> element("#logged-#{log.id} button", "Edit") |> render_click()
+
+      assert has_element?(view, ".log-modal h3", "Edit: Push-ups")
+      refute has_element?(view, "#log-planned")
+      assert has_element?(view, ~s(select[name="log[reps]"] option[value="8"][selected]))
+      assert has_element?(view, ~s(select[name="log[rpe]"] option[value="8"][selected]))
+
+      view
+      |> form("form[phx-submit=save_log]", log: %{weight: "20", sets: "3", reps: "10", rpe: "8"})
+      |> render_submit()
+
+      assert [%{id: id, metrics: %{"reps" => "10"}}] = Web.Fitness.list_exercise_logs()
+      assert id == log.id
+      assert has_element?(view, "#logged-today .day-logged-values", "3 x 10")
+    end
+
+    test "today's check-in is made on the day page, and holds what it guards", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      assert has_element?(view, "#day-checkin-form #day-check-shoulder")
+
+      view
+      |> form("#day-checkin-form", checkin: %{answers: %{shoulder: "sore", bodyweight: "180"}})
+      |> render_submit()
+
+      assert has_element?(view, "#flash-info", "Check-in saved.")
+      assert has_element?(view, "#block-guard", "Shoulder: sore")
+
+      assert %{answers: %{"shoulder" => "sore", "bodyweight" => "180"}} =
+               Web.Fitness.checkin_on(Web.Clock.local_today())
+    end
+
     test "a name the wiki does not have is refused, and makes no row", %{view: view} do
       render_click(view, "close_log")
       render_click(view, "open_log", %{"slug" => "no-such-exercise"})
@@ -352,6 +412,13 @@ defmodule WebWeb.FitnessLandingTest do
 
       render_click(view, "save_log", %{"log" => %{"result" => "9 x 99"}})
       [log] = Web.Fitness.list_exercise_logs()
+      render_click(view, "edit_log", %{"id" => to_string(log.id)})
+      refute has_element?(view, "form[phx-submit=save_log]")
+
+      # Nobody else checks in, or sees that there is a check-in.
+      refute has_element?(view, "#day-checkin")
+      render_submit(view, "save_checkin", %{"checkin" => %{"answers" => %{"shoulder" => "hurt"}}})
+      assert Web.Fitness.checkin_on(Web.Clock.local_today()) == nil
       render_click(view, "delete_log", %{"id" => to_string(log.id)})
 
       assert [%{metrics: %{"result" => "3 x 12"}}] = Web.Fitness.list_exercise_logs()

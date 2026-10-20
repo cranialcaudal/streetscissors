@@ -6,13 +6,17 @@ defmodule Mix.Tasks.Fitness.Export do
   into a folder, for `analysis/fitness_models.R` and the Quarto report, with
   no browser and no cookie.
 
-      mix fitness.export                       # ./tmp/fitness, the dev database
-      mix fitness.export DIR --db PATH         # another database, read-only
+      mix fitness.export --db PATH             # into ./tmp/fitness
+      mix fitness.export DIR --db PATH
+
+  `--db` is required: left to the config, the task read the development
+  database, which on this machine is nearly empty, and wrote a CSV that looked
+  like a training log with nothing in it. Name the file you mean (the live one
+  is `DATABASE_PATH` in the unit).
 
   This machine is the server too, so the task **never boots the site**: it
-  starts the Repo alone, and with `--db` opens that file read-only, which is
-  safe beside the running release (the live file is `DATABASE_PATH` in the
-  unit).
+  starts the Repo alone and opens the file read-only, which is safe beside the
+  running release.
   """
   use Mix.Task
 
@@ -28,17 +32,15 @@ defmodule Mix.Tasks.Fitness.Export do
     Mix.Task.run("app.config")
     Logger.configure(level: :info)
 
-    if db = opts[:db] do
-      db = Path.expand(db)
-      File.regular?(db) || Mix.raise("no database at #{db}")
-      config = Application.get_env(:web, Web.Repo)
+    db = Path.expand(opts[:db] || Mix.raise("which database? mix fitness.export --db PATH"))
+    File.regular?(db) || Mix.raise("no database at #{db}")
+    config = Application.get_env(:web, Web.Repo)
 
-      Application.put_env(
-        :web,
-        Web.Repo,
-        Keyword.merge(config, database: db, mode: :readonly, pool_size: 1)
-      )
-    end
+    Application.put_env(
+      :web,
+      Web.Repo,
+      Keyword.merge(config, database: db, mode: :readonly, pool_size: 1)
+    )
 
     {:ok, _} = Application.ensure_all_started(:ecto_sql)
     {:ok, _} = Application.ensure_all_started(:ecto_sqlite3)

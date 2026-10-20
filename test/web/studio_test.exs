@@ -152,7 +152,7 @@ defmodule Web.StudioTest do
       cut |> Ecto.Changeset.change(status: "done", audio_log_id: log.id) |> Repo.update!()
 
       assert %{cuts: [%{rendered?: true, log: log_title}]} = Studio.cuts(%{})
-      assert log_title == Web.Audio.Log.title(log)
+      assert log_title == Web.Logs.Log.title(log)
     end
 
     test "logs ready and unpublished, transcoding and failed, and the newest with its poster" do
@@ -170,7 +170,7 @@ defmodule Web.StudioTest do
         })
 
       assert %{logs: %{unpublished: 1, transcoding: 1, failed: 1}, newest_log: log} =
-               Studio.cuts(Web.Audio.count_by_status())
+               Studio.cuts(Web.Logs.count_by_status())
 
       assert %{
                recorded_on: ~D[2026-10-05],

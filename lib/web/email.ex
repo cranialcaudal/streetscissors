@@ -116,11 +116,7 @@ defmodule Web.Email do
         {:error, _} -> @default_letter
       end
 
-    html =
-      case Earmark.as_html(markdown) do
-        {:ok, html, _} -> html
-        {:error, html, _} -> html
-      end
+    html = Web.Markdown.to_html(markdown)
 
     {html, String.trim(markdown)}
   end

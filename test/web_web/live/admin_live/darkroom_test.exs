@@ -83,6 +83,46 @@ defmodule WebWeb.AdminLive.DarkroomTest do
     assert render(view) =~ "back as it was developed"
   end
 
+  test "Undo takes back one change at a time, a dragged slider being one", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    assert has_element?(view, "#undo[disabled]")
+
+    view |> form("#adjust", %{"light.exposure" => "0.5"}) |> render_change()
+    view |> form("#adjust", %{"light.exposure" => "0.75"}) |> render_change()
+    view |> form("#adjust", %{"effects.clarity" => "20"}) |> render_change()
+
+    assert has_element?(view, "output", "20")
+    view |> element("#undo") |> render_click()
+    refute has_element?(view, "output", "20")
+    assert has_element?(view, "output", "0.75")
+
+    view |> element("#undo") |> render_click()
+    refute has_element?(view, "output", "0.75")
+    assert has_element?(view, "#undo[disabled]")
+  end
+
+  test "one print's sliders are copied, pasted, and applied to the roll on confirming",
+       %{conn: conn, folder: folder} do
+    :ok = Darkroom.save(folder, 2, %{controls: %{"light.exposure" => 0.4}, crop: nil, spots: []})
+
+    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    view |> form("#adjust", %{"light.exposure" => "-1.5"}) |> render_change()
+
+    view |> element("button", "Copy sliders") |> render_click()
+    assert Darkroom.copied_controls() == %{"light.exposure" => -1.5}
+
+    view |> element("button", "Apply to the roll") |> render_click()
+    # Frame 2's own edit is named before anything is printed over it.
+    assert has_element?(view, "#roll-apply", "frames 2")
+    assert Darkroom.recipe(folder, 2).controls == %{"light.exposure" => 0.4}
+
+    view |> element("#roll-apply button", "Print them") |> render_click()
+    render_async(view)
+
+    assert Darkroom.recipe(folder, 2).controls == %{"light.exposure" => -1.5}
+    assert render(view) =~ "printed with these sliders"
+  end
+
   test "the crop opens on the whole picture and is kept when it is closed",
        %{conn: conn, folder: folder} do
     {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")

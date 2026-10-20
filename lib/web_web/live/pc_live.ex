@@ -35,6 +35,11 @@ defmodule WebWeb.PcLive do
 
   use WebWeb, :live_view
 
+  # Read at compile time; recompiled when either file changes or appears.
+  # Both are gitignored, so a fresh clone builds with the fallback text.
+  @external_resource "priv/LINUX_POCKET_GUIDE.TXT"
+  @external_resource "priv/SEVEN_DAY_FITNESS.TXT"
+
   @linux_guide (case File.read("priv/LINUX_POCKET_GUIDE.TXT") do
                   {:ok, content} -> content
                   _ -> "Linux Guide not found."
@@ -186,6 +191,7 @@ defmodule WebWeb.PcLive do
             autofocus
             class="pc-input"
             id="pc-input"
+            aria-label="Command"
             phx-hook="PcTerminal"
           />
         </form>
@@ -691,7 +697,7 @@ defmodule WebWeb.PcLive do
   end
 
   defp simulated_cal do
-    today = Date.utc_today()
+    today = Web.Clock.local_today()
     month_name = Calendar.strftime(today, "%B %Y")
 
     # Very simple static-ish calendar for the current month
@@ -826,7 +832,7 @@ defmodule WebWeb.PcLive do
         end
 
       {:log, %{id: %{slug: slug}, label: label}} ->
-        case Web.Audio.get_ready_log_by_slug(slug) do
+        case Web.Logs.get_ready_log_by_slug(slug) do
           {:ok, log} -> {"#{label}\n\n#{log.description || "(no notes)"}", orig_cwd}
           _ -> {"Error reading log.", orig_cwd}
         end

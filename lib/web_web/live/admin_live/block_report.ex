@@ -272,12 +272,15 @@ defmodule WebWeb.AdminLive.BlockReport do
       </div>
 
       <form id="photo-form" phx-submit="save_photos" phx-change="validate_photos">
-        <div :if={@poses != []} class="adm-fit-states" role="radiogroup" aria-label="Pose">
-          <label :for={{pose, i} <- Enum.with_index(@poses)} class="adm-fit-state">
-            <input type="radio" name="pose" value={pose} checked={i == 0} />
-            <span>{pose}</span>
-          </label>
-        </div>
+        <fieldset :if={@poses != []} class="adm-fit-check">
+          <legend class="adm-label">Pose</legend>
+          <div class="adm-fit-states">
+            <label :for={{pose, i} <- Enum.with_index(@poses)} class="adm-fit-state">
+              <input type="radio" name="pose" value={pose} checked={i == 0} />
+              <span>{pose}</span>
+            </label>
+          </div>
+        </fieldset>
         <.drop_zone
           upload={@uploads.photos}
           title="Drop up to four photographs"

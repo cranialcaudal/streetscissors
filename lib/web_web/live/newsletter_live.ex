@@ -21,7 +21,7 @@ defmodule WebWeb.NewsletterLive do
        contact_form: to_form(changeset),
        # connect_info is readable only during mount, so the rate limiter's key
        # has to be captured here rather than looked up per event.
-       remote_ip: WebWeb.ClientIP.from_socket(socket),
+       remote_ip: WebWeb.Visitor.ip(socket),
        captcha_question: captcha.question,
        captcha_answer: captcha.answer,
        grammar_matches: nil,

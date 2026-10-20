@@ -8,21 +8,25 @@ defmodule WebWeb.GuestbookLive do
   """
 
   use WebWeb, :live_view
-  alias Web.General
-  alias Web.General.GuestbookEntry
+  alias Web.Guestbook
+  alias Web.Guestbook.GuestbookEntry
 
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Web.General.subscribe_guestbook()
+    if connected?(socket), do: Web.Guestbook.subscribe_guestbook()
 
-    entries = General.list_approved_guestbook_entries()
-    changeset = General.change_guestbook_entry(%GuestbookEntry{})
+    entries = Guestbook.list_approved_guestbook_entries()
+    changeset = Guestbook.change_guestbook_entry(%GuestbookEntry{})
 
-    ip = WebWeb.ClientIP.from_socket(socket)
+    ip = WebWeb.Visitor.ip(socket)
     captcha = WebWeb.Captcha.new()
 
+    # A stream: approvals arrive live and only the new one is sent, not the
+    # whole book again. `signed` says whether there is anything to show.
     {:ok,
-     assign(socket,
-       entries: entries,
+     socket
+     |> stream(:entries, entries)
+     |> assign(
+       signed: entries != [],
        form: to_form(changeset),
        remote_ip: ip,
        captcha_question: captcha.question,
@@ -34,7 +38,7 @@ defmodule WebWeb.GuestbookLive do
   def handle_event("validate", %{"guestbook_entry" => params}, socket) do
     changeset =
       %GuestbookEntry{}
-      |> General.change_guestbook_entry(params)
+      |> Guestbook.change_guestbook_entry(params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, form: to_form(changeset))}
@@ -49,7 +53,7 @@ defmodule WebWeb.GuestbookLive do
         {:noreply, put_flash(socket, :error, "Too many entries. Please try again later.")}
 
       true ->
-        save_entry(socket, Map.put(params, "ip_address", socket.assigns.remote_ip))
+        save_entry(socket, params)
     end
   end
 
@@ -84,18 +88,18 @@ defmodule WebWeb.GuestbookLive do
   # Broadcast now fires on approval rather than on insert, so anything arriving
   # here has been cleared by the admin.
   def handle_info({:guestbook_entry_created, entry}, socket) do
-    {:noreply, update(socket, :entries, fn entries -> [entry | entries] end)}
+    {:noreply, socket |> stream_insert(:entries, entry, at: 0) |> assign(signed: true)}
   end
 
   defp save_entry(socket, params) do
-    case General.create_guestbook_entry(params) do
+    case Guestbook.create_guestbook_entry(params, socket.assigns.remote_ip) do
       {:ok, _entry} ->
         {:noreply,
          socket
          |> refresh_captcha()
          # Entries are held for approval now, so do not promise it is live.
          |> put_flash(:info, "Signed! Your message will appear once approved.")
-         |> assign(form: to_form(General.change_guestbook_entry(%GuestbookEntry{})))}
+         |> assign(form: to_form(Guestbook.change_guestbook_entry(%GuestbookEntry{})))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}

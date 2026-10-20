@@ -1,8 +1,8 @@
 defmodule WebWeb.LogsLive.Show do
   use WebWeb, :live_view
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias WebWeb.LogEntry
   alias WebWeb.SEO
   import WebWeb.LogsLive.Format
@@ -12,13 +12,13 @@ defmodule WebWeb.LogsLive.Show do
   and shared the way a blog post can.
 
   Drafts and entries still transcoding 404 here rather than leaking a
-  half-built page — `Audio.get_ready_log_by_slug/1` is the one place that
+  half-built page — `Logs.get_ready_log_by_slug/1` is the one place that
   decides, and the index composes on the same rule.
   """
 
   def mount(%{"slug" => slug}, session, socket) do
     log =
-      case Audio.get_ready_log_by_slug(slug) do
+      case Logs.get_ready_log_by_slug(slug) do
         {:ok, log} -> log
         {:error, :not_found} -> raise Ecto.NoResultsError, queryable: Log
       end
@@ -39,8 +39,8 @@ defmodule WebWeb.LogsLive.Show do
      # two recordings of one day share a title: the tab says which this is
      |> assign(
        :page_title,
-       if(Web.Audio.entry_number(log),
-         do: "#{Log.title(log)} · Entry #{Web.Audio.entry_number(log)}",
+       if(Web.Logs.entry_number(log),
+         do: "#{Log.title(log)} · Entry #{Web.Logs.entry_number(log)}",
          else: Log.title(log)
        )
      )
@@ -54,11 +54,19 @@ defmodule WebWeb.LogsLive.Show do
      |> assign(:canonical_path, ~p"/logs/#{log.slug}")
      |> assign(:json_ld, json_ld)
      |> assign(:log, log)
-     |> assign(:client_ip, client_ip(socket))
-     # The admin watching the entries back is not a view.
-     |> assign(:is_admin, session["admin_user"] == true)
-     |> assign(:play_count, Audio.get_play_count(log.id))}
+     |> assign(:post, post_of(log))
+     |> assign_viewer(session)
+     |> assign(:play_count, Logs.get_play_count(log.id))}
   end
+
+  defp post_of(%{post_ref: "" <> ref}) do
+    case Web.Pieces.resolve(ref) do
+      {:ok, post} -> post
+      :error -> nil
+    end
+  end
+
+  defp post_of(_log), do: nil
 
   defp og_description(log) do
     presence(log.description) || presence(log.caption) || "A captain's log recording."
@@ -68,20 +76,31 @@ defmodule WebWeb.LogsLive.Show do
   # log in scope, so ignore it and count against the mounted log. The old
   # String.to_integer/1 on that value crashed the LiveView on any non-numeric
   # input, and an unknown id tripped the audio_plays foreign key.
-  def handle_event("track_play", _params, %{assigns: %{is_admin: true}} = socket),
+  def handle_event("track_play", _params, %{assigns: %{counts_views: false}} = socket),
     do: {:noreply, socket}
 
   def handle_event("track_play", params, socket) do
     log = socket.assigns.log
-    Audio.record_play(log.id, params["witness"], socket.assigns.client_ip)
-    {:noreply, assign(socket, :play_count, Audio.get_play_count(log.id))}
+    Logs.record_play(log.id, params["witness"], socket.assigns.viewer_agent)
+    {:noreply, assign(socket, :play_count, Logs.get_play_count(log.id))}
   end
 
   # Captured at mount and kept in assigns: connect_info is only readable while
-  # mounting, and reaching for it from handle_event/3 raises — which is what
-  # the first real play on this page would have done. Behind Caddy the peer is
-  # always the proxy, so the viewer's address comes from x-forwarded-for.
-  defp client_ip(socket), do: WebWeb.ClientIP.from_socket(socket)
+  # mounting, and reaching for it from handle_event/3 raises. Whether this
+  # viewer's plays count is the rule page hits use (WebWeb.Visitor): never the
+  # admin watching the entries back, a bot, or an excluded address.
+  defp assign_viewer(socket, session) do
+    ip = WebWeb.Visitor.ip(socket)
+    agent = WebWeb.Visitor.user_agent(socket)
+    admin? = session["admin_user"] == true
+
+    assign(socket,
+      client_ip: ip,
+      viewer_agent: agent,
+      is_admin: admin?,
+      counts_views: WebWeb.Visitor.counted?(ip, agent, admin?)
+    )
+  end
 
   def render(assigns) do
     ~H"""
@@ -142,6 +161,11 @@ defmodule WebWeb.LogsLive.Show do
           </.link>
         </nav>
 
+        <%!-- The post this log goes with (Log.post_ref), when it is public. --%>
+        <p :if={@post} class="log-post" id="log-post">
+          With the essay <.link href={@post.path}>{@post.title}</.link>
+        </p>
+
         <%!-- Keeping or following a log: the file itself, and the feed. --%>
         <p class="log-keep">
           <a
@@ -167,7 +191,7 @@ defmodule WebWeb.LogsLive.Show do
 
   # The public entries either side of this one, by when they were recorded.
   defp neighbours(log) do
-    all = Web.Audio.list_ready_logs()
+    all = Web.Logs.list_ready_logs()
     at = Enum.find_index(all, &(&1.id == log.id))
 
     if at do

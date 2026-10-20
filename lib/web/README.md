@@ -38,7 +38,7 @@ The site keeps its information in three kinds of place, and each context says wh
 
 | Module | File / folder | What it does |
 |---|---|---|
-| `Web.Audio` | `audio.ex`, `audio/` | The captain's logs: recordings (video or audio), each titled by the day it was made |
+| `Web.Logs` | `logs.ex`, `logs/` | The captain's logs: recordings (video or audio), each titled by the day it was made |
 | `Web.Media` | `media.ex`, `media/` | Converting a recording into one file browsers can play (`media/transcoder.ex` runs ffmpeg one job at a time; `media/ffmpeg.ex` builds every ffmpeg command) |
 | `Web.Uploads` | `uploads.ex` | Where uploaded files live on disk |
 | `Web.Cuts` | `cuts.ex`, `cuts/` | The cutting room: a log edited from several takes, photographs, titles and music, rendered by one ffmpeg command (`cuts/render.ex`) |
@@ -72,13 +72,13 @@ The site keeps its information in three kinds of place, and each context says wh
 
 | Module | File / folder | What it does |
 |---|---|---|
-| `Web.General` | `general.ex`, `general/` | The guestbook (with its encrypted contact details, `general/contact.ex`) and contact messages |
+| `Web.Guestbook` | `guestbook.ex`, `guestbook/` | The guestbook (with its encrypted contact details, `guestbook/contact.ex`) and contact messages |
 | `Web.Contact` | `contact.ex`, `contact/` | The contact form's messages |
 | `Web.Letters` | `letters.ex` | A reader writing about one particular piece, published only with both sides' consent |
 | `Web.Newsletter`, `Web.Email`, `Web.Mailer` | `newsletter.ex`, `newsletter/`, `email.ex`, `mailer.ex` | The newsletter: subscribers, drafts, sending, unsubscribing |
 | `Web.Webmentions` | `webmentions.ex`, `webmentions/` | Other sites telling this one they linked to it, and this one telling them |
 | `Web.Pieces` | `pieces.ex` | One name for "a piece of work", whatever section it is in |
-| `Web.Almanac` | `almanac.ex` | The daybook: every week and day, with what was made on it |
+| `Web.Daybook` | `daybook.ex` | The daybook: every week and day, with what was made on it |
 | `Web.Search` | `search.ex` | One search across every section. Every public page must be findable |
 | `Web.Nearby` | `nearby.ex` | What a visitor who hit a missing page was probably looking for |
 | `Web.Happening` | `happening.ex` | The homepage's "Happening" section |

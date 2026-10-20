@@ -1,0 +1,185 @@
+/* A dialog over the page (CoreComponents.dialog/1): the newsletter/contact
+   panel. The backdrop takes no click of its own (LiveView would hand it every
+   click inside the dialog); closing is the close button, Escape, or a click
+   outside the dialog (phx-click-away). */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--paper-deep) 55%, rgb(23 20 15 / 0.55));
+  backdrop-filter: blur(6px);
+  animation: dialog-in 0.2s ease-out;
+}
+
+.dialog {
+  position: relative;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+}
+
+.dialog-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.dialog-close:hover,
+.dialog-close:focus-visible { color: var(--accent-ink); background: color-mix(in srgb, var(--accent-ink) 10%, transparent); }
+
+@keyframes dialog-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop { animation: none; }
+}
+
+/* ── The newsletter and contact panel inside it ───────────────────────── */
+
+.dispatch-head { margin-bottom: 2.5rem; text-align: center; }
+.dispatch-title {
+  margin: 0 0 1.5rem;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  color: var(--accent-ink);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+.dispatch-tabs { display: inline-flex; border: 1px solid var(--hairline); }
+.dispatch-tab {
+  min-height: 44px;
+  padding: 0.6rem 2rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.dispatch-tab[aria-selected="true"] { color: var(--paper); background: var(--accent-ink); }
+
+.dispatch-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.dispatch-lede {
+  max-width: 450px;
+  margin: 0 auto 2rem;
+  font-family: var(--font-serif);
+  font-style: italic;
+  line-height: 1.8;
+  color: var(--ink-3);
+  text-align: center;
+}
+.dispatch-label { display: block; margin-bottom: 0.4rem; font-size: 0.8rem; letter-spacing: 1px; color: var(--ink-3); }
+.dispatch-label--center { text-align: center; }
+.dispatch-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+}
+.dispatch-input:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 1px; border-color: var(--accent-ink); }
+.dispatch-input--center { text-align: center; letter-spacing: 2px; }
+.dispatch-input--message { min-height: 150px; }
+.dispatch-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.dispatch-message { position: relative; }
+.dispatch-message-tools { position: absolute; right: 0.5rem; bottom: 0.5rem; }
+.dispatch-captcha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--paper-sunk);
+  border: 1px solid var(--hairline);
+}
+.dispatch-captcha .dispatch-label { flex: 1 1 200px; margin: 0; }
+.dispatch-captcha .dispatch-input { width: 8rem; flex: 0 0 auto; text-align: center; }
+.dispatch-error { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--accent-ink); text-align: center; }
+.dispatch-submit {
+  width: 100%;
+  min-height: 48px;
+  padding: 1rem;
+  font-family: var(--font-ui);
+  font-weight: bold;
+  color: var(--accent-ink);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--accent-ink);
+  cursor: pointer;
+}
+.dispatch-submit:hover { color: var(--paper); background: var(--accent-ink); }
+
+.dispatch-done { padding: 3rem 0; text-align: center; }
+.dispatch-done-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent-ink) 12%, transparent);
+  border: 1px solid var(--accent-ink);
+  border-radius: 50%;
+}
+.dispatch-done-title { margin: 0 0 0.5rem; font-family: var(--font-heading); font-size: 2rem; color: var(--ink); }
+.dispatch-done-title--loud { font-size: 4rem; color: var(--accent-ink); text-transform: lowercase; }
+.dispatch-done-line { letter-spacing: 1px; color: var(--ink-3); }
+.dispatch-again {
+  min-height: 44px;
+  margin-top: 2rem;
+  padding: 0.6rem 2rem;
+  font-size: 0.9rem;
+  color: var(--ink-4);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.dispatch-foot { margin-top: 3rem; padding-top: 1.5rem; text-align: center; border-top: 1px solid var(--hairline); }
+.dispatch-footer-link {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.dispatch-footer-link:hover { color: var(--accent-ink); }
+.dispatch-grammar { position: fixed; right: 2rem; bottom: 2rem; z-index: var(--z-popover); }
+
+/* Visible to a screen reader, not on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

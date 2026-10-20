@@ -3,7 +3,7 @@ defmodule WebWeb.AdminLive.GuestbookManagerTest do
   import Phoenix.LiveViewTest
   import Web.GeneralFixtures
 
-  alias Web.General
+  alias Web.Guestbook
 
   defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
 
@@ -32,7 +32,7 @@ defmodule WebWeb.AdminLive.GuestbookManagerTest do
 
     view |> element("#signature-#{entry.id} button[phx-click=toggle_approved]") |> render_click()
 
-    assert General.get_guestbook_entry!(entry.id).approved
+    assert Guestbook.get_guestbook_entry!(entry.id).approved
     refute has_element?(view, ~s(#adm-rail a[href="/admin/guestbook"] .adm-badge))
     # The approval broadcast used to prepend a second copy of the entry.
     assert view |> render() |> String.split("Waiting Walt") |> length() == 2
@@ -52,6 +52,6 @@ defmodule WebWeb.AdminLive.GuestbookManagerTest do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/guestbook")
     view |> element("#signature-#{entry.id} button[phx-click=delete]") |> render_click()
 
-    assert General.list_all_guestbook_entries() == []
+    assert Guestbook.list_all_guestbook_entries() == []
   end
 end

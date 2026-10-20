@@ -18,20 +18,18 @@ defmodule Web.SiteSettings do
   end
 
   @doc """
-  Creates or updates a setting.
+  Creates or updates a setting, in one statement: an insert that becomes an
+  update on the key's unique index, so two writers cannot race between a read
+  and a write.
   """
   def put_setting(key, value) do
-    case Repo.get_by(Setting, key: key) do
-      nil ->
-        %Setting{}
-        |> Setting.changeset(%{key: key, value: value})
-        |> Repo.insert()
-
-      %Setting{} = setting ->
-        setting
-        |> Setting.changeset(%{value: value})
-        |> Repo.update()
-    end
+    %Setting{}
+    |> Setting.changeset(%{key: key, value: value})
+    |> Repo.insert(
+      on_conflict: {:replace, [:value, :updated_at]},
+      conflict_target: :key,
+      returning: true
+    )
   end
 
   @doc """

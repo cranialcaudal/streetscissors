@@ -106,16 +106,6 @@ defmodule Web.Fitness do
     )
   end
 
-  @doc "An exercise's latest entries, newest first: what a progression reads."
-  def recent_exercise_logs(exercise_id, limit \\ 12) do
-    Repo.all(
-      from l in ExerciseLog,
-        where: l.exercise_id == ^exercise_id,
-        order_by: [desc: l.date, desc: l.id],
-        limit: ^limit
-    )
-  end
-
   @doc "Every entry for an exercise by its slug, exercise loaded; `[]` when it has none."
   def exercise_logs_for(slug) when is_binary(slug) do
     Repo.all(
@@ -151,6 +141,21 @@ defmodule Web.Fitness do
     Repo.all(
       from l in ExerciseLog, where: l.date == ^date, order_by: [asc: l.id], preload: :exercise
     )
+  end
+
+  @doc "One entry by id, its exercise loaded; nil when there is none."
+  def get_exercise_log(id) do
+    case Repo.get(ExerciseLog, id) do
+      nil -> nil
+      log -> Repo.preload(log, :exercise)
+    end
+  end
+
+  @doc "Changes an entry's date, figures or note. Its exercise stays."
+  def update_exercise_log(%ExerciseLog{} = log, attrs) do
+    log
+    |> ExerciseLog.changeset(Map.drop(attrs, [:exercise_id, "exercise_id"]))
+    |> Repo.update()
   end
 
   def delete_exercise_log(id) do

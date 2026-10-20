@@ -1,15 +1,9 @@
 <%!-- The homepage, `/`: the wordmark over a contact sheet, the cards for each section, and the
       "Happening" strip. Rendered by `WebWeb.PageController.home/2`. --%>
 <div class="home-wrapper">
-  <!-- Top Bar: Guestbook (left) | Spotify (center) | Newsletter (right) -->
+  <%!-- Top Bar: Guestbook (left) | Spotify (center) | Newsletter (right) --%>
   <nav class="home-top-bar">
-    <div class="mobile-brand-wrapper-home" style="display: none;">
-      <a href="/" class="sensus-mobile-brand-link">
-        <h1>streetscissors</h1>
-      </a>
-    </div>
-
-    <div class="desktop-top-bar-contents" style="display: contents;">
+    <div class="desktop-top-bar-contents">
       <%!-- No inline style here: a `border: none` on these two outranked every
             stylesheet rule, which is why they rendered as loose words beside
             the framed playlist pill. Their frame lives in home.css. --%>
@@ -80,7 +74,7 @@
 
       <button
         type="button"
-        onclick="window.dispatchEvent(new CustomEvent('trigger-dispatch'))"
+        data-dispatch
         class="top-bar-link"
         aria-label="Newsletter and Contact"
       >
@@ -90,7 +84,7 @@
     </div>
   </nav>
   
-<!-- Bento Section: Blog + Fitness boxes with overlapping title, photo hero below -->
+<%!-- Bento Section: Blog + Fitness boxes with overlapping title, photo hero below --%>
   <section class="bento-section">
     <div class="site-title-container">
       <div class="site-title-wrap">
@@ -113,7 +107,7 @@
       </a>
     </div>
     
-<!-- Full-width photo hero: a random contact sheet behind the label -->
+<%!-- Full-width photo hero: a random contact sheet behind the label --%>
     <a href={~p"/negatives?from=home"} class="bento-card bento-card-hero">
       <%= if @hero_sheet do %>
         <%!-- The largest thing on the first screen, so it is asked for
@@ -151,7 +145,7 @@
       />
     </a>
     
-<!-- Fitness Sub-row: Three skinny boxes -->
+<%!-- Fitness Sub-row: Three skinny boxes --%>
     <div class="bento-fitness-sub-row bento-fitness-sub-row--three">
       <a href={~p"/logs?from=home"} class="bento-card bento-card-skinny">
         <span class="bento-label-small">Captain's Logs</span>

@@ -1,0 +1,36 @@
+<%!-- One chapter of the Bible, `/Christ/bible/:book/:chapter`. Rendered by
+      `WebWeb.ChristController.chapter/2`. --%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav current={:bible} />
+
+    <header class="christ-day">
+      <p class="christ-eyebrow">
+        <a href={~p"/Christ/bible"}>The Bible</a>
+        · <a href={~p"/Christ/bible/#{@book.slug}"}>{@book.name}</a>
+      </p>
+      <h1 class="christ-day-title">{@title}</h1>
+    </header>
+
+    <p class={["christ-verses", "christ-chapter", @book.slug == "psalms" && "christ-verses--lines"]}>
+      <span :for={{verse, text} <- @verses} id={"v#{verse}"} class="christ-verse">
+        <sup class="christ-verse-n">{verse}</sup>{text}
+      </span>
+    </p>
+
+    <nav class="christ-turn" aria-label="Chapters">
+      <a
+        :if={@previous}
+        href={~p"/Christ/bible/#{elem(@previous, 0).slug}/#{elem(@previous, 1)}"}
+        rel="prev"
+      >
+        ‹ {chapter_title(elem(@previous, 0), elem(@previous, 1))}
+      </a>
+      <a :if={@next} href={~p"/Christ/bible/#{elem(@next, 0).slug}/#{elem(@next, 1)}"} rel="next">
+        {chapter_title(elem(@next, 0), elem(@next, 1))} ›
+      </a>
+    </nav>
+
+    <p class="christ-colophon">{@translation.name} ({@translation.abbr}).</p>
+  </article>
+</div>

@@ -5,7 +5,7 @@ defmodule Web.Media.TranscoderTest do
 
   import Web.AudioFixtures
 
-  alias Web.Audio
+  alias Web.Logs
   alias Web.Media
   alias Web.Media.Transcoder
   alias Web.Uploads
@@ -32,7 +32,7 @@ defmodule Web.Media.TranscoderTest do
   defp run(queue, log) do
     Transcoder.enqueue(queue, log.id)
     Transcoder.await_idle(queue)
-    Audio.get_log!(log.id)
+    Logs.get_log!(log.id)
   end
 
   describe "a video entry" do
@@ -42,7 +42,7 @@ defmodule Web.Media.TranscoderTest do
       assert log.status == "ready"
       assert log.transcode_error == nil
       assert log.media_dir =~ ~r/^#{log.slug}-[0-9a-f]{8}$/
-      assert Audio.Log.media_url(log) =~ ~r{/video\.mp4$}
+      assert Logs.Log.media_url(log) =~ ~r{/video\.mp4$}
 
       dir = Uploads.entry_dir!(log.media_dir)
       assert File.regular?(Path.join(dir, Media.video_rendition()))
@@ -77,11 +77,11 @@ defmodule Web.Media.TranscoderTest do
       first = run(queue, pending_log(%{kind: "video"}))
 
       {:ok, _} =
-        Audio.update_log(first, %{trim_start_ms: 1500, trim_duration_ms: 9000, poster_at_ms: 4000})
+        Logs.update_log(first, %{trim_start_ms: 1500, trim_duration_ms: 9000, poster_at_ms: 4000})
 
       old_dir = Uploads.entry_dir!(first.media_dir)
 
-      {:ok, queued} = Media.reencode(Audio.get_log!(first.id))
+      {:ok, queued} = Media.reencode(Logs.get_log!(first.id))
 
       # The trims are already in the rendition; applying them again would cut twice.
       assert queued.source_path == Path.join(old_dir, Media.video_rendition())
@@ -91,7 +91,7 @@ defmodule Web.Media.TranscoderTest do
 
       Transcoder.enqueue(queue, queued.id)
       Transcoder.await_idle(queue)
-      log = Audio.get_log!(first.id)
+      log = Logs.get_log!(first.id)
 
       assert log.status == "ready"
       assert log.source_path == nil
@@ -141,7 +141,7 @@ defmodule Web.Media.TranscoderTest do
       assert log.kind == "audio"
       assert log.status == "ready"
 
-      url = Web.Audio.Log.media_url(log)
+      url = Web.Logs.Log.media_url(log)
       assert url =~ Media.audio_rendition()
       assert File.regular?(Path.join(Uploads.root(), String.replace_prefix(url, "/uploads/", "")))
     end
@@ -178,7 +178,7 @@ defmodule Web.Media.TranscoderTest do
 
     test "a log deleted between enqueue and dequeue is skipped, not crashed on", %{queue: queue} do
       pending = pending_log(%{kind: "video"})
-      {:ok, _} = Audio.delete_log(pending)
+      {:ok, _} = Logs.delete_log(pending)
 
       Transcoder.enqueue(queue, pending.id)
       assert Transcoder.await_idle(queue) == :ok
@@ -210,8 +210,8 @@ defmodule Web.Media.TranscoderTest do
       Transcoder.enqueue(queue, b.id)
       Transcoder.await_idle(queue)
 
-      assert Audio.get_log!(a.id).status == "ready"
-      assert Audio.get_log!(b.id).status == "ready"
+      assert Logs.get_log!(a.id).status == "ready"
+      assert Logs.get_log!(b.id).status == "ready"
     end
 
     test "reports what it is doing" do
@@ -222,7 +222,7 @@ defmodule Web.Media.TranscoderTest do
   describe "resuming after a restart" do
     test "every unfinished entry is picked up again on boot" do
       stranded = pending_log(%{kind: "video", recorded_on: ~D[2026-09-18]})
-      {:ok, _} = Audio.update_log(stranded, %{status: "processing"})
+      {:ok, _} = Logs.update_log(stranded, %{status: "processing"})
 
       name = :"resume_#{System.unique_integer([:positive])}"
       {:ok, pid} = Transcoder.start_link(name: name, requeue_on_boot: false)
@@ -233,18 +233,18 @@ defmodule Web.Media.TranscoderTest do
       send(pid, {:"$gen_cast", {:enqueue, stranded.id}})
       Transcoder.await_idle(pid)
 
-      assert Audio.get_log!(stranded.id).status == "ready"
+      assert Logs.get_log!(stranded.id).status == "ready"
     end
 
     test "list_unfinished_logs is what the boot requeue reads" do
       a = pending_log(%{kind: "video", recorded_on: ~D[2026-09-18]})
 
       {:ok, b} =
-        Audio.update_log(pending_log(%{recorded_on: ~D[2026-09-19]}), %{status: "processing"})
+        Logs.update_log(pending_log(%{recorded_on: ~D[2026-09-19]}), %{status: "processing"})
 
       _done = log_fixture(recorded_on: ~D[2026-09-20], status: "ready")
 
-      assert Enum.map(Audio.list_unfinished_logs(), & &1.id) |> Enum.sort() ==
+      assert Enum.map(Logs.list_unfinished_logs(), & &1.id) |> Enum.sort() ==
                Enum.sort([a.id, b.id])
     end
   end

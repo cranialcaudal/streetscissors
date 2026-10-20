@@ -44,6 +44,15 @@ defmodule Web.HappeningTest do
     assert [%{people: 1}] = Happening.witnessed(Web.Clock.local_today())
   end
 
+  test "one reader at two spellings of an address is one person, not two" do
+    Repo.insert!(%Hit{path: "/blog/bare-post", ip_hash: "reader"})
+    Repo.insert!(%Hit{path: "/blog/bare-post?from=feed", ip_hash: "reader"})
+    Repo.insert!(%Hit{path: "/blog/bare%2Dpost", ip_hash: "other"})
+
+    assert [%{path: "/blog/bare-post", people: 2}] =
+             Happening.witnessed(Web.Clock.local_today())
+  end
+
   test "a hit older than the week does not count" do
     old =
       NaiveDateTime.add(NaiveDateTime.utc_now(), -10 * 86_400) |> NaiveDateTime.truncate(:second)

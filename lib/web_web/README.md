@@ -37,8 +37,8 @@ The public site:
 | `/fitness`, `/fitness/day/:day` | `FitnessLive.Index` | The training plan, one day to a page |
 | `/fitness/wiki`, `/fitness/wiki/:slug` | `FitnessLive.Wiki`, `FitnessLive.Show` | The exercise wiki, with its figures |
 | `/fitness/rides`, `/fitness/rides/:id` | `RidesLive.Index`, `RidesLive.Show` | Activities from Komoot |
-| `/daybook`, `/daybook/:year`, `…/week/:week`, `/day/:date` | `AlmanacController` | The daybook: what was made each week and day |
-| `/Christ` and below | `FaithController` | The prayer pages (unlisted) |
+| `/daybook`, `/daybook/:year`, `…/week/:week`, `/day/:date` | `DaybookController` | The daybook: what was made each week and day |
+| `/Christ` and below | `ChristController` | The prayer pages (unlisted) |
 | `/search`, `/search/suggest` | `PageController.search`, `.suggest` | Search |
 | `/guestbook` | `GuestbookLive` | The guestbook |
 | `/contact`, `/newsletter` | `NewsletterLive` | Writing to the author; signing up |

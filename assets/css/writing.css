@@ -462,6 +462,23 @@
 /* Where the page came from: said only on paper, where the address bar is not. */
 .writing .blog-post-colophon { display: none; }
 
+/* "With this": what a post goes with (its related: line, and logs that name
+   it). Frames as a strip of small prints, the rest as plain links. */
+.writing .blog-related { margin: 3rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+.writing .blog-related-title { margin: 0 0 0.75rem; font-size: 1.1rem; color: var(--ink-2); }
+.writing .blog-related-frames {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+.writing .blog-related-frames img { display: block; width: 100%; height: auto; background: var(--paper-sunk); }
+.writing .blog-related-links { margin: 0; padding: 0; list-style: none; }
+.writing .blog-related-links li { padding: 0.35rem 0; }
+.writing .blog-related-links a { color: var(--accent-ink); }
+
 /* ── Phones ────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
@@ -484,7 +501,7 @@
    published. Everything that only works on a screen is left off — the
    header's controls, the letter form, an embed's sliders — and a link, which
    cannot be followed from a page, says where it goes instead. Scoped to the
-   post page; the year's printed edition has rules of its own in almanac.css. */
+   post page; the year's printed edition has rules of its own in daybook.css. */
 /* The text of a post (and of the About page, which is set the same way).
    The shared prose rules gave lines 1.8 of their height and a line and a
    half between paragraphs, which on a wide column read as double spacing,
@@ -558,6 +575,7 @@
 }
 
 @media print {
+  .writing .blog-related { display: none; }
   @page {
     margin: 22mm 20mm 24mm;
   }

@@ -764,7 +764,7 @@ anything, and no container.
 | Language and VM | Elixir on Erlang/OTP | 1.19 on OTP 26 (`mix.exs` asks for `~> 1.15`) |
 | Web framework | Phoenix, with LiveView | 1.8 and 1.1 |
 | HTTP server inside the app | Bandit | 1.12 |
-| Database | SQLite, through `ecto_sqlite3` | one file, in WAL mode |
+| Database | SQLite, through `ecto_sqlite3` | one file, in WAL mode; the adapter 0.22 |
 | Queued jobs | Oban, on its SQLite engine (`Oban.Engines.Lite`) | 2.20 |
 | Scheduled jobs | Quantum, a cron inside the VM | 3.5 |
 | Mail | Swoosh, sending through Resend's HTTP API | 1.20 |
@@ -904,8 +904,6 @@ Nearly every page goes through `:browser`:
 | `put_secure_browser_headers` | Phoenix's default security headers |
 | `WebWeb.Plugs.Analytics` | Record one hit (not for a prefetch, a bot, or a sub-resource) |
 | `WebWeb.Plugs.SetCurrentUser` | Tell templates whether this is the admin. It protects nothing |
-| `WebWeb.Plugs.FetchStats` | Count today's distinct visitors, for the header |
-| `WebWeb.Plugs.LoadSiteSettings` | Load the handful of settings kept in the database |
 
 Then the matched code runs: `BlogController.show/2` asks `Web.Blog` for the
 post, which reads the Markdown file from `content/blog/` at that moment,
@@ -969,8 +967,9 @@ matters at build time, and Part 8 returns to it.
 
 Because Caddy is always the one connecting, every request the application
 sees comes from `127.0.0.1`. The visitor's real address is the first entry of
-`X-Forwarded-For` (`WebWeb.ClientIP`). Caddy writes that header itself and
-does not pass on one a stranger supplied.
+`X-Forwarded-For` (`WebWeb.Visitor`), believed only when the request came
+from the machine itself. Caddy writes that header itself and does not pass on
+one a stranger supplied.
 
 This is the reason the application listens on loopback only. Reached directly,
 around the proxy, a caller could write `X-Forwarded-For` themselves and be
@@ -1017,21 +1016,24 @@ bottom. If one child dies, only that child is restarted.
 | 1 | `WebWeb.Telemetry` | Timing and counters |
 | 2 | `Web.Repo` | The pool of five database connections |
 | 3 | `Ecto.Migrator` | Runs any pending database migration, then steps aside. Only in a release |
-| 4 | `DNSCluster` | For clustering several servers. There is one, so it does nothing |
-| 5 | `Phoenix.PubSub` | Message bus between processes: scan progress, encode progress, new signatures |
-| 6 | `Finch` | The HTTP connection pool mail is sent through |
-| 7 | `Task.Supervisor` | A place to run one-off background tasks |
-| 8 | `Web.RateLimit` | Owns the table that counts login attempts and form posts. Must exist before any request arrives |
-| 9 | `Web.Komoot.Auth` | Remembers the Komoot login between hourly syncs |
-| 10 | `Oban` | The job queue |
-| 11 | `Web.Media.Transcoder` | The ffmpeg queue for recordings, one encode at a time |
-| 12 | `Web.Scanner.Bed` | The flatbed scanner, one scan at a time |
-| 13 | `Web.Scheduler` | The clock (Quantum) |
-| 14 | a one-off task | Takes any backup the machine slept through |
-| 15 | a one-off task | Clears an Apple Health import that a restart interrupted |
-| 16 | `Web.Backup.MirrorWatcher` | Notices the external drive being plugged in |
-| 17 | `WebWeb.Endpoint` | Starts answering requests. Last on purpose |
-| 18 | a one-off task | `Web.Warm`: reads what the first visitor would otherwise wait for |
+| 4 | `Phoenix.PubSub` | Message bus between processes: scan progress, encode progress, new signatures |
+| 5 | `Finch` | The HTTP connection pool mail is sent through |
+| 6 | `Task.Supervisor` | A place to run one-off background tasks, such as recording a page view |
+| 7 | `Web.RateLimit` | Owns the table that counts login attempts and form posts. Must exist before any request arrives |
+| 8 | `Web.Happening` | The homepage's "Happening" section, kept ten minutes |
+| 9 | `Web.Blog.Cache` | Each post as last read, until its file changes |
+| 10 | `Web.Komoot.Auth` | Remembers the Komoot login between hourly syncs |
+| 11 | `Oban` | The job queue |
+| 12 | `Web.Media.Transcoder` | The ffmpeg queue for recordings, one encode at a time |
+| 13 | `Web.Scanner.Bed` | The flatbed scanner, one scan at a time |
+| 14 | `Web.Darkroom.Sessions` | One print editor engine per open editor |
+| 15 | a one-off task | Clears the pictures print editors left behind |
+| 16 | `Web.Scheduler` | The clock (Quantum) |
+| 17 | a one-off task | Takes any backup the machine slept through |
+| 18 | a one-off task | Clears an Apple Health import that a restart interrupted |
+| 19 | `Web.Backup.MirrorWatcher` | Notices the external drive being plugged in |
+| 20 | `WebWeb.Endpoint` | Starts answering requests. Last on purpose |
+| 21 | a one-off task | `Web.Warm`: reads what the first visitor would otherwise wait for |
 
 The order is the boot sequence. The database is migrated before anything
 reads it, the rate limiter exists before the first request can arrive, and the
@@ -1050,6 +1052,8 @@ site only starts answering once everything it depends on is standing.
 | 03:17 daily | Snapshot the database | `Web.Backup` |
 | 03:19 daily | Keep a version of the writing, if it changed | `Web.Backup.Content` |
 | 03:23 daily | Copy the training block's private photographs | `Web.Backup.FitnessPhotos` |
+| 03:37 daily | Forget old visits: browser details after 30 days, visits after 400 | `Web.Analytics` |
+| 03:47 daily | Rebuild a year's book (EPUB and PDF) if one of its essays changed | `Web.Daybook.Book` |
 | 03:41 on Sundays | Rehearse a restore | `Web.Backup.Drill` |
 
 03:17 UTC is 8:17 in the evening, Pacific daylight time, and an hour earlier
@@ -1236,6 +1240,11 @@ The variables, and where each is set:
 | `AUTHOR_NAME` | `.env` | | The author's name, for search engines. Unset, nobody is named |
 | `MACHINE_NAME` | `.env` | | What the `/pc` terminal calls itself |
 | `REL_ME_URLS` | `.env` | | Profiles elsewhere that should verify this domain as theirs |
+| `SEARCH_VERIFY_GOOGLE` | `.env` | | Search Console's verification code, written as a meta tag |
+| `SEARCH_VERIFY_BING` | `.env` | | Bing Webmaster Tools' verification code, likewise |
+| `INDEXNOW_KEY` | `.env` | | Turns on telling search engines which address changed |
+| `CONTACT_EMAIL` | `.env` | | The address shown at the foot of the newsletter and contact panel |
+| `PRINT_DEPTH` | `.env` | `8` | `16` develops prints at sixteen bits: no banding under edits, about twice the disk |
 | `EXCLUDED_IPS` | `.env` | | Addresses whose visits are not counted |
 | `POOL_SIZE` | either | | Database connections. Five by default |
 
@@ -1560,6 +1569,14 @@ The machine that serves the site is also the machine the code is edited on.
 `mix phx.server` there would be a second copy of the application, reaching for
 the same port, with its own scheduler and its own idea of where things are.
 `rpc`, `remote` and `mix run --no-start` cover every case without it.
+
+To *look* at a change on real data before deploying it, there is one safe
+copy: `ops/preview.sh`. It serves the working tree at http://127.0.0.1:4100
+against a fresh copy of the database, made with `VACUUM INTO` so the live site
+is never paused, and with `PREVIEW=1` it runs no scheduler, no queued jobs, no
+backups, no mail and no scanner. `ops/preview.sh --keep` reuses the last copy.
+It reads the same `content/` folder as the live site, so whatever is saved in
+its admin is saved for real: look, don't write.
 
 ### Logs
 

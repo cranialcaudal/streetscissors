@@ -466,3 +466,18 @@
 .adm-fit-pose img,
 .adm-fit-pair img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; background: var(--st-bay); border-radius: var(--st-radius-sm, 4px); }
 .adm-fit-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--st-space-2, 0.5rem); }
+
+/* ── Fitness: the vault's hand-written files (?tab=files) ──────────────── */
+
+.adm-fit-files { display: grid; gap: var(--st-space-3); }
+.adm-fit-files-list { display: flex; flex-wrap: wrap; gap: var(--st-space-2); }
+.adm-fit-files form { display: grid; gap: var(--st-space-2); }
+.adm-fit-conflict {
+  display: grid;
+  gap: var(--st-space-2);
+  padding: var(--st-space-2);
+  border: 1px solid var(--st-warn);
+  border-radius: var(--st-radius-sm);
+  background: var(--st-raised);
+}
+.adm-fit-conflict p { margin: 0; }

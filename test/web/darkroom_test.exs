@@ -85,6 +85,8 @@ defmodule Web.DarkroomTest do
       }
 
       assert Darkroom.clean_controls(sent, @schema) == %{"light.exposure" => 5.0}
+      # Only the ids that are no slider at all are named, not one at its default.
+      assert Darkroom.unknown_controls(sent, @schema) == ["_target", "nope.x"]
     end
 
     test "a black and white print is offered no colour, and nothing describes a camera" do

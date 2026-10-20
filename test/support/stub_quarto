@@ -1,14 +1,26 @@
 #!/bin/sh
-# Stands in for Quarto in the suite: `render FILE --output-dir DIR -P k:v…`
-# writes DIR/fitness_report.html naming the params it was given.
+# Stands in for Quarto in the suite.
+#
+# `render FILE --output-dir DIR -P k:v…` (the fitness report) writes
+# DIR/fitness_report.html naming the params it was given.
+# `render book.md --to epub|typst --output-dir DIR` (the year's book,
+# Web.Daybook.Book) writes DIR/book.epub or DIR/book.pdf holding the input.
 out=""
 params=""
+to=""
+input=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --output-dir) out="$2"; shift 2 ;;
     -P) params="$params $2"; shift 2 ;;
-    *) shift ;;
+    --to) to="$2"; shift 2 ;;
+    render) shift ;;
+    *) [ -z "$input" ] && input="$1"; shift ;;
   esac
 done
 mkdir -p "$out"
-printf '<html><body>stub report%s</body></html>\n' "$params" > "$out/fitness_report.html"
+case "$to" in
+  epub) cat "$input" > "$out/book.epub" ;;
+  typst) cat "$input" > "$out/book.pdf" ;;
+  *) printf '<html><body>stub report%s</body></html>\n' "$params" > "$out/fitness_report.html" ;;
+esac

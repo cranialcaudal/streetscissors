@@ -50,7 +50,7 @@ defmodule Web.Docs do
   @spec render(String.t()) :: {String.t(), [entry()]}
   def render(markdown) when is_binary(markdown) do
     markdown
-    |> Earmark.as_html!(gfm: true)
+    |> Web.Markdown.to_html()
     |> task_lists()
     |> anchor_headings()
   end

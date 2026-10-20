@@ -1,0 +1,105 @@
+<%!-- The year at a glance, as at the front of an engagement calendar, laid out like a contact sheet: twelve months, one
+      cell per day, a mark for each kind of work made on it. The print rules in
+      almanac.css make this page the printed edition. --%>
+<div class="daybook daybook-year">
+  <header class="daybook-head">
+    <p class="daybook-slug">The daybook</p>
+    <h1 class="daybook-date">{@daybook.year}</h1>
+    <p class="daybook-lede">{year_summary(@daybook.totals)}</p>
+    <div class="daybook-tools">
+      <nav class="daybook-years" aria-label="Years">
+        <.link :if={@daybook.previous} href={~p"/daybook/#{@daybook.previous}"} rel="prev">
+          <.icon name="hero-arrow-left" class="size-4" /> {@daybook.previous}
+        </.link>
+        <.link :if={@daybook.next} href={~p"/daybook/#{@daybook.next}"} rel="next">
+          {@daybook.next} <.icon name="hero-arrow-right" class="size-4" />
+        </.link>
+      </nav>
+      <.link href={~p"/daybook"} class="daybook-print">This week</.link>
+      <button type="button" class="daybook-print" data-print>Print this year</button>
+      <%!-- The year's essays as a book (Web.Daybook.Book), when it is built. --%>
+      <a
+        :if={Web.Daybook.Book.path(@daybook.year, :epub)}
+        href={~p"/daybook/#{@daybook.year}/book.epub"}
+        class="daybook-print"
+        id="year-book-epub"
+      >
+        The year as an e-book
+      </a>
+      <a
+        :if={Web.Daybook.Book.path(@daybook.year, :pdf)}
+        href={~p"/daybook/#{@daybook.year}/book.pdf"}
+        class="daybook-print"
+        id="year-book-pdf"
+      >
+        As a PDF
+      </a>
+    </div>
+    <ul class="daybook-legend" aria-label="Key">
+      <li :for={kind <- Web.Daybook.kinds()}>
+        <span class={["daybook-mark", "daybook-mark--#{kind}"]} aria-hidden="true"></span>
+        {kind_heading(kind)}
+      </li>
+    </ul>
+  </header>
+
+  <div class="daybook-sheet">
+    <section :for={month <- @daybook.months} class="daybook-month">
+      <h2 class="daybook-month-title">{Calendar.strftime(month.first, "%B")}</h2>
+      <ol class="daybook-cal">
+        <li
+          :for={initial <- ~w(M T W T F S S)}
+          class="daybook-cell daybook-cal-head"
+          aria-hidden="true"
+        >
+          {initial}
+        </li>
+        <li
+          :for={date <- calendar_cells(month.first)}
+          class={["daybook-cell", date && Map.has_key?(month.days, date) && "has-work"]}
+        >
+          <%= cond do %>
+            <% is_nil(date) -> %>
+            <% entries = month.days[date] -> %>
+              <.link
+                href={day_path(date)}
+                class="daybook-cell-link"
+                aria-label={cell_label(date, entries)}
+              >
+                <span class="daybook-cell-num">{date.day}</span>
+                <span class="daybook-marks" aria-hidden="true">
+                  <span
+                    :for={kind <- kinds_on(entries)}
+                    class={["daybook-mark", "daybook-mark--#{kind}"]}
+                  >
+                  </span>
+                </span>
+              </.link>
+            <% true -> %>
+              <span class="daybook-cell-num">{date.day}</span>
+          <% end %>
+        </li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="daybook-ledger" aria-label="The year, month by month">
+    <div :for={month <- @daybook.months} :if={month.days != %{}} class="daybook-ledger-month">
+      <h2 class="daybook-ledger-title">{Calendar.strftime(month.first, "%B")}</h2>
+      <ol class="daybook-ledger-days">
+        <li :for={{date, entries} <- Enum.sort_by(month.days, fn {date, _} -> date end, Date)}>
+          <.link href={day_path(date)} class="daybook-ledger-date">
+            {Calendar.strftime(date, "%a %-d")}
+          </.link>
+          <ul class="daybook-ledger-entries">
+            <li :for={entry <- entries}>
+              <span class={["daybook-mark", "daybook-mark--#{entry.kind}"]} aria-hidden="true">
+              </span>
+              <.link href={entry.path}>{entry.title}</.link>
+            </li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+  </section>
+</div>

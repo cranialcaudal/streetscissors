@@ -101,7 +101,7 @@
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 100;
+  z-index: var(--z-popover);
 }
 .spotify-hover-wrapper:hover .spotify-player-dropdown,
 .spotify-hover-wrapper:focus-within .spotify-player-dropdown {
@@ -147,7 +147,6 @@
 /* The mark carries the pill — set larger than the label it sits beside, in
    Spotify's own green, the one colour in the bar that is not the page's.
    line-height: 1 keeps the extra size off the pill's own height. */
-.spotify-pill-main .fa-spotify,
 .spotify-pill-main .spotify-icon {
   font-size: 1.6em;
   width: 1.25em;
@@ -432,7 +431,7 @@
   font-size: 0.75rem;
 }
 
-/* The way in to the almanac and the manual from the front door: the row of
+/* The way in to the daybook and the manual from the front door: the row of
    cards above is measured to fit a phone's screen, so it stays at three. */
 .home-footer-link {
   margin-left: 0.75rem;
@@ -591,7 +590,6 @@
   text-align: center;
   transition: transform 0.3s ease;
 }
-
 
 /* ── Small screens: the whole homepage on one screen ──────────────────
    The stack used to run ~1000px tall on a ~700px viewport — the two big
@@ -788,3 +786,6 @@
     font-size: 2.6vh;
   }
 }
+
+/* The top bar's desktop links sit in the bar's own flex row. */
+.desktop-top-bar-contents { display: contents; }

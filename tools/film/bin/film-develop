@@ -2845,8 +2845,10 @@ def cmd_develop(args):
     out_dir = args.out or os.path.join(roll_dir, "frames")
     os.makedirs(out_dir, exist_ok=True)
     dst = os.path.join(out_dir, f"{args.frame:02d}.png")
-    # the print is eight bits whatever the scan was (a slide's is sixteen)
-    _magick([args.raw] + apply_args(settings) + ["-depth", "8", dst])
+    # the print is eight bits unless sixteen are asked for (--depth 16), which
+    # the darkroom's edits want so a strong Temp or curve does not band
+    depth = str(getattr(args, "depth", 8))
+    _magick([args.raw] + apply_args(settings) + ["-depth", depth, dst])
     if args.dust and settings.get("mode") != "slide":
         remove_dust(dst)
     print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")
@@ -2865,7 +2867,8 @@ def cmd_redevelop(args):
     for raw in raws:
         number = re.search(r"frame-(\d+)\.", os.path.basename(raw))
         one = argparse.Namespace(raw=raw, roll=roll_dir, frame=int(number.group(1)),
-                                 weight=args.weight, out=args.out, dust=args.dust)
+                                 weight=args.weight, out=args.out, dust=args.dust,
+                                 depth=args.depth)
         failed += 1 if cmd_develop(one) else 0
     return 1 if failed else 0
 
@@ -2911,6 +2914,8 @@ def main():
     d.add_argument("--out")
     d.add_argument("--no-dust", dest="dust", action="store_false",
                    help="leave white specks where they are")
+    d.add_argument("--depth", type=int, choices=[8, 16], default=8,
+                   help="bits per channel of the print (default 8; 16 for editing)")
     d.set_defaults(func=cmd_develop)
 
     r = sub.add_parser("redevelop", help="develop every single of a roll again")
@@ -2918,10 +2923,30 @@ def main():
     r.add_argument("--weight", type=float, default=0.3)
     r.add_argument("--out")
     r.add_argument("--no-dust", dest="dust", action="store_false")
+    r.add_argument("--depth", type=int, choices=[8, 16], default=8)
     r.set_defaults(func=cmd_redevelop)
 
     args = p.parse_args()
-    return args.func(args)
+    # A failure reaches the scanner page as the last lines of what this
+    # printed, so it ends in one line that says what went wrong, not a
+    # traceback. FILM_DEVELOP_DEBUG=1 lets the traceback through.
+    if os.environ.get("FILM_DEVELOP_DEBUG"):
+        return args.func(args)
+    try:
+        return args.func(args)
+    except subprocess.CalledProcessError as e:
+        tool = e.cmd[0] if isinstance(e.cmd, (list, tuple)) and e.cmd else str(e.cmd)
+        said = (e.stderr or b"")
+        said = said.decode("utf-8", "replace") if isinstance(said, bytes) else str(said)
+        last = said.strip().splitlines()[-1] if said.strip() else ""
+        print(f"error: {os.path.basename(str(tool))} failed (exit {e.returncode})"
+              + (f": {last}" if last else ""), file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        return 130
+    except Exception as e:  # noqa: BLE001 - the one place every failure is said plainly
+        print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

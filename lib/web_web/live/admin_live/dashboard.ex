@@ -224,7 +224,7 @@ defmodule WebWeb.AdminLive.Dashboard do
     </details>
 
     <details id="most-viewed" class="ov-details">
-      <summary>Most viewed</summary>
+      <summary>Views and visitors</summary>
       <.async_result :let={traffic} assign={@traffic}>
         <:loading>
           <p class="ov-quiet">Reading the traffic.</p>
@@ -253,10 +253,11 @@ defmodule WebWeb.AdminLive.Dashboard do
         </p>
 
         <.empty :if={traffic.top_pages == []}>No views recorded yet.</.empty>
+        <p :if={traffic.top_pages != []} class="ov-quiet">Pages most people opened, all time.</p>
         <ol :if={traffic.top_pages != []} class="ov-ranked">
           <li :for={{path, count} <- traffic.top_pages}>
             <span class="ov-ranked-path">{path}</span>
-            <span class="ov-ranked-count">{count}</span>
+            <span class="ov-ranked-count" title={"#{count} visitors"}>{count}</span>
           </li>
         </ol>
       </.async_result>

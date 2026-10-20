@@ -11,6 +11,7 @@ defmodule Web.FitnessMeasureTest do
 
   # the tape is node, as the camera is; a machine without it has no figures
   @moduletag skip: is_nil(System.find_executable("node")) && "node is not installed"
+  @moduletag :external
 
   setup_all do
     {:ok, found} = Clip.measurements()

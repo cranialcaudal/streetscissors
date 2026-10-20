@@ -28,7 +28,7 @@ defmodule Web.Cuts do
 
   import Ecto.Query
 
-  alias Web.Audio
+  alias Web.Logs
   alias Web.Cuts.{Cut, Media, Render, Timeline, Titles}
   alias Web.Media.FFmpeg
   alias Web.Negatives
@@ -347,10 +347,10 @@ defmodule Web.Cuts do
   defp hand_over(cut, output, attrs) do
     source = Uploads.stage_upload!(output, "cut.mp4")
 
-    case cut.audio_log_id && Audio.get_log(cut.audio_log_id) do
-      %Audio.Log{} = log ->
+    case cut.audio_log_id && Logs.get_log(cut.audio_log_id) do
+      %Logs.Log{} = log ->
         with {:ok, log} <-
-               Audio.update_log(log, %{
+               Logs.update_log(log, %{
                  source_path: source,
                  kind: "video",
                  trim_start_ms: nil,
@@ -366,7 +366,7 @@ defmodule Web.Cuts do
         recorded_on = attrs["recorded_on"] || Date.to_iso8601(Web.Clock.local_today())
 
         with {:ok, log} <-
-               Audio.create_log(%{
+               Logs.create_log(%{
                  "recorded_on" => recorded_on,
                  "kind" => "video",
                  "status" => "pending",

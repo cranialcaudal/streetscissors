@@ -85,7 +85,7 @@ defmodule Web.ContentHealth do
           %{embeds: embeds, source: source} <- pages,
           target <- embeds,
           do: %{source: source, target: target}
-        ),
+        ) ++ cross_links(posts),
       posts: undescribed(posts),
       unused: unused_images(pages) ++ unused_vault_files(),
       archive: archive(),
@@ -152,12 +152,34 @@ defmodule Web.ContentHealth do
     end
   end
 
-  defp markdown(text) do
-    case Earmark.as_html(text, gfm: true) do
-      {:ok, html, _} -> html
-      {:error, html, _} -> html
-    end
+  # Cross-links that point at nothing: a post's `related:` ref, or a log's
+  # `post_ref`, naming a piece that is not there or not public (Web.Pieces).
+  defp cross_links(posts) do
+    from_posts =
+      for %{slug: slug} <- posts,
+          {:ok, post} <- [Blog.get_post(slug, drafts: true)],
+          ref <- Map.get(post, :related, []),
+          Web.Pieces.resolve(ref) == :error do
+        %{
+          source: %{label: post.title, where: "blog/#{slug}.md", edit: "/admin/blog/#{slug}/edit"},
+          target: "related: " <> ref
+        }
+      end
+
+    from_logs =
+      for log <- Web.Logs.list_logs(),
+          is_binary(log.post_ref),
+          Web.Pieces.resolve(log.post_ref) == :error do
+        %{
+          source: %{label: Web.Logs.Log.title(log), where: "logs/#{log.slug}", edit: "/admin/logs"},
+          target: "goes with " <> log.post_ref
+        }
+      end
+
+    from_posts ++ from_logs
   end
+
+  defp markdown(text), do: Web.Markdown.to_html(text)
 
   # --- Links -----------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 defmodule Web.AudioFixtures do
   @moduledoc """
-  Test helpers for the `Web.Audio` context (captain's logs).
+  Test helpers for the `Web.Logs` context (captain's logs).
   """
 
   @doc """
@@ -23,7 +23,7 @@ defmodule Web.AudioFixtures do
       |> Map.put_new("duration", 252)
       |> Map.put_new("published", true)
       |> put_new_media()
-      |> Web.Audio.create_log()
+      |> Web.Logs.create_log()
 
     log
   end

@@ -176,7 +176,7 @@ defmodule Web.Blog.Embeds do
 
     case Negatives.frame_path(roll, frame) do
       {:ok, _path} ->
-        src = "/negatives/frame/roll#{String.pad_leading(roll, 3, "0")}/#{frame}"
+        src = "/negatives/frame/roll#{Negatives.Roll.pad(roll)}/#{frame}"
 
         # The column a post is set in is never wider than this, so a phone
         # is offered the 960 copy rather than the full preview.

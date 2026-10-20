@@ -267,6 +267,20 @@ defmodule Web.Darkroom do
     |> Map.new()
   end
 
+  @doc """
+  The ids among `values` that `clean_controls/2` would drop for not being a
+  slider the engine offers (an unknown id, or a control with no range, such
+  as a curve), as opposed to one only sitting at its default. Said aloud
+  rather than lost quietly: a LightCraft upgrade that renames a slider would
+  otherwise strip it from every saved edit on the next save.
+  """
+  def unknown_controls(values, schema) do
+    sliders =
+      for %{"id" => id, "min" => _, "max" => _, "default" => _} <- schema, into: MapSet.new(), do: id
+
+    values |> Map.keys() |> Enum.reject(&MapSet.member?(sliders, &1)) |> Enum.sort()
+  end
+
   @doc "A crop the browser sent, or nil when it is the whole picture and level."
   def clean_crop(%{"rect" => rect} = crop) when is_list(rect) and length(rect) == 4 do
     angle = (number(crop["angle"]) || 0.0) |> max(-45.0) |> min(45.0)
@@ -320,6 +334,56 @@ defmodule Web.Darkroom do
         :ok
       end
     end
+  end
+
+  # ── One edit for many prints ──────────────────────────────────────────
+
+  defp clipboard_path, do: Path.join([Web.Negatives.base_path(), ".darkroom", "clipboard.json"])
+
+  @doc """
+  Keeps a print's sliders to paste onto another (`copied_controls/0`). Only
+  the sliders: a crop, the dust and a repair belong to one frame. Kept in a
+  file beside the archive's other darkroom state, so it outlasts moving from
+  one print's page to the next.
+  """
+  def copy_controls(controls) when is_map(controls) do
+    path = clipboard_path()
+
+    with :ok <- File.mkdir_p(Path.dirname(path)) do
+      Web.SourceFile.write_atomic(path, Jason.encode!(%{"controls" => controls}))
+    end
+  end
+
+  @doc "The sliders last copied, or nil."
+  def copied_controls do
+    with {:ok, body} <- File.read(clipboard_path()),
+         {:ok, %{"controls" => %{} = controls}} <- Jason.decode(body) do
+      controls
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Prints each of `frames` with `controls` as its sliders, each keeping its
+  own crop, dust and repair. `progress` is told `{done, total}` after each.
+  Returns the frames that could not be printed, with why.
+  """
+  def apply_controls(roll_dir, frames, controls, progress \\ fn _ -> :ok end) do
+    total = length(frames)
+
+    frames
+    |> Enum.with_index(1)
+    |> Enum.flat_map(fn {frame, done} ->
+      result = save(roll_dir, frame, %{recipe(roll_dir, frame) | controls: controls})
+      progress.({done, total})
+
+      case result do
+        :ok -> []
+        {:error, reason} -> [{frame, reason}]
+        other -> [{frame, inspect(other)}]
+      end
+    end)
   end
 
   @doc "Puts the print back as it was developed and forgets the recipe."
@@ -547,7 +611,9 @@ defmodule Web.Darkroom do
     |> Path.wildcard()
     |> Enum.each(&File.rm/1)
 
-    Task.start(fn -> Negatives.warm_frame_previews(Path.basename(roll_dir)) end)
+    Task.Supervisor.start_child(Web.TaskSupervisor, fn ->
+      Negatives.warm_frame_previews(Path.basename(roll_dir))
+    end)
   end
 
   defp last_line(output) do

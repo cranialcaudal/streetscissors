@@ -20,12 +20,40 @@
 # environment variable — config/prod.exs is static and runtime.exs is evaluated
 # at boot — so that whole class of failure is gone.
 #
-# Usage:  ops/redeploy.sh
+# Usage:  ops/redeploy.sh [--gate]
+#
+#   --gate   run `mix precommit` (format, warnings, the suite) first, and stop
+#            if it fails.
+#
+# Every run appends one line to ~/streetscissors-data/logs/deploys.log: when,
+# which commit, whether the tree was dirty, and how it ended.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+DEPLOY_LOG="$HOME/streetscissors-data/logs/deploys.log"
+mkdir -p "$(dirname "$DEPLOY_LOG")"
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+dirty=$([ -n "$(git status --porcelain 2>/dev/null)" ] && echo dirty || echo clean)
+outcome="failed"
+trap 'echo "$(date -Is) deploy ${commit} ${dirty} ${outcome}" >> "$DEPLOY_LOG"' EXIT
+
+# A migration that is not in git is a migration nobody can see in history, and
+# the working tree is what gets deployed. Refuse rather than ship it.
+untracked=$(git status --porcelain --untracked-files=all priv/repo/migrations 2>/dev/null | grep '^??' || true)
+if [ -n "$untracked" ]; then
+  echo "!! untracked migrations; commit them (or remove them) first:" >&2
+  echo "$untracked" >&2
+  exit 1
+fi
+
+if [ "${1:-}" = "--gate" ]; then
+  echo "==> Gate: mix precommit"
+  MIX_ENV=test mix precommit
+fi
+
 export MIX_ENV=prod
 
 echo "==> Assets (minify + digest)"
@@ -89,14 +117,41 @@ while scanner_busy; do
 done
 echo "    idle"
 
+# Migrations run when the new release boots, and ops/rollback.sh cannot undo
+# one. So when this build brings migrations the serving release does not have,
+# the database is snapshotted first (Web.Backup.run/0: VACUUM INTO, then read
+# back), through the node that is serving now.
+echo "==> Snapshot before new migrations"
+migrations() { ls "$1"/lib/web-*/priv/repo/migrations 2>/dev/null | sort; }
+if [ -d _build/prod/rel/web.previous ] && \
+   [ "$(migrations _build/prod/rel/web)" != "$(migrations _build/prod/rel/web.previous)" ]; then
+  if ! systemctl --user is-active --quiet streetscissors.service; then
+    if [ "${SKIP_SNAPSHOT:-}" != "1" ]; then
+      echo "!! new migrations, and the site is down so nothing can snapshot it." >&2
+      echo "!! Take a copy of the database by hand, then run again with SKIP_SNAPSHOT=1." >&2
+      exit 1
+    fi
+    echo "    the site is down; SKIP_SNAPSHOT=1, going on without a snapshot"
+  else
+    result=$("$ASK" rpc 'IO.write(inspect(Web.Backup.run()))' 2>&1 || true)
+    case "$result" in
+      "{:ok, "*) echo "    snapshot ${result}" ;;
+      *) echo "!! the snapshot before migrating failed: ${result}" >&2; exit 1 ;;
+    esac
+  fi
+else
+  echo "    no new migrations"
+fi
+
 echo "==> Restart"
 systemctl --user restart streetscissors.service
 
 echo "==> Wait for health"
 for _ in $(seq 1 30); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:4000/ || true)
+  # /health answers 200 only when the application and its database are up.
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:4000/health || true)
   if [ "$code" = "200" ]; then
-    echo "    up (localhost:4000 -> 200)"
+    echo "    up (localhost:4000/health -> 200)"
 
     # These must not be reachable in production.
     for path in /dev/dashboard /dev/mailbox; do
@@ -170,6 +225,7 @@ for _ in $(seq 1 30); do
       exit 1
     fi
 
+    outcome="ok"
     exit 0
   fi
   sleep 2

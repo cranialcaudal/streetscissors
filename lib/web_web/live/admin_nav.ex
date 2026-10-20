@@ -179,9 +179,9 @@ defmodule WebWeb.AdminNav do
 
     %{
       inbox: Map.get(messages, "inbox", 0) + Map.get(messages, "attention", 0),
-      guestbook: Web.General.count_held_guestbook_entries(),
+      guestbook: Web.Guestbook.count_held_guestbook_entries(),
       citations: Web.Webmentions.count_held(),
-      logs: Map.get(Web.Audio.count_by_status(), "failed", 0)
+      logs: Map.get(Web.Logs.count_by_status(), "failed", 0)
     }
   end
 end

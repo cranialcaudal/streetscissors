@@ -25,7 +25,7 @@ defmodule WebWeb.FeedController do
       rel="self">` and `<language>`.
   """
 
-  alias Web.Audio.Log
+  alias Web.Logs.Log
   alias Web.Keywords
 
   @limit 30
@@ -48,7 +48,7 @@ defmodule WebWeb.FeedController do
 
   def index(conn, _params) do
     items =
-      post_items(Web.Blog.list_posts()) ++ log_items(Web.Audio.list_ready_logs()) ++ roll_items()
+      post_items(Web.Blog.list_posts()) ++ log_items(Web.Logs.list_ready_logs()) ++ roll_items()
 
     feed(conn, items,
       title: "streetscissors",
@@ -59,7 +59,7 @@ defmodule WebWeb.FeedController do
 
   defp keyword_items(keyword) do
     posts = Enum.filter(Web.Blog.list_posts(), &(keyword in &1.keywords))
-    logs = Enum.filter(Web.Audio.list_ready_logs(), &(keyword in Log.keyword_list(&1)))
+    logs = Enum.filter(Web.Logs.list_ready_logs(), &(keyword in Log.keyword_list(&1)))
     post_items(posts) ++ log_items(logs)
   end
 

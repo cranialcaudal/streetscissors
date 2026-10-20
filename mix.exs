@@ -44,7 +44,7 @@ defmodule Web.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "precommit.check": :test, "test.fast": :test]
     ]
   end
 
@@ -57,7 +57,7 @@ defmodule Web.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.8.3"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
       {:ecto_sqlite3, ">= 0.0.0"},
@@ -81,7 +81,6 @@ defmodule Web.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:earmark, "~> 1.4"},
       {:quantum, "~> 3.0"},
@@ -151,7 +150,17 @@ defmodule Web.MixProject do
         &prune_stale_chunks/1,
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"],
+      # What CI runs: precommit's checks, failing instead of fixing.
+      "precommit.check": [
+        "format --check-formatted",
+        "deps.unlock --check-unused",
+        "compile --warnings-as-errors",
+        "test"
+      ],
+      # The quick loop: everything but the tests that run ffmpeg, ImageMagick,
+      # LightCraft or node (@moduletag :external).
+      "test.fast": ["test --exclude external"]
     ]
   end
 end

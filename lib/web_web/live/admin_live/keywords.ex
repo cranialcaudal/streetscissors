@@ -13,7 +13,7 @@ defmodule WebWeb.AdminLive.Keywords do
 
   import WebWeb.AdminComponents
 
-  alias Web.Audio.Log
+  alias Web.Logs.Log
   alias Web.Keywords.Index
 
   def mount(_params, session, socket) do

@@ -7,14 +7,25 @@ defmodule Web.Analytics do
   Bots, prefetches, the admin's own visits and the addresses in
   `EXCLUDED_IPS` are not counted.
 
-  The rest of the module answers questions about those hits: visitors today,
-  the two-week trend on the admin's front page, how many people have read each
-  post ("witnessed": distinct visitors, across every address the post has had).
+  The rest of the module answers questions about those hits, with one
+  vocabulary everywhere:
+
+    * **a view** is a hit: one page load (or one shown prefetch, `/seen`);
+    * **a visitor** is a distinct `ip_hash`, counted once per page however
+      the page's address was spelled: paths are percent-decoded and their
+      query dropped, and the visitors of every spelling are *unioned*, never
+      summed, so one reader at two spellings is one (`visitors_by_page/2`);
+    * **a day** starts at Pacific midnight (`Web.Clock`), so a window of
+      days is whole local days (`day_start_utc/1`).
+
+  Post "witnessed" counts are visitors, all time. Captain's logs count
+  *views* of their own kind (`Web.Logs`'s plays), which is a different
+  measure and is labelled so.
   """
 
   import Ecto.Query, warn: false
   alias Web.Repo
-  alias Web.Analytics.Hit
+  alias Web.Analytics.{Hit, PageWitness}
 
   @doc """
   Salted hash of a client IP, for counting a returning visitor as one visitor
@@ -184,15 +195,64 @@ defmodule Web.Analytics do
     {total_in_window, final_data}
   end
 
+  @doc "The pages most visitors have opened, all time: `[{path, visitors}]`."
   def top_pages(limit \\ 5) do
-    from(h in Hit,
-      group_by: h.path,
-      select: {h.path, count(h.id)},
-      order_by: [desc: count(h.id)],
-      limit: ^limit
-    )
-    |> Repo.all()
+    nil
+    |> visitors_by_page()
+    |> Enum.map(fn {path, visitors} -> {path, MapSet.size(visitors)} end)
+    |> Enum.sort_by(fn {path, n} -> {-n, path} end)
+    |> Enum.take(limit)
   end
+
+  @doc """
+  The visitors of each page, as `%{page => MapSet of ip_hash}`: hits whose
+  path is `LIKE` one of `patterns` (every hit when nil), since `since` (a UTC
+  `NaiveDateTime`, or nil for all time) and, with `before:`, before that. A page is its path decoded and
+  without its query, so the spellings of one address share one set.
+  """
+  def visitors_by_page(patterns, since \\ nil, opts \\ []) do
+    query =
+      from(h in Hit,
+        where: not is_nil(h.ip_hash),
+        distinct: true,
+        select: {h.path, h.ip_hash}
+      )
+
+    query = if since, do: where(query, [h], h.inserted_at >= ^since), else: query
+
+    query =
+      case opts[:before] do
+        nil -> query
+        before -> where(query, [h], h.inserted_at < ^before)
+      end
+
+    query =
+      case patterns do
+        nil ->
+          query
+
+        patterns ->
+          matches =
+            Enum.reduce(patterns, dynamic(false), fn pattern, acc ->
+              dynamic([h], ^acc or like(h.path, ^pattern))
+            end)
+
+          where(query, ^matches)
+      end
+
+    query
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn {path, ip_hash}, acc ->
+      Map.update(acc, page(path), MapSet.new([ip_hash]), &MapSet.put(&1, ip_hash))
+    end)
+  end
+
+  @doc "A hit's path as a page: decoded, without its query."
+  def page(path), do: path |> String.split("?") |> hd() |> URI.decode()
+
+  @doc "Pacific midnight starting `date`, as a UTC `NaiveDateTime`."
+  def day_start_utc(%Date{} = date),
+    do: Web.Clock.local_day_start_utc(DateTime.new!(date, ~T[20:00:00], "Etc/UTC"))
 
   @doc """
   Distinct visitors per slug, for a path prefix.
@@ -225,20 +285,71 @@ defmodule Web.Analytics do
   @doc """
   The visitors behind `all_hits_by_prefix/1`, as `%{slug => MapSet of
   ip_hash}`, before they are counted — so a caller merging a post's several
-  addresses can union the sets and count one reader once.
+  addresses can union the sets and count one reader once. Readers whose hits
+  have been pruned are still here, from `PageWitness`.
   """
   def visitors_by_prefix(prefix) do
-    from(h in Hit,
-      where: like(h.path, ^prefix),
-      distinct: true,
-      select: {h.path, h.ip_hash}
-    )
-    |> Repo.all()
-    |> Enum.reduce(%{}, fn {path, ip_hash}, acc ->
+    hits =
+      from(h in Hit,
+        where: like(h.path, ^prefix),
+        distinct: true,
+        select: {h.path, h.ip_hash}
+      )
+      |> Repo.all()
+
+    kept =
+      from(w in PageWitness, where: like(w.page, ^prefix), select: {w.page, w.ip_hash})
+      |> Repo.all()
+
+    Enum.reduce(hits ++ kept, %{}, fn {path, ip_hash}, acc ->
       slug = path |> String.split("/") |> List.last() |> URI.decode()
       Map.update(acc, slug, MapSet.new([ip_hash]), &MapSet.put(&1, ip_hash))
     end)
   end
+
+  # How long a hit keeps its user agent (needed only to purge bots that slipped
+  # through), how long a hit is kept at all (the dashboard's trend reads 392
+  # days), and which pages are counted for all time, so their readers are
+  # folded into PageWitness before their hits go.
+  @agent_days 30
+  @keep_days 400
+  @witnessed ["/blog/%", "/manuscripts/latent-sensus/%"]
+
+  @doc """
+  Retention, nightly (`Web.Scheduler`): a hit older than #{@agent_days} days
+  loses its user agent, and one older than #{@keep_days} days is deleted,
+  after a blog page's readers are folded into `PageWitness` so "witnessed"
+  stays all-time. `now` is for tests. Returns what was done.
+  """
+  def prune(now \\ NaiveDateTime.utc_now()) do
+    agent_cutoff = NaiveDateTime.add(now, -@agent_days * 86_400)
+    keep_cutoff = NaiveDateTime.add(now, -@keep_days * 86_400)
+
+    {anonymised, _} =
+      from(h in Hit, where: h.inserted_at < ^agent_cutoff and not is_nil(h.user_agent))
+      |> Repo.update_all(set: [user_agent: nil])
+
+    Repo.transaction(fn ->
+      stamp = NaiveDateTime.truncate(now, :second)
+
+      witnesses =
+        @witnessed
+        |> visitors_by_page(nil, before: keep_cutoff)
+        |> Enum.flat_map(fn {page, visitors} ->
+          Enum.map(visitors, &%{page: page, ip_hash: &1, inserted_at: stamp})
+        end)
+
+      witnesses
+      |> Enum.chunk_every(500)
+      |> Enum.each(&Repo.insert_all(PageWitness, &1, on_conflict: :nothing))
+
+      {deleted, _} = Repo.delete_all(from(h in Hit, where: h.inserted_at < ^keep_cutoff))
+      %{anonymised: anonymised, folded: length(witnesses), deleted: deleted}
+    end)
+  end
+
+  @doc false
+  def run_scheduled, do: prune()
 
   @doc """
   Forgets every visit. Nothing on the site calls this: it is for the console

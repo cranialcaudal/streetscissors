@@ -1,0 +1,23 @@
+<%!-- One saint's life, `/Christ/saints/:symbol`. Rendered by `WebWeb.ChristController.saint/2`;
+      the text is from `priv/liturgy/saints.json`. --%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav />
+
+    <header class={"christ-day christ-day--#{@entry.colour}"}>
+      <p class="christ-eyebrow">{month_day(%{month: @month, day: @day})}</p>
+      <h1 class="christ-day-title">{@entry.title}</h1>
+      <p class="christ-day-under">
+        <%= if @kept do %>
+          Kept this year on <a href={day_path(@kept, @today)}>{long_date(@kept)}</a>.
+        <% else %>
+          Not kept this year: the day gives way to one of higher rank.
+        <% end %>
+      </p>
+    </header>
+
+    <section class="christ-saints">
+      <.saint_card entry={@entry} saint={@saint} full />
+    </section>
+  </article>
+</div>
