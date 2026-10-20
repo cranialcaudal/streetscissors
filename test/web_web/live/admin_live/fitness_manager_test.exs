@@ -73,34 +73,48 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     assert e1rm =~ "<circle"
   end
 
-  test "a check-in is saved for the day, and a second one replaces it", %{conn: conn} do
+  test "a check-in asks the vault's checks, is saved for the day, and a second one replaces it",
+       %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
     today = Date.to_iso8601(Web.Clock.local_today())
 
+    assert has_element?(view, "#check-shoulder input[type=radio][value=sore]")
+    assert has_element?(view, "#check-bodyweight input[placeholder=lb]")
+
     view
-    |> form("#checkin-form", checkin: %{date: today, pain: "3", sleep_hours: "7.5", energy: "6"})
+    |> form("#checkin-form",
+      checkin: %{date: today, answers: %{shoulder: "sore", bodyweight: "171.4"}}
+    )
     |> render_submit()
 
     assert has_element?(view, "#flash-info", "Check-in saved.")
-    assert has_element?(view, "#checkin-guard", "Hold: pain 3 of 10")
+    assert has_element?(view, "#checkin-guard", "Shoulder: sore")
+    assert has_element?(view, "#checkins", "171.4 lb")
 
-    view |> form("#checkin-form", checkin: %{date: today, pain: "1"}) |> render_submit()
+    view
+    |> form("#checkin-form", checkin: %{date: today, answers: %{shoulder: "fine"}})
+    |> render_submit()
 
-    assert [%{pain: 1}] = Web.Fitness.recent_checkins(Web.Clock.local_today())
+    assert [%{answers: %{"shoulder" => "fine"}}] =
+             Web.Fitness.recent_checkins(Web.Clock.local_today())
+
     refute has_element?(view, "#checkin-guard")
   end
 
-  test "a check-in out of range is refused", %{conn: conn} do
+  test "a number check refuses an answer that is not a number", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
 
     html =
       view
       |> form("#checkin-form",
-        checkin: %{date: Date.to_iso8601(Web.Clock.local_today()), pain: "11"}
+        checkin: %{
+          date: Date.to_iso8601(Web.Clock.local_today()),
+          answers: %{bodyweight: "heavy"}
+        }
       )
       |> render_submit()
 
-    assert html =~ "Pain must be less than or equal to 10"
+    assert html =~ "Bodyweight must be a number"
     assert Web.Fitness.recent_checkins(Web.Clock.local_today()) == []
   end
 end

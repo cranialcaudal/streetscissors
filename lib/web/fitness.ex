@@ -127,6 +127,25 @@ defmodule Web.Fitness do
     )
   end
 
+  @doc "A log entry's values in a line: `185 lbs · 3 x 8 @ RPE 8 · 40 m`."
+  def entry_line(%{metrics: metrics, note: note}) do
+    work =
+      case {metrics["sets"], metrics["reps"]} do
+        {nil, nil} -> nil
+        {sets, nil} -> "#{sets} sets"
+        {nil, reps} -> "#{reps} reps"
+        {sets, reps} -> "#{sets} x #{reps}"
+      end
+
+    work = if(work && metrics["rpe"], do: "#{work} @ RPE #{metrics["rpe"]}", else: work)
+
+    values =
+      [metrics["weight"], work, metrics["distance"], metrics["time"], metrics["result"]]
+      |> Enum.reject(&is_nil/1)
+
+    Enum.join(values ++ List.wrap(note), " · ")
+  end
+
   @doc "Everything logged on a day, in the order it was entered, exercise loaded."
   def exercise_logs_on(%Date{} = date) do
     Repo.all(
@@ -167,18 +186,26 @@ defmodule Web.Fitness do
     )
   end
 
-  @doc "Records a day's check-in, replacing the one already made that day."
-  def save_checkin(attrs) do
-    date = attrs["date"] || attrs[:date]
-
+  @doc """
+  Records a day's check-in, replacing the one already made that day. The
+  date may be a `Date` or the form's ISO string. `checks` are the vault's
+  (`Web.Fitness.Checks.all/0`): a number check's answer must be a number.
+  """
+  def save_checkin(attrs, checks \\ []) do
     existing =
-      case date do
-        %Date{} -> checkin_on(date)
-        _ -> nil
+      case attrs["date"] || attrs[:date] do
+        %Date{} = date ->
+          checkin_on(date)
+
+        text when is_binary(text) ->
+          with {:ok, date} <- Date.from_iso8601(text), do: checkin_on(date), else: (_ -> nil)
+
+        _ ->
+          nil
       end
 
     (existing || %Checkin{})
-    |> Checkin.changeset(attrs)
+    |> Checkin.changeset(attrs, checks)
     |> Repo.insert_or_update()
   end
 

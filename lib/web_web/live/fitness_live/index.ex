@@ -2,7 +2,7 @@ defmodule WebWeb.FitnessLive.Index do
   use WebWeb, :live_view
 
   alias Web.Fitness
-  alias Web.Fitness.{Block, Guardrails, Progression, Training, Vault}
+  alias Web.Fitness.{Block, Checks, Coach, Guardrails, Prescription, Progression, Vault}
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   @fuelling "nutrition-module"
@@ -52,16 +52,11 @@ defmodule WebWeb.FitnessLive.Index do
       :extra_modules,
       listed |> Enum.reject(&(&1.slug in [@fuelling | @weekdays])) |> Enum.map(&with_html/1)
     )
-    # The block's week is the admin's: a visitor's page says nothing of
-    # training state (see the privacy tests).
+    # The block's week, the check-ins and every number are the admin's: a
+    # visitor's page says nothing of training state (see the privacy tests).
     |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
-    |> assign_guard()
-    |> assign(:logging_slug, nil)
-    |> assign(:logging_name, nil)
-    |> assign(:logging_last, nil)
-    |> assign(:logging_target, nil)
-    |> assign(:logging_guard, nil)
-    |> assign(:logging_instead, nil)
+    |> assign(:logging, nil)
+    |> assign_coach()
     |> assign_logged_today()
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
@@ -122,11 +117,12 @@ defmodule WebWeb.FitnessLive.Index do
     case Fitness.loggable_exercise(slug) do
       {:ok, exercise} ->
         {:noreply,
-         socket
-         |> assign(:logging_slug, slug)
-         |> assign(:logging_name, exercise.name)
-         |> assign(:logging_last, Fitness.last_exercise_log(exercise.id))
-         |> assign_target(exercise)}
+         assign(socket, :logging, %{
+           slug: slug,
+           name: exercise.name,
+           last: Fitness.last_exercise_log(exercise.id),
+           plan: plan_for(socket, slug, exercise.name)
+         })}
 
       :error ->
         {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
@@ -143,24 +139,58 @@ defmodule WebWeb.FitnessLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("save_log", %{"log" => params}, socket) do
-    with {:ok, exercise} <- Fitness.loggable_exercise(socket.assigns.logging_slug),
-         metrics when map_size(metrics) > 0 <- log_metrics(params) do
+  def handle_event("save_log", %{"log" => params}, %{assigns: %{logging: %{slug: slug}}} = socket) do
+    save(socket, slug, log_metrics(params), blank_to_nil(params["note"]))
+  end
+
+  def handle_event("save_log", _params, socket), do: {:noreply, socket}
+
+  # One tap: the set the plan (or the target) asks for, logged as done. From
+  # the "Done" button under a line, or the form's "Done as planned".
+  def handle_event("log_planned", _params, %{assigns: %{is_admin: false}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("log_planned", %{"slug" => slug}, socket) do
+    with {:ok, exercise} <- Fitness.loggable_exercise(slug) do
+      plan = plan_for(socket, slug, exercise.name)
+      save(socket, slug, planned_metrics(plan), nil)
+    else
+      :error ->
+        {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
+    end
+  end
+
+  def handle_event("delete_log", _params, %{assigns: %{is_admin: false}} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("delete_log", %{"id" => id}, socket) do
+    with {id, ""} <- Integer.parse(id), do: Fitness.delete_exercise_log(id)
+
+    {:noreply,
+     socket |> put_flash(:info, "Entry removed.") |> assign_coach() |> assign_logged_today()}
+  end
+
+  defp save(socket, slug, metrics, note) do
+    with {:ok, exercise} <- Fitness.loggable_exercise(slug),
+         true <- map_size(metrics) > 0 do
       attrs = %{
         exercise_id: exercise.id,
         # The day it is here, not in Greenwich: an evening session was being
         # filed under tomorrow.
         date: Web.Clock.local_today(),
         metrics: metrics,
-        note: blank_to_nil(params["note"])
+        note: note
       }
 
       case Fitness.create_exercise_log(attrs) do
-        {:ok, _log} ->
+        {:ok, log} ->
           {:noreply,
            socket
-           |> put_flash(:info, "Logged #{exercise.name}.")
+           |> put_flash(:info, "Logged #{exercise.name}: #{Fitness.entry_line(log)}.")
            |> close_log()
+           |> assign_coach()
            |> assign_logged_today()}
 
         {:error, _changeset} ->
@@ -171,70 +201,98 @@ defmodule WebWeb.FitnessLive.Index do
     end
   end
 
-  def handle_event("delete_log", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
+  defp close_log(socket), do: assign(socket, :logging, nil)
 
-  def handle_event("delete_log", %{"id" => id}, socket) do
-    with {id, ""} <- Integer.parse(id), do: Fitness.delete_exercise_log(id)
-    {:noreply, socket |> put_flash(:info, "Entry removed.") |> assign_logged_today()}
-  end
-
-  defp close_log(socket) do
-    socket
-    |> assign(:logging_slug, nil)
-    |> assign(:logging_name, nil)
-    |> assign(:logging_last, nil)
-    |> assign(:logging_target, nil)
-    |> assign(:logging_guard, nil)
-    |> assign(:logging_instead, nil)
-  end
-
-  # The day's guardrail, before any lift is chosen: pain alone, which the
-  # admin sees beside the block's week.
-  defp assign_guard(%{assigns: %{block: nil}} = socket), do: assign(socket, :guard, nil)
-
-  defp assign_guard(socket) do
+  # Every exercise on the day as the admin sees it (Web.Fitness.Coach): the
+  # line under it, its guardrail, its target and what its form starts from;
+  # and the day's check-in standing beside the block's week. Nothing for a
+  # visitor.
+  defp assign_coach(%{assigns: %{is_admin: true, day: day, block: block}} = socket) do
     today = Web.Clock.local_today()
-    state = Guardrails.state(nil, Fitness.recent_checkins(today), [], today)
-    assign(socket, :guard, Guardrails.line(state))
+
+    standing =
+      Fitness.recent_checkins(today)
+      |> Guardrails.today(today, Checks.all())
+      |> Enum.map_join(" · ", fn {label, answer, _level} -> "#{label}: #{answer}" end)
+
+    assign(socket, coach: Coach.day(day.slug, today, block), standing: blank_to_nil(standing))
   end
 
-  # What to aim at next time, when the exercise is one of the running
-  # block's lifts and the rule has something to say (not in Baseline week),
-  # with the guardrails' verdict for that lift applied.
-  defp assign_target(%{assigns: %{block: nil}} = socket, _exercise), do: socket
+  defp assign_coach(socket), do: assign(socket, coach: %{}, standing: nil)
 
-  defp assign_target(%{assigns: %{block: block}} = socket, exercise) do
-    case Block.lift(block, exercise.slug) do
-      nil ->
-        socket
+  # An exercise the day's plan does not list (a rotating option, an extra
+  # module) still gets a form fitted to it, from its name.
+  defp plan_for(%{assigns: %{coach: coach, block: block}}, slug, name) do
+    Map.get_lazy(coach, slug, fn ->
+      today = Web.Clock.local_today()
+      logs = slug |> Fitness.exercise_logs_for() |> Enum.reverse()
 
-      rule ->
-        today = Web.Clock.local_today()
-
-        state =
-          Guardrails.state(
-            rule,
-            Fitness.recent_checkins(today),
-            Training.all_entries(block),
-            today
-          )
-
-        target =
-          rule
-          |> Progression.next_target(Fitness.recent_exercise_logs(exercise.id), block)
-          |> Guardrails.apply_to(rule, state)
-
-        instead = if elem(state, 0) == :stop, do: Guardrails.substitute(block, rule)
-
-        assign(socket,
-          logging_target: target,
-          logging_guard: Guardrails.line(state),
-          logging_instead: instead
-        )
-    end
+      Coach.plan(
+        Prescription.bare(slug, name),
+        logs,
+        block,
+        [],
+        Fitness.recent_checkins(today),
+        Checks.all(),
+        today
+      )
+    end)
   end
+
+  # The admin's notes under each Log button in the rendered plan: the line
+  # (last time, the target), the guardrail, and the one-tap Done. Escaped
+  # text only; no checkbox and no `data-day`, which GymRoutine counts.
+  defp annotate(html, coach) when coach == %{}, do: html
+
+  defp annotate(html, coach) do
+    Regex.replace(
+      ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)},
+      html,
+      fn whole, _button, slug ->
+        case coach[slug] do
+          nil -> whole
+          plan -> whole <> notes(plan)
+        end
+      end
+    )
+  end
+
+  defp notes(plan) do
+    esc = &(&1 |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string())
+    level = plan.verdict |> elem(0) |> to_string()
+
+    parts =
+      [
+        plan.hint && ~s(<span class="log-hint">#{esc.(plan.hint)}</span>),
+        plan.guard &&
+          ~s(<span class="log-guard log-guard--#{level}">#{esc.(plan.guard)}#{if plan.instead, do: esc.(". Instead: " <> plan.instead), else: ""}</span>),
+        elem(plan.verdict, 0) != :stop && planned_metrics(plan) != %{} &&
+          ~s(<button type="button" class="log-quick" phx-click="log_planned" phx-value-slug="#{plan.slug}" title="Log the planned set as done">Done</button>)
+      ]
+      |> Enum.filter(& &1)
+
+    if parts == [], do: "", else: ~s(<span class="log-notes">#{Enum.join(parts)}</span>)
+  end
+
+  # The planned set as metrics: what "Done" logs.
+  defp planned_metrics(%{defaults: d, prescription: p}) do
+    %{}
+    |> put_number(
+      "weight",
+      d.weight && p.kind in [:weight, :carry, :reps] && d.weight > 0 &&
+        "#{format_n(d.weight)} lbs"
+    )
+    |> put_number("sets", d.sets)
+    |> put_number("reps", d.reps && p.kind in [:weight, :reps, :jump] && d.reps)
+    |> put_number("time", d.seconds && p.kind == :hold && "#{d.seconds} sec")
+    |> put_number("distance", d.metres && p.kind == :carry && "#{d.metres} m")
+  end
+
+  defp put_number(map, _key, v) when v in [nil, false, ""], do: map
+  defp put_number(map, key, v), do: Map.put(map, key, to_string(v))
+
+  defp format_n(w) when is_float(w) and w == trunc(w), do: Integer.to_string(trunc(w))
+  defp format_n(w), do: to_string(w)
 
   # What has been logged today, for the admin only: the proof an entry went
   # in, and the place to take a wrong one back out.
@@ -243,38 +301,39 @@ defmodule WebWeb.FitnessLive.Index do
 
   defp assign_logged_today(socket), do: assign(socket, :logged_today, [])
 
-  @doc "A log entry's values in a line: `185 lbs · 3 x 8 @ RPE 8 · 2 miles`."
-  def log_line(%{metrics: metrics, note: note}) do
-    work =
-      case {metrics["sets"], metrics["reps"]} do
-        {nil, nil} -> nil
-        {sets, nil} -> "#{sets} sets"
-        {nil, reps} -> "#{reps} reps"
-        {sets, reps} -> "#{sets} x #{reps}"
+  @doc "A log entry's values in a line (`Web.Fitness.entry_line/1`)."
+  def log_line(log), do: Fitness.entry_line(log)
+
+  # The form's fields as the `metrics` map the CSV export reads: strings
+  # like "35 lbs", "3", "45 sec", "40 m", "20 in". A typed weight wins over
+  # the stepped one; a field left at its blank is no value.
+  defp log_metrics(params) do
+    weight =
+      case {blank_to_nil(params["weight_other"]), blank_to_nil(params["weight"])} do
+        {typed, _} when is_binary(typed) -> String.trim(typed)
+        {nil, "0"} -> nil
+        {nil, picked} when is_binary(picked) -> "#{picked} lbs"
+        _ -> nil
       end
 
-    work = if(work && metrics["rpe"], do: "#{work} @ RPE #{metrics["rpe"]}", else: work)
-
-    values =
-      [metrics["weight"], work, metrics["distance"], metrics["time"], metrics["result"]]
-      |> Enum.reject(&is_nil/1)
-
-    Enum.join(values ++ List.wrap(note), " · ")
-  end
-
-  # Builds the `metrics` map the CSV export already understands
-  # (fitness_controller.ex reads string values like "200 lbs"/"2 miles" out
-  # of these same keys) — only the fields the user actually filled in.
-  defp log_metrics(params) do
     %{}
-    |> put_metric("weight", params["weight"])
+    |> put_metric("weight", weight)
     |> put_metric("sets", params["sets"])
     |> put_metric("reps", params["reps"])
     |> put_metric("rpe", params["rpe"])
-    |> put_metric("distance", params["distance"])
-    |> put_metric("time", params["time"])
-    |> put_metric("result", params["result"])
+    |> put_metric("time", params["seconds"] |> blank_to_nil() |> suffix(" sec") || params["time"])
+    |> put_metric(
+      "distance",
+      params["metres"] |> blank_to_nil() |> suffix(" m") || params["distance"]
+    )
+    |> put_metric(
+      "result",
+      params["height"] |> blank_to_nil() |> suffix(" in") || params["result"]
+    )
   end
+
+  defp suffix(nil, _unit), do: nil
+  defp suffix(value, unit), do: value <> unit
 
   defp put_metric(map, _key, nil), do: map
   defp put_metric(map, _key, ""), do: map
@@ -283,6 +342,102 @@ defmodule WebWeb.FitnessLive.Index do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(v), do: v
+
+  # The log form's fields, fitted to the exercise (`Prescription` kinds):
+  # dropdowns that start at the target, else the last entry, else the plan,
+  # so logging the usual is a Save and a change is one pick.
+  attr :plan, :map, required: true
+
+  defp log_fields(assigns) do
+    d = assigns.plan.defaults
+    kind = assigns.plan.prescription.kind
+    {_low, high} = reps_range(assigns.plan)
+
+    assigns =
+      assign(assigns,
+        kind: kind,
+        d: d,
+        weights: weight_options(d.weight),
+        reps: Enum.to_list(1..max(20, high + 5)),
+        seconds: Enum.to_list(10..180//5),
+        metres: Enum.to_list(10..200//10),
+        heights: Enum.to_list(6..42//2)
+      )
+
+    ~H"""
+    <div class="log-modal-row">
+      <label :if={@kind in [:weight, :carry, :reps]}>
+        {if @kind == :reps, do: "Added weight", else: "Weight"}
+        <select name="log[weight]">
+          <option value="0" selected={is_nil(@d.weight)}>
+            {if @kind == :reps, do: "none", else: "—"}
+          </option>
+          <option :for={w <- @weights} value={num(w)} selected={@d.weight == w}>{num(w)} lb</option>
+        </select>
+      </label>
+      <label>
+        Sets
+        <select name="log[sets]">
+          <option :for={n <- 1..8} value={n} selected={(@d.sets || 3) == n}>{n}</option>
+        </select>
+      </label>
+      <label :if={@kind in [:weight, :reps, :jump]}>
+        Reps
+        <select name="log[reps]">
+          <option :for={n <- @reps} value={n} selected={@d.reps == n}>{n}</option>
+        </select>
+      </label>
+      <label :if={@kind == :hold}>
+        Seconds
+        <select name="log[seconds]">
+          <option :for={n <- @seconds} value={n} selected={(@d.seconds || 30) == n}>{n}</option>
+        </select>
+      </label>
+      <label :if={@kind == :carry}>
+        Metres
+        <select name="log[metres]">
+          <option :for={n <- @metres} value={n} selected={(@d.metres || 40) == n}>{n}</option>
+        </select>
+      </label>
+      <label :if={@kind == :jump}>
+        Height (in)
+        <select name="log[height]">
+          <option value="">—</option>
+          <option :for={n <- @heights} value={n} selected={@d.height == n}>{n}</option>
+        </select>
+      </label>
+      <label :if={@kind in [:weight, :reps, :jump]}>
+        RPE
+        <select name="log[rpe]" title="7: three left in the tank · 8: two · 9: one · 10: none">
+          <option value="">—</option>
+          <option :for={r <- rpe_options()} value={r} selected={@d.rpe == r}>{r}</option>
+        </select>
+      </label>
+    </div>
+    <label :if={@kind in [:weight, :carry, :reps]} class="log-modal-other">
+      Another weight <input type="text" name="log[weight_other]" placeholder="e.g. 47.5 lbs, 20 kg" />
+    </label>
+    """
+  end
+
+  defp reps_range(%{rule: %{low: low, high: high}}), do: {low, high}
+  defp reps_range(%{prescription: %{reps: {low, high}}}), do: {low, high}
+  defp reps_range(_plan), do: {1, 12}
+
+  # Stepped around where the lift is: 2.5 lb under 25 lb, 5 above; a lift
+  # with no weight yet gets the usual dumbbell and plate run.
+  defp weight_options(nil),
+    do: (Enum.to_list(5..100//5) ++ Enum.to_list(110..400//10)) |> Enum.map(&(&1 * 1.0))
+
+  defp weight_options(ref) do
+    step = if ref < 25, do: 2.5, else: 5.0
+    for i <- -8..8, w = Float.round(ref + i * step, 1), w > 0, do: w
+  end
+
+  defp rpe_options, do: ~w(6 6.5 7 7.5 8 8.5 9 9.5 10)
+
+  defp num(w) when is_float(w) and w == trunc(w), do: Integer.to_string(trunc(w))
+  defp num(w), do: to_string(w)
 
   @impl true
   def render(assigns) do
@@ -333,7 +488,11 @@ defmodule WebWeb.FitnessLive.Index do
                 <h1 class="day-page-title">{@day.title}</h1>
                 <p :if={@block} class="day-page-block" id="block-week">
                   {@block.title} · Week {@block.week} of {@block.weeks} — {@block.phase}
-                  <span :if={@guard} class="day-page-guard" id="block-guard">· {@guard}</span>
+                  <span :if={@standing} class="day-page-guard" id="block-guard">· {@standing}</span>
+                  ·
+                  <.link navigate={~p"/admin/fitness/block"} class="day-page-back">
+                    Block report
+                  </.link>
                 </p>
                 <ul :if={@blocks != []} class="week-chips day-page-blocks">
                   <li
@@ -347,7 +506,7 @@ defmodule WebWeb.FitnessLive.Index do
               </header>
 
               <div class="day-content vault-day markdown-body">
-                {raw(@day.html)}
+                {raw(annotate(@day.html, @coach))}
 
                 <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
                   cycle) render each option as its own dropdown, with the one
@@ -366,7 +525,7 @@ defmodule WebWeb.FitnessLive.Index do
                       <.icon name="hero-chevron-down" class="summary-icon" />
                     </summary>
                     <div class="option-content vault-day markdown-body">
-                      {raw(option.html)}
+                      {raw(annotate(option.html, @coach))}
                     </div>
                   </details>
                 </div>
@@ -442,7 +601,7 @@ defmodule WebWeb.FitnessLive.Index do
             clock times render for the admin only. --%>
       <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
 
-      <%= if @logging_slug do %>
+      <%= if @logging do %>
         <%!-- No phx-click on the backdrop: LiveView hands a click to the
               nearest ancestor that has one, so every click *inside* the form,
               on a field included, closed it. Clicking outside the form is
@@ -452,43 +611,45 @@ defmodule WebWeb.FitnessLive.Index do
             class="log-modal"
             phx-click-away="close_log"
             role="dialog"
-            aria-label={"Log #{@logging_name}"}
+            aria-label={"Log #{@logging.name}"}
           >
-            <h3>Log: {@logging_name}</h3>
-            <p :if={@logging_last} class="log-modal-last">
-              Last time, {Calendar.strftime(@logging_last.date, "%-d %b")}: {log_line(@logging_last)}
+            <h3>Log: {@logging.name}</h3>
+            <p :if={@logging.plan.prescription.text != ""} class="log-modal-plan">
+              Plan: {@logging.plan.prescription.text}
             </p>
-            <p :if={@logging_target} class="log-modal-target" id="log-target">
-              Target: {Progression.target_line(@logging_target)}
+            <p :if={@logging.last} class="log-modal-last">
+              Last time, {Calendar.strftime(@logging.last.date, "%-d %b")}: {log_line(@logging.last)}
             </p>
-            <p :if={@logging_guard} class="log-modal-guard" id="log-guard">
-              {@logging_guard}<span :if={@logging_instead}>. Instead: {@logging_instead}</span>
+            <p :if={@logging.plan.target} class="log-modal-target" id="log-target">
+              Target: {Progression.target_line(@logging.plan.target)}
             </p>
-            <form phx-submit="save_log">
-              <label>
-                Weight <input type="text" name="log[weight]" placeholder="e.g. 200 lbs" autofocus />
-              </label>
-              <div class="log-modal-row">
+            <p :if={@logging.plan.guard} class="log-modal-guard" id="log-guard">
+              {@logging.plan.guard}<span :if={@logging.plan.instead}>. Instead: {@logging.plan.instead}</span>
+            </p>
+            <button
+              :if={elem(@logging.plan.verdict, 0) != :stop}
+              type="button"
+              class="log-planned-btn"
+              id="log-planned"
+              phx-click="log_planned"
+              phx-value-slug={@logging.slug}
+            >
+              Done as planned
+            </button>
+            <form phx-submit="save_log" id="log-form">
+              <.log_fields plan={@logging.plan} />
+              <details class="log-modal-more">
+                <summary>Something else</summary>
                 <label>
-                  Sets <input type="text" name="log[sets]" inputmode="numeric" placeholder="3" />
+                  Distance <input type="text" name="log[distance]" placeholder="e.g. 2 miles" />
                 </label>
                 <label>
-                  Reps
-                  <input type="text" name="log[reps]" inputmode="numeric" placeholder="top set" />
+                  Time <input type="text" name="log[time]" placeholder="e.g. 8:26 pace" />
                 </label>
                 <label>
-                  RPE <input type="text" name="log[rpe]" inputmode="decimal" placeholder="1–10" />
+                  Result <input type="text" name="log[result]" placeholder="e.g. 30 inches" />
                 </label>
-              </div>
-              <label>
-                Distance <input type="text" name="log[distance]" placeholder="e.g. 2 miles" />
-              </label>
-              <label>
-                Time <input type="text" name="log[time]" placeholder="e.g. 8:26 pace" />
-              </label>
-              <label>
-                Result <input type="text" name="log[result]" placeholder="e.g. 30 inches, 20 reps" />
-              </label>
+              </details>
               <label>
                 Note <input type="text" name="log[note]" placeholder="optional" />
               </label>
@@ -563,8 +724,18 @@ defmodule WebWeb.FitnessLive.Index do
       .log-modal input { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; background: rgba(23, 20, 15, 0.05); border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); font-size: 0.9rem; }
       .log-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
       .log-modal-target { margin: -0.5rem 0 1rem; color: var(--ink); font-family: var(--font-data); font-size: 0.85rem; }
+      .log-notes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; margin: 0.2rem 0 0.1rem; font-size: 0.8rem; }
+      .log-hint { font-family: var(--font-data); color: var(--ink-2); }
+      .log-guard { color: var(--ink); font-weight: 600; }
+      .log-guard--stop { color: var(--color-orange); }
+      .log-quick { padding: 0.15rem 0.6rem; font-family: var(--font-ui); font-size: 0.75rem; color: var(--accent-ink, var(--ink)); background: none; border: 1px solid currentColor; border-radius: 3px; cursor: pointer; }
+      .log-modal-plan { margin: -0.5rem 0 0.75rem; color: var(--ink-2); font-size: 0.85rem; }
+      .log-modal select { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem; background: rgba(23, 20, 15, 0.05); border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); font-size: 0.9rem; }
+      .log-modal-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: 0.75rem; }
+      .log-planned-btn { display: block; width: 100%; margin: 0 0 1rem; padding: 0.75rem; font-family: var(--font-ui); font-weight: 600; color: var(--paper); background: var(--accent-ink, var(--ink)); border: 0; border-radius: 4px; cursor: pointer; }
+      .log-modal-more { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--ink-3); }
+      .log-modal-more summary { cursor: pointer; margin-bottom: 0.5rem; }
       .log-modal-guard { margin: -0.5rem 0 1rem; color: var(--accent-ink, var(--ink)); font-size: 0.85rem; }
-      .log-modal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
       .log-save-btn { background: var(--theme-color); border: none; color: var(--paper); padding: 0.4rem 1rem; border-radius: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-weight: bold; }
     </style>
     """

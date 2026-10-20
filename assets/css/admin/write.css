@@ -427,3 +427,42 @@
   background: var(--st-bay);
   border-radius: var(--st-radius-sm, 4px);
 }
+
+/* A state check as one row of choices (?tab=checkin): the radio is the
+   whole pill, so one tap answers it. */
+.adm-fit-check { margin: 0; padding: 0; border: 0; min-width: 0; }
+.adm-fit-states { display: flex; flex-wrap: wrap; gap: var(--st-space-2, 0.5rem); }
+
+.adm-fit-state {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--st-space-3, 0.75rem);
+  border: 1px solid var(--st-line-strong);
+  border-radius: 999px;
+  color: var(--st-ink-2);
+  cursor: pointer;
+}
+
+.adm-fit-state input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.adm-fit-state:has(input:focus-visible) { outline: 2px solid var(--st-accent); outline-offset: 2px; }
+.adm-fit-state:has(input:checked) { color: var(--st-on-accent); background: var(--st-accent); border-color: var(--st-accent); }
+.adm-fit-state--hold:has(input:checked) { background: var(--st-warn); border-color: var(--st-warn); }
+.adm-fit-state--stop:has(input:checked) { background: var(--st-fail); border-color: var(--st-fail); }
+.adm-fit-state--skip { border-style: dashed; color: var(--st-ink-3); }
+.adm-fit-state--skip:has(input:checked) { color: var(--st-ink-2); background: none; border-color: var(--st-line-strong); }
+
+.adm-fit-hypothesis { margin: 0 0 var(--st-space-4, 1rem); font-family: var(--st-font-display); color: var(--st-ink-2); }
+
+/* Each pose's first photograph beside its latest. */
+.adm-fit-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--st-space-4, 1rem);
+  margin: 0 0 var(--st-space-6, 1.5rem);
+}
+.adm-fit-pose { margin: 0; }
+.adm-fit-pose img,
+.adm-fit-pair img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; background: var(--st-bay); border-radius: var(--st-radius-sm, 4px); }
+.adm-fit-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--st-space-2, 0.5rem); }

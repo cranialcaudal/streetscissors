@@ -198,14 +198,19 @@ defmodule WebWeb.FitnessLandingTest do
 
     test "a saved entry is confirmed in a notice and listed under the day", %{view: view} do
       view
-      |> form("form[phx-submit=save_log]", log: %{weight: "bodyweight", result: "3 x 12"})
+      |> form("form[phx-submit=save_log]", log: %{weight: "0", sets: "3", reps: "12"})
       |> render_submit()
 
-      assert has_element?(view, "#flash-info.flash-notice[role=status]", "Logged Push-ups.")
+      assert has_element?(
+               view,
+               "#flash-info.flash-notice[role=status]",
+               "Logged Push-ups: 3 x 12."
+             )
+
       refute has_element?(view, "form[phx-submit=save_log]")
 
       assert has_element?(view, "#logged-today .day-logged-name", "Push-ups")
-      assert has_element?(view, "#logged-today .day-logged-values", "bodyweight · 3 x 12")
+      assert has_element?(view, "#logged-today .day-logged-values", "3 x 12")
 
       # Filed under the day it is here, not in Greenwich.
       assert [%{date: date}] = Web.Fitness.list_exercise_logs()
@@ -221,6 +226,16 @@ defmodule WebWeb.FitnessLandingTest do
       assert has_element?(view, ".log-modal-last", "3 x 12")
     end
 
+    test "Done logs the planned set in one tap", %{view: view} do
+      view |> element("#log-planned") |> render_click()
+
+      assert [%{metrics: %{"sets" => "3", "reps" => "12"} = metrics}] =
+               Web.Fitness.list_exercise_logs()
+
+      refute Map.has_key?(metrics, "weight")
+      assert has_element?(view, "#logged-today .day-logged-values", "3 x 12")
+    end
+
     test "a wrong entry can be taken back out", %{view: view} do
       view |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"}) |> render_submit()
       [log] = Web.Fitness.list_exercise_logs()
@@ -231,8 +246,10 @@ defmodule WebWeb.FitnessLandingTest do
       assert Web.Fitness.list_exercise_logs() == []
     end
 
+    # The form's dropdowns always hold a value; an empty entry can only come
+    # from a crafted event, and is still refused.
     test "an empty entry is refused in an alert, with the form still open", %{view: view} do
-      view |> form("form[phx-submit=save_log]") |> render_submit()
+      render_submit(view, "save_log", %{"log" => %{"weight" => "0", "note" => ""}})
 
       assert has_element?(
                view,
@@ -247,24 +264,24 @@ defmodule WebWeb.FitnessLandingTest do
          %{view: view} do
       view
       |> form("form[phx-submit=save_log]",
-        log: %{weight: "185 lbs", sets: "3", reps: "8", rpe: "8"}
+        log: %{weight: "20", sets: "3", reps: "8", rpe: "8"}
       )
       |> render_submit()
 
       assert [%{metrics: metrics}] = Web.Fitness.list_exercise_logs()
-      assert metrics == %{"weight" => "185 lbs", "sets" => "3", "reps" => "8", "rpe" => "8"}
-      assert has_element?(view, "#logged-today .day-logged-values", "185 lbs · 3 x 8 @ RPE 8")
+      assert metrics == %{"weight" => "20 lbs", "sets" => "3", "reps" => "8", "rpe" => "8"}
+      assert has_element?(view, "#logged-today .day-logged-values", "20 lbs · 3 x 8 @ RPE 8")
     end
 
     # The fixture vault's block (blocks/test-block.md) tracks push-ups and is
-    # in its Accumulate weeks whatever day the suite runs.
+    # in its Push weeks whatever day the suite runs.
     test "the block's week is shown, and a block lift's next target", %{view: view, conn: conn} do
       assert has_element?(view, ".day-page-head #block-week", "Test Block · Week")
-      assert has_element?(view, "#block-week", "Accumulate")
+      assert has_element?(view, "#block-week", "Push")
       refute has_element?(view, "#log-target"), "no entry yet, so nothing to aim at"
 
       view
-      |> form("form[phx-submit=save_log]", log: %{weight: "20 lbs", sets: "3", reps: "12"})
+      |> form("form[phx-submit=save_log]", log: %{weight: "20", sets: "3", reps: "12"})
       |> render_submit()
 
       {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
@@ -273,7 +290,7 @@ defmodule WebWeb.FitnessLandingTest do
       assert has_element?(view, "#log-target", "Target: 3 x 8 @ 25 lbs")
     end
 
-    test "a painful check-in holds the target and says why", %{conn: conn} do
+    test "a check-in that holds an exercise holds its target and says why", %{conn: conn} do
       {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
 
       {:ok, _} =
@@ -283,14 +300,19 @@ defmodule WebWeb.FitnessLandingTest do
           metrics: %{"weight" => "20 lbs", "sets" => "3", "reps" => "12"}
         })
 
-      {:ok, _} = Web.Fitness.save_checkin(%{date: Web.Clock.local_today(), pain: 4})
+      # The fixture vault's checkins.md: a sore shoulder holds push-ups.
+      {:ok, _} =
+        Web.Fitness.save_checkin(%{
+          date: Web.Clock.local_today(),
+          answers: %{"shoulder" => "sore"}
+        })
 
       {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
-      assert has_element?(view, "#block-guard", "Hold: pain 4 of 10")
+      assert has_element?(view, "#block-guard", "Shoulder: sore")
 
       view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
       assert has_element?(view, "#log-target", "Target: 3 x 8 @ 20 lbs")
-      assert has_element?(view, "#log-guard", "Hold: pain 4 of 10")
+      assert has_element?(view, "#log-guard", "Easy on the pressing today.")
     end
 
     test "a name the wiki does not have is refused, and makes no row", %{view: view} do
@@ -322,7 +344,7 @@ defmodule WebWeb.FitnessLandingTest do
       refute html =~ "block-guard"
       refute html =~ "block-week"
       refute html =~ "Test Block"
-      refute html =~ "Accumulate"
+      refute html =~ "— Push"
 
       render_click(view, "open_log", %{"slug" => "push-ups"})
       refute has_element?(view, "form[phx-submit=save_log]")

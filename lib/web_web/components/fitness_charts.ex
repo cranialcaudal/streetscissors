@@ -150,15 +150,16 @@ defmodule WebWeb.FitnessCharts do
   end
 
   @doc """
-  The block's four charts from its entries (`Web.Fitness.Training.entries/2`):
-  e1RM per lift, volume load per pattern, strength days trained, and the
-  acute:chronic ratio per pattern against its 0.8–1.3 band and 1.5 line.
+  The block's charts from its entries (`Web.Fitness.Training.entries/2`):
+  e1RM per lift, volume load per pattern, the prescribed sets done, session
+  stress (RPE × minutes) and its acute:chronic ratio, and the ratio per
+  pattern, each ratio against its 0.8–1.3 band and 1.5 line.
   `weeks` are the block weeks to draw (`Training.weeks_so_far/2`).
   """
   attr :block, :map, required: true
   attr :entries, :list, required: true
   attr :weeks, :list, required: true
-  attr :planned, :list, default: nil
+  attr :plan, :map, default: nil
 
   def block_charts(assigns) do
     alias Web.Fitness.Training
@@ -186,14 +187,18 @@ defmodule WebWeb.FitnessCharts do
           Enum.any?(acwr[p], fn {_w, v} -> is_number(v) end),
           do: %{name: pattern_name(p), values: acwr[p]}
 
+    plan = assigns.plan || Training.plan(block)
+
     compliance =
-      for {week, {done, planned}} <-
-            Enum.sort(Training.compliance(entries, block, weeks, assigns.planned)),
+      for {week, c} <- Enum.sort(Training.compliance(entries, block, weeks, plan)),
           do: %{
             label: "W#{week}",
-            value: if(planned > 0, do: done / planned, else: 0),
-            note: "#{done} of #{planned}"
+            value: if(c.sets_planned > 0, do: c.sets_done / c.sets_planned, else: 0),
+            note:
+              "#{c.sets_done} of #{c.sets_planned} sets · #{c.days_done} of #{c.days_planned} days"
           }
+
+    {stress, stress_ratio} = Training.stress_by_week(entries, block, weeks, plan)
 
     assigns =
       assign(assigns,
@@ -201,7 +206,9 @@ defmodule WebWeb.FitnessCharts do
         lifts: lifts,
         volume: volume_series,
         acwr: acwr_series,
-        compliance: compliance
+        compliance: compliance,
+        stress: [%{name: "Stress", values: Map.reject(stress, fn {_, v} -> v == 0 end)}],
+        stress_ratio: [%{name: "Stress ratio", values: stress_ratio}]
       )
 
     ~H"""
@@ -220,7 +227,22 @@ defmodule WebWeb.FitnessCharts do
         series={@volume}
         unit="lb"
       />
-      <.bar_chart id="chart-compliance" title="Strength days trained" rows={@compliance} max={1} />
+      <.bar_chart id="chart-compliance" title="Prescribed sets done" rows={@compliance} max={1} />
+      <.line_chart
+        id="chart-stress"
+        title="Session stress (RPE × minutes), each week"
+        xs={@xs}
+        series={@stress}
+      />
+      <.line_chart
+        id="chart-stress-ratio"
+        title="Stress, acute:chronic (when to deload)"
+        xs={@xs}
+        series={@stress_ratio}
+        bands={[{0.8, 1.3}]}
+        rules={[1.5]}
+        empty="Needs four weeks of sessions."
+      />
       <.line_chart
         id="chart-acwr"
         title="Acute:chronic load (7 days over the 28-day weekly average)"

@@ -14,7 +14,7 @@ defmodule Web.Fitness.Photos do
   """
 
   @exts ~w(.jpg .jpeg .png .webp)
-  @file_name ~r/\A\d{2}\.(?:jpg|png|webp)\z/
+  @file_name ~r/\A(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?\d{2}\.(?:jpg|png|webp)\z/
 
   @doc "Where the photographs are kept."
   def dir do
@@ -26,10 +26,15 @@ defmodule Web.Fitness.Photos do
   def accept, do: @exts
 
   @doc """
-  Files a picture under a day, as the next number that day (`01.jpg`).
-  `ext` is the upload's own extension; `.jpeg` is filed as `.jpg`.
+  Files a picture under a day, as the next number that day, after its pose
+  when it has one (`front-01.jpg`, else `01.jpg`). `ext` is the upload's own
+  extension; `.jpeg` is filed as `.jpg`. The poses are the block file's
+  (`poses: front, side, back`): the same poses each time, which is what
+  makes two photographs comparable whatever took them.
   """
-  def store(%Date{} = date, source, ext) do
+  def store(date, source, ext, pose \\ nil)
+
+  def store(%Date{} = date, source, ext, pose) do
     ext = ext |> String.downcase() |> then(&if(&1 == ".jpeg", do: ".jpg", else: &1))
 
     if ext in @exts do
@@ -38,7 +43,8 @@ defmodule Web.Fitness.Photos do
       with :ok <- mkdir_private(dir()),
            :ok <- mkdir_private(day) do
         n = (day |> File.ls!() |> length()) + 1
-        name = String.pad_leading(Integer.to_string(n), 2, "0") <> ext
+        prefix = if pose_ok?(pose), do: pose <> "-", else: ""
+        name = prefix <> String.pad_leading(Integer.to_string(n), 2, "0") <> ext
         target = Path.join(day, name)
 
         with :ok <- File.cp(source, target), :ok <- File.chmod(target, 0o600) do
@@ -49,6 +55,26 @@ defmodule Web.Fitness.Photos do
       {:error, :type}
     end
   end
+
+  @doc """
+  Each pose's photographs, oldest first: `%{pose => [%{date, file}]}`, for
+  the report's first-against-latest comparison. Files with no pose are left
+  out.
+  """
+  def by_pose(poses) do
+    entries =
+      for %{date: date, files: files} <- list(), file <- files, do: %{date: date, file: file}
+
+    Map.new(poses, fn pose ->
+      {pose,
+       entries
+       |> Enum.filter(&String.starts_with?(&1.file, pose <> "-"))
+       |> Enum.sort_by(&{Date.to_gregorian_days(&1.date), &1.file})}
+    end)
+  end
+
+  defp pose_ok?(pose),
+    do: is_binary(pose) and Regex.match?(~r/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/, pose)
 
   @doc "Every day with photographs, newest first: `[%{date, files}]`."
   def list do

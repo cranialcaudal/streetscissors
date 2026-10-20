@@ -8,9 +8,21 @@ defmodule Web.Fitness.Block do
       title: Get Sharp
       start: 2026-10-26
       weeks: 8
-      phases: 1 Baseline; 2-3 Accumulate; 4 Deload; 5-7 Intensify; 8 Test
-      lifts: hexbar-rdl 5-8 +5 hinge; box-jumps 3-3 +0 plyo_locomotion
+      phases: 0 Setup; 1-2 Baseline; 3-6 Push; 7 Peak; 8 Deload
+      top_set_rpe: 9
+      hypothesis: 8 weeks, +0.25 lb/wk, hypertrophy → visible definition
+      predict: bodyweight +0.25 lb/week; e1rm +10%; volume +20%; compliance 85%
+      poses: front, side, back
+      lifts: hex-flat-side-deadlift 3-3 +5 hinge; box-jumps 5-5 +0 plyo_locomotion
       substitutes: box-jumps step-ups; single-leg-calf-raises holds
+
+  `start` is week 1's Monday. A week 0 in `phases` is the week before it,
+  a setup week that belongs to the block but counts toward none of its
+  numbers. The phases are `Setup`, `Baseline`, `Push`, `Peak` and `Deload`,
+  each with its own rule (`Web.Fitness.Progression`). `top_set_rpe` is the
+  hardest a top-of-range set may be and still earn the step (9: one rep in
+  reserve; 8 when not given). `predict` is the hypothesis in measures the
+  block report can check (`bodyweight`, `e1rm`, `volume`, `compliance`).
 
   A lift is `<wiki slug> <low>-<high> +<pounds> <pattern>`: the rep range,
   what a step up adds, and the movement pattern its load counts toward.
@@ -21,7 +33,7 @@ defmodule Web.Fitness.Block do
 
   alias Web.Fitness.Vault
 
-  @phases ~w(Baseline Accumulate Deload Intensify Test)
+  @phases ~w(Setup Baseline Push Peak Deload)
 
   @doc "Every readable block in the vault, earliest first."
   def load do
@@ -42,12 +54,17 @@ defmodule Web.Fitness.Block do
   """
   def current(%Date{} = date) do
     Enum.find_value(load(), fn block ->
-      if Date.compare(date, block.start) != :lt and Date.compare(date, block.finish) != :gt do
-        week = div(Date.diff(date, block.start), 7) + 1
-        Map.merge(block, %{week: week, phase: Map.get(block.phases, week)})
+      if Date.compare(date, block.opens) != :lt and Date.compare(date, block.finish) != :gt do
+        at(block, week_of(date, block))
       end
     end)
   end
+
+  @doc "The block week a date falls in: 1 from `start`, 0 the week before."
+  def week_of(%Date{} = date, %{start: start}),
+    do: Integer.floor_div(Date.diff(date, start), 7) + 1
+
+  defp at(block, week), do: Map.merge(block, %{week: week, phase: Map.get(block.phases, week)})
 
   @doc """
   The block to report on for `date`: the one running, else the latest to
@@ -70,8 +87,8 @@ defmodule Web.Fitness.Block do
         running
 
       block ->
-        week = (div(Date.diff(date, block.start), 7) + 1) |> max(1) |> min(block.weeks)
-        Map.merge(block, %{week: week, phase: block.phases[week]})
+        first = if Map.has_key?(block.phases, 0), do: 0, else: 1
+        at(block, date |> week_of(block) |> max(first) |> min(block.weeks))
     end
   end
 
@@ -91,9 +108,18 @@ defmodule Web.Fitness.Block do
          slug: slug,
          title: title,
          start: start,
+         opens: if(Map.has_key?(phases, 0), do: Date.add(start, -7), else: start),
          weeks: weeks,
          finish: Date.add(start, weeks * 7 - 1),
          phases: phases,
+         top_set_rpe: rpe(meta["top_set_rpe"]),
+         hypothesis: blank(meta["hypothesis"]),
+         predict: predictions(meta["predict"] || ""),
+         poses:
+           meta["poses"]
+           |> to_string()
+           |> String.split(",", trim: true)
+           |> Enum.map(&String.trim/1),
          lifts: lifts(meta["lifts"] || ""),
          substitutes: substitutes(meta["substitutes"] || "")
        }}
@@ -110,9 +136,28 @@ defmodule Web.Fitness.Block do
     end
   end
 
-  # "1 Baseline; 2-3 Accumulate" -> %{1 => "Baseline", 2 => "Accumulate", ...}.
-  # Every week must have exactly one phase, and only the five known names:
-  # the progression rule is written per phase.
+  # "bodyweight +0.25 lb/week; e1rm +10%" -> [%{measure, value, unit}].
+  defp predictions(text) do
+    for part <- String.split(text, ";", trim: true),
+        [_, measure, value, unit] <-
+          [Regex.run(~r/\A\s*([a-z0-9_]+)\s+([+-]?\d+(?:\.\d+)?)\s*(.*?)\s*\z/u, part)],
+        {value, _} <- [Float.parse(value)],
+        do: %{measure: measure, value: value, unit: unit, text: String.trim(part)}
+  end
+
+  defp rpe(text) do
+    case text && Float.parse(text) do
+      {v, _} when v >= 5 and v <= 10 -> v
+      _ -> 8.0
+    end
+  end
+
+  defp blank(nil), do: nil
+  defp blank(text), do: if(String.trim(text) == "", do: nil, else: text)
+
+  # "0 Setup; 1-2 Baseline" -> %{0 => "Setup", 1 => "Baseline", 2 => "Baseline"}.
+  # Every week 1..weeks must have exactly one phase (week 0 may), and only
+  # the five known names: the progression rule is written per phase.
   defp phases(text, weeks) do
     pairs =
       for part <- String.split(text, ";", trim: true),
@@ -125,9 +170,10 @@ defmodule Web.Fitness.Block do
 
     weeks_named = Enum.map(pairs, &elem(&1, 0))
 
-    if Enum.sort(weeks_named) == Enum.to_list(1..weeks),
-      do: {:ok, Map.new(pairs)},
-      else: :error
+    if Enum.sort(weeks_named -- [0]) == Enum.to_list(1..weeks) and
+         Enum.count(weeks_named, &(&1 == 0)) <= 1,
+       do: {:ok, Map.new(pairs)},
+       else: :error
   end
 
   # "2-3" -> {2, 3}, "4" -> {4, 4}; anything else an empty range.

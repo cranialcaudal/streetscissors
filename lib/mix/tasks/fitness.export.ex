@@ -49,7 +49,11 @@ defmodule Mix.Tasks.Fitness.Export do
     checkins = checkins()
 
     File.write!(Path.join(dir, "fitness_logs.csv"), Fitness.Export.logs_csv(logs))
-    File.write!(Path.join(dir, "fitness_checkins.csv"), Fitness.Export.checkins_csv(checkins))
+
+    File.write!(
+      Path.join(dir, "fitness_checkins.csv"),
+      Fitness.Export.checkins_csv(checkins, Fitness.Checks.all())
+    )
 
     Mix.shell().info(
       "#{length(logs)} entries and #{length(checkins)} check-ins written to #{dir}"

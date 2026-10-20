@@ -52,10 +52,19 @@ defmodule Web.Fitness.ExportTest do
     assert body =~ "exercise_slug,sets,reps,rpe,e1rm_lbs,volume_load_lbs"
   end
 
-  test "check-ins as CSV" do
-    {:ok, _} = Fitness.save_checkin(%{date: ~D[2026-10-27], pain: 2, sleep_hours: 7.5})
+  test "check-ins as CSV, a column per check" do
+    {:ok, _} =
+      Fitness.save_checkin(%{
+        date: ~D[2026-10-27],
+        answers: %{"shoulder" => "sore", "bodyweight" => "171.4"}
+      })
 
-    assert Export.checkins_csv(Fitness.checkins_between(~D[2026-10-01], ~D[2026-11-01])) ==
-             "date,pain,sleep_hours,soreness,energy,note\n2026-10-27,2,7.5,NA,NA,NA\n"
+    {:ok, _} = Fitness.save_checkin(%{date: ~D[2026-10-28], answers: %{}, note: "ok"})
+
+    checks =
+      Web.Fitness.Checks.parse("## Shoulder\nstates: fine, sore\n\n## Bodyweight\nkind: number\n")
+
+    assert Export.checkins_csv(Fitness.checkins_between(~D[2026-10-01], ~D[2026-11-01]), checks) ==
+             "date,shoulder,bodyweight,note\n2026-10-27,sore,171.4,NA\n2026-10-28,NA,NA,ok\n"
   end
 end

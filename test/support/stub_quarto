@@ -1,0 +1,14 @@
+#!/bin/sh
+# Stands in for Quarto in the suite: `render FILE --output-dir DIR -P k:v…`
+# writes DIR/fitness_report.html naming the params it was given.
+out=""
+params=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --output-dir) out="$2"; shift 2 ;;
+    -P) params="$params $2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+mkdir -p "$out"
+printf '<html><body>stub report%s</body></html>\n' "$params" > "$out/fitness_report.html"

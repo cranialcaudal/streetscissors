@@ -37,6 +37,18 @@ defmodule Web.Fitness.Vault do
 
   @doc "Returns {:ok, html} for a given day slug, or :error."
   def get_day(slug) do
+    case day_markdown(slug) do
+      {:ok, _meta, body} -> {:ok, body |> checklist_only() |> render_markdown()}
+      :error -> :error
+    end
+  end
+
+  @doc """
+  A day's markdown with its `modules:` read in after its own text, and its
+  frontmatter: `{:ok, meta, markdown}` or `:error`. What `get_day/1` renders,
+  and what `Web.Fitness.Prescription` reads a day's prescriptions from.
+  """
+  def day_markdown(slug) do
     path = find_day_path(slug)
 
     case File.read(path) do
@@ -70,8 +82,7 @@ defmodule Web.Fitness.Vault do
               body <> "\n\n" <> modules_body
           end
 
-        html = body |> checklist_only() |> render_markdown()
-        {:ok, html}
+        {:ok, meta, body}
 
       {:error, _} ->
         :error

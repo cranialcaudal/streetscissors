@@ -12,7 +12,7 @@ defmodule Web.HappeningTest do
 
   test "now names the block's week, from the fixture vault's block" do
     assert %{now: %{block: "Test Block · Week " <> rest}} = Happening.build()
-    assert rest =~ "— Accumulate"
+    assert rest =~ "— Push"
   end
 
   test "now names the newest clear activity by day, sport and distance only" do

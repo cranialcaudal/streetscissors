@@ -8,7 +8,7 @@ defmodule Web.Fitness.TrainingTest do
       "title" => "Get Sharp",
       "start" => "2026-10-26",
       "weeks" => "8",
-      "phases" => "1 Baseline; 2-3 Accumulate; 4 Deload; 5-7 Intensify; 8 Test",
+      "phases" => "1 Baseline; 2-3 Push; 4 Deload; 5-7 Push; 8 Peak",
       "lifts" => "hexbar-rdl 5-8 +5 hinge; weighted-dips 6-10 +5 push"
     })
 
@@ -75,16 +75,24 @@ defmodule Web.Fitness.TrainingTest do
     assert Training.acwr(rows, "push", ~D[2026-11-22]) == nil
   end
 
-  test "compliance counts the planned weekdays trained each week" do
+  # Tuesday plans the dips (3 sets), Thursday the RDL (3 sets).
+  @plan %{
+    2 => %{slugs: MapSet.new(["weighted-dips"]), sets: 3, minutes: 60},
+    4 => %{slugs: MapSet.new(["hexbar-rdl", "push-ups"]), sets: 6, minutes: 75}
+  }
+
+  test "compliance counts the planned days and sets done each week" do
     rows =
       entries([
-        log(1, ~D[2026-10-27], "hexbar-rdl", %{"weight" => "200", "reps" => "5"}),
+        log(1, ~D[2026-10-29], "hexbar-rdl", %{"weight" => "200", "sets" => "3", "reps" => "5"}),
         log(2, ~D[2026-10-29], "push-ups", %{"result" => "3 x 12"}),
-        log(3, ~D[2026-11-05], "weighted-dips", %{"weight" => "25", "reps" => "8"})
+        log(3, ~D[2026-11-03], "weighted-dips", %{"weight" => "25", "sets" => "5", "reps" => "8"})
       ])
 
-    # Tuesday and Thursday planned.
-    assert Training.compliance(rows, @block, [1, 2], [2, 4]) == %{1 => {1, 2}, 2 => {1, 2}}
+    assert Training.compliance(rows, @block, [1, 2], @plan) == %{
+             1 => %{days_done: 1, days_planned: 2, sets_done: 6, sets_planned: 9},
+             2 => %{days_done: 1, days_planned: 2, sets_done: 3, sets_planned: 9}
+           }
   end
 
   test "weeks so far are clamped into the block" do
@@ -115,27 +123,48 @@ defmodule Web.Fitness.TrainingTest do
   test "the report answers the hypothesis once the last week has begun" do
     rows =
       entries([
-        log(1, ~D[2026-10-27], "hexbar-rdl", %{"weight" => "200", "sets" => "3", "reps" => "5"}),
-        log(2, ~D[2026-12-15], "hexbar-rdl", %{"weight" => "230", "sets" => "1", "reps" => "5"}),
-        log(3, ~D[2026-10-28], "weighted-dips", %{"weight" => "25", "reps" => "8"}),
-        log(4, ~D[2026-12-16], "weighted-dips", %{"weight" => "45", "reps" => "8"})
+        log(1, ~D[2026-10-29], "hexbar-rdl", %{"weight" => "200", "sets" => "3", "reps" => "5"}),
+        log(2, ~D[2026-12-17], "hexbar-rdl", %{"weight" => "230", "sets" => "1", "reps" => "5"}),
+        log(3, ~D[2026-10-27], "weighted-dips", %{"weight" => "25", "reps" => "8"}),
+        log(4, ~D[2026-12-15], "weighted-dips", %{"weight" => "45", "reps" => "8"})
       ])
 
+    [achilles, _] =
+      checks =
+      Web.Fitness.Checks.parse("""
+      ## Achilles
+      states: quiet, talking, angry
+      hold: talking
+      stop: angry
+
+      ## Bodyweight
+      kind: number
+      unit: lb
+      """)
+
+    block = Map.put(@block, :predict, [%{measure: "e1rm", value: 10.0, text: "e1rm +10%"}])
     weeks = Enum.to_list(1..8)
-    calm = [%{date: ~D[2026-11-02], pain: 1, sleep_hours: 7.5, energy: 7}]
+    calm = [%{date: ~D[2026-11-02], answers: %{"achilles" => "quiet", "bodyweight" => "170"}}]
 
     assert %{answer: "Supported:" <> _, lifts: [rdl, dips], rows: rows8} =
-             Training.report(rows, @block, weeks, calm, [2, 3])
+             Training.report(rows, block, weeks, calm, checks, @plan)
 
     assert rdl.change == 15.0
     assert dips.from == {1, 31.7}
-    assert %{week: 2, pain: 1.0, sleep: 7.5} = Enum.at(rows8, 1)
 
-    sore = [%{date: ~D[2026-11-02], pain: 6, sleep_hours: nil, energy: nil}]
+    assert %{week: 2, checks: %{"achilles" => "quiet 1", "bodyweight" => "170.0 lb"}} =
+             Enum.at(rows8, 1)
 
-    assert %{answer: "Not as hoped: pain stopped the block on 1 day."} =
-             Training.report(rows, @block, weeks, sore, [2, 3])
+    assert achilles.kind == :state
 
-    assert %{answer: nil} = Training.report(rows, @block, [1, 2, 3], calm, [2, 3])
+    sore = [%{date: ~D[2026-11-02], answers: %{"achilles" => "angry"}}]
+
+    assert %{answer: answer, rows: sore_rows} =
+             Training.report(rows, block, weeks, sore, checks, @plan)
+
+    assert answer =~ "stopped the block on 1 day."
+    assert Enum.at(sore_rows, 1).stopped == 1
+
+    assert %{answer: nil} = Training.report(rows, block, [1, 2, 3], calm, checks, @plan)
   end
 end

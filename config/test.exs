@@ -164,3 +164,12 @@ config :phoenix,
 
 # The homepage's "Happening" is built afresh on every request in the suite.
 config :web, :happening_ttl_ms, 0
+
+# The weekly training report renders through a stub of Quarto in the suite.
+config :web, :fitness_reports_path, Path.expand("../tmp/test_fitness_reports", __DIR__)
+
+config :web,
+       :fitness_scripts_path,
+       Path.expand("../test/support/fixtures/fitness_scripts", __DIR__)
+
+config :web, :quarto_bin, Path.expand("../test/support/stub_quarto", __DIR__)

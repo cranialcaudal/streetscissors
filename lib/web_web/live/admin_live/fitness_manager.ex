@@ -17,7 +17,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
   import WebWeb.AdminComponents
 
   alias Web.Fitness
-  alias Web.Fitness.{Block, Guardrails, Training, Vault}
+  alias Web.Fitness.{Block, Checks, Guardrails, Training, Vault}
 
   @tabs ~w(wiki regimen progress checkin)
 
@@ -76,18 +76,26 @@ defmodule WebWeb.AdminLive.FitnessManager do
     recent = Fitness.recent_checkins(today)
     todays = Enum.find(recent, &(&1.date == today))
 
+    checks = Checks.all()
+
+    standing =
+      recent
+      |> Guardrails.today(today, checks)
+      |> Enum.map_join(" · ", fn {label, answer, _} -> "#{label}: #{answer}" end)
+
     assign(socket,
+      checks: checks,
       checkins: recent,
       checkin_form:
         to_form(Fitness.change_checkin(todays || %Fitness.Checkin{date: today}), as: :checkin),
-      guard: Guardrails.line(Guardrails.state(nil, recent, [], today))
+      guard: if(standing == "", do: nil, else: standing)
     )
   end
 
   def handle_event("save_checkin", %{"checkin" => params}, socket) do
     params = Map.update(params, "date", nil, &parse_date/1)
 
-    case Fitness.save_checkin(params) do
+    case Fitness.save_checkin(params, socket.assigns.checks) do
       {:ok, _} ->
         {:noreply, socket |> put_flash(:info, "Check-in saved.") |> assign_checkins()}
 
@@ -311,7 +319,18 @@ defmodule WebWeb.AdminLive.FitnessManager do
     """
   end
 
+  defp render_checkin(%{checks: []} = assigns) do
+    ~H"""
+    <.empty>
+      No checks are defined. A check-in asks what <code>content/fitness/checkins.md</code>
+      lists, one section per check.
+    </.empty>
+    """
+  end
+
   defp render_checkin(assigns) do
+    assigns = assign(assigns, :answers, assigns.checkin_form[:answers].value || %{})
+
     ~H"""
     <section class="adm-fit-checkin" id="fitness-checkin">
       <p :if={@guard} class="adm-fit-guard" id="checkin-guard">{@guard}</p>
@@ -330,47 +349,47 @@ defmodule WebWeb.AdminLive.FitnessManager do
             required
           />
         </.field>
-        <.field label="Pain, Achilles or worst joint (0–10)">
-          <input
-            type="number"
-            min="0"
-            max="10"
-            name="checkin[pain]"
-            value={@checkin_form[:pain].value}
-            class="adm-input"
-          />
-        </.field>
-        <.field label="Sleep (hours)">
-          <input
-            type="number"
-            min="0"
-            max="24"
-            step="0.25"
-            name="checkin[sleep_hours]"
-            value={@checkin_form[:sleep_hours].value}
-            class="adm-input"
-          />
-        </.field>
-        <.field label="Soreness (0–10)">
-          <input
-            type="number"
-            min="0"
-            max="10"
-            name="checkin[soreness]"
-            value={@checkin_form[:soreness].value}
-            class="adm-input"
-          />
-        </.field>
-        <.field label="Energy (0–10)">
-          <input
-            type="number"
-            min="0"
-            max="10"
-            name="checkin[energy]"
-            value={@checkin_form[:energy].value}
-            class="adm-input"
-          />
-        </.field>
+
+        <%!-- A state check is one tap: its states as a row of choices, the
+              first the good one. A number check is a measurement. --%>
+        <fieldset :for={check <- @checks} class="adm-fit-check" id={"check-#{check.id}"}>
+          <legend class="adm-label">{check.label}</legend>
+          <%= if check.kind == :state do %>
+            <div class="adm-fit-states">
+              <label
+                :for={state <- check.states}
+                class={["adm-fit-state", "adm-fit-state--#{Checks.level(check, state)}"]}
+              >
+                <input
+                  type="radio"
+                  name={"checkin[answers][#{check.id}]"}
+                  value={state}
+                  checked={@answers[check.id] == state}
+                />
+                <span>{state}</span>
+              </label>
+              <label class="adm-fit-state adm-fit-state--skip">
+                <input
+                  type="radio"
+                  name={"checkin[answers][#{check.id}]"}
+                  value=""
+                  checked={is_nil(@answers[check.id])}
+                />
+                <span>skip</span>
+              </label>
+            </div>
+          <% else %>
+            <input
+              type="text"
+              inputmode="decimal"
+              name={"checkin[answers][#{check.id}]"}
+              value={@answers[check.id]}
+              class="adm-input"
+              placeholder={check.unit}
+            />
+          <% end %>
+        </fieldset>
+
         <.field label="Note">
           <input
             type="text"
@@ -380,7 +399,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
           />
         </.field>
         <p :for={{field, error} <- @checkin_form.errors} class="adm-error">
-          {Phoenix.Naming.humanize(field)} {WebWeb.CoreComponents.translate_error(error)}
+          {if field != :answers, do: Phoenix.Naming.humanize(field)} {WebWeb.CoreComponents.translate_error(
+            error
+          )}
         </p>
         <div>
           <button type="submit" class="adm-btn adm-btn--primary">Save check-in</button>
@@ -389,10 +410,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
       <.rows :if={@checkins != []} id="checkins" rows={@checkins}>
         <:col :let={c} label="Day">{Calendar.strftime(c.date, "%a %-d %b")}</:col>
-        <:col :let={c} label="Pain">{c.pain}</:col>
-        <:col :let={c} label="Sleep">{c.sleep_hours}</:col>
-        <:col :let={c} label="Soreness">{c.soreness}</:col>
-        <:col :let={c} label="Energy">{c.energy}</:col>
+        <:col :let={c} :for={check <- @checks} label={check.label}>
+          {c.answers[check.id]}{if check.unit && c.answers[check.id], do: " #{check.unit}"}
+        </:col>
         <:col :let={c} label="Note">{c.note}</:col>
       </.rows>
     </section>

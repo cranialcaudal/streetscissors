@@ -96,6 +96,8 @@ config :web, Web.Scheduler,
     {"19 3 * * *", {Web.Backup.Content, :run_scheduled, []}},
     # The progress photographs, copied beside the database's snapshots.
     {"23 3 * * *", {Web.Backup.FitnessPhotos, :run_scheduled, []}},
+    # The weekly training report, Sunday evening Pacific (Monday 04:07 UTC).
+    {"7 4 * * 1", {Web.Fitness.Report, :run_scheduled, []}},
     # Once a week, restore the newest of each to a scratch copy and read it
     # back: a backup that has never been restored is a hope.
     {"41 3 * * 0", {Web.Backup.Drill, :run_scheduled, []}},

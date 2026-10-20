@@ -216,6 +216,25 @@ defmodule WebWeb.FitnessLive.Show do
               {round(@history.best.e1rm)} lb, {Calendar.strftime(@history.best.date, "%-d %b")}
             </dd>
           </div>
+          <div :if={@history.heaviest}>
+            <dt>Heaviest</dt>
+            <dd>
+              {trunc(@history.heaviest.weight)} lb, {Calendar.strftime(
+                @history.heaviest.date,
+                "%-d %b"
+              )}
+            </dd>
+          </div>
+          <div :if={@history.most_reps}>
+            <dt>Most reps</dt>
+            <dd>
+              {@history.most_reps.reps}, {Calendar.strftime(@history.most_reps.date, "%-d %b")}
+            </dd>
+          </div>
+          <div :if={@history.volume > 0}>
+            <dt>Lifetime volume</dt>
+            <dd>{trunc(@history.volume)} lb</dd>
+          </div>
         </dl>
         <WebWeb.FitnessCharts.line_chart
           :if={length(@history.series) > 1}
@@ -227,7 +246,7 @@ defmodule WebWeb.FitnessLive.Show do
           series={[%{name: @exercise.name, values: Map.new(@history.series)}]}
           unit="lb"
         />
-        <ol class="wiki-history-recent">
+        <ol class="wiki-history-recent" id="wiki-history-entries">
           <li :for={entry <- @history.recent}>
             <span class="wiki-history-date">{Calendar.strftime(entry.date, "%-d %b")}</span>
             {WebWeb.FitnessLive.Index.log_line(entry.log)}

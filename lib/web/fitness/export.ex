@@ -7,8 +7,8 @@ defmodule Web.Fitness.Export do
   (R code reads them by name and position). Six follow, from the Get Sharp
   block's structured log (`Web.Fitness.Progression`): the wiki slug, sets,
   reps, RPE, Epley's e1RM and the volume load, all in pounds. A value that
-  is not there is `NA`, as R reads it. `checkins_csv/1` is the check-ins
-  in the same manner.
+  is not there is `NA`, as R reads it. `checkins_csv/2` is the check-ins
+  in the same manner, a column per check.
   """
 
   alias Web.Fitness.Progression
@@ -21,8 +21,6 @@ defmodule Web.Fitness.Export do
   @headers ~w(date week_num year quarter month exercise_name muscle_group weight_lbs
               distance_miles time_str height_result notes
               exercise_slug sets reps rpe e1rm_lbs volume_load_lbs)
-
-  @checkin_headers ~w(date pain sleep_hours soreness energy note)
 
   def headers, do: @headers
 
@@ -37,14 +35,20 @@ defmodule Web.Fitness.Export do
     encode([@headers | rows])
   end
 
-  @doc "Check-ins as CSV text, header first."
-  def checkins_csv(checkins) do
+  @doc """
+  Check-ins as CSV text, header first: `date`, one column per check (its
+  id, as `Web.Fitness.Checks` makes it), `note`. A check not answered that
+  day is `NA`.
+  """
+  def checkins_csv(checkins, checks) do
+    ids = Enum.map(checks, & &1.id)
+
     rows =
       for c <- Enum.sort_by(checkins, &Date.to_gregorian_days(&1.date)) do
-        [c.date, na(c.pain), na(c.sleep_hours), na(c.soreness), na(c.energy), c.note || "NA"]
+        [c.date] ++ Enum.map(ids, &(c.answers[&1] || "NA")) ++ [c.note || "NA"]
       end
 
-    encode([@checkin_headers | rows])
+    encode([["date" | ids] ++ ["note"] | rows])
   end
 
   defp row(log) do

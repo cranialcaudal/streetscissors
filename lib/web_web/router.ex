@@ -192,6 +192,9 @@ defmodule WebWeb.Router do
       # action serves to the admin session alone (Web.Fitness.Photos).
       live "/admin/fitness/block", AdminLive.BlockReport
       get "/admin/fitness/photos/:date/:file", FitnessPhotoController, :show
+      # The weekly Quarto report (Web.Fitness.Report), to the admin alone.
+      get "/admin/fitness/report", FitnessReportController, :show
+      get "/admin/fitness/report/:date", FitnessReportController, :show
       live "/admin/scanner", AdminLive.Scanner
       # The print editor (Web.Darkroom): the prints roll by roll, one print on
       # the bench, and the bench's pictures, which the action serves only to

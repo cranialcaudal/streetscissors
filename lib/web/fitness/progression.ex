@@ -51,47 +51,107 @@ defmodule Web.Fitness.Progression do
 
   @doc """
   The next session of a lift: `%{sets, reps, weight, reason}`, or nil when
-  there is nothing to aim at (the Baseline week, a lift with no step, no
-  entry with a weight and reps yet).
+  there is nothing to aim at: the Setup and Baseline weeks (find the
+  working weights first), a lift with no step, no entry with reps yet.
+  `weight` is nil for a lift done at bodyweight, which progresses by reps.
 
   `rule` is the block's lift (`Web.Fitness.Block.lift/2`), `logs` its
   entries newest first, `block` the running block from
-  `Web.Fitness.Block.current/1`. Entries made in a Deload week are not
-  counted: they are lighter on purpose, and the week after would step up
-  from them.
+  `Web.Fitness.Block.current/1`. The rule by phase:
+
+    * **Push** and **Peak**: double progression. Every set at the top of
+      the range, the top set no harder than the block's `top_set_rpe`,
+      adds the step and starts the reps again at the bottom; below the
+      bottom, or two grinding sessions (RPE 9.5+), holds; three misses
+      running cut 10%; otherwise one more rep at the same weight.
+    * **Deload**: the same weight for about 60% of the sets.
+
+  Entries made in a Deload week are not counted: they are lighter on
+  purpose, and the week after would step up from them.
   """
   def next_target(rule, logs, block)
 
-  def next_target(_rule, _logs, %{phase: "Baseline"}), do: nil
+  def next_target(_rule, _logs, %{phase: phase}) when phase in ["Setup", "Baseline"], do: nil
   def next_target(%{increment: inc}, _logs, _block) when inc <= 0, do: nil
 
   def next_target(%{} = rule, logs, %{} = block) do
-    entries =
-      logs
-      |> Enum.reject(&deload_entry?(&1, block))
-      |> Enum.map(&parse_log_metrics(&1.metrics))
-      |> Enum.filter(&(is_number(&1.weight) and is_integer(&1.reps)))
-
-    case entries do
+    case usable(logs, block) do
       [] -> nil
-      [last | _] = entries -> target(rule, last, entries, block.phase)
+      [last | _] = entries -> target(rule, last, entries, block)
     end
   end
 
   def next_target(_rule, _logs, _block), do: nil
 
-  @doc "A target in a line: `3 x 8 @ 190 lbs`."
-  def target_line(%{sets: s, reps: r, weight: w}), do: "#{s} x #{r} @ #{format_lbs(w)} lbs"
-
-  defp target(rule, _last, entries, "Deload") do
-    # The heaviest of the last three, so a light day before the deload
-    # does not make it lighter still.
-    heaviest = entries |> Enum.take(3) |> Enum.map(& &1.weight) |> Enum.max()
-    %{sets: 2, reps: rule.low, weight: round5(heaviest * 0.9), reason: :deload}
+  @doc "The entries a progression reads: parsed, newest first, with reps, none from a deload."
+  def usable(logs, block) do
+    logs
+    |> Enum.reject(&deload_entry?(&1, block))
+    |> Enum.map(&parse_log_metrics(&1.metrics))
+    |> Enum.filter(&is_integer(&1.reps))
   end
 
-  defp target(rule, last, entries, phase) do
+  @doc "A target in a line: `3 x 8 @ 190 lbs`, or `3 x 10` at bodyweight."
+  def target_line(%{sets: s, reps: r, weight: nil}), do: "#{s} x #{r}"
+  def target_line(%{sets: s, reps: r, weight: w}), do: "#{s} x #{r} @ #{format_lbs(w)} lbs"
+
+  @doc """
+  The admin's line under a lift on the day page:
+  `Last: 3×8 @ 30 lbs → Target: 3×9 @ 30 lbs · +5 lbs when all sets hit 10`.
+  Nil when there is no entry yet and no target.
+  """
+  def hint(rule, last, target, block) do
+    last_part = last && "Last: " <> session_line(last)
+
+    target_part =
+      cond do
+        target ->
+          "Target: " <> String.replace(target_line(target), " x ", "×") <> rule_note(rule, target)
+
+        block && block.phase in ["Setup", "Baseline"] ->
+          "#{block.phase}: find a weight that leaves 3 in reserve (RPE 7)"
+
+        true ->
+          nil
+      end
+
+    case Enum.reject([last_part, target_part], &is_nil/1) do
+      [] -> nil
+      parts -> Enum.join(parts, " → ")
+    end
+  end
+
+  defp session_line(%{sets: s, reps: r, weight: w}) do
+    work = "#{s || 1}×#{r}"
+    if is_number(w), do: work <> " @ #{format_lbs(w)} lbs", else: work
+  end
+
+  defp rule_note(_rule, %{reason: :deload}), do: " · deload, the same weight for fewer sets"
+  defp rule_note(_rule, %{reason: :cut}), do: " · three misses, 10% off to rebuild"
+
+  defp rule_note(%{increment: inc, high: high}, %{weight: w}) when is_number(w),
+    do: " · +#{format_lbs(inc * 1.0)} lbs when all sets hit #{high}"
+
+  defp rule_note(%{high: high}, _target), do: " · add weight when all sets hit #{high}"
+
+  defp target(rule, _last, entries, %{phase: "Deload"}) do
+    # The heaviest of the last three, so a light day before the deload
+    # does not make it lighter still. About 60% of the volume, by sets.
+    recent = Enum.take(entries, 3)
+    weights = for %{weight: w} <- recent, is_number(w), do: w
+    sets = recent |> Enum.map(&(&1.sets || 3)) |> Enum.max()
+
+    %{
+      sets: max(1, round(sets * 0.6)),
+      reps: rule.low,
+      weight: if(weights == [], do: nil, else: Enum.max(weights)),
+      reason: :deload
+    }
+  end
+
+  defp target(rule, last, entries, block) do
     sets = last.sets || 3
+    top_rpe = Map.get(block, :top_set_rpe, 8.0)
     misses = Enum.take_while(entries, &(&1.reps < rule.low)) |> length()
     # is_number first: nil sorts above every number, so `nil >= 9.5` holds.
     grinding =
@@ -100,28 +160,25 @@ defmodule Web.Fitness.Progression do
         entries
       )
 
-    base =
-      cond do
-        misses >= 3 ->
-          %{sets: sets, reps: rule.low, weight: round5(last.weight * 0.9), reason: :cut}
+    weight = last.weight
 
-        misses > 0 or grinding ->
-          %{sets: sets, reps: rule.low, weight: last.weight, reason: :hold}
+    cond do
+      misses >= 3 and is_number(weight) ->
+        %{sets: sets, reps: rule.low, weight: round5(weight * 0.9), reason: :cut}
 
-        last.reps >= rule.high and (last.rpe || 8) <= 8 ->
-          %{sets: sets, reps: rule.low, weight: last.weight + rule.increment, reason: :up}
+      misses > 0 or grinding ->
+        %{sets: sets, reps: rule.low, weight: weight, reason: :hold}
 
-        true ->
-          %{sets: sets, reps: min(last.reps + 1, rule.high), weight: last.weight, reason: :same}
-      end
+      last.reps >= rule.high and (last.rpe || 8) <= top_rpe and is_number(weight) ->
+        %{sets: sets, reps: rule.low, weight: weight + rule.increment, reason: :up}
 
-    # The Test week is one top set at the weight the rule arrived at.
-    if phase == "Test", do: %{base | sets: 1, reason: :test}, else: base
+      true ->
+        %{sets: sets, reps: min(last.reps + 1, rule.high), weight: weight, reason: :same}
+    end
   end
 
-  defp deload_entry?(%{date: %Date{} = date}, %{start: start, phases: phases}) do
-    week = div(Date.diff(date, start), 7) + 1
-    Map.get(phases, week) == "Deload"
+  defp deload_entry?(%{date: %Date{} = date}, %{phases: phases} = block) do
+    Map.get(phases, Web.Fitness.Block.week_of(date, block)) == "Deload"
   end
 
   defp deload_entry?(_log, _block), do: false
