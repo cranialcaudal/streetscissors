@@ -1,3 +1,10 @@
+// MarkdownEditor: a toolbar and keyboard shortcuts for a markdown <textarea>.
+//
+// Registered in app.js, but **no page mounts it at the moment**: the blog
+// editor (/admin/blog/:slug/edit) has its own colocated hook in
+// lib/web_web/live/admin_live/blog_editor.ex. Kept until someone decides
+// whether to use it or delete it.
+
 export const MarkdownEditor = {
     mounted() {
         this.textarea = this.el.querySelector("textarea");

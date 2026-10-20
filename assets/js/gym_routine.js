@@ -1,3 +1,13 @@
+// GymRoutine: the training day's checklist on /fitness (WebWeb.FitnessLive.Index,
+// mounted with phx-hook="GymRoutine").
+//
+// The checklist is plain HTML rendered from the vault's markdown, so its tick
+// boxes belong to no form. This hook remembers which boxes are ticked, in the
+// browser's localStorage, keyed by the day (`data-day`) and each box's position,
+// and puts the ticks back when the page opens. The comments in
+// lib/web_web/live/fitness_live/index.ex explain why the days link with
+// `navigate` and never `patch`: a patch would carry one day's ticks onto the next.
+
 export const GymRoutine = {
     mounted() {
         this.initGym();

@@ -1,3 +1,11 @@
+// PcTerminal and AutoScroll: the /pc terminal's two small browser behaviours
+// (WebWeb.PcLive: phx-hook="AutoScroll" on the terminal, "PcTerminal" on its box).
+//
+// PcTerminal keeps the typing cursor in the command box wherever you click,
+// so the page behaves like a terminal. AutoScroll keeps the newest output in
+// view as lines arrive. Everything else (commands, completion, jumping) is
+// done by the server.
+
 export const PcTerminal = {
   mounted() {
     // Keep focus on input if clicking anywhere in the container
