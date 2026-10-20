@@ -120,7 +120,7 @@ The first run takes a few minutes. Then run the tests:
 mix test
 ```
 
-You should see about 1,570 tests and `0 failures` at the end (a few are "skipped": they need a
+You should see about 1,600 tests and `0 failures` at the end (a few are "skipped": they need a
 program from §5 you have not installed, and say so). The tests never need the
 real content or any of the optional programs: they use invented sample content in
 `test/support/fixtures/`, and small stand-in programs for ffmpeg, LightCraft and the rest in

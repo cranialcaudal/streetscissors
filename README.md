@@ -47,7 +47,7 @@ is written for AI coding agents, and it is just as useful for people).
 
 ```bash
 mix setup          # libraries, database, assets
-mix test           # the full suite: about 1,570 tests, all passing
+mix test           # the full suite: about 1,600 tests, all passing
 mix phx.server     # http://localhost:4000 (admin password: dev-admin)
 ```
 
