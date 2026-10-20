@@ -4,8 +4,8 @@
 # measured at 43a47e5; change both together, and run
 # test/web/darkroom_film_test.exs against the new build).
 #
-#   tools/lightcraft.sh            build LIGHTCRAFT_REF and install to ~/.local/bin
-#   LIGHTCRAFT_REF=<sha> tools/lightcraft.sh
+#   tools/lightcraft/install.sh            build LIGHTCRAFT_REF and install to ~/.local/bin
+#   LIGHTCRAFT_REF=<sha> tools/lightcraft/install.sh
 #
 # The engine comes from our fork (cranialcaudal/lightcraft), which carries the
 # film operations (docs/colour/contracts.md); until the fork exists, upstream.

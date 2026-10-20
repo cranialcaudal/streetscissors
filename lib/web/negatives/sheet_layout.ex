@@ -34,8 +34,9 @@ defmodule Web.Negatives.SheetLayout do
 
   ## Keeping this honest
 
-  The script lives outside the repository and cannot be vendored into it, so
-  this transcription can drift from it. Drift must never place a mark on the
+  The script is `tools/film/gimp/film-contact-sheet.scm`, written in GIMP's
+  Scheme, and this module is a transcription of it into Elixir, so the two
+  can drift apart. Drift must never place a mark on the
   wrong photograph, so `Web.Negatives.Sheet` gates every answer against the
   archive twice and shows nothing at all when either gate fails. A change to
   the margin, the gap or the paper list therefore makes marks *disappear*,

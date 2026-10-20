@@ -30,9 +30,9 @@ recipes of version 1.
 1. **Without its calibration, a stage gives today's output to the byte.** A
    missing `scanner-*.json` means the gamma assumption used today; a missing
    stock means the identity crosstalk and the roll's own gammas. The regression
-   check (`tools/film-develop/regress.sh`, W2) compares `frames.json` and every
+   check (`tools/film/regress.sh`, W2) compares `frames.json` and every
    print on the fixture rolls before and after.
-2. **Tested against the known-answer model** (`tools/film-develop/synth.py`) to
+2. **Tested against the known-answer model** (`tools/film/test-model/synth.py`) to
    the tolerances below. A test that needs a real scan goes in the gitignored
    `test/private/`.
 3. **Every number written says where it came from**: `"source": "tablet" |
@@ -194,13 +194,13 @@ Offered upstream as one PR each.
 
 ## The test model
 
-`python3 tools/film-develop/synth.py roll OUT --process c41|bw|e6 --frames N
+`python3 tools/film/test-model/synth.py roll OUT --process c41|bw|e6 --frames N
 --seed S` writes `strip-01.tiff` (16-bit, uncompressed, the studio mark in its
 description) and `truth.json`: the film's every number, the scanner's, and each
 patch's scene light, density and rectangle. `synth.read_tiff` reads it back
 with numpy alone. Committed rolls (seed 1, three frames each) are in
 `test/support/fixtures/colour/{c41,bw,e6}/`. Its own tests:
-`python3 -m pytest tools/film-develop/test_synth.py`.
+`python3 -m pytest tools/film/test-model/test_synth.py`.
 
 ## Workstreams
 
@@ -209,9 +209,9 @@ after W2 and W4 → W7 after W1b.
 
 | | What | Where |
 |---|---|---|
-| W0 | This document, `research.md`, the test model, the cloud start hook, `tools/lightcraft.sh`, the fork; `film-develop` brought into `tools/film-develop/` (host) | here |
+| W0 | This document, `research.md`, the test model, the cloud start hook, `tools/lightcraft/install.sh`, the fork; `film-develop` brought into `tools/film/` (done 2026-10-20, with its history) | here |
 | W1 | Taste's hue fix; `mix darkroom.eval`; the film-name page; 16-bit singles with the calibration id | `lib/web/darkroom/`, `lib/web/scanner/` |
-| W2 | `film-develop`: `calibrate-tablet`, density throughout, crosstalk, `film_op`; `regress.sh` | `tools/film-develop/` |
+| W2 | `film-develop`: `calibrate-tablet`, density throughout, crosstalk, `film_op`; `regress.sh` | `tools/film/` |
 | W3 | `film-develop characterize` (ColorChecker, colour-checker-detection's BSD path only), datasheet profile import from spektrafilm (CC BY-SA, credited in `priv/film/LICENSES.md`), `tools/it8-profile.sh` (ArgyllCMS) for slides | `tools/`, `priv/film/profiles/` |
 | W4 | `film.invert`, `film.configure`, `scopes.compute` in the fork | `cranialcaudal/lightcraft` |
 | W5 | `tools/paper-lut/` (spektrafilm, pinned, run as a program); `Web.Cuts.Render` takes a `lut3d` | `tools/`, `lib/web/cuts/` |

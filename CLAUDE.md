@@ -17,7 +17,8 @@ release `_build/prod/rel/web/bin/web rpc '…'`. The working tree is what gets d
 deployable at all times (no half-finished migrations).
 
 Live data, backups and Caddy's log are in `~/streetscissors-data/` (`backups/`, `logs/`, `old/`).
-The film tools are the `~/negatives` repo, linked into `~/.local/bin` by its `install.sh`. Kept
+The film tools are in `tools/film/`, linked into `~/.local/bin` by `tools/install.sh`, so **an
+edit there is live at once**. Kept
 but unused things (spikes, old tool copies, the admin redesign harness) are in
 `~/streetscissors-attic/`.
 
@@ -253,8 +254,8 @@ timeline and a bin of files (`cut_media`), rendered into a captain's log.
   the roll as `frames.json` numbers them. The index's Frames column counts these
   (`Sheet.frame_count/1`); `catalog.csv`'s `frames` is the *strip* count.
 - **Grease-pencil rings** circle printed frames and are the links. `Web.Negatives.SheetLayout`
-  re-implements the GIMP assembler (`film-contact-sheet.scm`, in `~/.config/GIMP/*/scripts/`,
-  **not vendorable**) to map `frames.json` rectangles onto the sheet. `Web.Negatives.Sheet` shows
+  re-implements the GIMP assembler (`tools/film/gimp/film-contact-sheet.scm`, installed into
+  `~/.config/GIMP/*/scripts/`) to map `frames.json` rectangles onto the sheet. `Web.Negatives.Sheet` shows
   marks only if **both gates** pass: the strip files still match `strips[].file`, and a paper size
   composes to the sheet's real pixels. A failed gate means no rings, never misplaced ones;
   `test/private/negatives_layout_test.exs` names the roll and the `negatives --analyze NNN` that

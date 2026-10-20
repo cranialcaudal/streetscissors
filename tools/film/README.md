@@ -5,22 +5,38 @@ without ever opening the GIMP window. Scans are always made at **300 dpi**,
 and every sheet is a **300 dpi, ~8×10 in** image, so exposures print at
 their true physical size.
 
-## What's in this repo
+## What's in this folder
+
+This is the film darkroom's toolkit. It lives inside the website's repository (it used to be a
+separate one; its history came with it), but **it does not need the website**: on its own it
+scans a roll, develops it and lays out a contact sheet. The website then shows the folder these
+tools write. See [`../README.md`](../README.md) for how it fits with the site's other tools.
 
 ```
 bin/negatives                    the scan-session wizard (one roll at a time)
+bin/film-develop                 turns a scan of a negative into a positive print: finds the
+                                 frames on a strip, removes the orange mask of colour film,
+                                 sets the colour once per roll and the exposure per frame
 bin/digital-contact-sheet-maker  headless GIMP contact-sheet builder
 gimp/film-contact-sheet.scm      the layout engine (also a GIMP dialog:
                                  File > Create > Film Contact Sheet…)
 gimp/negative-package.scm        File > Create > Negative Package… dialog
-install.sh                       symlinks everything into place (--copy to copy)
+install.sh                       links everything into place (--copy to copy)
+test-model/                      a pretend roll of film with known numbers, for testing
+                                 film-develop's colour maths (see its README)
 ```
 
-Requirements: bash, GIMP 3.x (native or flatpak), and optionally Epson's
-`iscan` (falls back to simple-scan, or set `NEGATIVES_SCANNER`). Run
-`./install.sh` after cloning. The finished sheets are served by
-[streetscissors](https://streetscissors.com/negatives) straight from the
-collection folder described below.
+Requirements: bash, GIMP 3.x (native or flatpak), Python 3 (standard library only, for `film-develop`),
+ImageMagick, and optionally Epson's `iscan` (falls back to simple-scan, or set
+`NEGATIVES_SCANNER`). Install with `tools/install.sh` from the top of the repository (it runs
+this folder's `install.sh`). The finished sheets are served by
+[streetscissors](https://streetscissors.com/negatives) straight from the collection folder
+described below.
+
+**`film-develop` is a long program (about 3,000 lines of Python).** How it reads strips scanned
+on bare glass, and why each rule is there, is told roll by roll in
+[`docs/negatives-pipeline.md`](../../docs/negatives-pipeline.md) §9. The git history of
+`bin/film-develop` has one commit per version, oldest first.
 
 ## Folder layout
 

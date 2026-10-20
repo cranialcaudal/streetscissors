@@ -139,8 +139,9 @@ Individual frames come later, and only for the ones worth it.
 
 ### The tools
 
-Three programs do the work. They live in `~/.local/bin` on the machine, which
-means you can type their names from anywhere.
+Three programs do the work. Their source is in the site's repository, in
+`tools/film/`, and `tools/install.sh` links them into `~/.local/bin` on the
+machine, which means you can type their names from anywhere.
 
 | Command | What it is |
 |---|---|
@@ -152,9 +153,9 @@ means you can type their names from anywhere.
 ever opening its window. GIMP does the actual laying-out; the script tells it
 what to do and closes it again.
 
-These tools are the darkroom's, not the website's. They are not part of the
-site's repository, and they work with no website at all. The site's scanner
-page, described at the end of this part, runs the last two itself.
+These tools are the darkroom's, not the website's: they are kept beside the
+site's code, but they work with no website at all. The site's scanner page,
+described at the end of this part, runs the last two itself.
 
 ### The steps
 

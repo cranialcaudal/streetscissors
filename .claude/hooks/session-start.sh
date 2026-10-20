@@ -43,5 +43,5 @@ else
   echo "session-start: mix deps.get failed; allow repo.hex.pm in the environment's network settings" >&2
 fi
 
-# film-develop's tests and the colour test model (tools/film-develop).
+# film-develop's tests and the colour test model (tools/film/test-model).
 python3 -m pip install --quiet --break-system-packages numpy pytest >/dev/null 2>&1 || true

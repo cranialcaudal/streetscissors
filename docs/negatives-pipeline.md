@@ -1,6 +1,6 @@
 # Film Negatives Pipeline: Architecture, Mathematics & Integration
 
-This document is the definitive technical specification of the analog-to-digital film pipeline powering **streetscissors** (`https://streetscissors.com/negatives`) and its accompanying toolchain (`~/negatives`).
+This document is the definitive technical specification of the analog-to-digital film pipeline powering **streetscissors** (`https://streetscissors.com/negatives`) and its accompanying toolchain (`tools/film/` in this repository).
 
 It describes the entire lifecycle of an exposure: from physical emulsion on flatbed glass, through headless Script-Fu compositing and C-41 color balancing mathematics, to pure-Elixir coordinate translation and procedural SVG wax china-marker simulation in Phoenix LiveView.
 
