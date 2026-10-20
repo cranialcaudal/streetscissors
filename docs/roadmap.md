@@ -24,9 +24,13 @@ Most of the foundation is already built.
 - **Correspondence.** The guestbook holds each signature until it is approved. The guestbook and contact forms are rate-limited and carry a captcha. The newsletter sends as durable background jobs, with one-click unsubscribe.
 - **Discovery.** There are an RSS feed, a sitemap, a robots file, and a description, canonical URL and share image on every page; posts, frames and rolls each have a share image of their own. AI scrapers are turned away at the proxy.
 - **Plumbing.** The database is snapshotted every night and each snapshot is verified. The written content is archived the same night, kept as versions, and each archive is proven by restoring it. Snapshots, versions, the negatives and the recordings are mirrored to an external drive whenever it is plugged in. Deploys are one script with a health gate.
-- **Admin.** One back office in one design, the "composing room". It opens on what is waiting and on the state of the machine: backups, the last Komoot sync, the mail queue. Messages have their own inbox and settings their own page. The newsletter has drafts, a preview and a test send.
+- **Admin.** One back office, "the studio", grouped by program: the darkroom, the cutting room, writing, training and mail. It opens on what is waiting and on the state of the machine. Messages have their own inbox and settings their own page. The newsletter has drafts, a preview and a test send.
+- **The darkroom.** A roll goes from the scanner's glass to a published contact sheet from the admin. A single print is finished by hand with sliders, crop, dust and repair, and every edit is kept as a recipe.
+- **The cutting room.** A captain's log can be cut from several takes, prints from the archive, titles and music, and rendered on the server.
+- **Search.** One search across every section, with nothing indexed: each query reads the content as it stands.
+- **The prayer pages.** The liturgical day, the Hours, the readings at Mass and the Rosary, all on one page and fetched from nowhere else.
 
-## 2. Answered and followed (in progress)
+## 2. Answered and followed (done)
 
 A feed is also how people find you, answer you and keep up. This phase gives the site those things in its own terms: nothing counted, nothing ranked, nothing fed.
 
@@ -61,7 +65,7 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 ## 5. Public reading
 
-- **Index parity.** The blog and the logs behave alike: newest first, most witnessed, and keyword filters.
+- **Index parity:** done. The blog and the logs behave alike: newest first, most witnessed or most viewed, and keyword filters.
 - **Cross-links.** A post can gather related frames, and a log can point at the post it belongs with, without hand-written HTML. (Every piece already links to its day.)
 - **Reading polish.**
   - Done: the 404 page reads the address that missed and offers the nearest real work: the post with the closest name, the rolls nearest that number, the recordings nearest that day. It is also one whole styled page however the miss came about; an unknown address used to get a bare, unstyled block.
@@ -110,16 +114,17 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
 
 - **The content folder:** done. Private notes have a folder of their own and an unfinished post is a draft in the blog, so the root holds only what the site reads.
 - **Old notes:** done. The manual now explains how a training day is assembled from modules, which was the one thing the old architecture notes still said that nothing else did, and the notes are retired.
+- **The repository's own documents:** done. One guide for coding agents, the manual for people, this roadmap, and the briefs once written for other agents archived in one file.
 
 ## 11. Sequencing
 
 - **Phase 1, the admin:** done.
-- **Phase 2, answered and followed:** the daybook, letters, feeds, IndieWeb markup, and webmentions received.
+- **Phase 2, answered and followed:** done.
 - **Phase 3, the backup:** done.
 - **Phase 4, the publishing loop:** done.
-- **Phase 5, public polish:** index parity, cross-links, the 404 page, print styles, the year as a book, and the route audit.
-- **Phase 6, discovery:** the homepage decision, search engines, share images, and sending webmentions.
-- **Phase 7, plumbing:** monitoring, restore tests, rollback, and dependency upgrades.
+- **Phase 5, public polish:** the 404 page, print styles and the route audit are done. Cross-links and the year as a book remain.
+- **Phase 6, discovery:** share images and sending webmentions are done. The homepage decision and search engines remain.
+- **Phase 7, plumbing:** monitoring, restore tests and rollback are done. Dependency upgrades remain.
 - **Phase 8, the rest:** fitness editing, correspondence, image sizes, and cleanup.
 
 Each phase ends with a redeploy and a live check of what changed.

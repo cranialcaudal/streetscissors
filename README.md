@@ -69,9 +69,16 @@ the site is run: the path a request takes, the processes and what each is for,
 configuration, the deploy step by step, backups and how to restore from them, what the
 machine checks about itself, and what to look at first when something breaks.
 
-`CLAUDE.md` is the map — the non-obvious wiring, the design system, the file-based content
-systems and their gotchas. `AGENTS.md` covers Phoenix/LiveView conventions.
-[`ops/systemd/`](ops/systemd) holds the two unit files that run the live site.
+The other documents:
+
+| File | What it is |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | The map for anyone changing the code, coding agents included: the non-obvious wiring, the conventions, the traps. `AGENTS.md` points to it. |
+| [`docs/roadmap.md`](docs/roadmap.md) | What is built and what comes next. Also served at `/roadmap`. |
+| [`docs/negatives-pipeline.md`](docs/negatives-pipeline.md) | The film pipeline in depth: scanning, development, the contact sheet, the grease-pencil rings. |
+| [`docs/colour/`](docs/colour) | The colour research and the contrast contracts the themes keep. |
+| [`docs/archive/`](docs/archive) | Briefs once written for other agents, kept for the record. Not instructions. |
+| [`ops/systemd/`](ops/systemd) | The two unit files that run the live site. |
 
 Worth knowing up front: the design is hand-written CSS only. Tailwind runs with
 `source(none)`, so no utility classes generate and heroicons must be safelisted in
