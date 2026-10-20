@@ -38,7 +38,6 @@ defmodule WebWeb.Router do
     plug :put_csrf_token_in_session
     plug WebWeb.Plugs.Analytics
     plug WebWeb.Plugs.SetCurrentUser
-    plug WebWeb.Plugs.FetchStats
     plug WebWeb.Plugs.LoadSiteSettings
   end
 

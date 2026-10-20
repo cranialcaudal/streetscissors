@@ -100,7 +100,7 @@ newsletter overlay inherits the session's hooks. The `SetCurrentUser` plug only 
 
 ### Requests, processes, jobs
 
-- **Every browser request runs** `Analytics` → `SetCurrentUser` → `FetchStats` →
+- **Every browser request runs** `Analytics` → `SetCurrentUser` →
   `LoadSiteSettings` (the `:browser` pipeline). Analytics and the guestbook store client IPs.
   Site settings are key/value rows (`SiteSettings.get_setting/2`) read on every request.
 - **No-pipeline scopes:** `GET /health`, `/share/*`, `POST /webmention` and `/seen` set no cookie

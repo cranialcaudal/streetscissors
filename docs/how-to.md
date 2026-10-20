@@ -904,7 +904,6 @@ Nearly every page goes through `:browser`:
 | `put_secure_browser_headers` | Phoenix's default security headers |
 | `WebWeb.Plugs.Analytics` | Record one hit (not for a prefetch, a bot, or a sub-resource) |
 | `WebWeb.Plugs.SetCurrentUser` | Tell templates whether this is the admin. It protects nothing |
-| `WebWeb.Plugs.FetchStats` | Count today's distinct visitors, for the header |
 | `WebWeb.Plugs.LoadSiteSettings` | Load the handful of settings kept in the database |
 
 Then the matched code runs: `BlogController.show/2` asks `Web.Blog` for the
