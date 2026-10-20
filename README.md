@@ -18,18 +18,45 @@ Phoenix 1.8 / LiveView on SQLite. Live at [streetscissors.com](https://streetsci
 `/blog` sorts by most recent or most witnessed, `/logs` by most recent or most viewed, and both filter by keyword —
 keywords normalise through one shared module so `"New York"` and `new-york` are one token.
 
+## Where to start
+
+**New to the project?** These, in order:
+
+1. [`docs/setup.md`](docs/setup.md): install what it needs and run it on your own machine, step by
+   step. No Elixir knowledge assumed.
+2. [`docs/how-to.md`](docs/how-to.md): what every part of the site is for and how it works, in plain
+   language (also at [/how-to](https://streetscissors.com/how-to)).
+3. The README in each folder, which says what the folder holds and where to begin in it:
+
+| Folder | What it holds |
+|---|---|
+| [`lib/`](lib/README.md) | The site's code: [`lib/web/`](lib/web/README.md) is what it knows and does, [`lib/web_web/`](lib/web_web/README.md) is the web pages and every address |
+| [`assets/`](assets/README.md) | Stylesheets and browser code |
+| [`config/`](config/README.md) | Settings for development, tests and production |
+| [`priv/`](priv/README.md) | Files the site reads that are not code: migrations, the Bible, calendars, static files |
+| [`test/`](test/README.md) | The automated checks, and the invented sample content they use |
+| [`tools/`](tools/README.md) | Programs the site calls: the film darkroom's tools, the photo editor's engine, the repair models |
+| [`analysis/`](analysis/README.md) | Statistics in R: the emissions charts and the training report |
+| [`ops/`](ops/README.md) | Running the live site: the deploy, the rollback, the services, the web server |
+| [`docs/`](docs/README.md) | The manual, the setup guide, the roadmap, and the technical notes |
+
+[`CLAUDE.md`](CLAUDE.md) is the short list of rules and traps for anyone changing the code (it
+is written for AI coding agents, and it is just as useful for people).
+
 ## Running it locally
 
 ```bash
-mix setup          # deps, database, assets
-mix phx.server     # http://localhost:4000
+mix setup          # libraries, database, assets
+mix test           # the full suite: about 1,570 tests, all passing
+mix phx.server     # http://localhost:4000 (admin password: dev-admin)
 ```
 
-You'll want a `.env` for the optional integrations (Komoot sync, mail, the newsletter
-generator) — see `.env.example`. Nothing in it is required to boot locally.
+A development server needs no `.env`; that file is for production. [`docs/setup.md`](docs/setup.md)
+§4 shows how to fill the pages with the tests' sample content, and how to try the optional
+integrations (Komoot, mail).
 
 ```bash
-mix precommit      # the gate: warnings-as-errors, format, full test suite
+mix precommit      # the gate before any change is done: warnings-as-errors, format, full suite
 ```
 
 ## Deploying
@@ -69,16 +96,7 @@ the site is run: the path a request takes, the processes and what each is for,
 configuration, the deploy step by step, backups and how to restore from them, what the
 machine checks about itself, and what to look at first when something breaks.
 
-The other documents:
-
-| File | What it is |
-|---|---|
-| [`CLAUDE.md`](CLAUDE.md) | The map for anyone changing the code, coding agents included: the non-obvious wiring, the conventions, the traps. `AGENTS.md` points to it. |
-| [`docs/roadmap.md`](docs/roadmap.md) | What is built and what comes next. Also served at `/roadmap`. |
-| [`docs/negatives-pipeline.md`](docs/negatives-pipeline.md) | The film pipeline in depth: scanning, development, the contact sheet, the grease-pencil rings. |
-| [`docs/colour/`](docs/colour) | The colour research and the contrast contracts the themes keep. |
-| [`docs/archive/`](docs/archive) | Briefs once written for other agents, kept for the record. Not instructions. |
-| [`ops/systemd/`](ops/systemd) | The two unit files that run the live site. |
+Every document is listed, with what it is for, in [`docs/README.md`](docs/README.md).
 
 Worth knowing up front: the design is hand-written CSS only. Tailwind runs with
 `source(none)`, so no utility classes generate and heroicons must be safelisted in

@@ -1924,12 +1924,18 @@ streetscissors/
 ├── priv/static/        files served as they are: fonts, icons, robots.txt
 ├── priv/figure/        the camera that films the exercise figures
 ├── test/               the tests, their fixtures and their stand-in tools
-├── docs/               this manual, and the darkroom's technical notes
+├── docs/               this manual, the setup guide, and the darkroom's technical notes
+├── tools/              programs the site calls: the film tools (tools/film/), the
+│                       print editor's engine and repair models, and their installers
+├── analysis/           statistics in R: the emissions charts, the training report
 ├── ops/                running the site: caddy/Caddyfile, the systemd/ units,
 │                       redeploy.sh (the deploy), rollback.sh (the way back),
 │                       start_prod.sh (a start by hand)
 └── content/            the Obsidian vault (not in git, apart from templates)
 ```
+
+Every folder has a `README.md` saying what is in it and where to begin, and `docs/setup.md`
+walks through installing everything on a new machine.
 
 The convention: `lib/web/` is the part that would still make sense if the
 website were replaced by something else, and `lib/web_web/` is the website
