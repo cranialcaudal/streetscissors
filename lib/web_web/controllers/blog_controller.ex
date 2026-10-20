@@ -1,4 +1,16 @@
 defmodule WebWeb.BlogController do
+  @moduledoc """
+  The blog: the index (`/blog`, sorted by newest or most read, filtered by
+  keyword) and each post (`/blog/:slug`). Posts are markdown files read from
+  `content/blog/` by `Web.Blog`; this controller picks what the page needs and
+  hands it to the templates in `blog_html/`.
+
+  Three things a reader never notices: old category addresses redirect to the
+  index; a post filed under a title ("Tide's Out.md") moves for good to its
+  clean slug once a file by that name exists; and a draft is a 404 to everyone
+  but the author, who sees it marked as a draft.
+  """
+
   use WebWeb, :controller
 
   alias Web.Blog

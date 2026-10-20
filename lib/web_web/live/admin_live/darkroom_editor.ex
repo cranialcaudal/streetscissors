@@ -19,6 +19,21 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   `.Darkroom` adds the keys: `\\` shows the print as developed while held,
   ⌘S / Ctrl+S saves, and leaving with unsaved edits asks first. Whether there
   are any is the server's to say (`data-dirty`).
+
+  ## How this file is laid out
+
+  1. **Opening a print** (`mount/3` to `draw/1`): the print, its recipe,
+     the film's suggested starting point, and the first preview.
+  2. One part per tab of the editor, each the `handle_event/3` clauses for
+     its controls: **Sliders**, **The film**, **Crop**, **Dust**, **Repair**,
+     and **The bench** (before/after, save, revert).
+  3. **Results of slow work** (`handle_async/3`): previews, dust finding,
+     repairs.
+  4. **Messages** (`handle_info/2`): from the LightCraft session.
+  5. **The page itself** (`render/1`).
+
+  The edits themselves are `Web.Darkroom`; this file only turns controls
+  into commands and shows the result.
   """
 
   use WebWeb, :live_view
@@ -29,6 +44,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   alias Web.Darkroom.{Archive, Prior, Repair, Session, Taste}
   alias Web.Negatives
   alias Web.Negatives.RollMeta
+
+  # ── Opening a print ───────────────────────────────────────────────────────
 
   def mount(%{"roll" => roll, "frame" => frame}, session, socket) do
     with true <- !!session["admin_user"] || :not_admin,
@@ -429,6 +446,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   def handle_event(event, _params, socket) when event in ["save", "revert"],
     do: {:noreply, socket}
 
+  # ── Results of slow work (handle_async) ───────────────────────────────────
+
   def handle_async(:prior, {:ok, {:ok, prior}}, socket),
     do: {:noreply, assign(socket, prior: prior)}
 
@@ -525,6 +544,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply,
      socket |> assign(working: nil) |> put_flash(:error, "Not printed: #{inspect(reason)}")}
   end
+
+  # ── Messages (handle_info) ────────────────────────────────────────────────
 
   def handle_info({:darkroom_preview, n, file}, socket) do
     if n >= socket.assigns.shown do
@@ -643,6 +664,8 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp track(%{"track" => %{"kind" => kind}}), do: {"adm-dr-track--#{kind}", nil}
   defp track(_), do: {"adm-dr-track--plain", nil}
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   def render(assigns) do
     {w, h} = assigns.size

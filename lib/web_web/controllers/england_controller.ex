@@ -1,4 +1,12 @@
 defmodule WebWeb.EnglandController do
+  @moduledoc """
+  The England trip pages (`/england2026`, and `/england2026/call` for the times
+  to call home): an itinerary, a calendar of the trip and a packing checklist.
+  Unlisted: out of the sitemap, the search and robots. Everything particular
+  to the trip is read from `content/england2026/` (`trip.json`, the markdown
+  beside it), so with no content the pages render empty rather than fail.
+  """
+
   use WebWeb, :controller
 
   # Everything that makes this a particular trip — its days, places and the

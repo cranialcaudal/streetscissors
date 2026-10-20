@@ -1,4 +1,10 @@
 defmodule WebWeb.NewsletterController do
+  @moduledoc """
+  The newsletter's subscriber list as a CSV download
+  (`/admin/subscribers/export`): address, whether still subscribed, and when
+  they joined. Admin only.
+  """
+
   use WebWeb, :controller
 
   alias Web.Newsletter

@@ -1,4 +1,35 @@
 defmodule WebWeb.FitnessLive.Index do
+  @moduledoc """
+  The training plan, one day to a page (`/fitness` is today by the Pacific
+  clock; `/fitness/day/thursday` is Thursday, whatever day it is). The day's
+  exercises are read from the vault (`content/fitness/weekly/<day>.md` and the
+  modules it lists) by `Web.Fitness.Vault`, and shown as a checklist whose
+  ticks the browser remembers (the `GymRoutine` hook,
+  `assets/js/gym_routine.js`).
+
+  **For the admin, the page is also the training log.** Each exercise gets a
+  Log button. During a training block the line under it says what today's
+  target is and why (`Web.Fitness.Coach`), and the log form starts from the
+  plan's own numbers. Visitors see only the plan.
+
+  The days link to each other with `navigate`, never `patch` (the comment
+  above `mount/3` explains why).
+
+  ## How this file is laid out
+
+  1. **Opening a day** (`mount/3`, `mount_day/4`, `handle_params/3`): which
+     day, its plan, and its strip of days.
+  2. **Logging** (`handle_event/3`): opening, filling, saving and removing a
+     log entry. Admin only; each event checks.
+  3. **Saving an entry** (`save/4`).
+  4. **Targets** (`assign_coach/1` to `format_n/1`): what the plan's own
+     lines and the training block ask of each exercise today.
+  5. **What a logged entry says** (`log_line/1` to `blank_to_nil/1`).
+  6. **The log form's fields** (`log_fields/1` to `num/1`): which fields,
+     for which kind of exercise.
+  7. **The page itself** (`render/1`).
+  """
+
   use WebWeb, :live_view
 
   alias Web.Fitness
@@ -6,6 +37,8 @@ defmodule WebWeb.FitnessLive.Index do
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   @fuelling "nutrition-module"
+
+  # ── Opening a day ─────────────────────────────────────────────────────────
 
   # One day to a page. `/fitness` is always today, by the Pacific clock, so
   # it moves on by itself; `/fitness/day/thursday` is Thursday whatever the
@@ -103,6 +136,8 @@ defmodule WebWeb.FitnessLive.Index do
     {:noreply, socket}
   end
 
+  # ── Logging: the form's buttons ───────────────────────────────────────────
+
   # Fired by the inline "Log" button that Web.Fitness.Vault stitches onto any
   # checkbox line referencing a `[[slug]]` exercise (see
   # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). Any exercise the wiki has
@@ -172,6 +207,8 @@ defmodule WebWeb.FitnessLive.Index do
      socket |> put_flash(:info, "Entry removed.") |> assign_coach() |> assign_logged_today()}
   end
 
+  # ── Saving an entry ───────────────────────────────────────────────────────
+
   defp save(socket, slug, metrics, note) do
     with {:ok, exercise} <- Fitness.loggable_exercise(slug),
          true <- map_size(metrics) > 0 do
@@ -202,6 +239,8 @@ defmodule WebWeb.FitnessLive.Index do
   end
 
   defp close_log(socket), do: assign(socket, :logging, nil)
+
+  # ── Targets: what the plan and the block ask for ──────────────────────────
 
   # Every exercise on the day as the admin sees it (Web.Fitness.Coach): the
   # line under it, its guardrail, its target and what its form starts from;
@@ -301,6 +340,8 @@ defmodule WebWeb.FitnessLive.Index do
 
   defp assign_logged_today(socket), do: assign(socket, :logged_today, [])
 
+  # ── What a logged entry says ──────────────────────────────────────────────
+
   @doc "A log entry's values in a line (`Web.Fitness.entry_line/1`)."
   def log_line(log), do: Fitness.entry_line(log)
 
@@ -347,6 +388,8 @@ defmodule WebWeb.FitnessLive.Index do
   # dropdowns that start at the target, else the last entry, else the plan,
   # so logging the usual is a Save and a change is one pick.
   attr :plan, :map, required: true
+
+  # ── The log form's fields ─────────────────────────────────────────────────
 
   defp log_fields(assigns) do
     d = assigns.plan.defaults
@@ -438,6 +481,8 @@ defmodule WebWeb.FitnessLive.Index do
 
   defp num(w) when is_float(w) and w == trunc(w), do: Integer.to_string(trunc(w))
   defp num(w), do: to_string(w)
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   @impl true
   def render(assigns) do

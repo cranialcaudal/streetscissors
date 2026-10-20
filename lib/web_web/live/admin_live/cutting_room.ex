@@ -23,6 +23,19 @@ defmodule WebWeb.AdminLive.CuttingRoom do
   Keys: space plays and stops, S cuts the clip under the playhead in two,
   Delete takes the selected item out, ← → step a frame (with shift, a
   second), Home and End go to either end.
+
+  ## How this file is laid out
+
+  1. **Opening a cut** (`mount/3` and its helpers).
+  2. **The bin**: adding takes, sounds and stills.
+  3. **The timeline**: titles, selecting, moving, trimming, splitting.
+  4. **The inspector**: one item's settings, renaming, publishing.
+  5. **Uploads and the cut's own news** (`handle_info/2`): progress from
+     proxies and renders.
+  6. **Helpers**, then **the page itself** (`render/1`).
+
+  The browser plays the cut (the `.Cutting` hook, in this file); the server
+  saves every edit through `Web.Cuts` and renders with ffmpeg.
   """
 
   use WebWeb, :live_view
@@ -36,6 +49,8 @@ defmodule WebWeb.AdminLive.CuttingRoom do
 
   # Only extensions MIME knows: LiveView refuses any other in `accept`.
   @accept ~w(.mp4 .mov .webm .m4a .mp3 .wav .aac .ogg)
+
+  # ── Opening a cut ─────────────────────────────────────────────────────────
 
   def mount(%{"id" => id}, session, socket) do
     with true <- !!session["admin_user"] || :not_admin,
@@ -444,6 +459,8 @@ defmodule WebWeb.AdminLive.CuttingRoom do
     last = div(max(length, 1000), 1000) + step
     for s <- 0..last//step, do: {s, clock(s * 1000)}
   end
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   def render(assigns) do
     assigns =

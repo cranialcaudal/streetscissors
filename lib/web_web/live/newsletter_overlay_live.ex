@@ -1,4 +1,16 @@
 defmodule WebWeb.NewsletterOverlayLive do
+  @moduledoc """
+  The "dispatch" panel every page carries: two tabs, one to subscribe to the
+  newsletter and one to write to the author. It opens over the page and closes
+  without leaving it.
+
+  Both forms have a captcha and are rate-limited per address. A spelling and
+  grammar check is offered on the message; it sends the text to LanguageTool
+  (`Web.Language.Grammar`) only when the visitor presses the button. This view
+  must not set a page title: it sits inside every page, and its title would
+  replace theirs.
+  """
+
   use WebWeb, :live_view
   alias Web.Newsletter
   alias Web.Contact

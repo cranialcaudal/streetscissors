@@ -1,4 +1,11 @@
 defmodule WebWeb.FitnessLive.Wiki do
+  @moduledoc """
+  The exercise wiki's index (`/fitness/wiki`): every exercise, grouped by body
+  area, with a filter box that narrows the list as you type (`?q=`, kept in the
+  address). The exercises are markdown files read by `Web.Fitness.Vault`, not
+  database rows. Each one's own page is `WebWeb.FitnessLive.Show`.
+  """
+
   use WebWeb, :live_view
 
   alias Web.Fitness.Vault

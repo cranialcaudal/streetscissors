@@ -1,4 +1,38 @@
 defmodule WebWeb.PcLive do
+  @moduledoc """
+  The `/pc` terminal: the whole site as a pretend computer you type into.
+  Every piece has the name it has on disk (`roll007_2026-07-22_120_bw`,
+  `tides-out`), and typing a name and pressing Enter goes straight to it.
+  There are also a few real-looking commands (`ls`, `cd`, `cat`, `find`,
+  `grep`, `help`, `man`) over a made-up file system built from the site's real
+  content (`build_fs/1`).
+
+  Anything typed that is not a command is treated as a place to jump to
+  (`jump/3`), so typos never error: they look for something by that name.
+  Tab completion draws from the same list of commands (`@commands`) the
+  dispatcher uses, so the two cannot disagree. Keeping the cursor in the box
+  is `assets/js/pc_terminal.js`.
+
+  ## How this file is laid out
+
+  1. **Opening the terminal** (`mount/3`, `handle_params/3`): the welcome
+     text, and the file system built from the site's content.
+  2. **The page itself** (`render/1`).
+  3. **Typing** (`handle_event/3`): Tab completes, Enter runs.
+  4. **Running a command** (`process_command/3`): a known command, or else
+     a jump (**Jumping**, `jump/3`) to whatever has that name.
+  5. **The commands** (`handle_single_cmd/3`, `handle_arg_cmd/4`): one clause
+     per command, without and with an argument.
+  6. **Help, the manual and the pretend programs** (`get_help_text/0` to
+     `simulated_sys/0`).
+  7. **Files** (`list_dir/3` to `list_roll_frames/3`): `ls`, `cat`,
+     `find`, `grep`.
+  8. **Building the pretend file system** (`build_fs/1`): folders of posts,
+     logs, rolls and exercises.
+  9. **Paths** (`parse_path/2` to `format_info/1`): `cd`, `..` and the
+     prompt.
+  """
+
   use WebWeb, :live_view
 
   @linux_guide (case File.read("priv/LINUX_POCKET_GUIDE.TXT") do
@@ -19,6 +53,8 @@ defmodule WebWeb.PcLive do
     ps top sys uname date uptime whoami cal history man echo head tail clear cls
     exit logout
   )
+
+  # ── Opening the terminal ──────────────────────────────────────────────────
 
   def mount(_params, _session, socket) do
     index = Web.Pc.Index.build()
@@ -95,6 +131,8 @@ defmodule WebWeb.PcLive do
     end
   end
 
+  # ── The page itself (render) ──────────────────────────────────────────────
+
   def render(assigns) do
     ~H"""
     <div class="pc-container" id="pc-terminal" phx-hook="AutoScroll">
@@ -155,6 +193,8 @@ defmodule WebWeb.PcLive do
     </div>
     """
   end
+
+  # ── Typing: Tab and Enter ─────────────────────────────────────────────────
 
   def handle_event("tab_complete", %{"value" => current_input}, socket) do
     # Split by spaces but keep track of the last word
@@ -367,6 +407,8 @@ defmodule WebWeb.PcLive do
     end)
   end
 
+  # ── Running a command ─────────────────────────────────────────────────────
+
   # Command Processor
   #
   # Anything that is not a known command is treated as a jump target rather
@@ -458,6 +500,8 @@ defmodule WebWeb.PcLive do
   defp route_for(%{kind: :log, id: %{slug: slug}}), do: ~p"/logs/#{slug}"
 
   defp pad(text, width), do: String.pad_trailing(text, width)
+
+  # ── The commands ──────────────────────────────────────────────────────────
 
   defp handle_single_cmd("help", cwd, _socket), do: {get_help_text(), cwd}
   defp handle_single_cmd("ls", cwd, socket), do: list_dir(cwd, cwd, socket.assigns.fs)
@@ -564,6 +608,8 @@ defmodule WebWeb.PcLive do
     do: {"EL CARNAL 1.0.0-STREETSCISSORS #1 SMP Tue Mar 10 2026 x86_64 GNU/Linux", cwd}
 
   defp handle_arg_cmd(_, _, cwd, _socket), do: {"Bad command or file name", cwd}
+
+  # ── Help, the manual and the pretend programs ─────────────────────────────
 
   defp get_help_text do
     """
@@ -697,6 +743,8 @@ defmodule WebWeb.PcLive do
     PHOSPHOR:    STABLE
     """
   end
+
+  # ── Files: listing, opening and finding them ──────────────────────────────
 
   # File system traversal helpers
   defp list_dir(target_cwd, orig_cwd, fs) do
@@ -855,6 +903,8 @@ defmodule WebWeb.PcLive do
     end
   end
 
+  # ── Building the pretend file system ──────────────────────────────────────
+
   # The tree mirrors what is actually on the machine — real filenames, real
   # case, real extensions. It used to be almost entirely invented, and the one
   # real thing in it (blog posts) was mangled by `upcase` + "-"=>"_" into names
@@ -913,6 +963,8 @@ defmodule WebWeb.PcLive do
          "LESSON 3: FINDING THINGS\n------------------------\n  find 35mm      every name containing 35mm\n  grep ferry     full text — post bodies and log notes, not just names\n\nBoth print the real path and where Enter would take you.\n\nPRO TIP: 'man <command>' explains any command. 'refresh' rebuilds the\nindex if you have just added a roll or a post."}
     }
   end
+
+  # ── Paths ─────────────────────────────────────────────────────────────────
 
   defp parse_path("/", _cwd), do: ["C:"]
 

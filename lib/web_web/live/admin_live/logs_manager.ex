@@ -30,6 +30,19 @@ defmodule WebWeb.AdminLive.LogsManager do
   `status: "pending"` and goes straight on the transcode queue, so a file is
   never held anywhere unaccounted for. Publishing is a separate decision that
   can be made while it encodes.
+
+  ## How this file is laid out
+
+  1. **Opening the booth** (`mount/3`).
+  2. **The booth's buttons** (`handle_event/3`): saving a recording,
+     editing an entry, publishing, deleting, retrying a failed one.
+  3. **Uploads** (`handle_progress/3` to `update_existing/3`): a finished
+     upload becomes a log waiting for the transcoder.
+  4. **Messages from the transcoder** (`handle_info/2`): progress, done,
+     failed.
+  5. **Helpers**, then **the page itself** (`render/1`). The recorder's
+     markup there (its `data-role` attributes) is what the `.LogRecorder`
+     hook finds: restyle around it, never rename it.
   """
 
   @accept ~w(.webm .mp4 .m4a .mp3 .wav .mov .ogg
@@ -39,6 +52,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   # A 30-minute 720p recording is about 560 MB; this leaves room above that
   # without inviting an upload that would take an hour over a websocket.
   @max_file_size 1_000_000_000
+
+  # ── Opening the booth ─────────────────────────────────────────────────────
 
   def mount(_params, _session, socket) do
     socket =
@@ -66,6 +81,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   end
 
   # --- The form ---
+
+  # ── The booth's buttons ───────────────────────────────────────────────────
 
   def handle_event("validate", %{"log" => params}, socket) do
     changeset =
@@ -150,6 +167,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   end
 
   # --- Ingest ---
+
+  # ── Uploads, and turning them into logs ───────────────────────────────────
 
   # Runs as the upload completes. Everything that arrives is written down
   # immediately, whether it was recorded here or dropped in: a file on disk
@@ -236,6 +255,8 @@ defmodule WebWeb.AdminLive.LogsManager do
 
   # --- Transcode progress ---
 
+  # ── Messages from the transcoder ──────────────────────────────────────────
+
   def handle_info({:transcode_progress, id, percent}, socket) do
     {:noreply, assign(socket, :progress, Map.put(socket.assigns.progress, id, percent))}
   end
@@ -250,6 +271,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   def handle_info(_message, socket), do: {:noreply, socket}
 
   # --- Assigns ---
+
+  # ── Helpers ───────────────────────────────────────────────────────────────
 
   defp log_or_new(nil), do: %Log{}
   defp log_or_new(%Log{} = log), do: log
@@ -280,6 +303,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   defp status_label("ready"), do: "Ready"
   defp status_label("failed"), do: "Failed"
   defp status_label(other), do: other
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   def render(assigns) do
     ~H"""

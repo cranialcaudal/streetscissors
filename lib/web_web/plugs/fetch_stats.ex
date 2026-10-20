@@ -1,4 +1,10 @@
 defmodule WebWeb.Plugs.FetchStats do
+  @moduledoc """
+  Puts today's visitor count on every page request, for the small figure in the
+  site's header (`@header_daily_hits`). One of the four plugs every browser
+  request passes through (see the `:browser` pipeline in `WebWeb.Router`).
+  """
+
   import Plug.Conn
   alias Web.Analytics
 

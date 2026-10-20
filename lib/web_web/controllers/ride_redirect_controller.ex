@@ -1,4 +1,11 @@
 defmodule WebWeb.RideRedirectController do
+  @moduledoc """
+  Sends old ride addresses on to where rides live now. `/rides` and
+  `/rides/:id` were the activities' first home and move permanently (301) to
+  `/fitness/rides`. `/live` is a temporary (302) redirect, because that short
+  address may be used for something else one day.
+  """
+
   use WebWeb, :controller
 
   def index(conn, _params) do

@@ -10,6 +10,15 @@ defmodule WebWeb.AdminLive.FitnessManager do
   guardrails read (`Web.Fitness.Guardrails`). Editing opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
+
+  ## How this file is laid out
+
+  1. **Opening the page** (`mount/3`, `handle_params/3`): the tab in the
+     address (`?tab=`), and what each tab loads.
+  2. **Buttons** (`handle_event/3`): saving a check-in, and editing the
+     week's days and the wiki's exercises (both written back to the vault's
+     markdown files).
+  3. **Helpers**, then **the page itself** (`render/1`).
   """
 
   use WebWeb, :live_view
@@ -20,6 +29,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
   alias Web.Fitness.{Block, Checks, Guardrails, Training, Vault}
 
   @tabs ~w(wiki regimen progress checkin)
+
+  # ── Opening the page ──────────────────────────────────────────────────────
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -91,6 +102,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
       guard: if(standing == "", do: nil, else: standing)
     )
   end
+
+  # ── Buttons: check-ins, days and exercises ────────────────────────────────
 
   def handle_event("save_checkin", %{"checkin" => params}, socket) do
     params = Map.update(params, "date", nil, &parse_date/1)
@@ -233,6 +246,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
     end
   end
 
+  # ── Helpers ───────────────────────────────────────────────────────────────
+
   defp open_editor(socket, mode, item, form) do
     assign(socket, editor_mode: mode, editing_item: item, form_data: form, preview: false)
   end
@@ -253,6 +268,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
     do: exercises |> Enum.map(fn {_, list} -> length(list) end) |> Enum.sum()
 
   # --- Rendering ---
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   def render(assigns) do
     ~H"""

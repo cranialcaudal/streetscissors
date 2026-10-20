@@ -1,4 +1,39 @@
 defmodule WebWeb.NegativesLive do
+  @moduledoc """
+  The negatives archive (`/negatives`): the film photographs, in three views
+  of one page.
+
+  * **The archive** (`/negatives`, and `?mode=index` for the sortable table of
+    every roll).
+  * **A contact sheet** (`/negatives/roll/013`): one roll's strips on a page,
+    with the printed frames circled in grease pencil, and its contents rail.
+  * **A frame** (`/negatives/roll/013/frame/4`): one photograph at its own
+    address, linked back to the sheet it came from.
+
+  **The address is the whole state of the page.** Every control is a link
+  (built by `WebWeb.NegativesLive.Format`, which leaves out defaults so one
+  control never undoes another), `handle_params/3` is the only place the
+  view is set, and the browser's own Back button walks the archive a step at a
+  time. The arrow keys and Escape are the only thing that moves the page by
+  itself, because a key cannot be a link.
+
+  The pictures come from `WebWeb.NegativesController`; the archive itself is
+  `Web.Negatives`. Theme: the darkroom (`assets/css/negatives.css`).
+
+  ## How this file is laid out
+
+  1. **Opening the page** (`mount/3`): the list of rolls.
+  2. **The three views** (`handle_params/3`, `show_archive/2`,
+     `show_sheet/2`, `show_frame/2`): every change of view arrives here as a
+     new address.
+  3. **Sorting, and the address of everything** (`sort_sheets/3` to
+     `sort_path/2`): the index's order, and the paths the links point at.
+  4. **The keys** (`handle_event/3`): ← → and Escape.
+  5. **Grease-pencil rings** (`grease_mark/1`): one ring per printed frame,
+     varied but always the same for the same frame.
+  6. **The page itself** (`render/1`).
+  """
+
   use WebWeb, :live_view
 
   alias Web.Negatives
@@ -6,6 +41,8 @@ defmodule WebWeb.NegativesLive do
   alias Web.Negatives.Sheet
   alias WebWeb.NegativesLive.Format
   import WebWeb.Navigation, only: [return_context: 1]
+
+  # ── Opening the page ──────────────────────────────────────────────────────
 
   @impl true
   def mount(params, _session, socket) do
@@ -27,6 +64,8 @@ defmodule WebWeb.NegativesLive do
 
     {:ok, socket}
   end
+
+  # ── The three views, set from the address ─────────────────────────────────
 
   @impl true
   def handle_params(params, _uri, socket) do
@@ -189,6 +228,8 @@ defmodule WebWeb.NegativesLive do
     |> assign(:next_frame, nil)
   end
 
+  # ── Sorting, and the address of everything ────────────────────────────────
+
   @doc """
   Index rows ordered by the chosen column. Scan date is the natural order of
   the archive, so a format sort falls back to it within each film type.
@@ -247,6 +288,8 @@ defmodule WebWeb.NegativesLive do
     end
   end
 
+  # ── The keys ──────────────────────────────────────────────────────────────
+
   @impl true
   def handle_event("key_prev", _, socket), do: {:noreply, step(socket, :prev)}
   def handle_event("key_next", _, socket), do: {:noreply, step(socket, :next)}
@@ -301,6 +344,8 @@ defmodule WebWeb.NegativesLive do
   attr :roll, :string, required: true
   attr :path, :string, required: true
 
+  # ── Grease-pencil rings ───────────────────────────────────────────────────
+
   def grease_mark(assigns) do
     ~H"""
     <.link
@@ -323,6 +368,8 @@ defmodule WebWeb.NegativesLive do
     </.link>
     """
   end
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   @impl true
   def render(assigns) do

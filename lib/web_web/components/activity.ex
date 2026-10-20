@@ -22,12 +22,24 @@ defmodule WebWeb.Activity do
   Everything reads in Komoot's vocabulary (`Web.Rides.Units`), and a sport
   takes its family's pigment through an `activity--<kind>` class — the same
   colors The Week gives bike and run blocks on /fitness.
+
+  ## How this file is laid out
+
+  1. **The plate** (`title/1` to `figures/1`): the newest activity, large,
+     with Komoot's map and its figures.
+  2. **Heart rate** (`health/1`, `zones/2`): from Apple Health, with the
+     time in each effort zone.
+  3. **Recent totals and the route map** (`recent/1`, `route_map/1`).
+  4. **Shelves and cards** (`shelf/1`, `card/1`): one sideways row per
+     sport, of small cards.
   """
   use Phoenix.Component
   use WebWeb, :verified_routes
 
   alias Web.Rides
   alias Web.Rides.{Units, Workout}
+
+  # ── The plate: title, sport pills and figures ─────────────────────────────
 
   @doc "An activity's name, or its sport when Komoot has none."
   def title(ride), do: ride.name || Units.sport(ride.sport)
@@ -150,6 +162,8 @@ defmodule WebWeb.Activity do
   attr :ceiling, :integer,
     default: nil,
     doc: "`Web.Rides.heart_rate_ceiling/0`, which the zones are shares of"
+
+  # ── Heart rate ────────────────────────────────────────────────────────────
 
   @doc """
   What the watch measured, from the Apple Health workout paired with the
@@ -438,6 +452,8 @@ defmodule WebWeb.Activity do
   attr :week, :map, required: true, doc: "`Web.Rides.recent(rides, 7)`"
   attr :month, :map, required: true, doc: "`Web.Rides.recent(rides, 28)`"
 
+  # ── Recent totals and the route map ───────────────────────────────────────
+
   @doc """
   The last seven and the last twenty-eight days at a glance: how often, how
   long, how far, and — from whichever of those activities the watch was
@@ -496,6 +512,8 @@ defmodule WebWeb.Activity do
   attr :sport, :string, required: true
   attr :rides, :list, required: true
   attr :layout, :atom, default: :strip, values: [:strip, :grid]
+
+  # ── Shelves and cards ─────────────────────────────────────────────────────
 
   @doc """
   One sport's activities under a header. As a `:strip` the cards scroll

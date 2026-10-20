@@ -1,4 +1,12 @@
 defmodule WebWeb.PageController do
+  @moduledoc """
+  The site's single pages: the homepage, `/about`, the manual (`/how-to`) and
+  the roadmap (`/roadmap`), both rendered from markdown in `docs/` by
+  `Web.Docs`, search and its suggestions (`/search`, `/search/suggest`), the
+  unlisted kitchen page (`/food`), and the admin's training calendar. Each
+  function is one page and says what it gathers.
+  """
+
   use WebWeb, :controller
 
   import WebWeb.Navigation, only: [return_context: 1]

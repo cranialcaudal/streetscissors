@@ -1,3 +1,5 @@
+<%!-- One blog post, `/blog/:slug`: the essay, its keywords, the letters about it, and the print
+      colophon. Rendered by `WebWeb.BlogController.show/2`. --%>
 <div class="blog-bento-wrapper writing">
   <article class="blog-post-panel h-entry">
     <WebWeb.Microformats.entry_fields path={~p"/blog/#{@post.slug}"} />

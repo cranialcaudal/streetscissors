@@ -1,4 +1,15 @@
 defmodule WebWeb.FitnessLive.Show do
+  @moduledoc """
+  One exercise's wiki page (`/fitness/wiki/:slug`): its film or drawing
+  (`WebWeb.FitnessFigure`), what it is for, how to do it, why it works (with
+  citations where measured), and programming notes. Read from the exercise's
+  markdown file by `Web.Fitness.Vault`.
+
+  The author also sees the exercise's history from the training log, with a
+  chart of its estimated one-rep max (`Web.Fitness.Training`). Visitors never
+  do.
+  """
+
   use WebWeb, :live_view
 
   alias Web.Fitness.{Training, Vault}

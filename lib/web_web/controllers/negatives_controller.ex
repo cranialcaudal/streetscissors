@@ -1,4 +1,15 @@
 defmodule WebWeb.NegativesController do
+  @moduledoc """
+  The picture files of the negatives archive: contact sheets, their web-sized
+  previews, single frames, and (as a download) a frame's full-size original.
+  The pages that show them are `WebWeb.NegativesLive`.
+
+  The caching rules matter here, and each function's comment explains its own:
+  an address carrying `?v=` (the file's fingerprint) may be kept by a browser
+  for a month; `?w=` asks for a narrower copy, honoured only for the widths
+  `Web.Negatives.widths/0` keeps.
+  """
+
   use WebWeb, :controller
 
   alias Web.Negatives

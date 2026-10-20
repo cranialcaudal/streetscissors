@@ -1,4 +1,12 @@
 defmodule WebWeb.GuestbookLive do
+  @moduledoc """
+  The guestbook (`/guestbook`): every approved signature, newest first, and the
+  form to sign. A new signature waits for the author's approval
+  (`/admin/guestbook`) and appears here live when approved, for everyone with
+  the page open. The form has a captcha, a rate limit, and an optional
+  spelling check (which sends the text to LanguageTool only when asked).
+  """
+
   use WebWeb, :live_view
   alias Web.General
   alias Web.General.GuestbookEntry

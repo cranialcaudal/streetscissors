@@ -1,4 +1,11 @@
 defmodule WebWeb.BlogHTML do
+  @moduledoc """
+  The blog's templates (the files in `blog_html/`) and the small pieces they
+  share: a post's date and reading time, its keyword links, the line that says
+  how many posts a filter found, and the figure beside each title in the
+  contents list.
+  """
+
   use WebWeb, :html
 
   embed_templates "blog_html/*"

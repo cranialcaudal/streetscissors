@@ -1,4 +1,10 @@
 defmodule WebWeb.FitnessController do
+  @moduledoc """
+  The training log as a CSV download (`/fitness/export/csv`), for analysis in
+  R or a spreadsheet. Admin only: anyone else is sent home. The same CSV comes
+  from `mix fitness.export` at the terminal.
+  """
+
   use WebWeb, :controller
 
   alias Web.Fitness

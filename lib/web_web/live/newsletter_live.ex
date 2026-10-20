@@ -1,4 +1,11 @@
 defmodule WebWeb.NewsletterLive do
+  @moduledoc """
+  The `/newsletter` and `/contact` pages. The forms themselves are the site-wide
+  panel (`WebWeb.NewsletterOverlayLive`, which every page carries); this page is
+  what sits behind it, so closing the panel leaves a page that says what it is
+  and opens the panel again. Its events are handed to the panel's module.
+  """
+
   use WebWeb, :live_view
   alias Web.Contact
   alias Web.Contact.Message

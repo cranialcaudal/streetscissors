@@ -1,4 +1,10 @@
 defmodule WebWeb.AdminLoginLive do
+  @moduledoc """
+  The admin login (`/admin/login`): a password dialog shown over the page that
+  asked for it. The form posts to `WebWeb.AdminSessionController.create/2`,
+  which checks the password and sets the session.
+  """
+
   use WebWeb, :live_view
 
   def mount(_params, session, socket) do

@@ -1,4 +1,16 @@
 defmodule WebWeb.Endpoint do
+  @moduledoc """
+  The front door of the website. Every request passes through these steps, in
+  order, before the router sees it: static files from `priv/static`, uploaded
+  media (in development), the code reloader (in development), request
+  logging, reading the body, the session cookie, and the LiveView socket.
+
+  The comments on each step record why it is the way it is. Two matter most:
+  the session is a **signed cookie**, so it is only safe while
+  `SECRET_KEY_BASE` stays secret; and `gzip` serving must stay off unless
+  `mix phx.digest` runs on every deploy, or browsers get an old stylesheet.
+  """
+
   use Phoenix.Endpoint, otp_app: :web
 
   # The session is a signed cookie: readable by the client, not tamperable,

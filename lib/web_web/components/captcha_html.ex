@@ -1,4 +1,9 @@
 defmodule WebWeb.CaptchaHTML do
+  @moduledoc """
+  Draws the captcha's challenge text on the contact and guestbook forms. The
+  challenge itself (what it asks, and checking the answer) is `WebWeb.Captcha`.
+  """
+
   use Phoenix.Component
 
   def simple_text(assigns) do

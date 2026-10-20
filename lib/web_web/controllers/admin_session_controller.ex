@@ -1,4 +1,13 @@
 defmodule WebWeb.AdminSessionController do
+  @moduledoc """
+  Logging the admin in and out. There is one admin and one password
+  (`ADMIN_PASSWORD`, or `dev-admin` in development). The check is a
+  constant-time comparison (so its timing reveals nothing), and each address
+  gets ten attempts per 15 minutes (so the password cannot be guessed by trying).
+  A correct password sets `session["admin_user"] = true` in the signed session
+  cookie; every admin page checks that flag (`WebWeb.AdminAuth`).
+  """
+
   use WebWeb, :controller
 
   # A single shared password with no lockout is one long brute-force away from

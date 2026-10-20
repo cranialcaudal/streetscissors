@@ -21,6 +21,16 @@ defmodule WebWeb.AdminLive.Dashboard do
   pass, files, a few small queries) and never probes. The one expensive read,
   the traffic of the last 56 weeks, runs after the page is on screen
   (`assign_async/3`), so it costs the first paint nothing.
+
+  ## How this file is laid out
+
+  1. **Gathering the floor** (`mount/3`): everything the page shows,
+     from what is already stored. Nothing is probed or computed on the spot,
+     and the slow year of traffic arrives afterwards (`assign_async`).
+  2. **The page itself** (`render/1`): "Needs you" first, then a card per
+     program, then the status strip.
+  3. **The programs**: one function per program's card.
+  4. **The status strip**: the quiet line of figures at the foot.
   """
 
   use WebWeb, :live_view
@@ -29,6 +39,8 @@ defmodule WebWeb.AdminLive.Dashboard do
 
   alias Phoenix.LiveView.JS
   alias Web.{Analytics, Rides, Studio, SystemStatus}
+
+  # ── Gathering the floor (from stored state only) ──────────────────────────
 
   def mount(_params, session, socket) do
     if session["admin_user"] do
@@ -157,6 +169,8 @@ defmodule WebWeb.AdminLive.Dashboard do
 
   defp plural(1, one, _many), do: one
   defp plural(_n, _one, many), do: many
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   def render(assigns) do
     ~H"""

@@ -1,4 +1,30 @@
 defmodule WebWeb.Router do
+  @moduledoc """
+  Every address the site answers, and which code answers it. **Start here to
+  find the code behind any page**: search this file for the address.
+
+  The file is read top to bottom:
+
+  1. **Pipelines** (`pipeline :browser` and the others) are the steps a request
+     passes through before its page: for an ordinary page, counting the visit,
+     noting whether the visitor is the admin, today's visitor figure, and the
+     site's settings, plus Phoenix's own session and CSRF protection.
+  2. **The public site** (`scope "/"` with `pipe_through :browser`): every page
+     anyone can visit, then the old addresses that redirect.
+  3. **The admin** (`live_session :admin`): every `/admin` page. The
+     `on_mount {WebWeb.AdminAuth, :ensure_admin}` line turns away anyone not
+     logged in, so **a new admin page must go inside this block**.
+  4. **Addresses for other programs**, each in its own small scope with only
+     what it needs: one-click unsubscribe, webmentions, the `/seen` beacon, the
+     Apple Health webhook, `/health` and the share pictures. Most have no
+     session and set no cookie.
+  5. **Development only** (`/dev`): Phoenix's dashboard and a preview of sent
+     mail, admin only, and absent from the live site.
+
+  Every public page must also be findable by search: `test/web/search_test.exs`
+  walks these routes and fails for any public address `Web.Search` cannot find.
+  """
+
   use WebWeb, :router
 
   pipeline :browser do

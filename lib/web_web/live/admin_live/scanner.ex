@@ -42,6 +42,33 @@ defmodule WebWeb.AdminLive.Scanner do
   With no scanner connected the page says so and scans nothing — strips can
   still be uploaded. (`Web.Scanner.Simulation` stands in for the hardware in
   dev and test only.)
+
+  ## How this file is laid out
+
+  The file is long because the scanner page is a whole workflow. It runs
+  top to bottom in the order things happen:
+
+  1. **Mounting the page** (`mount/3`, `handle_params/3`): what is loaded
+     when the page opens, and which roll it opens on.
+  2. **Opening a roll** (`open_roll/5` and friends): putting a roll on the
+     bench, and offering back singles a cut-short run still owes.
+  3. **A load** (`propose/1` to `publish_closed/2`): what a look proposes,
+     staging the strips, and deciding where one roll ends and the next
+     begins.
+  4. **What each button does** (the `handle_event/3` clauses, one per
+     event name, in the order the buttons appear on the page).
+  5. **Scanning** (`analyse/1` to `scan_done/2`): taking a pass of the
+     whole holder, filing its strips, and scanning chosen frames in bands.
+  6. **Messages** (`handle_info/2`, `handle_async/3`): progress from
+     `Web.Scanner.Bed` over PubSub, and the results of slow work run with
+     `start_async`.
+  7. **Small helpers** (`valid/3` to `area_line/1`): the lines of text and
+     the checks the page shows.
+  8. **The page itself** (`render/1`, `studio/1`, `archive/1`, `setup/1`):
+     the HTML, in the order it appears.
+
+  The work itself (cutting strips, analysing, publishing) is not here but in
+  `Web.Scanner.Pipeline`; this file decides what happens when, and shows it.
   """
 
   use WebWeb, :live_view
@@ -55,6 +82,8 @@ defmodule WebWeb.AdminLive.Scanner do
 
   @formats [{"120", "120"}, {"35mm", "35mm"}, {"620", "620"}, {"110", "110"}]
   @colors [{"bw", "Black & white"}, {"color", "Colour (C-41)"}]
+
+  # ── Mounting the page ─────────────────────────────────────────────────────
 
   @impl true
   def mount(_params, session, socket) do
@@ -126,6 +155,8 @@ defmodule WebWeb.AdminLive.Scanner do
 
     {:noreply, assign(socket, :tab, tab)}
   end
+
+  # ── Opening a roll ────────────────────────────────────────────────────────
 
   defp today, do: Date.to_iso8601(Web.Clock.local_today())
 
@@ -226,6 +257,8 @@ defmodule WebWeb.AdminLive.Scanner do
       Enum.filter(strips, fn strip -> Enum.any?(frames, &(&1.strip == strip)) end)
     end)
   end
+
+  # ── A load: proposing, staging and ending a roll ──────────────────────────
 
   # Puts some strips up for choosing from, with the proposal ticked: the
   # strips given, else the ones already up. No strips is no choosing.
@@ -427,6 +460,8 @@ defmodule WebWeb.AdminLive.Scanner do
   end
 
   # --- Events: the roll -------------------------------------------------------
+
+  # ── What each button does (handle_event) ──────────────────────────────────
 
   @impl true
   def handle_event("update_roll_config", params, socket) do
@@ -863,6 +898,8 @@ defmodule WebWeb.AdminLive.Scanner do
   defp analyse_again(%{assigns: %{strips: []}} = socket), do: socket
   defp analyse_again(socket), do: analyse(socket)
 
+  # ── Scanning: the look, the passes and the singles ────────────────────────
+
   # Analyses the roll and reads back a small picture of each frame found.
   defp analyse(socket) do
     %{roll_dir: dir, roll_format: format, roll_color: color, roll_slug: slug} = socket.assigns
@@ -1221,6 +1258,8 @@ defmodule WebWeb.AdminLive.Scanner do
   defp film_line(format, "color"), do: "#{format}, colour"
   defp film_line(format, _bw), do: "#{format}, black and white"
 
+  # ── Messages from the scanner and from background work ────────────────────
+
   @impl true
   def handle_info({:scanner, :devices, devices}, socket) do
     {:noreply, assign(socket, devices: devices, scanner: Driver.pick(devices))}
@@ -1567,6 +1606,8 @@ defmodule WebWeb.AdminLive.Scanner do
 
   # --- Helpers ----------------------------------------------------------------
 
+  # ── Small helpers the page reads ──────────────────────────────────────────
+
   defp valid(value, pattern, fallback) when is_binary(value) do
     if value =~ pattern, do: value, else: fallback
   end
@@ -1824,6 +1865,8 @@ defmodule WebWeb.AdminLive.Scanner do
   end
 
   # --- Template ---------------------------------------------------------------
+
+  # ── The page itself (render) ──────────────────────────────────────────────
 
   @impl true
   def render(assigns) do
