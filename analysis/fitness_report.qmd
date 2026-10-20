@@ -1,0 +1,167 @@
+---
+title: "Get Sharp — the week's numbers"
+format:
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: false
+  warning: false
+params:
+  csv: "tmp/fitness/fitness_logs.csv"
+  db: ""
+  block: "content/fitness/blocks/get-sharp.md"
+  flare_date: ""
+---
+
+```{r setup}
+#| include: false
+# Render from the checkout, after `mix fitness.export`:
+#   quarto render analysis/fitness_report.qmd --output-dir ../tmp/fitness-report \
+#     -P db:$HOME/streetscissors-data/streetscissors.db
+# Paths in params are relative to the checkout.
+root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+at <- function(p) if (nzchar(p) && !startsWith(p, "/")) file.path(root, p) else p
+source(file.path(root, "analysis", "fitness_models.R"))
+library(ggplot2)
+m <- run_models(
+  at(params$csv),
+  if (nzchar(params$db)) params$db else NULL,
+  at(params$block),
+  if (nzchar(params$flare_date)) params$flare_date else NULL
+)
+fitted <- Filter(function(b) isTRUE(b$ok), m$banister)
+```
+
+**`r m$block$title %||% "No block"`**, from `r m$block$start %||% "—"`:
+`r nrow(m$logs)` entries over `r m$n_weeks` week(s) with data,
+`r nrow(m$checkins)` check-ins, `r nrow(m$rides)` activities.
+
+## Fitness and fatigue (Banister)
+
+Each lift's estimated one-rep max is modelled as a baseline plus fitness
+minus fatigue, each a decaying sum of the daily volume load. With fewer than
+15 sessions the time constants are held at 42 and 7 days and only the
+gains are fitted. A point above its line is a day better than the load
+predicted; below, worse.
+
+```{r banister}
+#| fig-height: 4
+if (length(fitted)) {
+  d <- do.call(rbind, lapply(fitted, function(b) cbind(lift = b$slug, b$data)))
+  ggplot(d, aes(date)) +
+    geom_line(aes(y = fitted), colour = site_colours[["ink3"]]) +
+    geom_point(aes(y = e1rm, shape = anomaly), size = 2) +
+    scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 4), name = "Anomaly") +
+    facet_wrap(~lift, scales = "free_y") +
+    labs(x = NULL, y = "e1RM (lb)") +
+    theme_site()
+} else {
+  cat("No lift has the six sessions a fit needs yet.\n")
+}
+```
+
+```{r banister-table}
+if (length(fitted)) {
+  knitr::kable(do.call(rbind, lapply(fitted, function(b) data.frame(
+    lift = b$slug,
+    sessions = nrow(b$data),
+    `time constants` = if (b$taus_fitted) "fitted" else "held at 42 / 7",
+    `fitness gain` = signif(b$par["k1"], 3),
+    `fatigue gain` = signif(b$par["k2"], 3),
+    `residual sd (lb)` = round(stats::sd(b$data$residual), 1),
+    check.names = FALSE
+  ))), row.names = FALSE)
+}
+```
+
+## Check-ins
+
+```{r checkins}
+ck <- m$checkins
+if (nrow(ck)) {
+  knitr::kable(utils::tail(ck[order(ck$date, decreasing = TRUE), ], 14), row.names = FALSE)
+} else {
+  cat("No check-ins yet.\n")
+}
+```
+
+## Load by pattern (ACWR)
+
+Seven days' load over the 28-day weekly average. The band is 0.8–1.3; over
+1.5 is where the guardrails hold the weight. Endurance is the rides'
+minutes.
+
+```{r acwr}
+#| fig-height: 3.5
+a <- m$acwr[!is.na(m$acwr$acwr), ]
+if (nrow(a)) {
+  ggplot(a, aes(date, acwr, colour = pattern)) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0.8, ymax = 1.3, alpha = 0.12) +
+    geom_hline(yintercept = 1.5, linetype = "dashed") +
+    geom_line() +
+    scale_colour_site() +
+    labs(x = NULL, y = "ACWR", colour = NULL) +
+    theme_site()
+} else {
+  cat("No pattern has 28 days of load yet.\n")
+}
+```
+
+```{r retrospective}
+if (is.null(m$retrospective)) {
+  cat("The Achilles retrospective waits for the flare-up's date (`-P flare_date:YYYY-MM-DD`).\n")
+} else {
+  knitr::kable(m$retrospective, caption = "The seven days before the flare-up", digits = 2)
+}
+```
+
+## Anomalies
+
+```{r anomalies}
+an <- do.call(rbind, lapply(fitted, function(b) {
+  x <- b$data[b$data$anomaly, ]
+  if (nrow(x)) cbind(lift = b$slug, x[, c("date", "e1rm", "fitted", "residual")])
+}))
+if (is.null(an) || !nrow(an)) cat("None.\n") else knitr::kable(an, digits = 1, row.names = FALSE)
+```
+
+## Question of the week
+
+**Does a ride in the 24 hours before a lift cost the lift?** The test
+compares the Banister residuals of sessions with a ride of 30 minutes or
+more in the day before them against those without. It uses a permutation
+test, since the groups are small and need not be normal.
+
+```{r question}
+q <- do.call(rbind, lapply(fitted, function(b) b$data))
+if (!is.null(q) && nrow(q) && nrow(m$rides)) {
+  rode <- vapply(q$date, function(d) {
+    any(m$rides$date %in% c(d - 1, d) & m$rides$minutes >= 30)
+  }, logical(1))
+  if (sum(rode) >= 3 && sum(!rode) >= 3) {
+    observed <- mean(q$residual[rode]) - mean(q$residual[!rode])
+    set.seed(1)
+    perm <- replicate(5000, {
+      s <- sample(rode)
+      mean(q$residual[s]) - mean(q$residual[!s])
+    })
+    p <- mean(abs(perm) >= abs(observed))
+    cat(sprintf(
+      "After a ride: %d sessions; without: %d. Difference in residual: %+.1f lb (permutation p = %.2f).\n",
+      sum(rode), sum(!rode), observed, p
+    ))
+  } else {
+    cat("Too few sessions on each side yet (needs three with a ride the day before and three without).\n")
+  }
+} else {
+  cat("Needs fitted lifts and rides.\n")
+}
+```
+
+## What waits
+
+- `r m$stage1`
+- `r m$stage2`
+
+Methods: `content/notes/fitness-methods.md`.

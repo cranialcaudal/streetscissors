@@ -70,7 +70,8 @@ npm-debug.log
 /priv/static/images/
 /priv/static/uploads/*
 /priv/static/figures/
-/scripts/
+# The pre-2026-10-20 name of analysis/, kept as a link until every release reads analysis/.
+/scripts
 caddy_access.log*
 
 # Obsidian workspace files inside the content vault

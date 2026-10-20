@@ -1,7 +1,7 @@
 defmodule Web.Fitness.Report do
   @moduledoc """
-  The weekly training report: `scripts/fitness_report.qmd` (Quarto and R;
-  the block's Stage 0 models in `scripts/fitness_models.R`) rendered to one
+  The weekly training report: `analysis/fitness_report.qmd` (Quarto and R;
+  the block's Stage 0 models in `analysis/fitness_models.R`) rendered to one
   self-contained page, kept in `fitness-reports/<YYYY-MM-DD>.html` beside
   the uploads root (never under it: the proxy serves that), and shown to
   the admin at `/admin/fitness/report` (`WebWeb.FitnessReportController`).
@@ -9,11 +9,11 @@ defmodule Web.Fitness.Report do
   It renders every Sunday evening (`config/config.exs`) and on demand from
   the block report. The training log and the check-ins are written for it
   by `Web.Fitness.Export` first; the rides are read from the database
-  read-only. The scripts live with the content, outside the repository, so
-  a machine without them, or without Quarto, renders nothing and says why.
+  read-only. The scripts are in the repository's `analysis/` folder; a
+  machine without Quarto (or R) renders nothing and says why.
 
   Configure with `:quarto_bin` (`quarto` on the PATH), `:fitness_scripts_path`
-  (`scripts` in the working directory) and `:fitness_reports_path`.
+  (`analysis` in the working directory) and `:fitness_reports_path`.
   """
 
   require Logger
@@ -28,7 +28,7 @@ defmodule Web.Fitness.Report do
       Web.Uploads.root() |> Path.expand() |> Path.dirname() |> Path.join("fitness-reports")
   end
 
-  defp scripts, do: Application.get_env(:web, :fitness_scripts_path) || Path.expand("scripts")
+  defp scripts, do: Application.get_env(:web, :fitness_scripts_path) || Path.expand("analysis")
   defp quarto, do: Application.get_env(:web, :quarto_bin) || "quarto"
 
   @doc "The Quantum entry."

@@ -127,7 +127,7 @@ defmodule WebWeb.AdminLive.BlockReport do
        socket |> assign(rendering: false) |> put_flash(:error, "The report did not render.")}
 
   defp report_error(:no_quarto), do: "Quarto is not installed."
-  defp report_error(:no_report_script), do: "scripts/fitness_report.qmd is missing."
+  defp report_error(:no_report_script), do: "analysis/fitness_report.qmd is missing."
   defp report_error(:busy), do: "one is already rendering."
 
   defp report_error({:quarto, status, _}),

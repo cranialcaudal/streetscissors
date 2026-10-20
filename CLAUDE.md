@@ -73,7 +73,7 @@ wins.
 ### Private by default
 
 The public GitHub repo is the site's code only. `content/` (apart from `content/templates/`),
-photos, `scripts/` and the `/pc` reading files are gitignored and live only on the host. **Never
+photos and the `/pc` reading files are gitignored and live only on the host. **Never
 put personal details in code**: they belong in `content/` or `.env`, with a neutral fallback so a
 fresh clone still builds and boots. Examples: `content/england2026/trip.json` and `call.md`,
 `content/emails/welcome.md`, `content/fitness/meals-week.json`, and `AUTHOR_NAME`,
@@ -121,7 +121,7 @@ newsletter overlay inherits the session's hooks. The `SetCurrentUser` plug only 
 full account.
 
 - The database: a nightly `VACUUM INTO` snapshot, reopened and integrity-checked, 14 kept.
-- The written content (`Backup.Content`: `content/`, `scripts/`, the `/pc` files, the recipe seed,
+- The written content (`Backup.Content`: `content/`, the `/pc` files, the recipe seed,
   `test/private/`; **never `.env`**): a `tar.gz`, unpacked and compared hash for hash, and written
   only when the manifest's fingerprint changed, so the 30 kept are 30 versions.
 - The negatives (`Backup.Photos`) and log media (`Backup.Uploads`, minus `staging/`): rsync
@@ -372,7 +372,7 @@ developed print with sliders, crop, straightening, dust and repair.
   compliance, ACWR), `Guardrails` (check-ins from `content/fitness/checkins.md` via `Checks`),
   `Prescription` and `Coach` (a day's lines → targets and log form). **The first line naming a
   slug is its plan**, so a primer must never link a block lift.
-- The weekly report renders `scripts/fitness_report.qmd` with Quarto (`Web.Fitness.Report`) to
+- The weekly report renders `analysis/fitness_report.qmd` with Quarto (`Web.Fitness.Report`) to
   `fitness-reports/`, and progress photos live in `fitness-photos/`. Both sit **beside** the
   uploads root, are admin only, and are never in search, feeds or share cards.
 - `content/fitness/changelog.md` (`Web.Fitness.Changelog`): dated headings, never times. Titles are

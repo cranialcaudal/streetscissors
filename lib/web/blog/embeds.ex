@@ -21,7 +21,7 @@ defmodule Web.Blog.Embeds do
       inlined as `<script type="application/json">`, so
       `assets/js/emissions_controls.js` can redraw the two figures above
       client-side without a fetch. Vanilla JS, no framework.
-    * `![[figure:emissions-code]]` — `scripts/emissions.R` (the script that
+    * `![[figure:emissions-code]]` — `analysis/emissions.R` (the script that
       generates the JSON above), rendered as a collapsed, syntax-highlighted
       `<details>`. Read at compile time via `@external_resource`, not pasted
       into the post by hand, so it can never drift from the real script. A
@@ -84,16 +84,16 @@ defmodule Web.Blog.Embeds do
     "rivian" => "color-mix(in srgb, var(--color-dodger) 78%, var(--ink))"
   }
 
-  # `scripts/emissions.R` is the single source of truth for the R shown in
+  # `analysis/emissions.R` is the single source of truth for the R shown in
   # the post — read once at compile time, not hand-pasted into the
   # markdown, so the two can never drift out of sync (they already have,
   # three times, before this). @external_resource makes Mix recompile this
   # module whenever the script changes.
   #
-  # The script belongs to the post, so like the rest of the writing it is not
-  # in the public repository. Without it the module still compiles, and the
-  # code embed is left as literal text like any other unresolvable target.
-  @emissions_r_path Path.join([__DIR__, "..", "..", "..", "scripts", "emissions.R"])
+  # The script is in the repository, so a fresh clone shows the code too.
+  # Should it ever be missing, the module still compiles, and the code embed
+  # is left as literal text like any other unresolvable target.
+  @emissions_r_path Path.join([__DIR__, "..", "..", "..", "analysis", "emissions.R"])
   @external_resource @emissions_r_path
   @emissions_r_source (case File.read(@emissions_r_path) do
                          {:ok, source} -> source

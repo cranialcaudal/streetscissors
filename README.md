@@ -89,7 +89,7 @@ Worth knowing up front: the design is hand-written CSS only. Tailwind runs with
 Split, deliberately.
 
 - **The software is MIT** — `lib/`, `assets/`, `config/`, `test/`, `priv/repo/`, `docs/`,
-  `mix.exs` and the root scripts. Take it, learn from it, build on it.
+  `mix.exs`, `ops/`, `tools/` and `analysis/`. Take it, learn from it, build on it.
 - **The content is all rights reserved, and is not in this repository** — the posts, the
   photographs, the recordings and the training notes stay on the machine that serves them
   (`content/` and `priv/static/images/` are ignored by git). A clone builds, boots and

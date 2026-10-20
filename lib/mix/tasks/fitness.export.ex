@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Fitness.Export do
 
   @moduledoc """
   Writes `fitness_logs.csv` and `fitness_checkins.csv` (`Web.Fitness.Export`)
-  into a folder, for `scripts/fitness_models.R` and the Quarto report, with
+  into a folder, for `analysis/fitness_models.R` and the Quarto report, with
   no browser and no cookie.
 
       mix fitness.export                       # ./tmp/fitness, the dev database

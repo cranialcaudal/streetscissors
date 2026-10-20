@@ -2260,7 +2260,7 @@ machine" in Part 7, leaving out the steps that restore data you do not have.
 ### A note on the licence
 
 **The software is MIT licensed**; everything under `lib/`, `assets/`,
-`config/`, `test/`, `priv/repo/`, `docs/`, and the scripts at the top level.
+`config/`, `test/`, `priv/repo/`, `docs/`, `ops/`, `tools/` and `analysis/`.
 Take it, learn from it, build on it, sell it. This manual is included in that.
 
 **The content is not in the repository at all.** The writing, the photographs,

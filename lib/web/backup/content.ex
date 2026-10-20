@@ -11,7 +11,7 @@ defmodule Web.Backup.Content do
   is lost is lost.
 
   **What is kept.** The vault (`content/`) and the few files that live beside
-  the code for the same reason it does: `scripts/`, the `/pc` terminal's two
+  the code for the same reason it does: the `/pc` terminal's two
   reading files, the recipe seed and `test/private/`. Whichever of them exist
   are archived; a fresh clone that has none is `{:error, :nothing_to_back_up}`.
   `.env` is deliberately not among them. The mirror is an unencrypted removable
@@ -59,7 +59,6 @@ defmodule Web.Backup.Content do
 
   @default_sources [
     "content",
-    "scripts",
     "priv/SEVEN_DAY_FITNESS.TXT",
     "priv/LINUX_POCKET_GUIDE.TXT",
     "priv/repo/seeds_recipes.exs",

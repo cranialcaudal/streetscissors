@@ -76,7 +76,7 @@ function renderBarChart(svgEl, data, state) {
     const rows = data.modes.map((m) => {
         // Modes with no NHTS-comparable observed distance (currently just
         // Plane -- commercial flights aren't in that survey) fall back to
-        // the Frame A figure for Frame B too, mirroring scripts/emissions.R.
+        // the Frame A figure for Frame B too, mirroring analysis/emissions.R.
         const miles =
             state.frame === 'a' || m.observed == null ? data.frame_a_one_way_mi : m.observed;
         const gpm = gramsPerMile(m, state, data);
