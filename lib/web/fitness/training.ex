@@ -8,7 +8,7 @@ defmodule Web.Fitness.Training do
   block (`Web.Fitness.Block`), so the charts, the guardrails and the block
   report read one set of figures. Only a block's own lifts count toward a
   pattern: they are the ones the block file gives a pattern.
-  `docs/get-sharp-handoff.md` §3.1 defines each figure.
+  Each function says how its figure is worked out.
   """
 
   alias Web.Fitness

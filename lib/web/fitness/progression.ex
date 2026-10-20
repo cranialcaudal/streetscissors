@@ -8,9 +8,9 @@ defmodule Web.Fitness.Progression do
   has. `parse_log_metrics/1` reads them back as numbers; anything it cannot
   read is nil, and it never raises.
 
-  The rule is double progression inside the lift's rep range (see
-  `next_target/3`), with Epley's estimate (`e1rm/2`) as the measure of
-  strength. `docs/get-sharp-handoff.md` §3.1 is the rule in prose.
+  The rule is double progression inside the lift's rep range, with
+  Epley's estimate (`e1rm/2`) as the measure of strength; `next_target/3`
+  gives it phase by phase.
   """
 
   @kg_to_lb 2.20462

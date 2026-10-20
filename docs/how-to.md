@@ -408,7 +408,7 @@ Strips scanned elsewhere can still be dropped onto the page, under Strips; they 
 
 With no scanner connected the page says so and scans nothing. The slot rectangles for the film holder are set once, in `.env` (`SCANNER_AREA_35MM`, `SCANNER_AREA_120`); the page's **Setup** tab shows what is set and which scanner is in use.
 
-For complete technical specifications, mathematical equations, and driver designs, see `docs/negatives-pipeline.md` and `docs/scanner-gui-blueprint.md` in the repository.
+For complete technical specifications, mathematical equations, and driver designs, see `docs/negatives-pipeline.md` in the repository.
 
 ### Editing a print
 
