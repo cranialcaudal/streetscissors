@@ -19,8 +19,8 @@ defmodule Web.Keywords.Index do
   a single copy, in the place the first of them stood.
   """
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias Web.Blog
   alias Web.Keywords
 
@@ -38,7 +38,7 @@ defmodule Web.Keywords.Index do
   @spec usage() :: [entry()]
   def usage do
     posts = for post <- Blog.list_all_posts(), keyword <- post.keywords, do: {keyword, post}
-    logs = for log <- Audio.list_logs(), keyword <- Log.keyword_list(log), do: {keyword, log}
+    logs = for log <- Logs.list_logs(), keyword <- Log.keyword_list(log), do: {keyword, log}
 
     by_post = Enum.group_by(posts, &elem(&1, 0), &elem(&1, 1))
     by_log = Enum.group_by(logs, &elem(&1, 0), &elem(&1, 1))
@@ -94,7 +94,7 @@ defmodule Web.Keywords.Index do
 
             for log <- logs do
               keywords = log |> Log.keyword_list() |> swap(from, to) |> Keywords.format()
-              Audio.update_log(log, %{keywords: keywords})
+              Logs.update_log(log, %{keywords: keywords})
             end
 
             {:ok,

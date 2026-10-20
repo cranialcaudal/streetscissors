@@ -1625,7 +1625,7 @@ a.st-strip-link:hover {
 .adm-login {
   position: fixed;
   inset: 0;
-  z-index: 100000;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2009,3 +2009,7 @@ a.st-strip-link:hover {
 .adm-taste {
   padding: 0.75rem;
 }
+
+/* Quick add (/admin/quick): one column of large fields, for a phone. */
+.adm-quick { display: grid; gap: var(--st-space-3); max-width: 40rem; margin-top: var(--st-space-3); }
+.adm-quick .adm-input { min-height: 44px; font-size: 1rem; }

@@ -34,6 +34,32 @@ defmodule WebWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
+  A dialog over the page: `role="dialog"`, `aria-modal`, named by `label`,
+  with a close button, Escape and a click outside it all sending `on_close`.
+
+  The backdrop carries no `phx-click`: LiveView gives a click to the nearest
+  ancestor that has one, so a click on any field inside would close it.
+  """
+  attr :id, :string, required: true
+  attr :label, :string, required: true, doc: "what a screen reader names the dialog"
+  attr :on_close, :string, required: true, doc: "the event closing sends"
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def dialog(assigns) do
+    ~H"""
+    <div id={@id} class={["dialog-backdrop", @class]} phx-window-keydown={@on_close} phx-key="Escape">
+      <div class="dialog" role="dialog" aria-modal="true" aria-label={@label} phx-click-away={@on_close}>
+        <button type="button" class="dialog-close" phx-click={@on_close} aria-label="Close">
+          &times;
+        </button>
+        {render_slot(@inner_block)}
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders flash notices.
 
   Styled by hand in `assets/css/flash.css`: Tailwind runs with `source(none)`,
@@ -172,7 +198,7 @@ defmodule WebWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="fieldset">
       <label>
         <input
           type="hidden"
@@ -188,7 +214,7 @@ defmodule WebWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
+            class={@class || "field-checkbox"}
             {@rest}
           />{@label}
         </span>
@@ -200,13 +226,13 @@ defmodule WebWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="label">{@label}</span>
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[@class || "field-input", @errors != [] && (@error_class || "field-invalid")]}
           multiple={@multiple}
           {@rest}
         >
@@ -221,15 +247,15 @@ defmodule WebWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="label">{@label}</span>
         <textarea
           id={@id}
           name={@name}
           class={[
-            @class || "w-full textarea",
-            @errors != [] && (@error_class || "textarea-error")
+            @class || "field-input",
+            @errors != [] && (@error_class || "field-invalid")
           ]}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
@@ -242,17 +268,17 @@ defmodule WebWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class="fieldset">
       <label>
-        <span :if={@label} class="label mb-1">{@label}</span>
+        <span :if={@label} class="label">{@label}</span>
         <input
           type={@type}
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            @class || "w-full input",
-            @errors != [] && (@error_class || "input-error")
+            @class || "field-input",
+            @errors != [] && (@error_class || "field-invalid")
           ]}
           {@rest}
         />
@@ -265,7 +291,7 @@ defmodule WebWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
+    <p class="field-error">
       <.icon name="hero-exclamation-circle" class="size-5" />
       {render_slot(@inner_block)}
     </p>
@@ -288,7 +314,7 @@ defmodule WebWeb.CoreComponents do
   ## Examples
 
       <.icon name="hero-x-mark" />
-      <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+      <.icon name="hero-arrow-path" class="size-3 spin" />
   """
   attr :name, :string, required: true
   attr :class, :any, default: "size-4"
@@ -557,7 +583,7 @@ defmodule WebWeb.CoreComponents do
         </a>
         <button
           type="button"
-          onclick="window.dispatchEvent(new CustomEvent('trigger-dispatch'))"
+          data-dispatch
           class="header-action header-action--contact"
         >
           <span class="header-action-label">Newsletter &amp; Contact</span>

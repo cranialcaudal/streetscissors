@@ -1,8 +1,8 @@
 defmodule WebWeb.AdminLive.LogsManager do
   use WebWeb, :live_view
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias Web.Media
   alias Web.Media.Transcoder
   alias Web.Uploads
@@ -63,6 +63,8 @@ defmodule WebWeb.AdminLive.LogsManager do
       |> assign(:editing, nil)
       |> assign(:progress, %{})
       |> assign(:staged, %{})
+      # The posts a log can say it belongs with (Log.post_ref).
+      |> assign(:post_options, Enum.map(Web.Blog.list_posts(), &{&1.title, Web.Pieces.post(&1.slug)}))
       |> assign_new_form()
       |> load_logs()
       |> allow_upload(:media,
@@ -88,7 +90,7 @@ defmodule WebWeb.AdminLive.LogsManager do
     changeset =
       socket.assigns.editing
       |> log_or_new()
-      |> Audio.change_log(params)
+      |> Logs.change_log(params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :form, to_form(changeset))}
@@ -117,12 +119,12 @@ defmodule WebWeb.AdminLive.LogsManager do
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
-    log = Audio.get_log!(id)
+    log = Logs.get_log!(id)
 
     {:noreply,
      socket
      |> assign(:editing, log)
-     |> assign(:form, to_form(Audio.change_log(log)))}
+     |> assign(:form, to_form(Logs.change_log(log)))}
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -130,13 +132,13 @@ defmodule WebWeb.AdminLive.LogsManager do
   end
 
   def handle_event("toggle_published", %{"id" => id}, socket) do
-    log = Audio.get_log!(id)
-    {:ok, _log} = Audio.update_log(log, %{published: !log.published})
+    log = Logs.get_log!(id)
+    {:ok, _log} = Logs.update_log(log, %{published: !log.published})
     {:noreply, load_logs(socket)}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    id |> Audio.get_log!() |> Audio.delete_log()
+    id |> Logs.get_log!() |> Logs.delete_log()
 
     {:noreply,
      socket
@@ -150,7 +152,7 @@ defmodule WebWeb.AdminLive.LogsManager do
   # disk — it is deleted the moment an encode succeeds, so this is for a job
   # that never got that far.
   def handle_event("retry", %{"id" => id}, socket) do
-    log = Audio.get_log!(id)
+    log = Logs.get_log!(id)
 
     if log.source_path && File.regular?(log.source_path) do
       Transcoder.subscribe(log.id)
@@ -204,7 +206,7 @@ defmodule WebWeb.AdminLive.LogsManager do
       |> Map.put("status", "pending")
       |> Map.put_new("recorded_at", DateTime.utc_now() |> DateTime.truncate(:second))
 
-    case Audio.create_log(attrs) do
+    case Logs.create_log(attrs) do
       {:ok, log} ->
         Transcoder.subscribe(log.id)
         Media.enqueue(log.id)
@@ -239,7 +241,7 @@ defmodule WebWeb.AdminLive.LogsManager do
   defp kind_of(_entry), do: "video"
 
   defp update_existing(socket, log, params) do
-    case Audio.update_log(log, params) do
+    case Logs.update_log(log, params) do
       {:ok, updated} ->
         {:noreply,
          socket
@@ -282,7 +284,7 @@ defmodule WebWeb.AdminLive.LogsManager do
       socket,
       :form,
       to_form(
-        Audio.change_log(%Log{}, %{
+        Logs.change_log(%Log{}, %{
           "recorded_on" => Date.to_iso8601(Web.Clock.local_today()),
           "kind" => "video",
           "published" => "true"
@@ -291,7 +293,7 @@ defmodule WebWeb.AdminLive.LogsManager do
     )
   end
 
-  defp load_logs(socket), do: assign(socket, :logs, Audio.list_logs())
+  defp load_logs(socket), do: assign(socket, :logs, Logs.list_logs())
 
   defp upload_error_message(:too_large), do: "That file is larger than 1 GB."
   defp upload_error_message(:not_accepted), do: "That is not a video or audio file."
@@ -910,6 +912,14 @@ defmodule WebWeb.AdminLive.LogsManager do
             type="textarea"
             label="Notes"
             class="adm-input adm-input--prose"
+          />
+          <.input
+            field={@form[:post_ref]}
+            type="select"
+            label="Goes with a post (optional)"
+            prompt="None"
+            options={@post_options}
+            class="adm-input"
           />
           <.input field={@form[:published]} type="checkbox" label="Published" />
 

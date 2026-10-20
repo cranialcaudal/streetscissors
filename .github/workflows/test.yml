@@ -1,0 +1,83 @@
+# The suite, on every push and pull request: what `mix precommit` does on the
+# machine, done somewhere that is not the live server.
+#
+# Nothing private is needed or reachable here. The suite runs on the invented
+# fixtures in test/support/fixtures/, and every outside program it calls
+# (ffmpeg, ImageMagick, LightCraft, the scanner, film-develop, Quarto) has a
+# stub in test/support/. The few tests that want the real ffmpeg or
+# ImageMagick skip themselves when it is absent, as it is here.
+#
+# The checks are run one by one rather than as `mix precommit`, because that
+# alias formats the files in place and CI must fail on unformatted code
+# instead of fixing it.
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      # The live machine's versions (docs/how-to.md, "The stack, by name and
+      # version"). Change them together.
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26"
+          elixir-version: "1.19"
+
+      - name: Restore dependencies and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: mix-${{ runner.os }}-${{ hashFiles('mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+
+      - name: Fetch dependencies
+        run: mix deps.get
+
+      - name: Formatted
+        run: mix format --check-formatted
+
+      - name: No unused locked dependencies
+        run: mix deps.unlock --check-unused
+
+      - name: Compiles without warnings
+        run: mix compile --warnings-as-errors
+
+      - name: The suite
+        run: mix test
+
+  # The film tools' known-answer tests (tools/film/test-model): the colour
+  # model checks itself, then film-develop is run on the rolls it writes.
+  # film-develop needs only Python's standard library and ImageMagick;
+  # Ubuntu's is version 6, which the test runs as `magick` through `convert`.
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: numpy and pytest
+        run: pip install numpy pytest
+
+      - name: The film tests
+        run: python -m pytest tools/film/test-model

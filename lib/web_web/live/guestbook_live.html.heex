@@ -33,7 +33,7 @@
       </div>
 
       <%!-- Optional, and private: sealed before it is stored and shown to
-            nobody but the author (Web.General.Contact). It is never printed
+            nobody but the author (Web.Guestbook.Contact). It is never printed
             on this page, by this template or any other. --%>
       <.input
         field={@form[:contact]}
@@ -80,10 +80,10 @@
   <section aria-labelledby="guestbook-signatures-title">
     <h2 id="guestbook-signatures-title" class="guestbook-section-title">Signatures</h2>
 
-    <p :if={@entries == []} class="guestbook-empty">Be the first to sign.</p>
+    <p :if={!@signed} class="guestbook-empty">Be the first to sign.</p>
 
-    <ol :if={@entries != []} class="guestbook-entries">
-      <li :for={entry <- @entries} class="guestbook-entry">
+    <ol id="guestbook-entries" class="guestbook-entries" phx-update="stream">
+      <li :for={{dom_id, entry} <- @streams.entries} id={dom_id} class="guestbook-entry">
         <div class="guestbook-entry-head">
           <span class="guestbook-entry-name">{entry.name}</span>
           <time class="guestbook-entry-date" datetime={DateTime.to_iso8601(entry.inserted_at)}>

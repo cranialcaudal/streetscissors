@@ -41,6 +41,10 @@ defmodule WebWeb.PageController do
     |> render(:home,
       author: author,
       spotify_profile: Web.Author.link("spotify_profile"),
+      # The playlist in the top bar, chosen on /admin/settings. Read here, the
+      # one page that shows it, rather than on every request.
+      spotify_playlist_id:
+        Web.SiteSettings.get_setting("spotify_playlist_id", "37i9dQZF1DXcBWIGoYBM5M"),
       site_description: site_description(),
       happening: Web.Happening.get()
     )
@@ -56,11 +60,7 @@ defmodule WebWeb.PageController do
         {:error, _} -> "Could not find about.md in the content directory."
       end
 
-    html_content =
-      case Earmark.as_html(markdown) do
-        {:ok, html, _} -> html
-        {:error, html, _} -> html
-      end
+    html_content = Web.Markdown.to_html(markdown)
 
     {return_to, return_label} = return_context(params["from"])
     # Who the author is comes from the host (AUTHOR_NAME, content/about.json),
@@ -175,7 +175,7 @@ defmodule WebWeb.PageController do
 
         match?(
           {:error, :rate_limited, _},
-          Web.RateLimit.hit("search:#{WebWeb.ClientIP.from_conn(conn)}",
+          Web.RateLimit.hit("search:#{WebWeb.Visitor.ip(conn)}",
             limit: @search_limit,
             window: @search_window
           )
@@ -206,7 +206,7 @@ defmodule WebWeb.PageController do
 
   def suggest(conn, params) do
     suggestions =
-      case Web.RateLimit.hit("suggest:#{WebWeb.ClientIP.from_conn(conn)}",
+      case Web.RateLimit.hit("suggest:#{WebWeb.Visitor.ip(conn)}",
              limit: @suggest_limit,
              window: @search_window
            ) do
@@ -318,7 +318,7 @@ defmodule WebWeb.PageController do
       conn
       |> assign(:page_title, "Calendar Reference")
       |> assign(:robots, "noindex, nofollow")
-      |> render(:calendar, html_content: Earmark.as_html!(markdown, gfm: true))
+      |> render(:calendar, html_content: Web.Markdown.to_html(markdown))
     else
       WebWeb.NotFound.render(conn)
     end

@@ -38,7 +38,6 @@ defmodule WebWeb.Router do
     plug :put_csrf_token_in_session
     plug WebWeb.Plugs.Analytics
     plug WebWeb.Plugs.SetCurrentUser
-    plug WebWeb.Plugs.LoadSiteSettings
   end
 
   defp put_csrf_token_in_session(conn, _) do
@@ -70,20 +69,20 @@ defmodule WebWeb.Router do
       get "/england2026", EnglandController, :show
       get "/england2026/call", EnglandController, :call_times
       get "/about", PageController, :about
-      # The prayer pages (WebWeb.FaithController): the liturgical day, the
+      # The prayer pages (WebWeb.ChristController): the liturgical day, the
       # Hours, the readings at Mass, the Rosary and the Bible they are read
       # from. Unlisted like /food below.
-      get "/Christ", FaithController, :index
-      get "/Christ/hours/:hour", FaithController, :hour
-      get "/Christ/angelus", FaithController, :angelus
-      get "/Christ/readings", FaithController, :readings
-      get "/Christ/rosary", FaithController, :rosary
-      get "/Christ/saints/:symbol", FaithController, :saint
-      get "/Christ/calendar", FaithController, :calendar
-      get "/Christ/bible", FaithController, :bible
-      get "/Christ/bible/go", FaithController, :go
-      get "/Christ/bible/:book", FaithController, :book
-      get "/Christ/bible/:book/:chapter", FaithController, :chapter
+      get "/Christ", ChristController, :index
+      get "/Christ/hours/:hour", ChristController, :hour
+      get "/Christ/angelus", ChristController, :angelus
+      get "/Christ/readings", ChristController, :readings
+      get "/Christ/rosary", ChristController, :rosary
+      get "/Christ/saints/:symbol", ChristController, :saint
+      get "/Christ/calendar", ChristController, :calendar
+      get "/Christ/bible", ChristController, :bible
+      get "/Christ/bible/go", ChristController, :go
+      get "/Christ/bible/:book", ChristController, :book
+      get "/Christ/bible/:book/:chapter", ChristController, :chapter
       # The pages were built at /faith, and an address typed by hand is
       # lower case.
       get "/faith/*rest", LegacyRedirectController, :christ
@@ -99,11 +98,14 @@ defmodule WebWeb.Router do
       # docs/roadmap.md the same way.
       get "/roadmap", PageController, :roadmap
 
-      # The site read by date: one day whole, one year at once (Web.Almanac).
-      get "/day/:date", AlmanacController, :day
-      get "/daybook", AlmanacController, :index
-      get "/daybook/:year", AlmanacController, :year
-      get "/daybook/:year/week/:week", AlmanacController, :week
+      # The site read by date: one day whole, one year at once (Web.Daybook).
+      get "/day/:date", DaybookController, :day
+      get "/daybook", DaybookController, :index
+      get "/daybook/:year", DaybookController, :year
+      get "/daybook/:year/week/:week", DaybookController, :week
+      # The year's essays as a book (Web.Daybook.Book), once it is built.
+      get "/daybook/:year/book.epub", DaybookController, :book_epub
+      get "/daybook/:year/book.pdf", DaybookController, :book_pdf
       # It was "the almanac" until 2026-10-07; an almanac looks ahead, and
       # this keeps a record. Old links follow.
       get "/almanac", LegacyRedirectController, :almanac
@@ -196,6 +198,8 @@ defmodule WebWeb.Router do
       on_mount: [{WebWeb.AdminAuth, :ensure_admin}, {WebWeb.AdminNav, :default}] do
       # Admin
       live "/admin/dashboard", AdminLive.Dashboard
+      # A set, a check-in or a note in a few taps (also the phone's shortcuts).
+      live "/admin/quick", AdminLive.QuickAdd
       # The old single "content" hub routed uploads by file extension; blog and
       # logs each own their ingestion now.
       live "/admin/blog", AdminLive.BlogManager
@@ -296,6 +300,8 @@ defmodule WebWeb.Router do
   # sets no session and logs no analytics hit however often it is asked.
   scope "/", WebWeb do
     get "/health", HealthController, :show
+    # The IndexNow key (Web.IndexNow), likewise asked by machines only.
+    get "/indexnow.txt", IndexNowController, :show
   end
 
   # Share cards: the picture a link to a post, frame or roll unfurls with

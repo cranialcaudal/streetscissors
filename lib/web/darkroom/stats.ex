@@ -40,6 +40,50 @@ defmodule Web.Darkroom.Stats do
     end
   end
 
+  @doc """
+  The colour of a small square of a print, for a grey point the author has
+  picked: `{:ok, %{cast: {rg, bg}, rgb: [r, g, b]}}` in linear light. `at` is
+  the square's centre and `radius` half its side, both in fractions of the
+  picture; `size` is the picture's `{width, height}` in pixels. The square is
+  averaged by ImageMagick down to 8x8 and those pixels averaged here.
+  """
+  def read_region(path, {x, y}, radius, {width, height}) do
+    side = max(round(radius * 2 * min(width, height)), 2)
+    left = (x * width - side / 2) |> round() |> max(0) |> min(max(width - side, 0))
+    top = (y * height - side / 2) |> round() |> max(0) |> min(max(height - side, 0))
+
+    case System.cmd(
+           Negatives.magick_bin(),
+           [
+             path <> "[0]",
+             "-crop",
+             "#{side}x#{side}+#{left}+#{top}",
+             "+repage",
+             "-resize",
+             "8x8!",
+             "-colorspace",
+             "sRGB",
+             "-depth",
+             "8",
+             "rgb:-"
+           ],
+           stderr_to_stdout: false
+         ) do
+      {bytes, 0} when byte_size(bytes) == 8 * 8 * 3 -> region_from_bytes(bytes)
+      _ -> :error
+    end
+  end
+
+  @doc false
+  def region_from_bytes(bytes) do
+    pixels = for <<r, g, b <- bytes>>, do: {lin(r), lin(g), lin(b)}
+    [r, g, b] = for i <- 0..2, do: mean(pixels, &elem(&1, i))
+
+    if r > 0 and g > 0 and b > 0,
+      do: {:ok, %{cast: {:math.log10(r / g), :math.log10(b / g)}, rgb: [r, g, b]}},
+      else: :error
+  end
+
   @doc false
   def from_bytes(bytes) do
     pixels = for <<r, g, b <- bytes>>, do: {lin(r), lin(g), lin(b)}

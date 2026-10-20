@@ -32,7 +32,7 @@ written out. That is how one page can look like printed paper and another like a
 | Darkroom | `/negatives` | `negatives.css` |
 | Blueprint steel | Every `/fitness` page | `steel.css` |
 | NX-01 console | `/logs` | `logs.css` |
-| Brown scapular | `/Christ` | `faith.css` |
+| Brown scapular | `/Christ` | `christ.css` |
 | The studio | `/admin` | `css/admin/` |
 
 Each theme re-defines the same variables inside its own class (`.darkroom`, `.steel`…), so a

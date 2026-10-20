@@ -4,6 +4,9 @@ defmodule Web.Cuts.RenderTest do
   # a machine without ffmpeg and ImageMagick.
   use ExUnit.Case, async: false
 
+  # Runs outside programs: `mix test.fast` leaves it out.
+  @moduletag :external
+
   alias Web.Cuts.{Render, Timeline, Titles}
 
   @ffmpeg System.find_executable("ffmpeg")

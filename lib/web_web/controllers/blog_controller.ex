@@ -126,7 +126,11 @@ defmodule WebWeb.BlogController do
           post: post,
           return_to: return_to,
           return_label: return_label,
-          neighbours: neighbours(post)
+          neighbours: neighbours(post),
+          # What the post goes with (its `related:` line), and the logs that
+          # say they belong with it (Web.Pieces).
+          related: Web.Pieces.resolve_all(post.related),
+          related_logs: Web.Pieces.related_to(Web.Pieces.post(post.slug)).logs
         )
 
       {:error, _} ->

@@ -25,8 +25,8 @@ defmodule Web.Studio do
 
   import Ecto.Query
 
-  alias Web.{Audio, Blog, Clock, Contact, General, Negatives, Newsletter, Repo, Rides}
-  alias Web.Audio.Log
+  alias Web.{Blog, Clock, Contact, Guestbook, Logs, Negatives, Newsletter, Repo, Rides}
+  alias Web.Logs.Log
   alias Web.Contact.Message
   alias Web.Cuts
   alias Web.Cuts.Timeline
@@ -52,7 +52,7 @@ defmodule Web.Studio do
   def floor(opts \\ []) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     counts = opts[:counts] || WebWeb.AdminNav.counts()
-    logs = Audio.count_by_status()
+    logs = Logs.count_by_status()
     posts = Blog.list_all_posts()
     rides = Rides.list_rides()
 
@@ -223,10 +223,10 @@ defmodule Web.Studio do
   @doc """
   The cutting room and the Captain's Logs: the newest cuts (name, length,
   clips, and whether one has been rendered into a log), and the logs' state
-  from `Audio.count_by_status/0`: how many are ready and not yet published,
+  from `Logs.count_by_status/0`: how many are ready and not yet published,
   transcoding, and failed, with the newest log and its poster.
   """
-  def cuts(logs \\ Audio.count_by_status()) do
+  def cuts(logs \\ Logs.count_by_status()) do
     all = Cuts.list_cuts()
 
     %{
@@ -412,7 +412,7 @@ defmodule Web.Studio do
   @doc "The counts the status strip carries."
   def on_file(
         posts \\ Blog.list_all_posts(),
-        logs \\ Audio.count_by_status(),
+        logs \\ Logs.count_by_status(),
         rides \\ Rides.list_rides()
       ) do
     %{
@@ -421,7 +421,7 @@ defmodule Web.Studio do
       log_drafts: Map.get(logs, "draft", 0),
       subscribers: length(Newsletter.list_active_emails()),
       activities: length(rides),
-      signatures: General.count_guestbook_entries()
+      signatures: Guestbook.count_guestbook_entries()
     }
   end
 

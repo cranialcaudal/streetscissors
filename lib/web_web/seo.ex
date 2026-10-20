@@ -95,6 +95,7 @@ defmodule WebWeb.SEO do
         json_ld_tag(%{
           "@context" => "https://schema.org",
           "@type" => "Person",
+          "@id" => author_id(),
           "name" => name,
           "url" => base_url()
         })
@@ -103,6 +104,10 @@ defmodule WebWeb.SEO do
         ""
     end
   end
+
+  # The author's one identity across pages: every post's `author` names this
+  # id, so crawlers read one person, not one per post.
+  defp author_id, do: base_url() <> "/#author"
 
   @doc "JSON-LD identifying the site itself, keyed to its exact brand name."
   def website_json_ld_tag do
@@ -134,11 +139,11 @@ defmodule WebWeb.SEO do
       "mainEntityOfPage" => %{"@type" => "WebPage", "@id" => url},
       "description" =>
         Map.get(post, :description) || Map.get(post, :excerpt) || @default_description,
-      "author" => %{
-        "@type" => "Person",
-        "name" => author_name,
-        "url" => base_url()
-      },
+      "author" =>
+        Map.merge(
+          %{"@type" => "Person", "name" => author_name, "url" => base_url()},
+          if(Application.get_env(:web, :author_name), do: %{"@id" => author_id()}, else: %{})
+        ),
       "publisher" => %{
         "@type" => "Organization",
         "name" => site_name(),
@@ -164,7 +169,7 @@ defmodule WebWeb.SEO do
   def media_json_ld(log) do
     url = absolute("/logs/#{log.slug}")
     author_name = Application.get_env(:web, :author_name) || site_name()
-    title = Web.Audio.Log.title(log)
+    title = Web.Logs.Log.title(log)
 
     type = if log.kind == "video", do: "VideoObject", else: "AudioObject"
     upload_date = if log.recorded_on, do: Date.to_iso8601(log.recorded_on), else: nil

@@ -17,7 +17,12 @@ export const GymRoutine = {
     },
     initGym() {
         const STORAGE_KEY = 'vault_gym_v1';
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        // Private windows and blocked storage throw: then ticks are simply not kept.
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) {}
+        const keep = () => {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (_) {}
+        };
         const resetWeekBtn = this.el.querySelector('#reset-week');
 
         // Ticks are keyed by scope + the checkbox's position within that scope.
@@ -42,10 +47,17 @@ export const GymRoutine = {
             checkboxes.forEach((cb, index) => {
                 const key = `vault_gym_${scopeId}_${index}`;
                 if (saved[key]) cb.checked = true;
+                // A line logged today (the admin's, on today's page) is done
+                // whatever this browser remembers: the log is the record.
+                // Only this line's own button: a nested sub-list has its own.
+                const line = cb.closest('li');
+                const logged = line && Array.from(line.querySelectorAll('.log-trigger[data-logged]'))
+                    .some((button) => button.closest('li') === line);
+                if (logged) cb.checked = true;
 
                 cb.onchange = () => {
                     saved[key] = cb.checked;
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+                    keep();
                 };
             });
         });
@@ -55,7 +67,8 @@ export const GymRoutine = {
             resetWeekBtn.onclick = () => {
                 if (confirm("Clear all progress for the week?")) {
                     this.el.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify({}));
+                    saved = {};
+                    keep();
                 }
             };
         }
@@ -69,7 +82,10 @@ export const GymRoutine = {
 
         if (!popout) return;
 
-        this.el.querySelectorAll('.hover-exercise').forEach(link => {
+        // initGym runs on every update; a link already bound is left alone, or
+        // each update would add another pair of listeners to it.
+        this.el.querySelectorAll('.hover-exercise:not([data-hover-bound])').forEach(link => {
+            link.dataset.hoverBound = 'true';
             link.addEventListener('mouseenter', (e) => {
                 const rect = link.getBoundingClientRect();
                 const thumbUrl = link.dataset.thumb;

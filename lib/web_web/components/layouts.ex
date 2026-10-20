@@ -11,6 +11,21 @@ defmodule WebWeb.Layouts do
   # and other static content.
   embed_templates "layouts/*"
 
+  # The sticky newsletter overlay's session: the visitor's address, read off
+  # the request that drew the page, for its rate limits (WebWeb.Visitor).
+  defp overlay_session(%{conn: %Plug.Conn{} = conn}),
+    do: %{"remote_ip" => WebWeb.Visitor.ip(conn)}
+
+  defp overlay_session(_assigns), do: %{}
+
+  # A search engine's verification code (config :web, :search_verify), or nil.
+  defp search_verify(engine) do
+    case Application.get_env(:web, :search_verify, [])[engine] do
+      "" <> code when code != "" -> code
+      _ -> nil
+    end
+  end
+
   @doc """
   Renders your app layout.
 

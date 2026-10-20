@@ -115,6 +115,31 @@ defmodule Web.Darkroom.Prior do
     }
   end
 
+  @doc """
+  Temp and Tint that make a picked patch grey: its cast taken all the way to
+  neutral, as absolute slider values anchored, like `compute/7`'s, where the
+  sliders stand on the print as developed (`:temp`, `:tint`; 6500 and 0).
+  The patch must be read off the print as developed too.
+  """
+  def grey_point({rg, bg}, opts \\ []) do
+    {-rg, -bg}
+    |> Film.sliders(Keyword.get(opts, :temp, 6500.0))
+    |> Map.update!("wb.tint", &(&1 + Keyword.get(opts, :tint, 0.0)))
+  end
+
+  @doc """
+  Keeps a picked grey point as ground truth for the neutral gate and this
+  model (`docs/colour/contracts.md`, "Grey points"): one JSON line in
+  `<archive>/.darkroom/neutrals.jsonl`.
+  """
+  def record_grey_point(%{} = entry) do
+    path = Path.join([Web.Negatives.base_path(), ".darkroom", "neutrals.jsonl"])
+
+    with :ok <- File.mkdir_p(Path.dirname(path)) do
+      File.write(path, Jason.encode!(entry) <> "\n", [:append])
+    end
+  end
+
   defp color_less?(stats, group, stock) do
     group == "BW" || (stock && stock["process"] == "BW") || stats.chroma < 0.004
   end

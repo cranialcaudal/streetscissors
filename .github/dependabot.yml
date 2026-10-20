@@ -1,0 +1,19 @@
+# Dependency updates proposed as pull requests, weekly, so upgrades happen on a
+# schedule rather than when something breaks (docs/roadmap.md, "Plumbing").
+# The Test workflow runs on each one; nothing is merged without the owner.
+version: 2
+updates:
+  - package-ecosystem: mix
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Patch releases together, so a week's small fixes are one pull request.
+      patches:
+        update-types: ["patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

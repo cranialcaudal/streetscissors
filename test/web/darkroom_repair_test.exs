@@ -6,7 +6,10 @@ defmodule Web.Darkroom.RepairTest do
   alias Web.Darkroom
   alias Web.Darkroom.Repair
 
-  # Masks are pictures; these tests make real ones.
+  # Masks are pictures; these tests make real ones (`mix test.fast` leaves
+  # them out).
+  @moduletag :external
+
   if System.find_executable("magick") do
     setup do
       root = archive!()

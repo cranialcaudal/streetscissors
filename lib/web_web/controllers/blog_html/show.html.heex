@@ -37,6 +37,35 @@
       </a>
     </nav>
 
+    <%!-- What the post goes with: its `related:` frontmatter, and the
+          captain's logs that name it (Web.Pieces). Frames lead, as pictures. --%>
+    <aside
+      :if={@related != [] or @related_logs != []}
+      class="blog-related"
+      id="related"
+      aria-label="With this"
+    >
+      <h2 class="blog-related-title">With this</h2>
+      <ul :if={Enum.any?(@related, & &1.image)} class="blog-related-frames">
+        <li :for={piece <- Enum.filter(@related, & &1.image)}>
+          <a href={piece.path}>
+            <img
+              src={Web.Negatives.sized_url(piece.image, 480)}
+              srcset={Web.Negatives.srcset(piece.image)}
+              sizes="(max-width: 600px) 45vw, 220px"
+              alt={piece.title}
+              loading="lazy"
+            />
+          </a>
+        </li>
+      </ul>
+      <ul class="blog-related-links">
+        <li :for={piece <- Enum.reject(@related, & &1.image) ++ @related_logs}>
+          <a href={piece.path}>{piece.title}</a>
+        </li>
+      </ul>
+    </aside>
+
     <%!-- Shown only in print (writing.css): a sheet of paper has no address bar. --%>
     <p class="blog-post-colophon">
       streetscissors · {WebWeb.SEO.absolute(~p"/blog/#{@post.slug}")}
@@ -50,7 +79,7 @@
       id: "letters-post",
       session: %{
         "piece" => Web.Pieces.post(@post.slug),
-        "remote_ip" => WebWeb.ClientIP.from_conn(@conn)
+        "remote_ip" => WebWeb.Visitor.ip(@conn)
       }
     )}
   <% end %>

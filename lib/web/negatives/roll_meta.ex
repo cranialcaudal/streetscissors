@@ -8,7 +8,7 @@ defmodule Web.Negatives.RollMeta do
   **When it was shot is as precise as is known**: a year (`2023`), a month
   (`2023-06`) or a day (`2023-06-14`). A roll found in a drawer has a year at
   best, and a guessed day would be a false one. The roll is still *filed* by
-  the day it was scanned (its folder's name, the almanac, the day pages);
+  the day it was scanned (its folder's name, the daybook, the day pages);
   this is only said beside it.
 
   The file may hold other keys (the `negatives` command once wrote the
@@ -186,6 +186,38 @@ defmodule Web.Negatives.RollMeta do
   def shot_line(other) when is_binary(other), do: other
 
   defp month_name(month), do: Enum.at(@months, String.to_integer(month) - 1, month)
+
+  @doc """
+  What earlier rolls said, so a new one need not be typed out again:
+  `%{camera: [..], film: [..], place: [..], last: meta}`. Each list is the
+  values in use, most used first; `last` is the newest roll's that said any
+  camera, stock or place (nil when none has). `except` is a roll folder to
+  leave out (the one being described).
+  """
+  def known(except \\ nil) do
+    # The sheets come newest roll first.
+    metas =
+      for sheet <- Web.Negatives.list_contact_sheets(),
+          {:ok, dir} <- [Web.Negatives.roll_dir(sheet.roll)],
+          dir != except,
+          do: read(dir)
+
+    used = fn field ->
+      metas
+      |> Enum.map(&Map.get(&1, field))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.frequencies()
+      |> Enum.sort_by(fn {value, n} -> {-n, value} end)
+      |> Enum.map(&elem(&1, 0))
+    end
+
+    %{
+      camera: used.(:camera),
+      film: used.(:film),
+      place: used.(:place),
+      last: Enum.find(metas, &(&1.camera || &1.film || &1.place))
+    }
+  end
 
   @doc "Camera, stock and place, the ones there are, as one line. nil when none."
   def gear_line(meta) do

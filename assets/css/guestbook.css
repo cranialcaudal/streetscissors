@@ -281,7 +281,7 @@ textarea.guestbook-input {
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 1000;
+  z-index: var(--z-popover);
   box-sizing: border-box;
   width: min(26rem, 100vw);
   height: 100vh;
@@ -397,3 +397,6 @@ textarea.guestbook-input {
   font-size: 0.8rem;
   color: var(--ink);
 }
+
+/* A stream container is always in the page; with no signatures it shows nothing. */
+.guestbook-entries:empty { display: none; }

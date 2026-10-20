@@ -4,7 +4,7 @@ defmodule WebWeb.GuestbookLiveTest do
   import Phoenix.LiveViewTest
   import Web.GeneralFixtures
 
-  alias Web.General
+  alias Web.Guestbook
 
   setup do
     # Limits are per-IP and every test connects from the same one.
@@ -66,7 +66,7 @@ defmodule WebWeb.GuestbookLiveTest do
 
     assert html =~ "Incorrect captcha. Please try again."
     assert html =~ ~s(role="alert")
-    assert General.list_all_guestbook_entries() == []
+    assert Guestbook.list_all_guestbook_entries() == []
   end
 
   test "a right answer holds the entry for approval and says so", %{conn: conn} do
@@ -75,7 +75,7 @@ defmodule WebWeb.GuestbookLiveTest do
     html = sign(view, "Ada", "Hello from the test.", captcha_answer(view))
 
     assert html =~ "Signed! Your message will appear once approved."
-    assert [%{name: "Ada", approved: false}] = General.list_all_guestbook_entries()
+    assert [%{name: "Ada", approved: false}] = Guestbook.list_all_guestbook_entries()
     refute html =~ ~s(<span class="guestbook-entry-name">Ada</span>)
   end
 

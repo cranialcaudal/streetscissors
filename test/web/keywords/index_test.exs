@@ -3,8 +3,8 @@ defmodule Web.Keywords.IndexTest do
 
   import Web.AudioFixtures
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias Web.Blog
   alias Web.Keywords.Index
 
@@ -70,7 +70,7 @@ defmodule Web.Keywords.IndexTest do
 
       assert {:ok, %{keywords: ["nyc", "analog", "ferry"]}} = Blog.get_post("ferry")
       assert {:ok, %{keywords: ["new-york", "analog"]}} = Blog.get_post("bridge")
-      assert Log.keyword_list(Audio.get_log!(log.id)) == ["analog", "harbour"]
+      assert Log.keyword_list(Logs.get_log!(log.id)) == ["analog", "harbour"]
       refute Enum.find(Index.usage(), &(&1.keyword == "film"))
     end
 

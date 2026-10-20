@@ -21,7 +21,7 @@ defmodule WebWeb.FeedControllerTest do
     body = conn |> get("/feed") |> response(200)
 
     assert body =~
-             ~s(<enclosure url="http://localhost:4000#{Web.Audio.Log.media_url(log)}" length="1234" type="video/mp4" />)
+             ~s(<enclosure url="http://localhost:4000#{Web.Logs.Log.media_url(log)}" length="1234" type="video/mp4" />)
   end
 
   test "a draft log is not in the feed", %{conn: conn} do

@@ -1,0 +1,64 @@
+<%!--
+The Rosary twice over: written out in full, and bead by bead. The stepper is
+built by app.js from the list of steps below, so with no JavaScript the page
+is simply the full text.
+--%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav current={:rosary} />
+
+    <header class="christ-day">
+      <p class="christ-eyebrow">The Rosary</p>
+      <h1 class="christ-day-title">{@set.title}</h1>
+      <p class="christ-day-under">
+        <%= if @set.key == @today.key do %>
+          The mysteries customarily prayed today.
+        <% else %>
+          Today's are <a href={~p"/Christ/rosary"}>{@today.title}</a>.
+        <% end %>
+      </p>
+    </header>
+
+    <nav class="christ-sets" aria-label="Mysteries">
+      <a
+        :for={set <- @sets}
+        href={~p"/Christ/rosary?set=#{set.key}"}
+        aria-current={set.key == @set.key && "page"}
+      >
+        {String.replace(set.title, ~r/^The | Mysteries$/, "")}
+      </a>
+    </nav>
+
+    <section class="christ-beads" data-rosary hidden aria-label="The Rosary, bead by bead">
+      <div class="christ-beads-track" data-rosary-track aria-hidden="true"></div>
+      <p class="christ-label" data-rosary-count aria-live="polite"></p>
+      <ol class="christ-beads-steps">
+        <li :for={step <- @steps} data-bead={step.bead} data-title={step.title} hidden>
+          <h2 class="christ-beads-title">{step.title}</h2>
+          <%= if step.bead == :mystery do %>
+            <.mystery_scripture mystery={step.mystery} />
+          <% else %>
+            <p class="christ-beads-text">{step.text}</p>
+          <% end %>
+        </li>
+      </ol>
+      <div class="christ-beads-controls">
+        <button type="button" class="christ-button" data-rosary-back>‹ Back</button>
+        <button type="button" class="christ-button christ-button--main" data-rosary-next>
+          Next ›
+        </button>
+      </div>
+      <p class="christ-note">The arrow keys and the space bar also move from bead to bead.</p>
+    </section>
+
+    <p class="christ-own-page">
+      <button type="button" class="christ-button" data-rosary-mode hidden>
+        Pray bead by bead
+      </button>
+    </p>
+
+    <div data-rosary-text>
+      <.rosary_text set={@set} />
+    </div>
+  </article>
+</div>

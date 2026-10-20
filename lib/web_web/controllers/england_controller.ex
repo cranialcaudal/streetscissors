@@ -84,11 +84,11 @@ defmodule WebWeb.EnglandController do
   defp trip_month(%{"month" => month}) when is_binary(month) do
     case Date.from_iso8601(month) do
       {:ok, date} -> Date.beginning_of_month(date)
-      _ -> Date.beginning_of_month(Date.utc_today())
+      _ -> Date.beginning_of_month(Web.Clock.local_today())
     end
   end
 
-  defp trip_month(_trip), do: Date.beginning_of_month(Date.utc_today())
+  defp trip_month(_trip), do: Date.beginning_of_month(Web.Clock.local_today())
 
   defp trip_days_by_date(trip) do
     trip["days"]
@@ -117,7 +117,7 @@ defmodule WebWeb.EnglandController do
 
   defp read_markdown(filename) do
     case File.read(Path.join(base_path(), filename)) do
-      {:ok, content} -> Earmark.as_html!(content, gfm: true)
+      {:ok, content} -> Web.Markdown.to_html(content)
       _ -> ""
     end
   end

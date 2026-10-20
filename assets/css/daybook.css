@@ -1,0 +1,726 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DAYBOOK — /day/:date and /daybook/:year (WebWeb.DaybookHTML)
+   ═══════════════════════════════════════════════════════════════════
+   The site read by date, on the ordinary paper ground. A day page sets
+   the date large in Goudy and lists what was made; a year page lays the
+   twelve months out like a contact sheet, one cell per day, with a mark
+   for each kind of work: ink square for writing, poppy dot for a log,
+   laurel outline for a roll of film, dusk bar for an activity.
+
+   The print rules at the bottom are the printed edition: the year page,
+   printed, is a clean ink-on-white object with no header or controls.
+   ─────────────────────────────────────────────────────────────────── */
+
+.daybook {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem) 5rem;
+  color: var(--ink);
+}
+
+.daybook-head {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.daybook-slug {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.daybook-slug a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.daybook-slug a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.daybook-date {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* app.css sets every <time> in the data voice; the date here is display type. */
+.daybook-date time {
+  font-family: inherit;
+  font-variant-numeric: normal;
+}
+
+.daybook-weekday {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-style: italic;
+  font-size: 0.45em;
+  color: var(--ink-3);
+}
+
+.daybook-lede {
+  max-width: 62ch;
+  margin: 1rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* ── A piece's date, linking to its day ─────────────────────────── */
+
+/* Every post, log and activity carries its date in a meta line styled by
+   its own section; wrapped in this, the date links to /day/:date and keeps
+   the meta line's ink, with a dotted rule to say it can be pressed. */
+/* A date that leads to its day wears the link colour, or nobody finds it. */
+.day-link {
+  color: var(--accent-ink);
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.day-link:hover {
+  text-decoration-style: solid;
+}
+
+/* ── A day ────────────────────────────────────────────────────────── */
+
+.daybook-kind {
+  margin-bottom: 2.75rem;
+}
+
+.daybook-kind-title {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.daybook-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daybook-entry {
+  border-bottom: 1px solid var(--rule);
+}
+
+.daybook-entry-link {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 44px;
+  padding: 0.9rem 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.daybook-entry-link:hover .daybook-entry-title {
+  color: var(--accent-ink);
+}
+
+.daybook-entry-image {
+  flex: 0 0 auto;
+  width: 160px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--paper-deep);
+  border: 1px solid var(--rule);
+}
+
+.daybook-entry-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.daybook-entry-title {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.daybook-entry-note {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.daybook-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.daybook-step,
+.daybook-years a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.daybook-step:hover,
+.daybook-years a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── A year ───────────────────────────────────────────────────────── */
+
+.daybook-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.daybook-years {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.daybook-print {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  background: transparent;
+  border: 1px solid var(--accent-ink);
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.daybook-print:hover {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--paper);
+}
+
+.daybook-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+
+.daybook-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The marks. One shape per kind, so the sheet reads in black and white too. */
+.daybook-mark {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+}
+
+.daybook-mark--post { background: var(--ink); }
+.daybook-mark--log { background: var(--color-orange); border-radius: 50%; }
+.daybook-mark--roll { border: 1.5px solid var(--color-jade); }
+.daybook-mark--ride { width: 10px; height: 3px; background: var(--color-dodger); }
+
+.daybook-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem 1.75rem;
+}
+
+.daybook-month-title {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.2rem;
+}
+
+.daybook-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daybook-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+}
+
+/* The week's initials above each month, Monday first. */
+.daybook-cal-head {
+  aspect-ratio: auto;
+  padding: 0 0 0 3px;
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+
+.daybook-cell-num {
+  display: block;
+  padding: 2px 0 0 3px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  color: var(--ink-4);
+}
+
+.daybook-cell.has-work {
+  background: var(--paper-raised);
+  outline: 1px solid var(--rule-strong);
+}
+
+.daybook-cell-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  text-decoration: none;
+}
+
+.daybook-cell-link .daybook-cell-num {
+  color: var(--ink);
+}
+
+.daybook-cell-link:hover {
+  background: var(--paper-sunk);
+}
+
+.daybook-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px 3px;
+}
+
+/* The ledger: the same year as words, month by month. */
+.daybook-ledger {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule-strong);
+  columns: 2 22rem;
+  column-gap: 3rem;
+}
+
+.daybook-ledger-month {
+  break-inside: avoid;
+  margin-bottom: 2rem;
+}
+
+.daybook-ledger-title {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.35rem;
+}
+
+.daybook-ledger-days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daybook-ledger-days > li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.daybook-ledger-date {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.daybook-ledger-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daybook-ledger-entries li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.daybook-ledger-entries a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.daybook-ledger-entries a:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── The week: an engagement calendar's opening ───────────────────── */
+
+/* A picture on the left-hand page, the week ruled out on the right. The
+   days are equal rows whatever is written in them, as in a printed diary,
+   and an empty one shows its lines. */
+
+/* The tools' button is also worn by links ("The year at a glance", "This
+   week"), which need their word centred in the same box. */
+a.daybook-print {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.daybook-slug-week {
+  margin-left: 0.9rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--rule-strong);
+  color: var(--ink-3);
+}
+
+a.daybook-slug-week { color: var(--accent-ink); }
+
+.daybook-weeks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+}
+
+.daybook-spread {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+}
+
+.daybook-spread--no-plate {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+}
+
+.daybook-plate {
+  margin: 0 0 2rem;
+}
+
+.daybook-plate img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-sunk);
+}
+
+.daybook-plate figcaption {
+  margin-top: 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+.daybook-plate figcaption a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+.daybook-plate figcaption a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The month in the corner, with the open week picked out. */
+.daybook-mini {
+  max-width: 15rem;
+}
+
+.daybook-mini .daybook-cell.in-week {
+  background: var(--paper-sunk);
+}
+
+.daybook-mini .daybook-cell.is-today .daybook-cell-num {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.daybook-diary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--ink);
+}
+
+.daybook-diary-day {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 6.6rem;
+  padding: 0.7rem 0 0.5rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.daybook-diary-day:last-child {
+  border-bottom: 2px solid var(--ink);
+}
+
+.daybook-diary-date time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.4rem;
+  font-family: inherit;
+}
+
+.daybook-diary-weekday {
+  flex-basis: 100%;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.daybook-diary-num {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  line-height: 1.05;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a.daybook-diary-num:hover {
+  color: var(--accent-ink);
+}
+
+.daybook-diary-month {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.daybook-diary-today {
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  background: var(--accent-ink);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.daybook-diary-day.is-today .daybook-diary-num {
+  color: var(--accent-ink);
+}
+
+/* The ruling: one line every 1.7rem, which is also the line-height of
+   whatever is written on it, so the writing sits on the lines. */
+.daybook-diary-lines {
+  --diary-line: 1.7rem;
+  min-height: calc(var(--diary-line) * 3);
+  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--rule) 0);
+  background-size: 100% var(--diary-line);
+  font-size: 1rem;
+  line-height: var(--diary-line);
+}
+
+.daybook-diary-lines p,
+.daybook-diary-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daybook-diary-observance {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+.daybook-diary-entries li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.daybook-diary-entries .daybook-mark {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.daybook-diary-entries a {
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daybook-diary-entries a:hover,
+.daybook-diary-training a:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.daybook-diary-note {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* What is pencilled in ahead of time. */
+.daybook-diary-training a {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+
+.daybook-week .daybook-legend {
+  margin-top: 2rem;
+}
+
+@media (max-width: 860px) {
+  .daybook-spread,
+  .daybook-spread--no-plate {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On one column the week comes first: it is what the page is for. */
+  .daybook-verso { order: 2; }
+
+  .daybook-diary-day {
+    grid-template-columns: 4.6rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .daybook-diary-num { font-size: 2rem; }
+
+  .daybook-diary-note { display: none; }
+}
+
+@media (max-width: 1000px) {
+  .daybook-sheet {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .daybook-sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 1rem;
+  }
+
+  .daybook-entry-image {
+    width: 96px;
+  }
+}
+
+/* ── The printed edition ──────────────────────────────────────────── */
+
+/* Printed, the year page is the whole object: no header, no controls, ink
+   on white, four months to a row, the ledger starting a fresh page. White
+   is named rather than read from a token because it is the paper the
+   printer holds, not the site's. */
+@media print {
+  .blog-universal-header,
+  .flash-group,
+  #admin-indicator,
+  #newsletter-overlay,
+  .daybook-print,
+  .daybook-years,
+  .daybook-this-week,
+  .daybook-steps {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .main-content-wrapper {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .daybook {
+    max-width: none;
+    padding: 0;
+  }
+
+  .daybook-sheet {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem 1rem;
+  }
+
+  .daybook-month {
+    break-inside: avoid;
+  }
+
+  .daybook-cell.has-work {
+    background: none;
+    outline: 0.5pt solid var(--ink);
+  }
+
+  .daybook-ledger {
+    break-before: page;
+    border-top: 0;
+  }
+
+  .daybook a {
+    color: var(--ink) !important;
+    text-decoration: none !important;
+  }
+}

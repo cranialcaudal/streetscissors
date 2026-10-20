@@ -13,15 +13,14 @@
 @source inline("hero-arrow-right hero-arrow-left hero-calendar hero-calendar-days hero-clock hero-chart-bar hero-play hero-pause hero-arrow-path hero-trash hero-pencil-square hero-document-text hero-microphone hero-table-cells hero-newspaper hero-envelope hero-book-open hero-arrow-right-on-rectangle hero-rectangle-stack hero-chevron-down hero-cloud-arrow-up hero-command-line hero-check-circle hero-check hero-paper-airplane hero-map-pin hero-photo hero-magnifying-glass hero-magnifying-glass-plus hero-film hero-x-mark hero-arrow-down-tray hero-list-bullet hero-chevron-left hero-chevron-right hero-eye hero-exclamation-circle");
 /* The admin rail and its pages (WebWeb.AdminComponents, AdminNav). */
 @source inline("hero-home hero-inbox hero-cog-6-tooth hero-heart hero-bars-3 hero-arrow-top-right-on-square hero-exclamation-triangle hero-clipboard hero-plus hero-archive-box hero-flag hero-arrow-uturn-left hero-envelope-open hero-shield-check hero-squares-2x2 hero-signal hero-chat-bubble-left-right hero-tag hero-clipboard-document-check hero-scissors");
-@source inline("size-3 size-4 size-5 size-6 size-8 size-10 size-12 mr-2 mb-4 text-[#ff6600]");
+@source inline("size-3 size-4 size-5 size-6 size-8 size-10 size-12");
 
 /* Custom Styles */
 @import "./fonts.css";
-@import "./sensus.css";
 @import "./custom.css";
-@import "./glass.css";
-@import "./manuscripts.css";
-@import "./blog_bento.css";
+@import "./panels.css";
+@import "./prose.css";
+@import "./fitness_cards.css";
 @import "./writing.css";
 @import "./guestbook.css";
 @import "./logs.css";
@@ -47,13 +46,16 @@
 @import "./fitness_week.css";
 @import "./fitness_wiki.css";
 @import "./fitness_charts.css";
+@import "./fitness_log.css";
 @import "./how-to.css";
-@import "./almanac.css";
+@import "./daybook.css";
 @import "./not_found.css";
 @import "./letters.css";
 @import "./meals.css";
-@import "./faith.css";
+@import "./christ.css";
 @import "./search.css";
+@import "./england.css";
+@import "./dialog.css";
 @import "./mobile.css";
 
 /* Setup standard Phoenix overrides if necessary */
@@ -127,6 +129,18 @@
     --space-sm: 0.5rem;
     --space-md: 1rem;
     --space-lg: 2rem;
+
+    /* Stacking, lowest to highest. A layer is one of these, never a number:
+       the old values ran from 1 to 100000 with nothing saying which won. */
+    --z-raised: 10;     /* a card lifted over its neighbours */
+    --z-sticky: 100;    /* sticky rails and headers */
+    --z-header: 500;    /* the site header */
+    --z-overlay: 1000;  /* a dialog and its backdrop (CoreComponents.dialog/1) */
+    --z-flash: 1100;    /* notices, above any dialog */
+    --z-popover: 1200;  /* the grammar panel, hover cards */
+
+    /* Breakpoints (media queries cannot read custom properties, so these are
+       the values to use): 640px a phone, 900px a narrow window, 1200px wide. */
 }
 
 * {
@@ -227,3 +241,18 @@ time {
     letter-spacing: 1px;
     font-weight: bold;
 }
+/* CoreComponents.input/1: a field's error and an invalid field, and the
+   turning arrow of a button at work. (The generator's utility classes here
+   generated nothing: Tailwind runs with source(none).) */
+.field-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.35rem 0 0;
+    font-size: 0.875rem;
+    color: var(--accent-ink);
+}
+.field-invalid { border-color: var(--accent-ink); }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

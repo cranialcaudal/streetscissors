@@ -1355,3 +1355,7 @@ html:has(.darkroom) body {
   text-align: center;
   flex-shrink: 0;
 }
+
+/* The essays a print appears with (posts whose related: names it). */
+.darkroom .frame-posts { margin: 0.75rem 0 0; color: var(--ink-3); }
+.darkroom .frame-posts a { color: var(--accent-ink); }

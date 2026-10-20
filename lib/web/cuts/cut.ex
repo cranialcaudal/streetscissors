@@ -18,7 +18,7 @@ defmodule Web.Cuts.Cut do
     field :render_error, :string
     field :rendered_at, :utc_datetime
 
-    belongs_to :audio_log, Web.Audio.Log
+    belongs_to :audio_log, Web.Logs.Log
     has_many :media, Web.Cuts.Media, foreign_key: :log_cut_id, preload_order: [asc: :id]
 
     timestamps()

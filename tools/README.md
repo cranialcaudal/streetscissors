@@ -29,6 +29,7 @@ terminal.
 ```bash
 tools/install.sh          # the film tools (seconds)
 tools/install.sh --all    # also LightCraft (minutes, needs Rust) and the repair models (about 4 GB)
+tools/install.sh --doctor # installs nothing: lists every program the site runs, found or missing
 ```
 
 Then check:

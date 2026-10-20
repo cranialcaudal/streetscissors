@@ -143,6 +143,21 @@ defmodule Web.Fitness do
     )
   end
 
+  @doc "One entry by id, its exercise loaded; nil when there is none."
+  def get_exercise_log(id) do
+    case Repo.get(ExerciseLog, id) do
+      nil -> nil
+      log -> Repo.preload(log, :exercise)
+    end
+  end
+
+  @doc "Changes an entry's date, figures or note. Its exercise stays."
+  def update_exercise_log(%ExerciseLog{} = log, attrs) do
+    log
+    |> ExerciseLog.changeset(Map.drop(attrs, [:exercise_id, "exercise_id"]))
+    |> Repo.update()
+  end
+
   def delete_exercise_log(id) do
     case Repo.get(ExerciseLog, id) do
       nil -> {:ok, nil}

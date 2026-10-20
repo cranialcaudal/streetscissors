@@ -934,3 +934,7 @@
   .log-card-plate { border-right: 0; border-bottom: 1px solid var(--rule); }
   .log-card-body { padding: 1rem; }
 }
+
+/* The essay a log goes with (Log.post_ref). */
+.nx01 .log-post { margin: 1rem 0 0; color: var(--ink-3); }
+.nx01 .log-post a { color: var(--color-orange); }

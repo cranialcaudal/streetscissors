@@ -17,7 +17,7 @@ defmodule WebWeb.WebmentionController do
   @window :timer.hours(1)
 
   def create(conn, params) do
-    ip = WebWeb.ClientIP.from_conn(conn)
+    ip = WebWeb.Visitor.ip(conn)
 
     with {:ok, _remaining} <-
            Web.RateLimit.hit("webmention:#{ip}", limit: @limit, window: @window),

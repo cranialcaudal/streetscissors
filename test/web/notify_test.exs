@@ -4,7 +4,7 @@ defmodule Web.NotifyTest do
 
   import Swoosh.TestAssertions
 
-  alias Web.General
+  alias Web.Guestbook
   alias Web.Notify
   alias Web.Workers.OwnerMail
 
@@ -35,7 +35,7 @@ defmodule Web.NotifyTest do
     test "is mailed to the author, with the words and the way to approve it" do
       Notify.put_address("author@example.com")
 
-      {:ok, entry} = General.create_guestbook_entry(%{name: "Ada", message: "I read this twice."})
+      {:ok, entry} = Guestbook.create_guestbook_entry(%{name: "Ada", message: "I read this twice."})
 
       assert [%{args: args}] = all_enqueued(worker: OwnerMail)
       assert args["to"] == "author@example.com"
@@ -47,7 +47,7 @@ defmodule Web.NotifyTest do
     end
 
     test "is still held, and nothing is sent, when there is no address" do
-      assert {:ok, entry} = General.create_guestbook_entry(%{name: "Ada", message: "Hello."})
+      assert {:ok, entry} = Guestbook.create_guestbook_entry(%{name: "Ada", message: "Hello."})
       refute entry.approved
       assert all_enqueued(worker: OwnerMail) == []
     end

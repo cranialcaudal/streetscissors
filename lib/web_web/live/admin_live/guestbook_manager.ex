@@ -1,7 +1,7 @@
 defmodule WebWeb.AdminLive.GuestbookManager do
   @moduledoc """
   The guestbook's approval queue. Signatures arrive held (see
-  `Web.General.create_guestbook_entry/1`) and appear on `/guestbook` only once
+  `Web.Guestbook.create_guestbook_entry/1`) and appear on `/guestbook` only once
   approved here.
 
   Opens on the held ones, the only list that asks anything of you; `?show=`
@@ -13,15 +13,15 @@ defmodule WebWeb.AdminLive.GuestbookManager do
 
   import WebWeb.AdminComponents
 
-  alias Web.General
+  alias Web.Guestbook
   alias WebWeb.AdminNav
 
   @views ~w(held live all)
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      General.subscribe_guestbook()
-      General.subscribe_guestbook_admin()
+      Guestbook.subscribe_guestbook()
+      Guestbook.subscribe_guestbook_admin()
     end
 
     # `revealed` is the contacts opened on this page, for as long as it is
@@ -43,20 +43,20 @@ defmodule WebWeb.AdminLive.GuestbookManager do
   end
 
   def handle_event("toggle_approved", %{"id" => id}, socket) do
-    entry = General.get_guestbook_entry!(id)
+    entry = Guestbook.get_guestbook_entry!(id)
 
     if entry.approved do
-      General.unapprove_guestbook_entry(entry)
+      Guestbook.unapprove_guestbook_entry(entry)
     else
-      General.approve_guestbook_entry(entry)
+      Guestbook.approve_guestbook_entry(entry)
     end
 
     {:noreply, socket |> load() |> AdminNav.refresh_counts()}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    entry = General.get_guestbook_entry!(id)
-    {:ok, _} = General.delete_guestbook_entry(entry)
+    entry = Guestbook.get_guestbook_entry!(id)
+    {:ok, _} = Guestbook.delete_guestbook_entry(entry)
 
     {:noreply,
      socket
@@ -69,7 +69,7 @@ defmodule WebWeb.AdminLive.GuestbookManager do
     id = String.to_integer(id)
 
     shown =
-      case General.guestbook_contact(id) do
+      case Guestbook.guestbook_contact(id) do
         {:ok, contact} -> contact
         :none -> :none
         :error -> :unreadable
@@ -84,7 +84,7 @@ defmodule WebWeb.AdminLive.GuestbookManager do
 
   def handle_event("forget_contact", %{"id" => id}, socket) do
     id = String.to_integer(id)
-    {:ok, _} = General.forget_guestbook_contact(id)
+    {:ok, _} = Guestbook.forget_guestbook_contact(id)
 
     {:noreply,
      socket
@@ -94,7 +94,7 @@ defmodule WebWeb.AdminLive.GuestbookManager do
   end
 
   defp contact_href(contact) do
-    case Web.General.Contact.kind(contact) do
+    case Web.Guestbook.Contact.kind(contact) do
       :email -> "mailto:" <> contact
       :phone -> "tel:" <> String.replace(contact, ~r/[^\d+]/, "")
       nil -> nil
@@ -102,7 +102,7 @@ defmodule WebWeb.AdminLive.GuestbookManager do
   end
 
   defp load(socket) do
-    all = General.list_all_guestbook_entries()
+    all = Guestbook.list_all_guestbook_entries()
 
     socket
     |> assign(:held_count, Enum.count(all, &(!&1.approved)))
@@ -155,7 +155,9 @@ defmodule WebWeb.AdminLive.GuestbookManager do
           <h2 class="adm-signature-name">{entry.name}</h2>
           <div class="adm-item-meta">
             <span class="adm-mail-when">{stamp(entry.inserted_at)}</span>
-            <span class="adm-signature-ip">{entry.ip_address || "no IP"}</span>
+            <span class="adm-signature-ip" title="The same mark is the same sender">
+              {sender(entry)}
+            </span>
             <.pill :if={entry.approved} tone="live">Live</.pill>
             <.pill :if={!entry.approved} tone="held">Waiting</.pill>
           </div>
@@ -256,4 +258,9 @@ defmodule WebWeb.AdminLive.GuestbookManager do
     do: "Nothing approved yet. Approve a waiting signature and it shows on the guestbook."
 
   defp empty_line("all"), do: "No one has signed yet. Signatures appear here as they arrive."
+
+  # A short mark of the sender's hashed address: the same mark on two
+  # signatures is the same sender. The address itself is never kept.
+  defp sender(%{ip_hash: "" <> hash}), do: "sender " <> String.slice(hash, 0, 6)
+  defp sender(_entry), do: "no sender mark"
 end

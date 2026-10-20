@@ -4,8 +4,8 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
   import Phoenix.LiveViewTest
   import Web.AudioFixtures
 
-  alias Web.Audio
-  alias Web.Audio.Log
+  alias Web.Logs
+  alias Web.Logs.Log
   alias Web.Uploads
 
   defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
@@ -85,20 +85,20 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
       render_upload(attach(view), "take.webm")
 
-      assert [log] = Audio.list_logs()
+      assert [log] = Logs.list_logs()
       assert log.status == "pending"
       assert log.kind == "video"
       assert log.source_path =~ "staging/"
       assert File.regular?(log.source_path)
       # Pending, so it is not on the public page whatever its published flag.
-      assert Audio.list_ready_logs() == []
+      assert Logs.list_ready_logs() == []
     end
 
     test "it is titled and addressed by the day it arrived", %{conn: conn} do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
       render_upload(attach(view), "take.webm")
 
-      [log] = Audio.list_logs()
+      [log] = Logs.list_logs()
       today = Web.Clock.local_today()
 
       assert log.recorded_on == today
@@ -114,7 +114,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       render_upload(attach(view, "two.webm"), "two.webm")
 
       today = Date.to_iso8601(Web.Clock.local_today())
-      assert Enum.map(Audio.list_logs(), & &1.slug) |> Enum.sort() == [today, "#{today}-2"]
+      assert Enum.map(Logs.list_logs(), & &1.slug) |> Enum.sort() == [today, "#{today}-2"]
     end
 
     test "the recorder's trim and poster survive the change event the upload triggers",
@@ -131,7 +131,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
       render_upload(attach(view), "take.webm")
 
-      assert [log] = Audio.list_logs()
+      assert [log] = Logs.list_logs()
       assert log.trim_start_ms == 800
       assert log.trim_duration_ms == 2401
       assert log.poster_at_ms == 1200
@@ -143,7 +143,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
       render_upload(attach(view, "voice.m4a", "audio/mp4"), "voice.m4a")
 
-      assert [%Log{kind: "audio"}] = Audio.list_logs()
+      assert [%Log{kind: "audio"}] = Logs.list_logs()
     end
 
     test "metadata typed before the take travels with it", %{conn: conn} do
@@ -155,7 +155,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
       render_upload(attach(view), "take.webm")
 
-      assert [log] = Audio.list_logs()
+      assert [log] = Logs.list_logs()
       assert log.caption == "Under way"
       assert log.keywords == "ferry, bowling-green"
     end
@@ -195,7 +195,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       |> element(~s(button[phx-click="toggle_published"][phx-value-id="#{log.id}"]))
       |> render_click()
 
-      assert Audio.get_log!(log.id).published
+      assert Logs.get_log!(log.id).published
     end
 
     test "editing changes the metadata without touching the media", %{conn: conn} do
@@ -208,7 +208,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       |> form("#log-form", log: %{caption: "Second pass"})
       |> render_submit()
 
-      updated = Audio.get_log!(log.id)
+      updated = Logs.get_log!(log.id)
       assert updated.caption == "Second pass"
       assert updated.media_dir == "2026-09-18-abc12345"
     end
@@ -222,7 +222,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
       view |> element(~s(button[phx-click="delete"][phx-value-id="#{log.id}"])) |> render_click()
 
-      assert Audio.list_logs() == []
+      assert Logs.list_logs() == []
       refute File.dir?(Uploads.entry_dir!(dir))
     end
 
@@ -269,7 +269,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       send(view.pid, {:transcode_progress, log.id, 42})
       assert render(view) =~ "42%"
 
-      {:ok, _} = Audio.mark_ready(log, %{media_dir: "done-12345678"})
+      {:ok, _} = Logs.mark_ready(log, %{media_dir: "done-12345678"})
       send(view.pid, {:transcode_done, log.id, :ready})
 
       html = render(view)

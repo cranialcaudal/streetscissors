@@ -3,7 +3,7 @@ defmodule Web.CutsTest do
 
   import Web.NegativesFixtures
 
-  alias Web.Audio
+  alias Web.Logs
   alias Web.Cuts
   alias Web.Cuts.Timeline
 
@@ -96,7 +96,7 @@ defmodule Web.CutsTest do
     assert_received {:cut_render, _percent}
     assert_received {:cut_rendered, %{status: "done", audio_log_id: log_id}}
 
-    log = Audio.get_log!(log_id)
+    log = Logs.get_log!(log_id)
 
     assert %{
              status: "pending",
@@ -114,13 +114,13 @@ defmodule Web.CutsTest do
 
     # Again: the same log is given the new film, and keeps what it had.
     cut = Cuts.get_cut(cut.id)
-    {:ok, log} = Audio.update_log(log, %{status: "ready", published: true})
+    {:ok, log} = Logs.update_log(log, %{status: "ready", published: true})
     assert {:ok, _} = Cuts.publish(cut, %{"recorded_on" => "2030-01-01"})
     assert_received {:cut_rendered, %{audio_log_id: ^log_id}}
 
-    log = Audio.get_log!(log.id)
+    log = Logs.get_log!(log.id)
     assert %{status: "pending", recorded_on: ~D[2026-10-12], published: true} = log
-    assert length(Audio.list_logs()) == 1
+    assert length(Logs.list_logs()) == 1
   end
 
   test "a print gone from the archive fails the render, and says which", %{cut: cut} do
@@ -130,7 +130,7 @@ defmodule Web.CutsTest do
     assert {:ok, _} = Cuts.publish(cut, %{})
     assert_received {:cut_failed, %{status: "failed", render_error: reason}}
     assert reason =~ "065/9"
-    assert Audio.list_logs() == []
+    assert Logs.list_logs() == []
   end
 
   test "deleting a cut takes its bin, and leaves its log", %{cut: cut} do

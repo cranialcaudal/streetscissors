@@ -35,7 +35,7 @@
   right: 3rem;
   /* Over page modals like the fitness log form (100) and the header it
      hangs beneath (10000); under the full-screen dialogs (100000). */
-  z-index: 10001;
+  z-index: var(--z-flash);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

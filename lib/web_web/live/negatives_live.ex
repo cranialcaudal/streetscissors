@@ -60,7 +60,7 @@ defmodule WebWeb.NegativesLive do
       |> assign(:return_label, return_label)
       # For the letters under a frame: a nested LiveView cannot read the
       # client's address itself, so the page hands it over.
-      |> assign(:client_ip, WebWeb.ClientIP.from_socket(socket))
+      |> assign(:client_ip, WebWeb.Visitor.ip(socket))
 
     {:ok, socket}
   end
@@ -159,6 +159,8 @@ defmodule WebWeb.NegativesLive do
          prev_frame: if(index > 0, do: Enum.at(frames, index - 1)),
          next_frame: Enum.at(frames, index + 1),
          frame_position: index + 1,
+         # The essays that say they go with this print (their `related:`).
+         frame_posts: Web.Pieces.related_to(Web.Pieces.frame(sheet.roll, number)).posts,
          page_title: "Roll ##{sheet.roll} · frame #{number}",
          # Its own social card and canonical URL — otherwise every shared
          # photo link fell back to the site-wide default logo/description.
@@ -223,6 +225,7 @@ defmodule WebWeb.NegativesLive do
     |> assign(:prev_sheet, if(position && position > 0, do: Enum.at(ordered, position - 1)))
     |> assign(:next_sheet, position && Enum.at(ordered, position + 1))
     |> assign(:frame, nil)
+    |> assign(:frame_posts, [])
     |> assign(:frame_position, nil)
     |> assign(:prev_frame, nil)
     |> assign(:next_frame, nil)
@@ -684,6 +687,13 @@ defmodule WebWeb.NegativesLive do
                 <span :if={@sheet.meta.shot}>
                   <span class="sheet-meta-dot">•</span> Shot {RollMeta.shot_line(@sheet.meta)}
                 </span>
+              </p>
+
+              <p :if={@frame_posts != []} class="frame-posts" id="frame-posts">
+                In
+                <%= for {post, i} <- Enum.with_index(@frame_posts) do %>
+                  {if i > 0, do: ", "}<.link href={post.path}>{post.title}</.link>
+                <% end %>
               </p>
 
               <%!-- Keyed by frame: the arrows patch, and a new id is what

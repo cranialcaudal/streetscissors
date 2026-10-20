@@ -117,4 +117,22 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     assert html =~ "Bodyweight must be a number"
     assert Web.Fitness.recent_checkins(Web.Clock.local_today()) == []
   end
+
+  test "the vault's files open whole, and a week that would lose a block is not saved",
+       %{conn: conn} do
+    week = Path.join(Web.Fitness.Vault.base_path(), "week.md")
+    before = File.read!(week)
+
+    {:ok, view, html} = live(admin_conn(conn), "/admin/fitness?tab=files")
+    assert html =~ "Reads as:"
+    assert has_element?(view, ~s(a[href="/admin/fitness?tab=files&file=block:test-block"]))
+
+    broken = before <> "\n- 7.15-08:00 strength A typo\n"
+    view |> form("#source-form", source: %{content: broken}) |> render_change()
+    assert has_element?(view, "#source-check", "Will not be saved")
+
+    view |> form("#source-form", source: %{content: broken}) |> render_submit()
+    assert has_element?(view, "#flash-error", "Not saved")
+    assert File.read!(week) == before
+  end
 end

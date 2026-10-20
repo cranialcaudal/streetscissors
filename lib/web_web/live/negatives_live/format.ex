@@ -56,17 +56,8 @@ defmodule WebWeb.NegativesLive.Format do
     end
   end
 
-  @doc """
-  Zero-pads a roll token to three digits, the archive's own convention
-  (`roll013_2026-08-03_120_bw`). Anything unrecognisable is passed through
-  rather than mangled — the route's own parser decides what is valid.
-  """
-  def pad(roll) do
-    case Regex.run(~r/\A(?:roll)?0*(\d{1,4})\z/i, to_string(roll)) do
-      [_, digits] -> String.pad_leading(digits, 3, "0")
-      _ -> to_string(roll)
-    end
-  end
+  @doc "A roll token padded to three digits (`Web.Negatives.Roll.pad/1`)."
+  defdelegate pad(roll), to: Web.Negatives.Roll
 
   # Only what differs from the resting state survives into the URL.
   defp query(opts) do

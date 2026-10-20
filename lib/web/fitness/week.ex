@@ -131,11 +131,14 @@ defmodule Web.Fitness.Week do
   # Same flat `key: value` frontmatter the rest of the vault uses. Splitting on
   # the first ": " keeps a value like `21:00-05:30` whole.
   defp split_frontmatter(content) do
-    case Regex.run(~r/\A---\n(.*?)\n---\n?(.*)\z/s, content, capture: :all_but_first) do
-      [yaml, body] ->
+    case Web.Frontmatter.split(content) do
+      {"", body} ->
+        {%{}, body}
+
+      {yaml, body} ->
         meta =
           yaml
-          |> String.split("\n")
+          |> Web.Frontmatter.lines()
           |> Enum.reduce(%{}, fn line, acc ->
             case String.split(line, ": ", parts: 2) do
               [k, v] -> Map.put(acc, String.trim(k), String.trim(v))
@@ -144,9 +147,6 @@ defmodule Web.Fitness.Week do
           end)
 
         {meta, body}
-
-      _ ->
-        {%{}, content}
     end
   end
 end

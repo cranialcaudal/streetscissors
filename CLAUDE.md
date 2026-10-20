@@ -10,9 +10,11 @@ How this app is wired, and the rules that are easy to break. The plain-language 
 namespace is `WebWeb`. Contexts and schemas are in `lib/web/<context>/`; controllers, LiveViews,
 components and plugs in `lib/web_web/`.
 
-**This machine is both the live server and the workbench.** Never run `mix phx.server` or
-`iex -S mix phx.server` to poke at something: use `mix run --no-start -e …`, or against the live
-release `_build/prod/rel/web/bin/web rpc '…'`. The working tree is what gets deployed, so keep it
+**This machine is both the live server and the workbench.** Never run a bare `mix phx.server`
+or `iex -S mix phx.server` to poke at something: use `mix run --no-start -e …`, against the live
+release `_build/prod/rel/web/bin/web rpc '…'`, or, to look at a change on real data,
+`ops/preview.sh` (127.0.0.1:4100, a copy of the live database, `PREVIEW=1` turns off cron, jobs,
+mail, backups and the scanner; `content/` is still shared, so look, don't write). The working tree is what gets deployed, so keep it
 deployable at all times (no half-finished migrations).
 
 Live data, backups and Caddy's log are in `~/streetscissors-data/` (`backups/`, `logs/`, `old/`).
@@ -26,7 +28,7 @@ but unused things (spikes, old tool copies, the admin redesign harness) are in
 ```bash
 mix setup                       # deps.get + ecto.setup + assets.setup + build
 mix test                        # creates/migrates the test db, then the suite
-mix test test/web/general_test.exs:42         # one test by line
+mix test test/web/guestbook_test.exs:42         # one test by line
 mix test --failed                             # rerun last failures
 mix precommit                   # compile --warnings-as-errors + deps.unlock --unused + format + test
 mix ecto.gen.migration name_in_snake_case     # always generate migrations this way
@@ -100,9 +102,11 @@ newsletter overlay inherits the session's hooks. The `SetCurrentUser` plug only 
 
 ### Requests, processes, jobs
 
-- **Every browser request runs** `Analytics` → `SetCurrentUser` →
-  `LoadSiteSettings` (the `:browser` pipeline). Analytics and the guestbook store client IPs.
-  Site settings are key/value rows (`SiteSettings.get_setting/2`) read on every request.
+- **Every browser request runs** `Analytics` → `SetCurrentUser` (the `:browser` pipeline), and
+  reads nothing from the database: the analytics insert is a supervised task. **No raw IP is
+  stored**: analytics and the guestbook keep only `Analytics.hash_ip/1`, and log views keep none.
+  Site settings are key/value rows (`SiteSettings.get_setting/2`), read by the page that needs
+  one (the homepage's playlist), never per request.
 - **No-pipeline scopes:** `GET /health`, `/share/*`, `POST /webmention` and `/seen` set no cookie
   and log no hit.
 - **Supervision tree** (`lib/web/application.ex`): Repo; an `Ecto.Migrator` that runs migrations
@@ -143,6 +147,9 @@ world as options; `test.exs` runs none.
 - `.github/workflows/uptime.yml` checks `/health` from outside. **GitHub runs schedules only from
   the default branch (`master`)**, so the check doesn't exist while the file lives only on a work
   branch.
+- `.github/workflows/test.yml` runs the suite on every push (format, unused deps, warnings, tests),
+  on the live machine's OTP/Elixir; every outside program has a stub. Dependabot proposes updates
+  weekly (`.github/dependabot.yml`).
 - There is no dynamic DNS (the registrar has no API); a changed address is mailed with the value
   to type in.
 
@@ -165,8 +172,8 @@ title/description/date/keywords (`content/templates/blog-template.md`).
   renamed over.
 - **Images** live under the uploads root at `/uploads/images/` (`Web.Blog.Images`).
 - Keywords live in frontmatter, not the database.
-- The index's styles are in `writing.css`, scoped to `.writing`. The `blog-bento-*` classes still
-  serve the fitness pages.
+- The index's styles are in `writing.css`, scoped to `.writing`. The `blog-bento-*` classes
+  serve the fitness pages, from `fitness_cards.css`.
 
 ### Keywords and counts
 
@@ -176,6 +183,10 @@ Obsidian's `tags:`; `Blog.set_keywords/2` rewrites the line), logs in `audio_log
 `/admin/keywords` (`Web.Keywords.Index`) renames a keyword everywhere, drafts included; renaming
 onto an existing one merges them.
 
+- **One counting vocabulary** (`Web.Analytics` moduledoc): a *view* is a hit, a *visitor* a
+  distinct `ip_hash` per page with the page's spellings unioned (`visitors_by_page/2`), and a
+  day starts at Pacific midnight. Who counts at all is `WebWeb.Visitor.counted?/3`, for hits
+  and log views alike.
 - **Posts are "witnessed":** distinct `ip_hash` in `analytics_hits`, across every address the post
   has had.
 - **Logs have "views":** each `audio_plays` row. The `.LogPlayer` hook sends one after 30 s of real
@@ -189,7 +200,7 @@ onto an existing one merges them.
 
 ### Captain's logs
 
-`Web.Audio`, DB-backed video or audio at `/logs/<slug>`. An entry is titled by its date: the slug
+`Web.Logs`, DB-backed video or audio at `/logs/<slug>`. An entry is titled by its date: the slug
 *is* `recorded_on` (`2026-09-18`, then `-2` for a second that day via `seq`); `caption` is an
 optional line, never the title. The section's look is `logs.css` (`.nx01`; **under it `--ink` is
 light**).
@@ -341,6 +352,19 @@ developed print with sliders, crop, straightening, dust and repair.
   colour sections on a grey print). Browser values are checked with `clean_controls/2`, because
   one unknown id fails the whole `develop.set`. Crop edges are snapped to whole pixels.
 - An edited print's URL carries `?v=` (its time), so edits show at once.
+- **Colour help:** "Start from the film" and a picked grey point (`Prior.grey_point/2`, read
+  by `Stats.read_region/4` off the print *as developed*) both set **absolute** Temp/Tint anchored
+  at the sliders' defaults, so pressing twice changes nothing. Grey points are kept in
+  `<archive>/.darkroom/neutrals.jsonl`. Sliders can be copied (`clipboard.json` beside it),
+  pasted, or applied to the roll (`Darkroom.apply_controls/4`; each frame keeps its crop, dust
+  and repair). Undo walks back the session's changes. A saved setting LightCraft no longer
+  offers is named on the page and left out (`Darkroom.unknown_controls/2`), never dropped
+  silently. The Taste model is cached until an edit or choice changes (`Taste.fit_cached/3`).
+- **Scopes and the score:** each preview gets a histogram and RGB parade (`Web.Darkroom.Scopes`,
+  display-encoded, read off the preview JPEG). `mix darkroom.eval` (`Web.Darkroom.Eval`) scores
+  the prior and taste by leaving each saved edit out; a change to `Prior` or `Taste` must not make
+  its mean colour error worse. `PRINT_DEPTH=16` develops prints at sixteen bits
+  (`Pipeline.print_depth/0`; `film-develop develop --depth 16`).
 - **Repair** (`Web.Darkroom.Repair`): a mask (`edits/NN.mask.png`) and `developed/NN.repaired.png`.
   `priv/repair/film_repair.py` corrects scanner lines by per-channel gain/offset and gives LaMa
   only what that can't fix. **Stable Diffusion makes a candidate only** (`developed/NN.candidate.png`;
@@ -361,7 +385,16 @@ developed print with sliders, crop, straightening, dust and repair.
   day's ticks onto the next). The strip of days prints each day's `theme:` word.
 - **Logging** (admin only): the wiki decides what can be logged. `Fitness.loggable_exercise/1`
   creates the `exercises` row on first log. **A modal's backdrop must not carry `phx-click`**:
-  LiveView hands every click inside it to that ancestor.
+  LiveView hands every click inside it to that ancestor. An entry is filed under today unless the
+  form's Day names an earlier one; "Logged today" entries reopen in the same form (`edit_log`).
+  Today's check-in can be made on the day page too (`#day-checkin`), and on today's page a line
+  logged today shows ticked (`data-logged`). The page's styles are `fitness_log.css`.
+- **Files** (`/admin/fitness?tab=files`): `week.md`, each block and `changelog.md` edited whole.
+  A save is refused when the file's own parser would skip something (`Web.Fitness.SourceCheck`;
+  `Block.validate/1` names the field) or the file moved on disk (`Web.SourceFile`, which the blog
+  editor uses too). **Quick add** (`/admin/quick`, the "+" in the admin bar, and the web app's
+  shortcuts): a set (`Web.Fitness.Entry`, shared with the day page), today's check-in, or a note
+  appended to the private `content/notes/inbox.md` (`Web.Notes`).
 - **The Week** (`Web.Fitness.Week`, `content/fitness/week.md`): visitors see untimed chips, and only
   the admin sees clock times, so the public page never says when the author is out.
 - **Training blocks** (`content/fitness/blocks/*.md`, `Web.Fitness.Block`): the block file is the
@@ -469,8 +502,8 @@ pose of a finished figure in the same position.
 
 ### Prayer pages (`/Christ`)
 
-`WebWeb.FaithController` (the code keeps the old name `Faith*`; `/faith/*` and `/christ/*` 301
-here). **Nothing is fetched from another site**, and the page is the same for every reader.
+`WebWeb.ChristController` (`/faith/*` and `/christ/*` 301 here). **Nothing is fetched from another
+site**, and the page is the same for every reader.
 
 - **`Web.Bible`** reads one translation from `priv/bible/<name>/`. The committed one is the CPDV
   (public domain). **A licensed text (RSV-CE) must never be committed**: lay it out outside the
@@ -482,13 +515,13 @@ here). **Nothing is fetched from another site**, and the page is the same for ev
   lays out Lauds, Vespers and Compline from the psalter; the approved English office is under
   copyright, so there are no antiphons or collects, and prayers are public-domain wordings.
 - **`/Christ` is the day and only the day**: no explanatory essays. Each prayer sits behind its own
-  `<details>`. Inside an hour, what people know by heart is just a name (`FaithHTML.known/1`). The
+  `<details>`. Inside an hour, what people know by heart is just a name (`ChristHTML.known/1`). The
   Rosary is the order and the mysteries; the prayer texts are listed once at the foot. Don't write
   them back out. `app.js` only enhances. Nothing is stored.
 - `Web.Liturgy.Saints` (`priv/liturgy/saints.json`): Wikipedia summaries (CC BY-SA) matched by
   hand. **Don't regenerate from search results without checking each.** Pictures in
   `priv/static/images/saints/` are gitignored.
-- Theme: `faith.css`, `.faith` (brown scapular). **Under it `--ink` is light.** `--accent-ink` is at
+- Theme: `christ.css`, `.christ` (brown scapular). **Under it `--ink` is light.** `--accent-ink` is at
   the edge of 4.5:1 on `--paper-raised`, so check contrast before changing it.
 - `priv/faith/guide.md` is kept on disk but rendered nowhere.
 
@@ -509,7 +542,7 @@ same public list functions the pages read, so drafts and unlisted pages can't le
 - **`Web.Pieces`** is the one vocabulary for "a piece": `"post:<slug>"`, `"log:<slug>"`,
   `"frame:<roll>/<n>"`. `resolve/1` checks that the piece exists and is public. Letters, webmentions
   and the admin all go through it.
-- **The daybook** (`/daybook`; code keeps `Web.Almanac`, `AlmanacController`, `almanac.css`) is a
+- **The daybook** (`/daybook`; `Web.Daybook`, `DaybookController`, `daybook.css`) is a
   week page: a plate and seven ruled days with the liturgical day, the work made, and from today on
   the regimen's `theme:` word. `/day/:date` and `/daybook/:year` are built from dates every section
   has. **Never times.** An empty day or year is a 404, and prev/next skip empty days, so crawlers
@@ -520,6 +553,16 @@ same public list functions the pages read, so drafts and unlisted pages can't le
   session. The frame view keys its id per frame so it remounts.
 - **Feeds:** `/feed` is everything (logs with `<enclosure>`), newest 30, excerpts only.
   `/feed?keyword=` follows a keyword; an unknown one is a 404.
+- **Cross-links:** a post's `related:` frontmatter lists piece refs (`frame:012/3, log:…`;
+  `Pieces.refs/1`), shown under it as "With this"; a log's `post_ref` names its post. A frame's
+  page lists the posts naming it (`Pieces.related_to/1`). Refs to nothing are left off the page
+  and listed by content health.
+- **The year as a book** (`Web.Daybook.Book`): the year's posts as one Markdown file, rendered by
+  Quarto to EPUB and typst PDF in `year-books/` beside the uploads root, nightly when a post
+  changed; `/daybook/:year/book.epub|.pdf`.
+- **IndexNow** (`Web.IndexNow`, off without `INDEXNOW_KEY`): publishing a post, log or roll pings
+  the search engines; the key is at `/indexnow.txt`. `SEARCH_VERIFY_GOOGLE`/`_BING` add the
+  engines' verification meta tags.
 - **IndieWeb:** `h-entry`/`h-card` via `WebWeb.Microformats`; the name comes from `AUTHOR_NAME`.
   `rel="me"` is opt-in via `REL_ME_URLS`.
 - **Webmentions in** (`POST /webmention`, no pipeline, rate-limited): stored `pending`, verified by
@@ -533,7 +576,7 @@ same public list functions the pages read, so drafts and unlisted pages can't le
 ### The guestbook
 
 All approved signatures show, newest first. **An optional email or phone is the most protected
-data on the site**: `Web.General.Contact` encrypts it under a key derived from `SECRET_KEY_BASE`
+data on the site**: `Web.Guestbook.Contact` encrypts it under a key derived from `SECRET_KEY_BASE`
 into `contact_sealed` (`load_in_query: false`, `redact: true`, in `:filter_parameters`). Only
 `General.guestbook_contact/1` reads it, one at a time on `/admin/guestbook`. **Rotating
 `SECRET_KEY_BASE` makes every contact unreadable for good.** Never add it to an export, search,
@@ -563,7 +606,7 @@ only stored state** (content health is a link, never computed; traffic arrives b
 
 - **CSS is one file per area** under `assets/css/admin/` (`base.css` first; every rule under
   `.admin-layout` with the `adm-` prefix). A class two areas use goes in `base.css`. No literal
-  colour, except slider tracks and title overlays, which *are* the picture.
+  colour, except slider tracks, title overlays and the scopes' channels, which *are* the picture.
 - **Tokens are `--st-*`**, defined once on `.admin-layout`: dark by default, light under
   `prefers-color-scheme: light`. Every text pairing is ≥4.5:1, so keep it so. The old names
   (`--paper*`, `--ink*`, `--rule*`, `--adm-*`) are aliases; new rules use `--st-*`.
@@ -606,7 +649,7 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
   hover. Targets ≥44px.
 - **Section themes** re-ink the same tokens: `.darkroom` (`/negatives`), `.steel` (every `/fitness*`
   page; League Spartan; hot metal for figures and interaction only, headings stay `--ink`), `.nx01`
-  (logs), `.faith`. **Under `.darkroom`, `.nx01` and `.faith`, `--ink` is light.** The `/pc` terminal
+  (logs), `.christ`. **Under `.darkroom`, `.nx01` and `.christ`, `--ink` is light.** The `/pc` terminal
   is a deliberate dark exception.
 - **Fonts are served from here** (`assets/css/fonts.css`, `priv/static/fonts/*.woff2`, OFL). The root
   layout preloads Goudy regular and Plex Mono 600 via `~p`, and that address must match what
@@ -621,7 +664,7 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
 - **A tab left open across a deploy reloads itself** (`WebWeb.FreshAssets` + `phx:stale-assets`).
 - `@view-transition { navigation: auto }` in `header.css`. The homepage hero is 480/960 with
   `fetchpriority="high"`, never lazy.
-- Print rules: the post page's are at the end of `writing.css`, the year's in `almanac.css`.
+- Print rules: the post page's are at the end of `writing.css`, the year's in `daybook.css`.
 
 ## Deployment
 

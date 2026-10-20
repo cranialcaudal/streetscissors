@@ -140,6 +140,9 @@ defmodule WebWeb.SEOTest do
 
       assert xml =~ "/blog/frontmatter-and-embeds"
       assert xml =~ "/fitness/wiki"
+      # Each wiki page, not only the index: the grouped list was once read as
+      # flat, raised, and was rescued into nothing.
+      assert xml =~ ~r{/fitness/wiki/[a-z0-9-]+</loc>}
       assert xml =~ "/logs"
       assert xml =~ "/guestbook"
     end
@@ -156,6 +159,8 @@ defmodule WebWeb.SEOTest do
       # Padded, so one roll is one URL rather than three.
       refute xml =~ "/negatives/roll/1<"
       refute xml =~ "?slug="
+      # The picture each page is.
+      assert xml =~ ~r{<image:loc>[^<]*/negatives/frame/}
     end
 
     # Scoped to a dated post: undated fixtures fall back to the file's mtime,

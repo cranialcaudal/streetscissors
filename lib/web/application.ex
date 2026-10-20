@@ -11,18 +11,17 @@ defmodule Web.Application do
       WebWeb.Telemetry,
       Web.Repo,
       {Ecto.Migrator, repos: Application.fetch_env!(:web, :ecto_repos), skip: skip_migrations?()},
-      {DNSCluster, query: Application.get_env(:web, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Web.PubSub},
       # Finch for Swoosh (email sending via HTTP APIs like Resend)
       {Finch, name: Swoosh.Finch},
-      # Start a worker by calling: Web.Worker.start_link(arg)
-      # {Web.Worker, arg},
       {Task.Supervisor, name: Web.TaskSupervisor},
       # Owns the ETS table guarding login attempts, subscribe/guestbook/contact
       # writes and the LanguageTool relay. Must start before the Endpoint.
       Web.RateLimit,
       # The homepage's "Happening" section, kept ten minutes (Web.Happening).
       Web.Happening,
+      # Each blog post as last parsed, until its file changes (Web.Blog.Cache).
+      Web.Blog.Cache,
       # Remembers the Komoot API token between hourly syncs so the sync stops
       # re-logging-in 24 times a day. Holds no state worth keeping across a
       # restart — a cold boot just logs in once.

@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="streetscissors" />
     
-<!-- PWA Manifest & App Icons -->
+<%!-- PWA Manifest & App Icons --%>
     <%!-- By its plain name, not through ~p: a deploy fingerprints static
           files, and the server gives out root-level ones by exact name only
           (WebWeb.static_paths/0), so /manifest-<hash>.json answered 404 on
@@ -99,6 +99,13 @@
     <%!-- rel="me" is opt-in (REL_ME_URLS): the site links to no other
           profile unless its owner lists one — see SEO.person_json_ld_tag/0. --%>
     <link :for={url <- Application.get_env(:web, :rel_me, [])} rel="me" href={url} />
+    <%!-- Search engines' ownership checks (SEARCH_VERIFY_GOOGLE, _BING), only when set. --%>
+    <meta
+      :if={search_verify(:google)}
+      name="google-site-verification"
+      content={search_verify(:google)}
+    />
+    <meta :if={search_verify(:bing)} name="msvalidate.01" content={search_verify(:bing)} />
     <%!-- Where other sites send webmentions when they cite a piece
           (WebWeb.WebmentionController). --%>
     <link rel="webmention" href={WebWeb.SEO.absolute(~p"/webmention")} />
@@ -124,12 +131,6 @@
     <div id="main-content-wrapper" class="main-content-wrapper">
       {@inner_content}
     </div>
-    <style>
-      .main-content-wrapper { padding-top: 1rem; }
-      @media (max-width: 800px) {
-        .main-content-wrapper { padding-top: 0 !important; }
-      }
-    </style>
 
     <%!-- What an admin sees on the public pages: a way back in and a way
           out. Styled in admin/base.css (#admin-indicator). Not rendered inside
@@ -139,6 +140,9 @@
         <span class="admin-indicator-label">
           <.icon name="hero-shield-check" class="size-4" /> Admin
         </span>
+        <a href={~p"/admin/quick"} aria-label="Quick add" title="Quick add: a set, a check-in, a note">
+          <.icon name="hero-plus" class="size-4" />
+        </a>
         <a href={~p"/admin/dashboard"} aria-label="Admin overview" title="Admin overview">
           <.icon name="hero-squares-2x2" class="size-4" />
         </a>
@@ -156,7 +160,8 @@
       WebWeb.NewsletterOverlayLive,
       id: "newsletter-overlay",
       sticky: true,
-      layout: false
+      layout: false,
+      session: overlay_session(assigns)
     )}
   </body>
 </html>

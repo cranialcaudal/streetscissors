@@ -42,3 +42,4 @@ You need Python 3 with `numpy` and `pytest` (`pip install numpy pytest`, or Fedo
 |---|---|
 | `synth.py` | The model and a small command line. Deterministic: the same `--seed` always writes the same file |
 | `test_synth.py` | Tests of the model itself, for each of the three film processes |
+| `test_develop.py` | `film-develop` against the model: `analyze` finds each frame and reads the film base, `develop` and `preview` print the patches in order. Needs ImageMagick (7's `magick`, or 6's `convert`); skips without it |

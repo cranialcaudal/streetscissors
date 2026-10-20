@@ -1,0 +1,18 @@
+<%!-- The Angelus, `/Christ/angelus`. Rendered by `WebWeb.ChristController.angelus/2`. --%>
+<div class="container faith">
+  <article class="glass-panel christ-panel">
+    <.christ_nav current={:angelus} />
+
+    <header class={"christ-day christ-day--#{@day.colour}"}>
+      <p class="christ-eyebrow">Midday · {long_date(@day.date)}</p>
+      <h1 class="christ-day-title">{@midday.title}</h1>
+    </header>
+
+    <.midday midday={@midday} season={@day.season} />
+
+    <p class="christ-colophon">
+      The Angelus is traditionally said at six in the morning, at noon and at six in the evening.
+      <a href={~p"/Christ/readings"}>The readings of the Mass</a>
+    </p>
+  </article>
+</div>

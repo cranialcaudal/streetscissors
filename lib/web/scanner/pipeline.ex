@@ -1277,9 +1277,19 @@ defmodule Web.Scanner.Pipeline do
     case analysis(roll_dir) do
       %{"mode" => "slide"} -> true
       %{"diagnosis" => %{"deep" => true}} -> true
-      _ -> false
+      _ -> print_depth() == 16
     end
   end
+
+  @doc """
+  The bits per channel a developed print is written at: 8, or 16 when
+  `PRINT_DEPTH=16` (`config :web, :print_depth`). Sixteen keeps the
+  darkroom's edits from banding (a strong Temp or curve on an 8-bit print
+  shows steps), at roughly twice the disk per print, and makes every roll's
+  singles scan at sixteen bits too (`deep?/1`), since an 8-bit scan padded
+  out gains nothing. Prints made before keep their depth until redeveloped.
+  """
+  def print_depth, do: if(Application.get_env(:web, :print_depth) == 16, do: 16, else: 8)
 
   @doc """
   What the analysis read of the roll's bath off its clear film, as sentences
@@ -1686,7 +1696,9 @@ defmodule Web.Scanner.Pipeline do
   def develop_keeper(roll_dir, frame) do
     raw = keeper_raw_path(roll_dir, frame)
     print = Path.join([roll_dir, "frames", "#{pad2(frame)}.png"])
-    args = ["develop", raw, "--roll", roll_dir, "--frame", to_string(frame)]
+    args =
+      ["develop", raw, "--roll", roll_dir, "--frame", to_string(frame)] ++
+        if(print_depth() == 16, do: ["--depth", "16"], else: [])
 
     with :ok <- run(:film_develop_bin, "film-develop", args),
          true <-
@@ -1702,7 +1714,9 @@ defmodule Web.Scanner.Pipeline do
   # The copies the site serves are made now, off to the side, and not when
   # someone first opens the roll. Nothing to do for a roll not yet listed.
   defp warm_previews(roll_dir) do
-    Task.start(fn -> Negatives.warm_frame_previews(Path.basename(roll_dir)) end)
+    Task.Supervisor.start_child(Web.TaskSupervisor, fn ->
+      Negatives.warm_frame_previews(Path.basename(roll_dir))
+    end)
     :ok
   end
 
@@ -1719,6 +1733,11 @@ defmodule Web.Scanner.Pipeline do
   end
 
   # The same, for a caller that has to read what the tool said.
+  #
+  # Under coreutils' `timeout` (`:film_tool_timeout` seconds, 30 minutes by
+  # default; killed 10 s after the polite signal), so a tool that hangs fails
+  # the step it was doing, with a word on the page, instead of holding the
+  # page's work for ever. Exit 124 is that timeout.
   defp tool(key, default, args) do
     bin = Application.get_env(:web, key, default)
 
@@ -1727,8 +1746,21 @@ defmodule Web.Scanner.Pipeline do
         {:error, "#{default} is not installed, or not on the server's PATH"}
 
       executable ->
-        {output, status} = System.cmd(executable, args, stderr_to_stdout: true)
-        {:ok, output, status}
+        {command, args} = under_timeout(executable, args)
+
+        case System.cmd(command, args, stderr_to_stdout: true) do
+          {_output, 124} -> {:error, "#{default} took longer than #{timeout_s()} s and was stopped"}
+          {output, status} -> {:ok, output, status}
+        end
+    end
+  end
+
+  defp timeout_s, do: Application.get_env(:web, :film_tool_timeout, 1800)
+
+  defp under_timeout(executable, args) do
+    case System.find_executable("timeout") do
+      nil -> {executable, args}
+      timeout -> {timeout, ["--kill-after=10", to_string(timeout_s()), executable | args]}
     end
   end
 
@@ -1850,6 +1882,7 @@ defmodule Web.Scanner.Pipeline do
       end
 
       _ = Negatives.preview_path("#{slug}.png")
+      Web.IndexNow.changed("/negatives/roll/#{padded}")
 
       {:ok, padded}
     else

@@ -96,6 +96,34 @@ defmodule Web.Fitness.Block do
   def lift(%{lifts: lifts}, slug), do: Map.get(lifts, slug)
   def lift(_block, _slug), do: nil
 
+  @doc """
+  Why a block's frontmatter is not a block, in words, or `:ok`: the same
+  steps `parse/2` takes, each named, so an editor can say which field to fix.
+  """
+  def validate(meta) do
+    cond do
+      meta["title"] in [nil, ""] ->
+        {:error, "title: is missing"}
+
+      match?({:error, _}, Date.from_iso8601(meta["start"] || "")) ->
+        {:error, "start: is not a date (YYYY-MM-DD)"}
+
+      Date.day_of_week(Date.from_iso8601!(meta["start"])) != 1 ->
+        {:error, "start: must be a Monday"}
+
+      not match?({n, ""} when n > 0, Integer.parse(meta["weeks"] || "")) ->
+        {:error, "weeks: must be a whole number above 0"}
+
+      true ->
+        {weeks, ""} = Integer.parse(meta["weeks"])
+
+        case phases(meta["phases"] || "", weeks) do
+          {:ok, _} -> :ok
+          _ -> {:error, "phases: each must be one of #{Enum.join(@phases, ", ")}, covering every week"}
+        end
+    end
+  end
+
   @doc false
   def parse(slug, meta) do
     with title when is_binary(title) and title != "" <- meta["title"],
@@ -131,7 +159,7 @@ defmodule Web.Fitness.Block do
   # The file's prose under its frontmatter: the experiment's framing.
   defp body(path) do
     case File.read(path) do
-      {:ok, text} -> text |> String.replace(~r/\A---\n.*?\n---\n?/s, "") |> String.trim()
+      {:ok, text} -> text |> Web.Frontmatter.strip() |> String.trim()
       _ -> ""
     end
   end

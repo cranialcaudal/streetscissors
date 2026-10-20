@@ -17,7 +17,7 @@ defmodule Web.Notify do
   is exactly when the network is least to be trusted.
   """
 
-  alias Web.General.GuestbookEntry
+  alias Web.Guestbook.GuestbookEntry
   alias Web.SiteSettings
   alias Web.Workers.OwnerMail
 

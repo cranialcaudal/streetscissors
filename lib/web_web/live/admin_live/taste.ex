@@ -76,7 +76,7 @@ defmodule WebWeb.AdminLive.Taste do
       _ ->
         print = Enum.random(prints)
         groups = Archive.groups(prints)
-        model = Taste.fit(prints, groups)
+        model = Taste.fit_cached(prints, groups)
         source = Darkroom.source_path(print.dir, print.frame)
         grey? = print.group == "BW" or print.stats.chroma < 0.004
         taste = Taste.taste_for(model, print.group)

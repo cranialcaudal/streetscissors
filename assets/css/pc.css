@@ -1,15 +1,18 @@
 /* MY PC - MS-DOS Terminal Styling */
 
 .pc-container {
+    /* The terminal's phosphor, the one colour this deliberately dark page has. */
+    --pc-green: #33ff00;
+    --pc-glow: rgba(51, 255, 0, 0.5);
     background-color: #050505;
-    color: #33ff00;
+    color: var(--pc-green);
     font-family: 'Courier New', Courier, monospace;
     min-height: 100vh;
     padding: 20px;
     font-size: 1.1rem;
     position: relative;
     overflow-x: hidden;
-    text-shadow: 0 0 5px rgba(51, 255, 0, 0.5);
+    text-shadow: 0 0 5px var(--pc-glow);
 }
 
 /* CRT Scanline Effect Overlay */
@@ -29,7 +32,7 @@
         rgba(0, 0, 255, 0.06)
     );
     background-size: 100% 4px, 6px 100%;
-    z-index: 1000;
+    z-index: var(--z-raised);
     pointer-events: none;
     opacity: 0.6;
 }
@@ -97,7 +100,7 @@
 }
 
 .pc-header {
-    border-bottom: 1px solid #33ff00;
+    border-bottom: 1px solid var(--pc-green);
     padding-bottom: 10px;
     margin-bottom: 20px;
     display: flex;
@@ -107,13 +110,13 @@
 }
 
 .pc-back-link {
-    color: #33ff00;
+    color: var(--pc-green);
     text-decoration: none;
     font-weight: bold;
 }
 
 .pc-back-link:hover {
-    background-color: #33ff00;
+    background-color: var(--pc-green);
     color: #000;
 }
 
@@ -135,7 +138,7 @@
 }
 
 .pc-info {
-    color: #33ff00; /* Same green */
+    color: var(--pc-green); /* Same green */
     font-family: 'Courier New', Courier, monospace;
     white-space: pre-wrap;
     margin: 5px 0 15px 0;
@@ -156,23 +159,28 @@
 .pc-input {
     background: transparent;
     border: none;
-    color: #33ff00;
+    color: var(--pc-green);
     font-family: 'Courier New', Courier, monospace;
     font-size: 1.1rem;
     outline: none;
     flex-grow: 1;
-    text-shadow: 0 0 5px rgba(51, 255, 0, 0.5);
+    text-shadow: 0 0 5px var(--pc-glow);
     text-transform: lowercase; /* Simulate DOS lowercase */
 }
 
+/* The prompt is the focus mark of a terminal, so the box draws no outline of
+   its own; a keyboard user gets an underline in the terminal's green. */
 .pc-input:focus {
     outline: none;
+}
+.pc-input:focus-visible {
+    box-shadow: 0 2px 0 0 var(--pc-green);
 }
 
 /* Rendered Media Wrapper */
 .pc-media-wrapper {
     margin: 15px 0;
-    border: 2px dashed #33ff00;
+    border: 2px dashed var(--pc-green);
     padding: 10px;
     display: inline-block;
     max-width: 100%;
@@ -211,13 +219,13 @@
 }
 
 @keyframes pc-hr-pulse {
-    0% { opacity: 1.0; text-shadow: 0 0 2px #33ff00; }
+    0% { opacity: 1.0; text-shadow: 0 0 2px var(--pc-green); }
     15% { opacity: 0.6; text-shadow: none; }
-    30% { opacity: 0.9; text-shadow: 0 0 4px #33ff00; }
+    30% { opacity: 0.9; text-shadow: 0 0 4px var(--pc-green); }
     45% { opacity: 0.5; text-shadow: none; }
-    60% { opacity: 1.0; text-shadow: 0 0 3px #33ff00; }
-    75% { opacity: 0.7; text-shadow: 0 0 1px #33ff00; }
-    100% { opacity: 1.0; text-shadow: 0 0 2px #33ff00; }
+    60% { opacity: 1.0; text-shadow: 0 0 3px var(--pc-green); }
+    75% { opacity: 0.7; text-shadow: 0 0 1px var(--pc-green); }
+    100% { opacity: 1.0; text-shadow: 0 0 2px var(--pc-green); }
 }
 
 .pc-hr {
@@ -236,7 +244,7 @@
 }
 
 .pc-inverted {
-    background-color: #33ff00;
+    background-color: var(--pc-green);
     color: #050505;
     padding: 0 4px;
     background-image: repeating-linear-gradient(

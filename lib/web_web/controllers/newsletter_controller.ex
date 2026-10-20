@@ -28,7 +28,7 @@ defmodule WebWeb.NewsletterController do
         |> Enum.map(fn row -> Enum.map(row, &escape_csv_field/1) |> Enum.join(",") end)
         |> Enum.join("\n")
 
-      filename = "subscribers_#{Date.to_string(Date.utc_today())}.csv"
+      filename = "subscribers_#{Date.to_string(Web.Clock.local_today())}.csv"
 
       conn
       |> put_resp_content_type("text/csv")

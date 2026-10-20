@@ -28,7 +28,7 @@
 .blog-universal-header {
     position: sticky;
     top: 0;
-    z-index: 10000;
+    z-index: var(--z-header);
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
@@ -225,4 +225,10 @@
   .site-sections {
     display: none;
   }
+}
+
+/* The space above every page's content (the root layout's wrapper). */
+.main-content-wrapper { padding-top: 1rem; }
+@media (max-width: 800px) {
+  .main-content-wrapper { padding-top: 0; }
 }

@@ -101,7 +101,7 @@
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 100;
+  z-index: var(--z-popover);
 }
 .spotify-hover-wrapper:hover .spotify-player-dropdown,
 .spotify-hover-wrapper:focus-within .spotify-player-dropdown {
@@ -431,7 +431,7 @@
   font-size: 0.75rem;
 }
 
-/* The way in to the almanac and the manual from the front door: the row of
+/* The way in to the daybook and the manual from the front door: the row of
    cards above is measured to fit a phone's screen, so it stays at three. */
 .home-footer-link {
   margin-left: 0.75rem;
@@ -786,3 +786,6 @@
     font-size: 2.6vh;
   }
 }
+
+/* The top bar's desktop links sit in the bar's own flex row. */
+.desktop-top-bar-contents { display: contents; }

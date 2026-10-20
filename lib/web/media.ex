@@ -3,7 +3,7 @@ defmodule Web.Media do
   The names of the files inside a captain's log's media directory.
 
   One module so the writer (`Web.Media.Transcoder`) and the readers
-  (`Web.Audio.Log.media_url/1`, the player hook) cannot drift: rename a file
+  (`Web.Logs.Log.media_url/1`, the player hook) cannot drift: rename a file
   here and both ends follow. The directory itself is `Web.Uploads`'s business.
   """
 
@@ -46,16 +46,16 @@ defmodule Web.Media do
   legacy HLS ladder, which ffmpeg reads as input. The trims are cleared
   because they are already baked into that rendition; `poster_at_ms` is kept,
   since it is measured on the finished timeline. The old directory is
-  destroyed by `Web.Audio.mark_ready/2` only once the row points at the new
+  destroyed by `Web.Logs.mark_ready/2` only once the row points at the new
   one, and a failed run leaves it in place with `source_path` still pointing
   into it, so the admin's retry works as for any failed entry.
 
   The entry is `processing`, and so off the public list, while it runs.
   """
-  def reencode(%Web.Audio.Log{status: "ready", media_dir: dir} = log) when is_binary(dir) do
+  def reencode(%Web.Logs.Log{status: "ready", media_dir: dir} = log) when is_binary(dir) do
     with {:ok, input} <- current_rendition(log),
          {:ok, log} <-
-           Web.Audio.update_log(log, %{
+           Web.Logs.update_log(log, %{
              source_path: input,
              trim_start_ms: nil,
              trim_duration_ms: nil,

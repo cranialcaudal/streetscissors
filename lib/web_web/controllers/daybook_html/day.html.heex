@@ -1,0 +1,54 @@
+<%!-- One day, whole: the essay, the recording, the roll and the ride side by
+      side, the way a feed never shows them. --%>
+<div class="daybook daybook-day">
+  <header class="daybook-head">
+    <p class="daybook-slug">
+      <.link href={~p"/daybook/#{@day.date.year}"}>The daybook · {@day.date.year}</.link>
+      <.link href={week_path(@day.date)} class="daybook-slug-week">The week</.link>
+    </p>
+    <h1 class="daybook-date">
+      <time datetime={Date.to_iso8601(@day.date)}>
+        <span class="daybook-weekday">{Calendar.strftime(@day.date, "%A")}</span>
+        {Calendar.strftime(@day.date, "%-d %B %Y")}
+      </time>
+    </h1>
+  </header>
+
+  <section :for={kind <- kinds_on(@day.entries)} class={["daybook-kind", "daybook-kind--#{kind}"]}>
+    <h2 class="daybook-kind-title">{kind_heading(kind)}</h2>
+    <ul class="daybook-entries">
+      <li :for={entry <- Enum.filter(@day.entries, &(&1.kind == kind))} class="daybook-entry">
+        <.link href={entry.path} class="daybook-entry-link">
+          <img
+            :if={entry.image}
+            src={thumb(entry)}
+            alt=""
+            class="daybook-entry-image"
+            loading="lazy"
+          />
+          <span class="daybook-entry-text">
+            <span class="daybook-entry-title">{entry.title}</span>
+            <span :if={entry.note} class="daybook-entry-note">{entry.note}</span>
+          </span>
+        </.link>
+      </li>
+    </ul>
+  </section>
+
+  <nav class="daybook-steps" aria-label="Neighbouring days">
+    <.link :if={@day.previous} href={day_path(@day.previous)} class="daybook-step" rel="prev">
+      <.icon name="hero-arrow-left" class="size-4" />
+      {Calendar.strftime(@day.previous, "%-d %B %Y")}
+    </.link>
+    <span :if={!@day.previous}></span>
+    <.link
+      :if={@day.next}
+      href={day_path(@day.next)}
+      class="daybook-step daybook-step--next"
+      rel="next"
+    >
+      {Calendar.strftime(@day.next, "%-d %B %Y")}
+      <.icon name="hero-arrow-right" class="size-4" />
+    </.link>
+  </nav>
+</div>

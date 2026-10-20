@@ -61,6 +61,58 @@ defmodule Web.AnalyticsTest do
     end
   end
 
+  describe "top_pages/1 and day_start_utc/1" do
+    test "ranks pages by visitors, one spelling of an address with another" do
+      for _ <- 1..10, do: Analytics.record_hit("/busy", "Firefox", "one-reader")
+      Analytics.record_hit("/blog/Salt%27s", "Firefox", "a")
+      Analytics.record_hit("/blog/Salt's?from=feed", "Safari", "b")
+
+      assert [{"/blog/Salt's", 2}, {"/busy", 1}] = Analytics.top_pages(5)
+    end
+
+    test "a day starts at Pacific midnight" do
+      # Winter is UTC-8, summer UTC-7.
+      assert Analytics.day_start_utc(~D[2026-01-15]) == ~N[2026-01-15 08:00:00]
+      assert Analytics.day_start_utc(~D[2026-07-15]) == ~N[2026-07-15 07:00:00]
+    end
+  end
+
+  describe "prune/1" do
+    defp hit_at(path, ip_hash, days_ago, now) do
+      Repo.insert!(%Web.Analytics.Hit{
+        path: path,
+        ip_hash: ip_hash,
+        user_agent: "Firefox",
+        inserted_at: NaiveDateTime.add(now, -days_ago * 86_400) |> NaiveDateTime.truncate(:second)
+      })
+    end
+
+    test "old hits go, but a post's readers stay witnessed" do
+      now = ~N[2026-10-20 12:00:00]
+      hit_at("/blog/old-post", "early-reader", 500, now)
+      hit_at("/blog/old-post", "recent-reader", 3, now)
+      hit_at("/negatives/roll/007", "someone", 500, now)
+
+      assert {:ok, %{deleted: 2, folded: 1}} = Analytics.prune(now)
+
+      assert Repo.aggregate(Web.Analytics.Hit, :count) == 1
+      assert %{"old-post" => 2} = Analytics.all_hits_by_prefix("/blog/%")
+      # Pruning again changes nothing.
+      assert {:ok, %{deleted: 0}} = Analytics.prune(now)
+      assert %{"old-post" => 2} = Analytics.all_hits_by_prefix("/blog/%")
+    end
+
+    test "a month on, a hit keeps no user agent" do
+      now = ~N[2026-10-20 12:00:00]
+      old = hit_at("/blog/a", "x", 40, now)
+      new = hit_at("/blog/a", "y", 2, now)
+
+      assert {:ok, %{anonymised: 1}} = Analytics.prune(now)
+      assert Repo.reload!(old).user_agent == nil
+      assert Repo.reload!(new).user_agent == "Firefox"
+    end
+  end
+
   describe "hash_ip/1" do
     test "is stable, so a returning visitor stays one visitor" do
       assert Analytics.hash_ip("203.0.113.7") == Analytics.hash_ip("203.0.113.7")
