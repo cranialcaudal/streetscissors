@@ -1,8 +1,7 @@
 # CLAUDE.md
 
 How this app is wired, and the rules that are easy to break. The plain-language manual is
-`docs/how-to.md` (live at `/how-to`); what's next is `docs/roadmap.md`. Old agent briefs are in
-`docs/archive/handoffs.md` as a record only.
+`docs/how-to.md` (live at `/how-to`); what's next is `docs/roadmap.md`.
 
 ## Project
 
@@ -165,7 +164,7 @@ title/description/date/keywords (`content/templates/blog-template.md`).
   over anyway puts the old text in the vault's `.trash/` first. Saves are written beside and
   renamed over.
 - **Images** live under the uploads root at `/uploads/images/` (`Web.Blog.Images`).
-- The `blog_posts`, `tags` and `post_tags` tables are legacy and unread. Keywords are not there.
+- Keywords live in frontmatter, not the database.
 - The index's styles are in `writing.css`, scoped to `.writing`. The `blog-bento-*` classes still
   serve the fitness pages.
 
@@ -570,7 +569,7 @@ only stored state** (content health is a link, never computed; traffic arrives b
   (`--paper*`, `--ink*`, `--rule*`, `--adm-*`) are aliases; new rules use `--st-*`.
 - **The accent follows the program** (`st-program--<program>` on `.adm-main` sets `--st-accent`).
 - **Editing bays stay dark in both themes** (`.adm-dr-bench`, `.adm-cut-bench`, `.adm-taste`,
-  `.theater`, `.adm-scan-look`, `.adm-scan-sheet`, `st-bay`). A new bay just needs `st-bay`, and
+  `.theater`, `.adm-scan-look`, `st-bay`). A new bay just needs `st-bay`, and
   pictures sit on `--st-bay`, never white.
 - **Type:** IBM Plex Sans for the interface, Plex Mono for figures and ids (`tabular-nums`),
   Fraunces for titles and people's words. No letter-spaced uppercase labels.

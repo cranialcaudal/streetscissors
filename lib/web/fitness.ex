@@ -106,16 +106,6 @@ defmodule Web.Fitness do
     )
   end
 
-  @doc "An exercise's latest entries, newest first: what a progression reads."
-  def recent_exercise_logs(exercise_id, limit \\ 12) do
-    Repo.all(
-      from l in ExerciseLog,
-        where: l.exercise_id == ^exercise_id,
-        order_by: [desc: l.date, desc: l.id],
-        limit: ^limit
-    )
-  end
-
   @doc "Every entry for an exercise by its slug, exercise loaded; `[]` when it has none."
   def exercise_logs_for(slug) when is_binary(slug) do
     Repo.all(

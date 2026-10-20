@@ -147,7 +147,6 @@
 /* The mark carries the pill — set larger than the label it sits beside, in
    Spotify's own green, the one colour in the bar that is not the page's.
    line-height: 1 keeps the extra size off the pill's own height. */
-.spotify-pill-main .fa-spotify,
 .spotify-pill-main .spotify-icon {
   font-size: 1.6em;
   width: 1.25em;
@@ -591,7 +590,6 @@
   text-align: center;
   transition: transform 0.3s ease;
 }
-
 
 /* ── Small screens: the whole homepage on one screen ──────────────────
    The stack used to run ~1000px tall on a ~700px viewport — the two big

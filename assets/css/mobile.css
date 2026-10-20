@@ -17,7 +17,6 @@ a, button, input, select, textarea {
 
 /* Markdown/prose tables (England itinerary, wiki articles) scroll
    horizontally instead of stretching the page. */
-.markdown-content table,
 .markdown-body table,
 .prose table {
   display: block;
@@ -39,9 +38,6 @@ a, button, input, select, textarea {
   /* Headings sized for phones */
   .theme-title {
     font-size: 2rem;
-  }
-  .theme-subtitle {
-    font-size: 1.4rem;
   }
   .prose h1 {
     font-size: 2rem;

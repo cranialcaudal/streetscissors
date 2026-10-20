@@ -584,15 +584,6 @@
   color: var(--accent-ink);
 }
 
-.faith-doxology {
-  margin-top: 0.7rem !important;
-  margin-bottom: 0;
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--ink-2);
-}
-
 /* A prayer most people have by heart: its name, and the words behind it for
    whoever wants them. Closed until asked for; no script involved. */
 .faith-known {

@@ -105,8 +105,7 @@
 
 /* ── Masthead ─────────────────────────────────────────────────────── */
 
-.steel .blog-header-card,
-.steel .steel-head {
+.steel .blog-header-card {
   background: none;
   border: none;
   border-bottom: 3px solid var(--ink);
@@ -176,8 +175,7 @@
 
 /* ── Plates ───────────────────────────────────────────────────────── */
 
-.steel .blog-bento-card,
-.steel .steel-plate {
+.steel .blog-bento-card {
   background: none;
   border: none;
   border-bottom: 1px solid var(--rule);
@@ -192,8 +190,7 @@
 
 /* ── Live numbers: the only hot metal on the page ─────────────────── */
 
-.steel .activity-figure-value,
-.steel .steel-figure {
+.steel .activity-figure-value {
   font-family: var(--font-data);
   font-weight: 800;
   color: var(--accent-color);
