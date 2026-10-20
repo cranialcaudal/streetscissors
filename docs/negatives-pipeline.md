@@ -359,3 +359,206 @@ The archive lives at `~/Pictures/Negatives/` (configurable via `NEGATIVES_PATH`)
 | `negatives --scan-frames NNN` | Interactive rescan helper for stickered keepers at high optical resolution ($2400-3200\text{ DPI}$). |
 | `digital-contact-sheet-maker <dir>` | Invokes headless GIMP to assemble a contact sheet PNG from any directory of strip scans. |
 | `film-develop strips <dest> --mode bw\|color <scans...>` | Runs the standalone Python C-41 / B&W density and masking engine. |
+
+---
+
+## 9. `film-develop` and the scanner studio (October 2026)
+
+Sections 2 and 3 describe the pipeline as first built, for strips scanned in Epson's own program.
+When the site's scanner studio arrived, `film-develop` (in `~/.local/bin`, outside this repo) was
+reworked several times so it could read strips scanned on bare glass. These notes record what
+changed and why, roll by roll. Each replaced copy of the tool is kept in
+`~/film-pipeline-backups/<date>/`. Where this section and sections 2 and 3 disagree, this section
+is current. In particular, 35mm is no longer cut into six frames a strip.
+
+- **A frame's rectangle in `frames.json` is the picture itself**, rebate and film edges
+  left out. That is why a single scanned in place gets no margin
+  (`Driver.keeper_margin(:in_place)` is 0) and why the grease-pencil rings sit tighter.
+- **35mm is cut on the film's fixed 38 mm grid**, so a strip holds however many frames it
+  holds and frame numbers run on across strips of different lengths. The old tool cut
+  every strip into six and cut through pictures on 19 of the archive's 53 strips.
+  `mis_split` and the "Try --frames-per-strip" retry in `generate_frames_analysis/4` now
+  only arise for 120 and 620, whose spacing is the camera's.
+- **The roll sets the colour and a frame only its exposure** (the `film` block: base,
+  a power per channel, white). Developing frame by frame is what tinted thin negatives.
+  `develop` also removes small white dust specks unless told `--no-dust`.
+- The whole archive was re-analysed and every sheet rebuilt that day.
+- **Glass is never film** (2026-10-09; the copy it replaced is in
+  `~/film-pipeline-backups/2026-10-09/`). A strip from the scanner studio is the whole
+  holder slot, so there is bare glass beyond the film's ends, and the holder's grey edges
+  down its sides pass the tool's film test. Three things went wrong from that: the film's
+  extent ran on over the glass, the "film base" was read off it (238 where the film's is
+  about 170, so no gap between frames ever read as bare), and the 38 mm grid was hung on
+  the glass just past the film's end. Roll 035's first strip (two night frames, a third,
+  and a fogged leader) had every frame cut 9 mm late. Now `glass_level/1` finds the glass,
+  `film_on_glass/5` reads the strip down the middle of its width only, stops the film where
+  the glass starts and measures base on the film, and `grid_35mm` looks for gaps on the
+  film: between frames, and in the last millimetre inside each end (a cut between frames
+  ends on rebate, a leader does not). **A scan that shows no glass (every roll before 031)
+  is read exactly as before**, checked strip by strip. The frame is named
+  (`FRAME_35MM = 36`, the gap is what the pitch leaves) and `analyze --frame-mm 18` is a
+  half-frame camera. Rolls 031 to 036 were analysed by the old rule and are not redone;
+  re-analysing one moves its frames by up to 2 mm, and by more on its short strips.
+- **Slide film is a third mode** (2026-10-09, for a roll of E100). `film-develop` has
+  `color`, `bw` and `slide`; a slide is already the picture, so nothing is inverted or
+  colour-balanced (the roll's brightest highlight is white, the same in all channels, and
+  a frame may only nudge its own black and white), frames are found by their **dark**
+  gaps, and dust removal is skipped. **The site does not know the mode exists, and the tool tells
+  by looking** (`film_look/1`): a roll the page calls colour is a slide when the
+  clearest film down the middle of its strips is neutral (a colour negative's orange mask
+  makes it far redder than blue) and at least 2% of it is true black. All eleven colour
+  negative rolls in the archive read as negatives by it. `roll.json` outranks the look
+  either way: a reversal stock under Film or `"process": "slide"` makes it a slide,
+  `"process": "negative"` keeps it a negative. The page's own detection still has to call
+  the roll **colour** (`Web.Scanner.Detect` knows only colour and black and white, and a
+  roll taken for black and white is stored grey). 35mm only.
+- **A slide developed badly is balanced channel by channel** (2026-10-09, six rolls of
+  E100 that came out dense with a red black). The slide branch of `film_model` reads, per
+  channel and pooled over the roll's pictures, a **black** (taken off: the film's read
+  about 7, 2, 2 and every shadow wore it), a **contrast** (`power`: the film is crossed,
+  red at twice green and blue through the midtones and level only near white, so each
+  channel is bent until the roll's midtones agree, `SLIDE_BALANCE` of the way) and a
+  **white** (held further back, since a roll's highlights are lamps and signs). A frame
+  then sets its own white and raises its own midtones; one with nothing lit stays night.
+  The roll decides the colour, never a frame. `roll.json` may overrule it:
+  `"slide": {"lift": 1.2, "balance": 0.6, "warmth": 0.5}`. `film-develop redevelop ROLL`
+  develops every single again, but **on a published roll go through
+  `Web.Scanner.Pipeline.develop_keeper/2`** (by `bin/web rpc`), which also turns the print
+  and remakes its previews. A slide's singles are scanned at **16 bits**
+  (`Driver.band_args/5` `deep: true`, when `Scanner.slide?/1`); the print is 8.
+- **Medium format's frame count is read off the film** (`count_by_template/4`): 120 and
+  620 are one film in different cameras, and a 620 roll of 6x9 (two to a strip) was being
+  cut in three. On a strip on glass, each count from 2 to 6 is laid cut to cut and the one
+  whose gaps are all gap wins; `--frames-per-strip` still insists. Scans without glass
+  (every roll before 031) are counted as before.
+- **The frame is 36 mm; the spacing is the camera's** (2026-10-09, roll 048, a camera
+  that wound 41.8 mm on one strip and 467, 467, 430 px on the next). "38.00 mm apart
+  whatever the camera" was wrong. On a strip on glass, a 38 mm grid that puts picture in
+  one of its own gaps (`grid_cuts_a_picture/7`; only gaps with a frame kept on each side,
+  since past the last frame there may be a fogged leader) gives way to
+  **`walk_frames/6`**: the plainest frame is found first (gap outside, picture inside, at
+  both ends of a 36 mm window, `_frame_score/5`) and the strip is walked each way from it,
+  each next frame looked for from touching the last to 10 mm on, and a frame with no edge
+  of its own set one spacing on so the count stays right. The walk is believed only where
+  it differs from the grid by more than 2.5 mm, so an evenly wound roll keeps its grid.
+  Every strip on glass is then cut as whole 36 mm frames, and **`snap_frames/6`** moves a
+  frame up to 5 mm onto its own picture, but only for an edge at *both* its ends (a thin
+  frame has edges inside it that pass for one).
+- **A roll's contrast is the whole roll's when few frames score well**, and a dense
+  frame may be darkened further (`GAMMA_LIMITS` low end 0.5, was 0.72). "Well exposed" is
+  the spread of the *scan's* values, which a dense, overexposed negative squeezes, so on
+  roll 048 one thin frame set the contrast for all seven and the rest printed blown.
+  Under a third of the roll scoring well, `film_model` reads every frame. **The page's
+  small positives and a developed single are the same recipe**: a preview that is too
+  bright means the single will be.
+- **A strip's film base is read off its film** when it is on glass. The whole-strip
+  reading that feeds `film_model` took in the holder's grey edges, so a colour negative's
+  base came out nearly neutral (blue 65 where the film's is 38) and every shadow printed
+  blue. Scanner-era colour negatives analysed before this (031) carry that cast until
+  analysed again.
+- **Dark film is placed by a template of the frame, not by counting black lines**
+  (`grid_by_template/6`, 2026-10-09, roll 037: night pictures on E100). Between two night
+  frames a slide's gap is a third of a brightness level darker than the pictures, and a
+  dark corner of a picture is exactly as black as a gap, so "is this line black" hung the
+  grid on the pictures' shadows and every frame came out 4 to 7 mm off. The strip is now
+  read as brightness with its fractions (`middle_trace/2`) and a grid of 36 mm frames and
+  2 mm gaps is slid along it under two rules: **nothing of a picture may lie in a gap**
+  (a gap is at the strip's own gap level within 6%, or that grid is out), and **a picture
+  edge beside a gap is the score**. Frames it places stay on its grid, all the same size.
+  A slide is always placed this way; **a negative on glass is, when its gaps do not read
+  bare** (thin, fogged or expired film), and otherwise as before. With no evidence at
+  all, a strip a whole number of frames long is laid end to end between its cuts
+  (`whole_strip/3`). The page's own finder (`Web.Scanner.Detect`) also had to learn that
+  a slot showing bare glass past the film's ends holds film even when the film is as
+  black as the holder; film that dark is taken for reversal film, in colour. This was
+  written against a slide made by inverting a negative strip, not yet against real E100.
+- **Two pieces in one slot, and a camera that winds unevenly** (2026-10-11, roll 055; the
+copy replaced is in `~/film-pipeline-backups/2026-10-11/`). Two short pieces of film
+laid end to end in one slot are two strips: `film_on_glass` now keeps each stretch of
+film parted by 2.5 mm of glass (`PIECE_GAP_MM`) and each is laid out by itself; one grid
+across both cut the second piece at the first's spacing. **A studio strip that fills
+its slot shows no glass**, so it was read by the oldest rule (a fixed 38 mm grid from
+the film's start, "unaligned"): it is now read line by line like a strip on glass
+(`strip_source` knows it by the studio's mark; scans from Epson's program are left as
+they were). And where the clear film between pictures is plain to see,
+**`frames_by_gaps/4` reads the pictures straight off it**, believed only when every
+stretch is one frame long: strip 4 had a blank stretch after its first frame, and
+every grid and the walk put the rest half a frame out. Thin film falls through to the
+template as before.
+- **The tool looks at its own answer** (2026-10-11, roll 060, his ask: "a feature that
+retries the frame selection… so I'm not always prompting for the fix"). After a 35mm
+strip on glass is laid out, `frames_miss/4` measures how much picture was left outside
+every frame; 12 mm or more and `retry_frames/10` lays the strip every other way (the
+plain grid, the template, the gaps, and `frames_by_runs/5`, which sets frames on each
+stretch of picture and knows nothing of spacing) and keeps the one that leaves least
+out. `frames.json` records it under `relaid` and the run prints "laid again by …".
+**Only pictures left out count as wrong**: thin film reads as bare through its
+pictures, so bare film inside a frame proves nothing. The page does not show `relaid`
+yet, and has no button to ask for another cut.
+- **The bath is read off the clear film** (2026-10-15, rolls 069 and 071: "the fixer
+period was too short"; the copy replaced is in `~/film-pipeline-backups/2026-10-15/`).
+Work in density: fog and the veil of a short fix or wash are density *added* to all
+the film, gaps included, while development is a *gain* on the picture, so blank film
+measures the first and never the second. Three things follow, black and white only:
+- **Each strip may have its own clear film** (`strip_veils`, `gap_level`): read in the
+  gaps between its frames, never the brightest of the whole strip (which moves with a
+  fogged leader or a strip with no clear stretch, and moving bases on that wrecked
+  sound rolls), and used only when the strip's gaps agree among themselves and sit 20%
+  off the roll's (`VEIL_STEP`). The roll's contrast is still the roll's, read with every
+  strip brought to the roll's base. On the roll's base a clearer strip printed black
+  end to end: roll 069's second, roll 059's first three (Dodger Stadium).
+- **`frames.json` carries a `diagnosis`** (`diagnose`) and the page says it after a look
+  or an analysis (`Pipeline.bath_notes/1`): `veil` (clear film over D 0.50; the
+  archive's sound rolls read 0.22 to 0.39, at the scanner's gamma of 1.8), `uneven`
+  (strips' gaps more than 0.20 apart: fog at the roll's start, or fixed apart) and
+  `blocked` (over 5% of the pictures under 8-bit 5, where the scan reads noise). Only
+  said: a veil of undissolved halide comes off in fresh fixer and **darkens for good
+  under any lamp, the scanner's included**, so the advice is to test a cut piece and
+  refix before the singles. A veiled or blocked roll's singles are 16-bit
+  (`Pipeline.deep?/1`, as a slide's). Nothing digital recovers what lies at the
+  scanner's floor: roll 071 (clear film at D 2.0) printed blank from its look.
+- **A negative denser than the holder's black is still film**: read off the glass
+  alone, as a slide is, when that finds far more film, and a strip with a quarter of
+  its film under `BLACK` keeps those pixels (`DENSE_STRIP_SHARE`). Analysed as black
+  and white, roll 071 crashed on an empty gap reading before this.
+- **A negative as black as a slide is told by its gaps** (2026-10-15; the copy replaced
+  is in `~/film-pipeline-backups/2026-10-15-slide/`). Roll 071 was filed colour by the
+  page and developed as a slide, because both took film mostly darker than the holder
+  for reversal film. The film between frames has nothing on it, so it is a negative's
+  clearest and a slide's blackest: where film is that dark, gaps are laid on it at the
+  35mm pitch, and gaps 2.5 times as bright as the pictures' median (about 0.7 in
+  density) make it a negative. `Web.Scanner.Detect` reads the look that way, a row to
+  the millimetre between the glass at the film's ends (071 read 3.5 and 4.5 on looks
+  rebuilt from its strips, no slide strip past 1.9), and then reads its colour as any
+  other film's. `film-develop`'s `film_look/1` lays its frame template as a negative's
+  (`clear_gaps`: 071 read 4.4 and 3.7, and only two of the 34 slide strips took such a
+  grid at all, at 1.3 and 1.4), and calls a dense negative black and white when its gaps'
+  channels part by under 0.4 in density (`MASK_DENSITY`: C-41 reads 0.65 to 1.26, 071
+  about 0.2). **Roll 027's pink base reads 0.19**, so a colour roll that dense would be
+  taken for black and white: `"process": "negative"` in `roll.json` keeps it colour. Old
+  and new tools gave byte-identical `frames.json` for every other roll in the archive.
+- **Medium format, and a strip scanned again** (2026-10-10, roll 023: "a disaster"). Three
+things went wrong at once when one strip of an August roll was scanned again on the site.
+**The strip was the whole bed.** No holder rectangle is configured for 120, so `add_pass/6`
+cut 242 mm: the holder's own plastic past the glass (black in the scan, a block of white on
+the sheet) and 60 mm of glass, which also shrank every picture on the sheet by a quarter.
+With no rectangle, each strip is now cut to its own film and 4 mm of glass either end
+(`film_rows/5`, `film_run/2`); `film-develop strips` paints out any holder left in an older
+file (`holder_mask`). Rolls 023 and 047 were trimmed by hand that day (originals in
+`~/film-pipeline-backups/2026-10-10/`). **The colour was another scanner's.** Epson's own
+program set its levels scan by scan; the site takes what the scanner gives. The same film
+base read 224, 141, 107 in the August strips and 177, 102, 75 in the new one, the roll's
+base is the middle strip's, and the new strip and its three singles printed lavender.
+`film-develop` now reads a roll scanned on two instruments as two (`strip_source/2`:
+"glass" when the strip shows glass or carries the mark the site writes into every scan it
+makes, `@studio_mark`, in the TIFF's description; "plain" otherwise), keeps both models in
+`frames.json` (`films`), and `film` is the glass's, since a single is always scanned on
+the glass. **A single off the glass of a frame whose strip is plain** (singles added to an
+old roll) is developed on the roll's glass model when it has one and read by itself
+otherwise; that second case is not yet checked against a real roll. **The end frames kept
+their rebate**: `trim_to_pictures` stopped at the first line a shade less than bare, so a
+strip's first picture kept 4 mm of clear film (a black bar on the print); it now carries
+over such lines. And **a deleted strip is set aside** in the archive's `.trash`
+(`set_aside/2`), not destroyed: deleting the strip to scan it again took its only scan.
+Still as it was: a strip scanned again joins the end of the roll and has to be moved back
+into place under Strips.
