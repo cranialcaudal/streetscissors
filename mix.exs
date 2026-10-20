@@ -17,7 +17,7 @@ defmodule Web.MixProject do
   end
 
   # The production artifact. `mix release` would work without this block, but
-  # naming it pins the path the systemd unit and start_prod.sh both point at:
+  # naming it pins the path the systemd unit and ops/start_prod.sh both point at:
   # _build/prod/rel/web/bin/web.
   #
   # Note that a release ships priv/ *inside itself* and replaces it wholesale on

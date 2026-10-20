@@ -437,7 +437,7 @@ defmodule Web.Backup.Content do
 
   def backup_dir do
     Application.get_env(:web, :content_backup_path) ||
-      Path.join(System.user_home!(), "streetscissors-backups/content")
+      Path.join(System.user_home!(), "streetscissors-data/backups/content")
   end
 
   defp root, do: Application.get_env(:web, :content_backup_root) || File.cwd!()

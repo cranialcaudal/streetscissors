@@ -814,10 +814,10 @@ why nothing the site writes while it runs may live inside the release.
 
 | Path | What it is | Written by |
 |---|---|---|
-| `~/streetscissors/` | The checkout: code, the `content/` vault, `.env`, the `Caddyfile`, the deploy scripts, and Caddy's access log | You, git, the admin's editors |
-| `…/_build/prod/rel/web/` | Inside the checkout: the release being served. `web.previous` beside it is the one that was serving before the last deploy | `./redeploy.sh` |
-| `~/streetscissors-data/` | The live data. `streetscissors.db` with its `-wal` and `-shm` companions; `uploads/` for recordings, the blog's images and the exercise films; `ride_thumbs/` for cached route pictures | The release, and `mix fitness.film` |
-| `~/streetscissors-backups/` | `db/` for database snapshots, `content/` for versions of the writing | The release |
+| `~/streetscissors/` | The checkout: code, the `content/` vault, `.env`, and in `ops/` the `Caddyfile`, the unit files and the deploy scripts | You, git, the admin's editors |
+| `…/_build/prod/rel/web/` | Inside the checkout: the release being served. `web.previous` beside it is the one that was serving before the last deploy | `ops/redeploy.sh` |
+| `~/streetscissors-data/` | The live data. `streetscissors.db` with its `-wal` and `-shm` companions; `uploads/` for recordings, the blog's images and the exercise films; `ride_thumbs/` for cached route pictures; `backups/` (below); `logs/` for Caddy's access log; `old/` for databases set aside before a migration | The release, Caddy, and `mix fitness.film` |
+| `~/streetscissors-data/backups/` | `db/` for database snapshots, `content/` for versions of the writing | The release |
 | The negatives archive | Scans, contact sheets, the catalogue. Wherever `NEGATIVES_PATH` points | The darkroom tools and the scanner page |
 | An external drive | A second copy of the backups, the negatives and the recordings, when it is plugged in | The release |
 | `~/.config/systemd/user/` | The two unit files. Copies are kept in `ops/systemd/` | You |
@@ -1331,7 +1331,7 @@ account, not to root, which is why every command below has `--user` in it.
 
 | Unit | Runs | Listens on |
 |---|---|---|
-| `caddy-streetscissors.service` | `caddy run --config Caddyfile`, from the checkout | 80 and 443, all interfaces |
+| `caddy-streetscissors.service` | `caddy run --config ops/caddy/Caddyfile`, from the checkout | 80 and 443, all interfaces |
 | `streetscissors.service` | the release's `bin/web start` | 4000, loopback only |
 
 Both say `Restart=always` with a five-second pause, so a crash is followed by
@@ -1412,13 +1412,13 @@ This is the question that comes up most, so here is the whole answer.
 | A value in `.env` | `systemctl --user restart streetscissors` |
 | A path in the unit file | `daemon-reload`, then a restart |
 | The `Caddyfile` | `systemctl --user reload caddy-streetscissors` |
-| Code: `lib/`, `assets/`, `config/`, `priv/` | `./redeploy.sh` |
-| A database migration | `./redeploy.sh`. It runs at the next boot |
+| Code: `lib/`, `assets/`, `config/`, `priv/` | `ops/redeploy.sh` |
+| A database migration | `ops/redeploy.sh`. It runs at the next boot |
 
 ### A deploy, step by step
 
 ```
-./redeploy.sh
+ops/redeploy.sh
 ```
 
 That is the whole command, and it should not be replaced with anything
@@ -1436,7 +1436,7 @@ after the release change the checkout and not the thing being served.
 
 **2. Keep the release that is serving.** If the site answers on
 `localhost:4000`, the current release directory is copied aside, to
-`web.previous` beside it. That copy is what `./rollback.sh` returns to.
+`web.previous` beside it. That copy is what `ops/rollback.sh` returns to.
 It is taken only while the site is answering: if the last deploy is what broke
 it, the copy already kept is the good one, and a second attempt must not
 replace it with the broken one.
@@ -1476,7 +1476,7 @@ names the way back.
 ### Taking a deploy back
 
 ```
-./rollback.sh
+ops/rollback.sh
 ```
 
 It stops the service, swaps `web` and `web.previous`, and starts the service
@@ -1507,7 +1507,7 @@ which have run.
   does it for the test database). In production nobody runs them: the release
   does, at boot, before it starts answering.
 - **Prefer migrations that only add.** An additive migration keeps
-  `./rollback.sh` safe, because the previous release ignores what it does not
+  `ops/rollback.sh` safe, because the previous release ignores what it does not
   know about.
 - The deploy script builds whatever is in the working tree, committed or not.
   So a half-written migration must never be left lying in the checkout.
@@ -1566,8 +1566,8 @@ the same port, with its own scheduler and its own idea of where things are.
 |---|---|
 | `journalctl --user -u streetscissors` | Everything the application logs, at `info` level and above: one line per request with its id and timing, warnings, crashes with stack traces, the scheduler's jobs |
 | `journalctl --user -u caddy-streetscissors` | Caddy starting and stopping, certificate issue and renewal, errors reaching the application |
-| `caddy_access.log` in the checkout | One JSON line per request Caddy served, including the media files the application never sees. Caddy rotates and compresses it |
-| `erl_crash.dump` in the checkout | Written if the Erlang VM itself dies, usually at boot. Its first lines say why |
+| `logs/caddy_access.log` in the data folder | One JSON line per request Caddy served, including the media files the application never sees. Caddy rotates and compresses it |
+| `erl_crash.dump` in the checkout's root | Written if the Erlang VM itself dies, usually at boot. Its first lines say why |
 
 Passwords and contact details are filtered out of the request log
 (`filter_parameters` in `config/config.exs`).
@@ -1635,7 +1635,7 @@ deploy. It reloads itself the next time it connects; reloading by hand does the
 same.
 
 **Buttons on a page do nothing, and the browser console says "unknown hook".**
-The JavaScript was bundled before the Elixir was compiled. Run `./redeploy.sh`
+The JavaScript was bundled before the Elixir was compiled. Run `ops/redeploy.sh`
 again.
 
 **A new icon is an empty square.** Its name is not on the allowlist at the top
@@ -1650,7 +1650,7 @@ _build/prod/rel/web/bin/web rpc 'IO.inspect(Web.Scanner.Bed.status())'
 
 A scan that outlives fifteen minutes is killed.
 
-**`./redeploy.sh` stops at "the scanner has been busy".** It will not restart
+**`ops/redeploy.sh` stops at "the scanner has been busy".** It will not restart
 under a scan. Wait, and run it again.
 
 **Mail is not arriving.** The admin overview's mail queue says whether letters
@@ -1683,7 +1683,7 @@ Four kinds of thing, each kept the way that suits it.
 | The negatives | Copied to the external drive with `rsync` | Everything, for ever | The drive |
 | The recordings | Copied to the external drive with `rsync` | Everything, for ever | The drive |
 
-The backups folder is `~/streetscissors-backups/`. A snapshot is named for the
+The backups folder is `~/streetscissors-data/backups/`. A snapshot is named for the
 moment it was taken, `web-YYYYMMDD-HHMMSS.db`, and a content version for the
 moment and for a fingerprint of what is in it.
 
@@ -1753,7 +1753,7 @@ fault. A backup that has never been restored is a hope.
 systemctl --user stop streetscissors
 cd ~/streetscissors-data
 mkdir set-aside && mv streetscissors.db* set-aside/
-cp ~/streetscissors-backups/db/web-YYYYMMDD-HHMMSS.db streetscissors.db
+cp ~/streetscissors-data/backups/db/web-YYYYMMDD-HHMMSS.db streetscissors.db
 systemctl --user start streetscissors
 ```
 
@@ -1764,7 +1764,7 @@ is fine; the release migrates it forward as it boots. Before you restore, a
 snapshot can be inspected without touching anything:
 
 ```
-sqlite3 -readonly ~/streetscissors-backups/db/web-YYYYMMDD-HHMMSS.db 'select count(*) from rides'
+sqlite3 -readonly ~/streetscissors-data/backups/db/web-YYYYMMDD-HHMMSS.db 'select count(*) from rides'
 ```
 
 **A piece of writing.** Unpack a version somewhere out of the way and copy
@@ -1773,7 +1773,7 @@ every edit made since.
 
 ```
 mkdir ~/restore
-tar -xzf ~/streetscissors-backups/content/content-….tar.gz -C ~/restore
+tar -xzf ~/streetscissors-data/backups/content/content-….tar.gz -C ~/restore
 ```
 
 A file deleted or overwritten through the admin's editor is often nearer than
@@ -1798,7 +1798,7 @@ rsync -a /path/to/drive/streetscissors-backups/negatives/ ~/Pictures/Negatives/
 5. Copy the units from `ops/systemd/`, `daemon-reload`, enable both, and
    switch lingering on.
 6. `mix deps.get` and `mix assets.setup` (which fetches the two build
-   tools), then `./redeploy.sh`.
+   tools), then `ops/redeploy.sh`.
 7. Point the router's ports 80 and 443 at the new machine, and the domain at
    the house if the address changed. Caddy fetches a certificate by itself.
 
@@ -1924,11 +1924,10 @@ streetscissors/
 ├── priv/figure/        the camera that films the exercise figures
 ├── test/               the tests, their fixtures and their stand-in tools
 ├── docs/               this manual, and the darkroom's technical notes
-├── ops/systemd/        the two unit files that run the site
-├── content/            the Obsidian vault (not in git, apart from templates)
-├── Caddyfile           the front proxy's configuration
-├── redeploy.sh         the deploy
-└── rollback.sh         the way back
+├── ops/                running the site: caddy/Caddyfile, the systemd/ units,
+│                       redeploy.sh (the deploy), rollback.sh (the way back),
+│                       start_prod.sh (a start by hand)
+└── content/            the Obsidian vault (not in git, apart from templates)
 ```
 
 The convention: `lib/web/` is the part that would still make sense if the
@@ -1937,8 +1936,8 @@ itself. A function that reads a roll of film off the disk belongs in the first;
 the page that shows it belongs in the second.
 
 Two files at the top are for whoever writes code here, person or machine.
-`CLAUDE.md` is the map of the non-obvious wiring: why each odd thing is the way
-it is. `AGENTS.md` is Phoenix and LiveView house style.
+`CLAUDE.md` is the map of the non-obvious wiring and the house style: why each
+odd thing is the way it is. `AGENTS.md` only points to it.
 
 ### Three places the same code runs
 
@@ -1946,7 +1945,7 @@ it is. `AGENTS.md` is Phoenix and LiveView house style.
 |---|---|---|---|
 | Started by | `mix phx.server` | `mix test` | systemd |
 | Config file | `dev.exs` | `test.exs` | `prod.exs`, plus the environment |
-| Database | `web_dev.db` | `web_test.db` | Outside the checkout |
+| Database | `tmp/db/web_dev.db` | `tmp/db/web_test.db` | Outside the checkout |
 | Content | The vault | Invented fixtures | The vault |
 | Reloads on save | Yes | | No: a change is a deploy |
 | Migrations | You run them | Run for you | Run at boot |
@@ -1960,7 +1959,7 @@ are the exception worth remembering: if a CSS change does not appear, run
 
 On the server itself the loop is different, because the development server
 cannot run beside the live site (Part 6). There the loop is: edit, `mix test`
-for the part you touched, `mix precommit`, then `./redeploy.sh`.
+for the part you touched, `mix precommit`, then `ops/redeploy.sh`.
 
 ### The gate
 
@@ -2109,7 +2108,7 @@ search engines should find it. Its styles go in a sheet of its own under `assets
 `config/runtime.exs` and store it with `config :web, :some_key, value`. Read it
 in the code with `Application.get_env(:web, :some_key)`. Document it in
 `.env.example`. If it is a path to data, export it from the unit file (and
-from `start_prod.sh`), not from `.env`.
+from `ops/start_prod.sh`), not from `.env`.
 
 **Add something that runs on a clock.** Add a line to the `Web.Scheduler` job
 list in `config/config.exs`, naming a function that takes no arguments. Make
@@ -2118,7 +2117,7 @@ gone until the next tick, and nobody is told. Times are UTC.
 
 **Change the database.** `mix ecto.gen.migration add_something`, write the
 change, `mix ecto.migrate` to try it, and add the field to the schema module.
-Additive changes only, if you want `./rollback.sh` to stay safe.
+Additive changes only, if you want `ops/rollback.sh` to stay safe.
 
 **Film an exercise's figure.** Write or edit the figure's `.json` in the
 vault, then look at each pose before filming anything:
@@ -2148,7 +2147,7 @@ publish them.
 Two things about how git and the live site relate are easy to get wrong:
 
 - **The deploy builds the working tree, not a commit.** Whatever is on disk
-  when `./redeploy.sh` runs is what goes live, committed or not, on whatever
+  when `ops/redeploy.sh` runs is what goes live, committed or not, on whatever
   branch. Committing is how the change is remembered; it is not what ships
   it. Keep the tree in a state you would be willing to deploy.
 - **A push changes nothing on the live site.** There is no pipeline that
@@ -2187,8 +2186,8 @@ it says otherwise.
 
 | Command | What it does |
 |---|---|
-| `./redeploy.sh` | Build and ship the code that is on disk. Waits for the scanner, then proves the result. |
-| `./rollback.sh` | Swap the previous release back in. Run it again to swap forward. |
+| `ops/redeploy.sh` | Build and ship the code that is on disk. Waits for the scanner, then proves the result. |
+| `ops/rollback.sh` | Swap the previous release back in. Run it again to swap forward. |
 | `systemctl --user status streetscissors` | Is it running? |
 | `systemctl --user restart streetscissors` | Restart it. Needed after changing `.env`. |
 | `systemctl --user reload caddy-streetscissors` | Make Caddy read the `Caddyfile` again. |
@@ -2214,7 +2213,7 @@ Full details in Part 3, and for the films in Part 8.
 
 ### Things that look like shortcuts but are not
 
-`./start_prod.sh` starts the release by hand in a terminal, with the same
+`ops/start_prod.sh` starts the release by hand in a terminal, with the same
 environment the unit gives it. It refuses to run while the unit is up. It is
 for the rare case of wanting the release's output in front of you; it is not
 how the site stays up.
@@ -2307,7 +2306,7 @@ undone when scanning.
 **Commit**: A saved point in the project's history, with a message explaining
 what changed and why.
 
-**Deploy**: Putting a change to the code onto the live site. Here: `./redeploy.sh`.
+**Deploy**: Putting a change to the code onto the live site. Here: `ops/redeploy.sh`.
 
 **Digest**: Giving a file a name that contains a fingerprint of its contents,
 so a browser can keep it for ever and a new version is a new name.
@@ -2363,7 +2362,7 @@ sheet changes.
 **Quantum**: The scheduler: a cron that lives inside the application.
 
 **Release**: A self-contained, compiled copy of the site, built by
-`./redeploy.sh` and run by systemd. It contains everything needed to run and
+`ops/redeploy.sh` and run by systemd. It contains everything needed to run and
 nothing needed to build.
 
 **Repository (repo)**: The project folder, with its full history. This one

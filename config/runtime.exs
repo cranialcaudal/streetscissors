@@ -196,7 +196,7 @@ if config_env() == :prod do
       # port 4000 answered the whole house network in plain HTTP, past the
       # proxy's bot block, and took the caller's word for x-forwarded-for,
       # which is the address the login limiter counts by (WebWeb.ClientIP).
-      # ./redeploy.sh and ./rollback.sh ask http://localhost:4000, which
+      # ops/redeploy.sh and ops/rollback.sh ask http://localhost:4000, which
       # reaches this, and so does `reverse_proxy localhost:4000`.
       ip: {127, 0, 0, 1}
     ],

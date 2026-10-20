@@ -21,7 +21,7 @@ config :web, :secure_cookies?, false
 # query, and `show_sensitive_data_on_connection_error` puts connection
 # parameters into the log when the database refuses a connection.
 config :web, Web.Repo,
-  database: Path.expand("../web_dev.db", __DIR__),
+  database: Path.expand("../tmp/db/web_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -92,7 +92,7 @@ config :web, WebWeb.Endpoint,
 # LiveDashboard and the Swoosh mailbox preview, under /dev. Development only:
 # they were once reachable on the public site (process inspector, ETS browser,
 # ecto_stats, all unauthenticated), so router.ex also gates the scope on an
-# admin session at runtime, and ./redeploy.sh fails a deploy that answers them.
+# admin session at runtime, and ops/redeploy.sh fails a deploy that answers them.
 config :web, dev_routes: true
 
 # The admin password for a development server. Production takes

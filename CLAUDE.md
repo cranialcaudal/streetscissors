@@ -16,6 +16,11 @@ components and plugs in `lib/web_web/`.
 release `_build/prod/rel/web/bin/web rpc '…'`. The working tree is what gets deployed, so keep it
 deployable at all times (no half-finished migrations).
 
+Live data, backups and Caddy's log are in `~/streetscissors-data/` (`backups/`, `logs/`, `old/`).
+The film tools are the `~/negatives` repo, linked into `~/.local/bin` by its `install.sh`. Kept
+but unused things (spikes, old tool copies, the admin redesign harness) are in
+`~/streetscissors-attic/`.
+
 ## Commands
 
 ```bash
@@ -26,7 +31,7 @@ mix test --failed                             # rerun last failures
 mix precommit                   # compile --warnings-as-errors + deps.unlock --unused + format + test
 mix ecto.gen.migration name_in_snake_case     # always generate migrations this way
 mix assets.build                # tailwind + esbuild (dev)
-./redeploy.sh                   # the deploy (see Deployment)
+ops/redeploy.sh                   # the deploy (see Deployment)
 ```
 
 **Run `mix precommit` before considering any change done.**
@@ -621,15 +626,15 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
 ## Deployment
 
 The live site is a `MIX_ENV=prod` release under the systemd user unit `streetscissors.service`,
-behind Caddy (`caddy-streetscissors.service`, `Caddyfile`). The manual's Part 6 walks through it.
+behind Caddy (`caddy-streetscissors.service`, `ops/caddy/Caddyfile`). The manual's Part 6 walks through it.
 
-- **`./redeploy.sh` is the deploy**: assets, release, restart, health gate. It keeps the serving
-  release as `_build/prod/rel/web.previous` (only while the site answers), and **`./rollback.sh`
+- **`ops/redeploy.sh` is the deploy**: assets, release, restart, health gate. It keeps the serving
+  release as `_build/prod/rel/web.previous` (only while the site answers), and **`ops/rollback.sh`
   swaps the two**. Run twice, it swaps back. It doesn't touch the checkout or undo a migration.
 - **Don't deploy while a scan is running** or the owner is mid-session. Deploy only at a pause they
   name. Content and the manual need no deploy.
 - Unit files are kept in `ops/systemd/` (`%h`, `%u` instead of real paths). The installed copies
-  are in `~/.config/systemd/user/`: change both together. `start_prod.sh` starts the release by
+  are in `~/.config/systemd/user/`: change both together. `ops/start_prod.sh` starts the release by
   hand with the same exports and refuses while the unit is up.
 - **Never run `site up` or `sudo caddy start`**: Caddy runs under its user unit.
 - `config/runtime.exs` is packed into the release, so editing it means a deploy. A changed value in
@@ -638,7 +643,7 @@ behind Caddy (`caddy-streetscissors.service`, `Caddyfile`). The manual's Part 6 
   the proxy and forge `x-forwarded-for`, which every rate limit counts by. The session cookie is
   `Secure` in prod (`:secure_cookies?`, compile-time).
 - The live database is outside the checkout (`DATABASE_PATH`, exported by the unit). Read it only
-  read-only (`sqlite3 "file:…?mode=ro"`). `web_dev.db` and `web_test.db` in the repo root are dev
+  read-only (`sqlite3 "file:…?mode=ro"`). `tmp/db/web_dev.db` and `tmp/db/web_test.db` are dev
   and test. Migrations run at release boot.
 - `config/dev.exs` keeps a dev server off the live site's ground: backups go to `tmp/dev_backups/`
   and it sends no webmentions.

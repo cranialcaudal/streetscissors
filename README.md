@@ -34,7 +34,7 @@ mix precommit      # the gate: warnings-as-errors, format, full test suite
 
 ## Deploying
 
-**Use `./redeploy.sh`.** Not `mix phx.server`, not a bare `mix release`.
+**Use `ops/redeploy.sh`.** Not `mix phx.server`, not a bare `mix release`.
 
 The live site is a compiled `MIX_ENV=prod` release, run by a systemd user unit behind
 Caddy. The script builds the minified, digested assets, keeps the release that is serving,
@@ -54,7 +54,7 @@ Three things worth knowing:
 3. **Content needs no deploy.** Posts, the fitness vault and the negatives are read from
    disk on each request.
 
-**If a deploy goes wrong, `./rollback.sh`.** It swaps the release that was serving before
+**If a deploy goes wrong, `ops/rollback.sh`.** It swaps the release that was serving before
 the deploy back in and restarts, which takes seconds and compiles nothing. Run it again
 and the newer release is back. It does not touch the checkout and it does not undo a
 database migration; the script's header says what that means.

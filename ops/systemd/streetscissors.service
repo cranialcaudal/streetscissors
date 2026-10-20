@@ -6,7 +6,7 @@
 # systemd expands both.
 #
 # To update the installed copy (this restarts nothing; the change applies
-# from the next restart, which is how ./redeploy.sh ends):
+# from the next restart, which is how ops/redeploy.sh ends):
 #   cp ops/systemd/*.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload
 #
@@ -33,7 +33,7 @@ WorkingDirectory=%h/streetscissors
 #   * runtime.exs is evaluated at BOOT, so a changed value in .env or in this
 #     unit takes only a restart. The file itself is copied into the release
 #     when it is built, so editing it, like anything in lib/ or config/, needs
-#     ./redeploy.sh.
+#     ops/redeploy.sh.
 #   * Migrations run automatically on boot (Web.Application keys off
 #     RELEASE_NAME, which the release sets).
 Environment=LANG=en_US.UTF-8
@@ -54,7 +54,7 @@ Environment=PORT=4000
 # same name in .env, which is exactly how this unit first came up serving the
 # development database while claiming otherwise. Exporting here makes the unit
 # authoritative regardless of what .env happens to contain.
-# start_prod.sh repeats this list for a start by hand: change both.
+# ops/start_prod.sh repeats this list for a start by hand: change both.
 #
 # Production data lives OUTSIDE the checkout and outside the release: a release
 # ships priv/ inside itself and replaces it wholesale on every build, so
@@ -69,8 +69,8 @@ ExecStart=/usr/bin/bash -c 'set -a; . %h/streetscissors/.env; set +a; \
   export UPLOADS_PATH=%h/streetscissors-data/uploads; \
   export BLOG_PATH=%h/streetscissors/content/blog; \
   export FITNESS_PATH=%h/streetscissors/content/fitness; \
-  export BACKUP_PATH=%h/streetscissors-backups/db; \
-  export CONTENT_BACKUP_PATH=%h/streetscissors-backups/content; \
+  export BACKUP_PATH=%h/streetscissors-data/backups/db; \
+  export CONTENT_BACKUP_PATH=%h/streetscissors-data/backups/content; \
   export BACKUP_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/db; \
   export PHOTOS_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/negatives; \
   export CONTENT_MIRROR_PATH=/run/media/%u/Third/streetscissors-backups/content; \

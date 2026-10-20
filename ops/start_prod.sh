@@ -15,10 +15,10 @@
 # snapshots of it among the real backups.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BESIDE="$(dirname "$ROOT")"
 DATA="$BESIDE/streetscissors-data"
-BACKUPS="$BESIDE/streetscissors-backups"
+BACKUPS="$DATA/backups"
 DRIVE="/run/media/$(id -un)/Third/streetscissors-backups"
 
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}

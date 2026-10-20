@@ -421,7 +421,7 @@ defmodule Web.Backup do
 
   def backup_dir do
     Application.get_env(:web, :backup_path) ||
-      Path.join(System.user_home!(), "streetscissors-backups/db")
+      Path.join(System.user_home!(), "streetscissors-data/backups/db")
   end
 
   defp keep, do: Application.get_env(:web, :backup_keep, @default_keep)

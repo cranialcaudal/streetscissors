@@ -106,7 +106,7 @@ The self-hosting is the point, so the plumbing should be boring and automatic.
   - `/health` answers whether the proxy, the application and the database are all standing, and a scheduled job on GitHub asks it from outside, since nothing on the machine can report the machine being off.
   - The domain's address is checked against the machine's own. The registrar offers no way to update it automatically, so a change is mailed with the new value to enter.
 - **Restores:** done. Once a week the newest database snapshot and the newest content archive are each restored to a scratch copy and read back, table by table and file by file, along with the copies on the external drive when it is plugged in. The overview says when the last rehearsal was, and a failed one is mailed.
-- **Rollback:** done. Each deploy sets aside the release that was serving, and `./rollback.sh` swaps it back in. It was tried against the live site: back to the previous release, then forward again.
+- **Rollback:** done. Each deploy sets aside the release that was serving, and `ops/rollback.sh` swaps it back in. It was tried against the live site: back to the previous release, then forward again.
 - **Dependencies.** Upgrade the framework and libraries on a schedule rather than when something breaks.
 - **Images:** done. A photograph is kept at two narrower widths besides its full preview, and a page asks for the one that fits: the strip of prints under a sheet, a frame on a phone, a frame embedded in a post, a roll on a day page. The tab icon and the mark in the homepage's top bar are small files now rather than full-size pictures scaled down by the browser.
 

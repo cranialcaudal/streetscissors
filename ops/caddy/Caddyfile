@@ -1,6 +1,6 @@
-# The live site's Caddyfile. Caddy is run from the checkout by the user unit
-# caddy-streetscissors.service (ops/systemd/), which is what the relative
-# paths below are relative to. It is read when Caddy starts and when it is
+# The live site's Caddyfile. Caddy is run with the checkout's root as its working
+# directory by the user unit caddy-streetscissors.service (ops/systemd/), and the
+# relative paths below are relative to that root, not to this file. It is read when Caddy starts and when it is
 # told to look again: systemctl --user reload caddy-streetscissors
 #
 
@@ -95,9 +95,10 @@ www.streetscissors.com {
         -Server
     }
 
-    # Logging (Optional but recommended)
+    # The access log sits with the site's other data, outside the checkout.
+    # Caddy rolls it itself (100 MB a file, ten kept).
     log {
-        output file ./caddy_access.log
+        output file {$CADDY_LOG:../streetscissors-data/logs/caddy_access.log}
     }
 }
 

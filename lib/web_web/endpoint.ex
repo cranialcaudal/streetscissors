@@ -37,7 +37,7 @@ defmodule WebWeb.Endpoint do
   # old stylesheet, and only for clients sending `Accept-Encoding: gzip`
   # (i.e. every browser, but not curl by default).
   #
-  # ./redeploy.sh does digest now (`mix assets.deploy`), so the .gz files are
+  # ops/redeploy.sh does digest now (`mix assets.deploy`), so the .gz files are
   # fresh on every deploy; it stays off all the same, because Caddy compresses
   # on the wire and a second source of compressed bytes is a second way to
   # serve the wrong ones.

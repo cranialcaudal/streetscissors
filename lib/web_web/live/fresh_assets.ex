@@ -3,7 +3,7 @@ defmodule WebWeb.FreshAssets do
   Reloads a page that is running on a stylesheet or script from before a
   deploy.
 
-  A tab left open across `./redeploy.sh` reconnects to the new release and is
+  A tab left open across `ops/redeploy.sh` reconnects to the new release and is
   sent the new markup, but its `<head>` still names the old digested
   `app.css`, so anything the deploy added arrives unstyled. The root layout
   marks both files `phx-track-static`; this is the other half, which asks on

@@ -20,10 +20,10 @@
 # environment variable — config/prod.exs is static and runtime.exs is evaluated
 # at boot — so that whole class of failure is gone.
 #
-# Usage:  ./redeploy.sh
+# Usage:  ops/redeploy.sh
 set -euo pipefail
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 export MIX_ENV=prod
@@ -40,7 +40,7 @@ mix assets.deploy
 mix phx.digest.clean --age 3600 --keep 1
 
 echo "==> Keep the release that is serving now"
-# The one command a bad deploy needs is ./rollback.sh, and it can only return
+# The one command a bad deploy needs is ops/rollback.sh, and it can only return
 # to a release that still exists. `mix release --overwrite` rebuilds the
 # directory in place, so the one that is running is copied aside first.
 #
@@ -177,5 +177,5 @@ done
 
 echo "!! site did not come up on localhost:4000"
 systemctl --user status streetscissors.service --no-pager | tail -20
-echo "!! ./rollback.sh returns to the release that was serving before this deploy."
+echo "!! ops/rollback.sh returns to the release that was serving before this deploy."
 exit 1

@@ -150,7 +150,7 @@ defmodule WebWeb.Plugs.MediaServe do
     case Path.extname(filename) |> String.downcase() do
       # Legacy HLS, from before logs became one MP4 (2026-09-22). Nothing
       # links to these any more; the types stay so an old URL still answers
-      # correctly, and so does the matching block in the Caddyfiles.
+      # correctly, and so does the matching block in the Caddyfile.
       ".m3u8" -> "application/vnd.apple.mpegurl"
       ".m4s" -> "video/iso.segment"
       ".mp4" -> "video/mp4"
