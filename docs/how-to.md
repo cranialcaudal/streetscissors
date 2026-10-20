@@ -2214,12 +2214,6 @@ Full details in Part 3, and for the films in Part 8.
 
 ### Things that look like shortcuts but are not
 
-`./deploy.sh`, with the `Dockerfile` and `docker-compose.yml` beside it, builds
-and runs the site in containers. It was tried and set aside long ago, and the
-site has since grown a scanner, a film pipeline and a set of data folders it
-knows nothing about. The live site does not use it and it should not be run on
-the server.
-
 `./start_prod.sh` starts the release by hand in a terminal, with the same
 environment the unit gives it. It refuses to run while the unit is up. It is
 for the rare case of wanting the release's output in front of you; it is not
