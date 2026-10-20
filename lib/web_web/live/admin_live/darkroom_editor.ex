@@ -135,21 +135,24 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   # (Web.Darkroom.Taste), worked out off the page: the first time, the
   # archive's prints are measured, which takes a minute or so.
   defp suggest(socket) do
-    %{dir: dir, frame: frame, grey: grey, recipe: recipe, schema: schema} = socket.assigns
+    %{dir: dir, frame: frame, grey: grey, schema: schema} = socket.assigns
     source = Darkroom.source_path(dir, frame)
-    temp = Map.get(recipe.controls, "wb.temp", 6500.0)
     color = if grey, do: "bw", else: "color"
     defaults = Map.new(schema, &{&1["id"], &1["default"]})
-    start_async(socket, :prior, fn -> work_out(dir, frame, source, color, temp, defaults) end)
+    start_async(socket, :prior, fn -> work_out(dir, frame, source, color, defaults) end)
   end
 
-  defp work_out(dir, frame, source, color, temp, defaults) do
+  # The cast is read off the print as developed, so the suggestion starts from
+  # the sliders' defaults, never from where they stand now.
+  defp work_out(dir, frame, source, color, defaults) do
     prints = Archive.prints()
     groups = Archive.groups(prints)
     model = Taste.fit(prints, groups, defaults)
     {group, _stock} = Archive.group_of(dir, color)
     taste = Taste.taste_for(model, group)
-    opts = [temp: temp, groups: groups, taste: taste]
+    temp = (defaults["wb.temp"] || 6500.0) * 1.0
+    tint = (defaults["wb.tint"] || 0.0) * 1.0
+    opts = [temp: temp, tint: tint, groups: groups, taste: taste]
 
     with {:ok, prior} <- Prior.suggest(dir, frame, source, color, opts) do
       predicted = Taste.predict(model, prior.stats, group, Taste.condition(dir))
@@ -210,18 +213,16 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> assign(seconds: seconds) |> suggest()}
   end
 
-  # Temp is set where the suggestion puts it and Tint moved by it; the
-  # sliders his taste predicts are set to its values.
+  # Temp and Tint are set where the suggestion puts them (absolute values,
+  # so a second press changes nothing); the sliders his taste predicts are set
+  # to its values.
   def handle_event("apply_prior", _params, %{assigns: %{prior: %{} = prior}} = socket) do
     controls = socket.assigns.recipe.controls
 
     colour =
       case prior.sliders do
         %{"wb.temp" => temp, "wb.tint" => tint} ->
-          %{
-            "wb.temp" => Float.round(temp / 50) * 50,
-            "wb.tint" => Float.round(Map.get(controls, "wb.tint", 0.0) + tint)
-          }
+          %{"wb.temp" => Float.round(temp / 50) * 50, "wb.tint" => Float.round(tint * 1.0)}
 
         _ ->
           %{}

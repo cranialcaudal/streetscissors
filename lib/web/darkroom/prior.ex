@@ -41,7 +41,12 @@ defmodule Web.Darkroom.Prior do
   The suggestion for a print: `%{sliders, lines, ...}`, `sliders` being what
   to set (`wb.temp`, `wb.tint`) and `lines` what was reasoned, in words.
   `opts`: `:groups` (the archive's averages, measured when absent), `:taste`
-  (`%{alpha, offset}`), `:temp` (Temp's value now).
+  (`%{alpha, offset}`), and `:temp` and `:tint`, where those sliders stand on
+  the print as developed (6500 and 0 by default).
+
+  `sliders` are absolute values, not changes: the cast is read off the print
+  as developed, so the answer is anchored there and applying it twice gives
+  the same print.
   """
   def suggest(roll_dir, frame, source, color, opts \\ []) do
     with {:ok, stats} <- Stats.read(source) do
@@ -79,7 +84,12 @@ defmodule Web.Darkroom.Prior do
     delta = add(sub(target, estimate), recip.cast)
 
     sliders =
-      if grey?, do: %{}, else: Film.sliders(delta, Keyword.get(opts, :temp, 6500.0))
+      if grey?,
+        do: %{},
+        else:
+          delta
+          |> Film.sliders(Keyword.get(opts, :temp, 6500.0))
+          |> Map.update!("wb.tint", &(&1 + Keyword.get(opts, :tint, 0.0)))
 
     %{
       stats: stats,

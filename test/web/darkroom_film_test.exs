@@ -106,6 +106,20 @@ defmodule Web.Darkroom.FilmTest do
       assert Enum.any?(result.lines, &(&1 =~ "12.5M"))
     end
 
+    test "the suggestion is absolute, anchored where the print was developed" do
+      film = %{n: 20, cast: {0.02, 0.0}, var: {0.0004, 0.0004}}
+      taste = %{alpha: 1.0, offset: {0.0, 0.0}}
+      plain = Prior.compute(@stats, "C-41", nil, nil, film, taste)
+      anchored = Prior.compute(@stats, "C-41", nil, nil, film, taste, temp: 6500.0, tint: 10.0)
+
+      # Same anchor, same answer: pressing it twice cannot move the print twice.
+      assert plain.sliders["wb.temp"] == anchored.sliders["wb.temp"]
+      assert_in_delta anchored.sliders["wb.tint"], plain.sliders["wb.tint"] + 10.0, 1.0e-9
+
+      warmer_anchor = Prior.compute(@stats, "C-41", nil, nil, film, taste, temp: 5000.0)
+      assert warmer_anchor.sliders["wb.temp"] < plain.sliders["wb.temp"]
+    end
+
     test "black and white is offered no colour" do
       result = Prior.compute(@stats, "BW", nil, nil, nil, %{alpha: 1.0, offset: {0.0, 0.0}})
       assert result.sliders == %{}
