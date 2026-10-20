@@ -13,6 +13,31 @@ defmodule Web.Scanner.Pipeline do
 
   A roll is published only once both gates pass, which is the same proof the
   public page asks for before it draws a ring.
+
+  ## How this file is laid out
+
+  In the order a roll goes through it:
+
+  1. **Roll numbers and folders** (`next_roll_number/0` to `prepare_roll/4`):
+     which number a new roll gets, and where its folder is.
+  2. **Strips** (`list_strips/1` to `film_run/2`): adding one scan, or one
+     pass of the whole holder, as strips cut to their film.
+  3. **Where each strip lies on the glass** (`holder/1` to `relocate/5`):
+     `holder.json`, the load waiting to be confirmed, and finding a strip
+     that was put back in the holder.
+  4. **Which roll a strip belongs to** (`identify/5`): comparing a look with
+     every roll of that film width, for singles added to an old roll.
+  5. **Cutting a single out of a band** (`cut_from_band/6`).
+  6. **Changing strips** (`rotate_strip/2` to `split_roll/2`): each carries
+     the strip's singles with it, because frames are numbered across strips.
+  7. **Reading the analysis** (`slide?/1` to `generate_frames_analysis/4`):
+     running `film-develop analyze` and reading `frames.json`.
+  8. **Frames and selections** (`printed_frames/1` to `read_selects/1`): what
+     was proposed, what was chosen (`selects.json`), and what a cut-short run
+     still owes.
+  9. **Developing and publishing** (`assemble_contact_sheet/5` to
+     `publish_roll/4`): developing a chosen frame into a print, building the
+     contact sheet, checking it, and adding the roll to the catalogue.
   """
 
   alias Web.Darkroom
@@ -21,6 +46,8 @@ defmodule Web.Scanner.Pipeline do
   alias Web.Negatives.SheetLayout
 
   require Logger
+
+  # ── Roll numbers and folders ──────────────────────────────────────────────
 
   @doc """
   The next free roll number as a zero-padded 3-digit string (e.g. "031"): the
@@ -186,6 +213,8 @@ defmodule Web.Scanner.Pipeline do
     File.mkdir_p!(Path.join(dir, "frames"))
     {:ok, dir}
   end
+
+  # ── Strips: adding a pass from the glass ──────────────────────────────────
 
   @doc "Lists strip scan files currently inside a roll directory in sorted order."
   def list_strips(roll_dir) do
@@ -460,6 +489,8 @@ defmodule Web.Scanner.Pipeline do
 
   defp forget_holder(roll_dir), do: File.rm(Path.join(roll_dir, "holder.json"))
 
+  # ── Where each strip lies on the glass ────────────────────────────────────
+
   @doc """
   Where the strips of the last pass lie on the glass, as
   `%{strip file => {left, top, width, height}}` in mm. Empty once a strip has
@@ -626,6 +657,8 @@ defmodule Web.Scanner.Pipeline do
     settle_on_glass(roll_dir, scan, matches)
     {:ok, Enum.map(matches, &elem(&1, 0))}
   end
+
+  # ── Finding which roll a strip belongs to ─────────────────────────────────
 
   @doc """
   Whose film is on the glass. The same comparison as `relocate/5`, made
@@ -820,6 +853,8 @@ defmodule Web.Scanner.Pipeline do
 
   defp correlate_row(_xs, _ys, ab, aa, bb), do: {ab, aa, bb}
 
+  # ── Cutting a single out of a band ────────────────────────────────────────
+
   @doc """
   Cuts a frame out of a band scanned across the glass: `band` is the file,
   `band_rect` the rectangle it covers and `frame_rect` the frame's, both in
@@ -848,6 +883,8 @@ defmodule Web.Scanner.Pipeline do
       {output, _} -> {:error, "couldn't cut frame #{frame}: #{last_lines(output)}"}
     end
   end
+
+  # ── Changing strips: turn, reorder, delete, split ─────────────────────────
 
   @doc """
   Turns a strip scan over (180° by default). The analysis measured it the
@@ -1220,6 +1257,8 @@ defmodule Web.Scanner.Pipeline do
     )
   end
 
+  # ── Reading film-develop's analysis ───────────────────────────────────────
+
   @doc """
   Whether the roll's analysis found reversal film (`film-develop` decides
   that by looking; the page only knows colour from black and white). A roll
@@ -1365,6 +1404,8 @@ defmodule Web.Scanner.Pipeline do
       _ -> []
     end
   end
+
+  # ── Frames, selections and what is owed ───────────────────────────────────
 
   @doc "The frames a roll has prints of (`frames/NN.png`), by number."
   def printed_frames(roll_dir) do
@@ -1584,6 +1625,8 @@ defmodule Web.Scanner.Pipeline do
       _ -> %{}
     end
   end
+
+  # ── Developing and publishing ─────────────────────────────────────────────
 
   @doc """
   Has `digital-contact-sheet-maker` assemble the roll's contact sheet into

@@ -1,4 +1,17 @@
 defmodule Web.Analytics do
+  @moduledoc """
+  Counting visits without keeping who made them. Every browser request records
+  a hit (`WebWeb.Plugs.Analytics`): the path, the user agent and a **hash** of
+  the IP address, keyed with a secret derived from `SECRET_KEY_BASE` (`hash_ip/1`), so it
+  cannot be turned back into an address.
+  Bots, prefetches, the admin's own visits and the addresses in
+  `EXCLUDED_IPS` are not counted.
+
+  The rest of the module answers questions about those hits: visitors today,
+  the two-week trend on the admin's front page, how many people have read each
+  post ("witnessed": distinct visitors, across every address the post has had).
+  """
+
   import Ecto.Query, warn: false
   alias Web.Repo
   alias Web.Analytics.Hit

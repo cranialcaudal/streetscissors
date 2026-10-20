@@ -1,4 +1,10 @@
 defmodule Web.Newsletter.Draft do
+  @moduledoc """
+  A newsletter, before and after it goes out. While `status` is `"draft"` it
+  can be edited and previewed at `/admin/newsletter`; when it is sent, the same
+  row becomes the record of the send (`sent_at`, `recipient_count`).
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

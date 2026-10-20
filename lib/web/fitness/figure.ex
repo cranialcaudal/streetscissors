@@ -68,6 +68,19 @@ defmodule Web.Fitness.Figure do
   targets cannot be reached, that goes through the floor or off the stage,
   whose joints flip sides between poses, or that names a key it does not
   know, and says which pose. Nothing is drawn from a file that fails.
+
+  ## How this file is laid out
+
+  1. **What the rest of the site calls** (`detect_targets/1` to `track/2`):
+     finding, loading and building a figure, and its joints frame by frame.
+  2. **Reading the file**: a figure file's JSON into poses, with every key
+     checked.
+  3. **Solving a pose**: placing elbows and knees so each hand and foot
+     reaches where the pose says, without any bone changing length.
+  4. **The frames between poses**: moving from one pose to the next,
+     including the arc a body rocking over its knees rides on.
+  5. **Baking**: turning the frames into the flat SVG drawing.
+  6. **Plane geometry**: the small maths everything above uses.
   """
 
   alias Web.Fitness.Vault
@@ -142,6 +155,8 @@ defmodule Web.Fitness.Figure do
     {~r/\b(?:core|abdominals?|abs?|obliques?|rectus\s+abdominis|transverse\s+abdominis)\b/i,
      :core}
   ]
+
+  # ── What the rest of the site calls ───────────────────────────────────────
 
   @doc "Detects targeted muscle groups from exercise vault metadata."
   def detect_targets(nil), do: []

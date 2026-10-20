@@ -1,4 +1,16 @@
 defmodule Web.General.GuestbookEntry do
+  @moduledoc """
+  One guestbook signature: a name, a message, whether the author has approved
+  it (only approved ones are shown), and the signer's IP address (for rate
+  limiting and spam).
+
+  A signer may also leave a way to be reached. That is **encrypted before it is
+  stored** (`seal/1`, using `Web.General.Contact`), is never loaded by an
+  ordinary query (`load_in_query: false`), and is hidden from logs
+  (`redact: true`). Only `Web.General.guestbook_contact/1` reads it, for the
+  admin, one at a time.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

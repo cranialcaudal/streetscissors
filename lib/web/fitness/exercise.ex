@@ -1,4 +1,12 @@
 defmodule Web.Fitness.Exercise do
+  @moduledoc """
+  An exercise as the database knows it: one row per exercise that has ever been
+  logged, linking the training log to the wiki page of the same `slug`. The
+  wiki page in `content/fitness/exercise-wiki/` is the real description; this
+  row exists so log entries have something to belong to
+  (`Web.Fitness.loggable_exercise/1` makes it on first use).
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

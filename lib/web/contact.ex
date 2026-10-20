@@ -1,4 +1,11 @@
 defmodule Web.Contact do
+  @moduledoc """
+  The contact form's messages: storing one when a visitor sends it, and the
+  admin inbox's list, statuses (`inbox`, archived and so on) and deletion.
+  Letters about a particular piece are the same messages, handled by
+  `Web.Letters`.
+  """
+
   import Ecto.Query, warn: false
   alias Web.Repo
   alias Web.Contact.Message

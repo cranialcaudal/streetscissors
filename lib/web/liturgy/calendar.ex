@@ -30,6 +30,17 @@ defmodule Web.Liturgy.Calendar do
   day, and Saint Joseph, when March 19 falls in Holy Week, to the Saturday
   before Palm Sunday. A memorial that meets a day of row 9 is kept as an
   optional commemoration; one that meets anything higher is dropped that year.
+
+  ## How this file is laid out
+
+  1. **Working out a day** (`day/2`, `easter/1`, `advent/1` and the
+     small helpers): what the rest of the site calls.
+  2. **The seasons** (`temporal/1`): Advent, Christmas, Lent, Easter and
+     Ordinary Time, with the United States' movable days.
+  3. **The saints, and what gives way**: the calendars of saints from
+     `priv/liturgy/`, and the rules for which celebration wins when two fall
+     on one day.
+  4. **Dates**: date arithmetic the rest uses.
   """
 
   alias Web.Liturgy.Sanctoral
@@ -50,6 +61,8 @@ defmodule Web.Liturgy.Calendar do
     triduum: "the Paschal Triduum",
     easter: "Easter Time"
   }
+
+  # ── Working out a day ─────────────────────────────────────────────────────
 
   @doc """
   The liturgical day for `date`.

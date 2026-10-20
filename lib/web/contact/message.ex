@@ -1,4 +1,12 @@
 defmodule Web.Contact.Message do
+  @moduledoc """
+  A message sent through the contact form, kept in the admin's inbox
+  (`/admin/inbox`). A **letter** is the same row with three more fields set:
+  which piece of work it answers (`piece`), whether the writer allowed it to be
+  published (`may_publish`), and when the author chose to (`published_at`). See
+  `Web.Letters`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

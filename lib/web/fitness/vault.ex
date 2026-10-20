@@ -2,6 +2,17 @@ defmodule Web.Fitness.Vault do
   @moduledoc """
   Reads fitness content from the in-repo content directory.
   Source of truth: content/fitness/ (override with the FITNESS_PATH env var).
+
+  ## How this file is laid out
+
+  1. **Weekly Regimen** (`list_days/0` to `update_day/2`): the seven days
+     of the plan, each a markdown file in `weekly/`, and the modules they
+     are assembled from.
+  2. **Exercise Wiki** (`list_muscle_groups/0` to `delete_exercise/2`):
+     the wiki pages in `exercise-wiki/<group>/<slug>.md`, their references,
+     and the audit of what nothing uses.
+  3. **Private Helpers**: reading frontmatter (`parse_frontmatter/1`,
+     public because the training blocks use it too) and rendering markdown.
   """
 
   @default_base "content/fitness"

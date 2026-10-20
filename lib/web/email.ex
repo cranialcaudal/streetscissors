@@ -1,4 +1,15 @@
 defmodule Web.Email do
+  @moduledoc """
+  Builds every email the site sends: the newsletter, the welcome letter a new
+  subscriber gets, and the notices it sends its author (`notice/3`, used by
+  `Web.Notify`). It builds messages; `Web.Mailer` sends them.
+
+  Email clients ignore most modern CSS, so the colours here are written out as
+  plain values copied from the site's tokens, and the layout is the one shared
+  `shell/2`. `preview_page/2` renders the same thing as a web page for the
+  admin's preview.
+  """
+
   import Swoosh.Email
 
   alias WebWeb.Unsubscribe
