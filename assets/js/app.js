@@ -27,6 +27,7 @@ import topbar from "../vendor/topbar"
 import "./trail"
 import { GymRoutine } from "./gym_routine"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
+import { DocumentEditor } from "./document_editor"
 import { initEmissionsControls } from "./emissions_controls"
 import { initEngland } from "./england"
 import { initChrist } from "./christ"
@@ -44,7 +45,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll },
+  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll, DocumentEditor },
 })
 
 // Show progress bar on live navigation and form submits

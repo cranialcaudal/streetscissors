@@ -103,11 +103,12 @@ defmodule Web.Newsletter do
   Given the draft it was composed from, that row becomes the record of the
   send rather than leaving a stale draft beside a second, sent copy.
   """
-  def record_send(subject, body, recipient_count, draft \\ nil) do
+  def record_send(subject, body, recipient_count, draft \\ nil, format \\ "html") do
     (draft || %Draft{})
     |> Draft.changeset(%{
       subject: subject,
       body: body,
+      format: format,
       status: "sent",
       sent_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       recipient_count: recipient_count
@@ -140,9 +141,9 @@ defmodule Web.Newsletter do
   Sends one copy to a single address, marked `[Test]` and recorded nowhere —
   for seeing the message in a real inbox before it goes to everyone.
   """
-  def send_test(address, subject, body) do
+  def send_test(address, subject, body, format \\ "html") do
     address
-    |> Email.newsletter("[Test] " <> subject, body)
+    |> Email.newsletter("[Test] " <> subject, body, format)
     |> Mailer.deliver()
   end
 

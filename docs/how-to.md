@@ -510,6 +510,27 @@ loaded it (because you saved it in Obsidian in the meantime), the save is
 refused and you choose which version to keep. The one you do not keep goes to
 the vault's `.trash` folder rather than being thrown away.
 
+**The editor changes only what you type.** It works on the file's own text, the
+way Obsidian does, and never rewrites the rest: a list stays numbered the way
+it was, and a file Obsidian saved with Windows line endings keeps them. Over
+the text it draws a few helps, none of which change a character:
+
+- **Live** sets headings large and fades the `**` and `#` marks, as Obsidian's
+  Live Preview does. A task's box can be ticked, which types the `x` for you.
+- **`/` at the start of a line** offers a heading, a list, a quote, a table, a
+  footnote, or a frame or roll to embed.
+- **`[[`** offers posts and logs to link to, and **`![[`** offers rolls, frames
+  and rides to embed. Type `012/` for the frames of roll 12. On a `related:`
+  line it offers pieces, and on a `keywords:` line the keywords in use.
+- **Outline** lists the headings, to jump between them. The words and minutes
+  to read are counted underneath.
+- **Zen** gives the text the whole window. Escape leaves.
+- **Media** opens a drawer of uploaded images and film. Type the words that go
+  with one, then press Insert.
+
+The same editor writes the fitness wiki and days, the files under the Files
+tab, a newsletter, and a log's notes.
+
 ### Keywords
 
 `keywords:` in the frontmatter is what powers the filter buttons on `/blog`.
@@ -730,6 +751,12 @@ and the header that lets a mail program offer a one-click unsubscribe.
 
 Unsubscribing never deletes anybody. It marks them inactive, so re-adding the
 same address cannot start mailing them again by accident.
+
+A newsletter is written in Markdown, like a post, and set the way a post is:
+`![[roll012/3]]` puts a frame in the letter, and a link to `/blog/…` is made
+into a full address, so it works from a mail program. The plain-text copy every
+letter carries is the Markdown itself. Letters drafted before this were HTML,
+and still open and send as HTML.
 
 ---
 

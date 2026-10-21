@@ -69,7 +69,8 @@ defmodule WebWeb.LogsLive.Show do
   defp post_of(_log), do: nil
 
   defp og_description(log) do
-    presence(log.description) || presence(log.caption) || "A captain's log recording."
+    presence(Web.Markdown.to_text(log.description)) || presence(log.caption) ||
+      "A captain's log recording."
   end
 
   # The id in the payload is attacker-controlled and this page has exactly one
@@ -125,7 +126,9 @@ defmodule WebWeb.LogsLive.Show do
 
         <div :if={presence(@log.description)} class="log-notes">
           <h2 class="log-notes-head">Notes</h2>
-          <p>{@log.description}</p>
+          <%!-- Notes are Markdown, written in the admin's editor, and set as a
+                post's body is (embeds too). --%>
+          <div class="log-notes-body">{raw(Web.Blog.to_html(@log.description))}</div>
         </div>
 
         <footer :if={Log.keyword_list(@log) != []} class="log-filed">

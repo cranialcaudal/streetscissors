@@ -107,6 +107,55 @@ defmodule WebWeb.AdminLive.NewsletterTest do
       assert render(view) =~ "Test sent to me@example.com."
     end
 
+    test "the body is Markdown: set as a post is, with links that work from a mail client",
+         %{conn: conn} do
+      Repo.insert!(%Subscriber{email: "sub1@example.com", active: true})
+      {:ok, view, _html} = live(conn, "/admin/newsletter")
+      assert has_element?(view, "#newsletter-body[phx-hook=DocumentEditor][data-complete=blog]")
+
+      body = "A **new** roll is up: [the archive](/negatives)."
+
+      view |> form("#newsletter-form", %{"subject" => "Roll", "body" => body}) |> render_change()
+      srcdoc = view |> element("#newsletter-preview") |> render()
+      assert srcdoc =~ "&lt;strong&gt;new&lt;/strong&gt;"
+
+      view |> form("#newsletter-form", %{"subject" => "Roll", "body" => body}) |> render_submit()
+      Oban.drain_queue(queue: :mailers, with_scheduled: true)
+
+      assert_email_sent(fn email ->
+        assert email.html_body =~ "<strong>new</strong>"
+        assert email.html_body =~ ~s(href="#{WebWeb.Endpoint.url()}/negatives")
+        # The plain part is the Markdown itself, which reads as plain text.
+        assert email.text_body =~ "A **new** roll is up"
+      end)
+
+      assert [%{format: "markdown"}] = Newsletter.list_sent()
+    end
+
+    test "a draft written in HTML before stays HTML", %{conn: conn} do
+      {:ok, draft} =
+        Newsletter.save_draft(%{"subject" => "Old", "body" => "<p>Kept <b>as is</b></p>", "format" => "html"})
+
+      {:ok, view, _html} = live(conn, "/admin/newsletter")
+
+      view
+      |> element(~s(button[phx-click=open_draft][phx-value-id="#{draft.id}"]))
+      |> render_click()
+
+      assert has_element?(view, "#newsletter-html[data-complete=none]")
+      assert_push_event(view, "editor:set", %{id: "newsletter-html", content: "<p>Kept <b>as is</b></p>"})
+
+      view
+      |> form("#newsletter-form", %{"subject" => "Old", "body" => "<p>Kept <b>as is</b></p>"})
+      |> render_change()
+
+      view
+      |> form("#newsletter-test-form", %{"test_email" => "me@example.com"})
+      |> render_submit()
+
+      assert_email_sent(fn email -> assert email.html_body =~ "<p>Kept <b>as is</b></p>" end)
+    end
+
     test "a test with nothing written is refused", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/admin/newsletter")
 

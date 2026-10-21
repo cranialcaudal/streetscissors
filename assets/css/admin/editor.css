@@ -1,0 +1,249 @@
+/* ── The document editor (WebWeb.DocumentEditor, assets/js/editor/) ─────
+   CodeMirror over the file's own text. The editor draws classes, never
+   colours; every colour here is a studio token, so light and dark follow. */
+
+.admin-layout .adm-ed {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  background: var(--st-surface);
+}
+
+/* The bar: Live, Outline, Zen, Media. Targets stay at 40px (44 on phones). */
+.admin-layout .adm-ed-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.admin-layout .adm-ed-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: var(--st-radius-sm);
+  background: transparent;
+  color: var(--st-ink-2);
+  font: inherit;
+  font-size: var(--st-fs-sm);
+  cursor: pointer;
+}
+
+.admin-layout .adm-ed-tool:hover,
+.admin-layout .adm-ed-tool:focus-visible {
+  background: var(--st-raised);
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-ed-tool[aria-pressed="true"] {
+  color: var(--st-accent);
+}
+
+/* Until CodeMirror is in (or with no JavaScript) the textarea is the editor.
+   The hook never touches the textarea's attributes, which LiveView would
+   reset, so the switch is made here. */
+.admin-layout .adm-ed:has(.cm-editor) .adm-ed-input {
+  display: none;
+}
+
+.admin-layout .adm-ed-frame {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--st-surface);
+}
+
+.admin-layout .adm-ed-input {
+  width: 100%;
+  min-height: var(--adm-ed-height, 62vh);
+  border: 0;
+  border-radius: 0 0 var(--st-radius-sm) var(--st-radius-sm);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-sm);
+}
+
+.admin-layout .adm-ed-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.admin-layout .adm-ed-cm .cm-editor {
+  min-height: var(--adm-ed-height, 62vh);
+  font-size: var(--st-fs-sm);
+  line-height: 1.6;
+}
+
+.admin-layout .adm-ed-cm .cm-editor.cm-focused {
+  outline: 2px solid var(--st-accent);
+  outline-offset: -2px;
+}
+
+.admin-layout .adm-ed-cm .cm-scroller {
+  min-height: var(--adm-ed-height, 62vh);
+}
+
+.admin-layout .adm-ed-status {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid var(--st-line);
+  color: var(--st-ink-3);
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The outline, beside the text when there is room, above it when not. */
+.admin-layout .adm-ed-outline {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--st-line);
+  font-size: var(--st-fs-sm);
+}
+
+.admin-layout .adm-ed-outline ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-ed-outline button {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  background: none;
+  color: var(--st-ink-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-layout .adm-ed-outline button:hover,
+.admin-layout .adm-ed-outline button:focus-visible {
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-ed-outline-h2 { padding-left: 0.75rem; }
+.admin-layout .adm-ed-outline-h3,
+.admin-layout .adm-ed-outline-h4,
+.admin-layout .adm-ed-outline-h5,
+.admin-layout .adm-ed-outline-h6 { padding-left: 1.5rem; }
+
+/* ── The text's own marks ── */
+
+.admin-layout .adm-md-h { color: var(--st-ink); font-weight: 600; }
+.admin-layout .adm-md-strong { font-weight: 700; }
+.admin-layout .adm-md-em { font-style: italic; }
+.admin-layout .adm-md-strike { text-decoration: line-through; }
+.admin-layout .adm-md-link { color: var(--st-accent); }
+.admin-layout .adm-md-code { color: var(--st-ink-2); }
+.admin-layout .adm-md-quote { color: var(--st-ink-2); font-style: italic; }
+.admin-layout .adm-md-mark,
+.admin-layout .adm-md-list { color: var(--st-ink-3); }
+.admin-layout .adm-md-front { color: var(--st-ink-3); background: var(--st-raised); }
+
+/* Obsidian's syntax reads as one token: an embed, a wiki link, a footnote. */
+.admin-layout .adm-md-embed,
+.admin-layout .adm-md-wiki,
+.admin-layout .adm-md-footnote {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--st-accent) 12%, transparent);
+  color: var(--st-ink);
+}
+
+/* Live: the page's shape over the same text. */
+.admin-layout .adm-ed-frame.is-live .cm-content { font-family: var(--st-font-display); font-size: var(--st-fs-lg); }
+.admin-layout .adm-ed-frame.is-live .adm-md-front { font-family: var(--st-font-data); font-size: var(--st-fs-sm); }
+.admin-layout .adm-md-line-h1 { font-size: 1.6em; }
+.admin-layout .adm-md-line-h2 { font-size: 1.35em; }
+.admin-layout .adm-md-line-h3 { font-size: 1.15em; }
+.admin-layout .adm-md-hide { opacity: 0.25; font-size: 0.8em; }
+.admin-layout .adm-md-task { margin: 0 0.35rem 0 0; vertical-align: middle; }
+
+/* ── Zen: the text alone, the whole window ── */
+
+html.adm-zen-open { overflow: hidden; }
+
+.admin-layout .adm-ed-frame.is-zen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+}
+
+.admin-layout .adm-ed-frame.is-zen .adm-ed-cm {
+  flex: 1;
+  overflow: auto;
+}
+
+.admin-layout .adm-ed-frame.is-zen .adm-ed-cm .cm-content {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* ── The media drawer ── */
+
+.admin-layout .adm-ed-media {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--st-line);
+  background: var(--st-raised);
+}
+
+.admin-layout .adm-ed-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-ed-media-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-layout .adm-ed-media-pick,
+.admin-layout .adm-ed-media-item > .adm-ed-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+
+.admin-layout .adm-ed-media-item img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--st-bay);
+}
+
+.admin-layout .adm-ed-media-item input {
+  min-height: 40px;
+  font-size: var(--st-fs-xs);
+}
+
+.admin-layout .adm-ed-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* A short field (a log's notes). */
+.admin-layout .adm-ed--short {
+  --adm-ed-height: 10rem;
+}
+
+@media (max-width: 640px) {
+  .admin-layout .adm-ed-tool { min-height: 44px; min-width: 44px; }
+  .admin-layout .adm-ed-tool span:not(.adm-ed-icon) { display: none; }
+}

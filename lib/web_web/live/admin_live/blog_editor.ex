@@ -15,15 +15,21 @@ defmodule WebWeb.AdminLive.BlogEditor do
   save this one over it, in which case the replaced version goes to the
   vault's `.trash/` first. Either way neither edit is destroyed.
 
-  The `.PostEditor` hook adds the two things a textarea lacks: ⌘S / Ctrl+S
-  saves, and leaving the page with unsaved text asks first.
+  The text is edited in `WebWeb.DocumentEditor` (CodeMirror over the file's
+  own text, so nothing untyped changes): ⌘S / Ctrl+S saves, `[[` and `![[`
+  offer posts, logs, rolls, frames and rides, and leaving with unsaved text
+  asks first (the form's `data-dirty`). When the server changes the text
+  itself (publishing edits the `draft:` line; taking the version on disk), it
+  tells the editor with `DocumentEditor.set/3`.
   """
 
   use WebWeb, :live_view
 
   import WebWeb.AdminComponents
+  import WebWeb.DocumentEditor, only: [document_editor: 1]
 
   alias Web.Blog
+  alias WebWeb.DocumentEditor
 
   def mount(%{"slug" => slug}, session, socket) do
     if session["admin_user"] do
@@ -38,6 +44,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
              saved: content,
              conflict: nil
            )
+           |> DocumentEditor.attach()
            |> put_content(content)}
 
         _ ->
@@ -56,13 +63,16 @@ defmodule WebWeb.AdminLive.BlogEditor do
   end
 
   # The submitter says what the save is for: plain, or publishing with it.
-  def handle_event("save", %{"content" => content} = params, socket) do
+  def handle_event("save", %{"content" => typed} = params, socket) do
     content =
       case params["then"] do
-        "publish" -> Blog.mark_draft(content, false)
-        "unpublish" -> Blog.mark_draft(content, true)
-        _ -> content
+        "publish" -> Blog.mark_draft(typed, false)
+        "unpublish" -> Blog.mark_draft(typed, true)
+        _ -> typed
       end
+
+    # Publishing rewrote the draft line: the editor is shown the new text.
+    socket = if content == typed, do: socket, else: DocumentEditor.set(socket, "post-source", content)
 
     {:noreply, socket |> put_content(content) |> save([])}
   end
@@ -74,6 +84,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
      socket
      |> assign(revision: revision, saved: content, conflict: nil)
      |> put_content(content)
+     |> DocumentEditor.set("post-source", content)
      |> put_flash(:info, "Loaded the file as it is on disk.")}
   end
 
@@ -114,8 +125,12 @@ defmodule WebWeb.AdminLive.BlogEditor do
     assign(socket, content: content, post: post, html: Blog.to_html(post.body))
   end
 
+  defp lf(text), do: String.replace(text, "\r\n", "\n")
+
   def render(assigns) do
-    assigns = assign(assigns, :dirty, assigns.content != assigns.saved)
+    # A browser sends \n where the file may have \r\n (Web.SourceFile puts
+    # them back on save), so line endings alone are not unsaved work.
+    assigns = assign(assigns, :dirty, lf(assigns.content) != lf(assigns.saved))
 
     ~H"""
     <.page_head slug="Writing / Blog / Edit" title={@post.title}>
@@ -174,7 +189,6 @@ defmodule WebWeb.AdminLive.BlogEditor do
       class="adm-editor adm-editor--post"
       phx-change="change"
       phx-submit="save"
-      phx-hook=".PostEditor"
       data-dirty={to_string(@dirty)}
     >
       <div class="adm-editor-body">
@@ -183,14 +197,15 @@ defmodule WebWeb.AdminLive.BlogEditor do
           <.pill :if={@dirty} tone="held">unsaved</.pill>
           <.pill :if={!@dirty} tone="quiet">saved</.pill>
         </p>
-        <textarea
+        <.document_editor
           id="post-source"
           name="content"
-          class="adm-input adm-input--code"
-          phx-debounce="300"
-          spellcheck="true"
-          aria-label={"Source of #{@slug}.md"}
-        >{@content}</textarea>
+          value={@content}
+          complete="blog"
+          media
+          debounce="300"
+          label={"Source of #{@slug}.md"}
+        />
       </div>
 
       <div class="adm-editor-body" id="post-preview">
@@ -231,33 +246,6 @@ defmodule WebWeb.AdminLive.BlogEditor do
         <div class="adm-prose">{raw(@html)}</div>
       </div>
     </form>
-    <script :type={Phoenix.LiveView.ColocatedHook} name=".PostEditor">
-      // The two things a textarea lacks: Cmd/Ctrl+S saves, and leaving with
-      // unsaved text asks first. Whether there is unsaved text is the
-      // server's to say (data-dirty), so the guard and the pill never disagree.
-      export default {
-        mounted() {
-          this.onKey = (event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-              event.preventDefault()
-              this.el.requestSubmit()
-            }
-          }
-          this.onLeave = (event) => {
-            if (this.el.dataset.dirty === "true") {
-              event.preventDefault()
-              event.returnValue = ""
-            }
-          }
-          window.addEventListener("keydown", this.onKey)
-          window.addEventListener("beforeunload", this.onLeave)
-        },
-        destroyed() {
-          window.removeEventListener("keydown", this.onKey)
-          window.removeEventListener("beforeunload", this.onLeave)
-        }
-      }
-    </script>
     """
   end
 end
