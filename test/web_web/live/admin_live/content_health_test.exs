@@ -1,5 +1,11 @@
 defmodule WebWeb.AdminLive.ContentHealthTest do
   use WebWeb.ConnCase
+
+  # The report renders every page it checks, which takes a quarter of a second
+  # to half a second here; render_async's default wait is 100 ms, so it passed
+  # on a fast machine and failed on a loaded one (CI's two cores, or this one
+  # held to a single core).
+  @report_wait 10_000
   import Phoenix.LiveViewTest
 
   defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
@@ -35,7 +41,7 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
     {:ok, view, html} = live(admin_conn(conn), "/admin/health")
     assert html =~ "Reading the vault"
 
-    html = render_async(view)
+    html = render_async(view, @report_wait)
 
     assert html =~ "things to look at"
     assert has_element?(view, "#broken code", "/blog/renamed-away")
@@ -57,7 +63,7 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
     """)
 
     {:ok, view, _html} = live(admin_conn(conn), "/admin/health")
-    render_async(view)
+    render_async(view, @report_wait)
 
     assert has_element?(view, "#health-broken", "Every link on the site leads somewhere.")
     assert has_element?(view, "#health-embeds", "Every embed found what it names.")
@@ -66,12 +72,12 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
 
   test "check again reads the vault as it is now", %{conn: conn, blog: blog} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/health")
-    render_async(view)
+    render_async(view, @report_wait)
     refute has_element?(view, "#broken code", "/blog/renamed-away")
 
     File.write!(Path.join(blog, "linker.md"), "[Gone](/blog/renamed-away)\n")
     view |> element("button", "Check again") |> render_click()
-    render_async(view)
+    render_async(view, @report_wait)
 
     assert has_element?(view, "#broken code", "/blog/renamed-away")
   end
