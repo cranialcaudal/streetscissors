@@ -45,6 +45,11 @@ fi
 unset DATABASE_PATH BACKUP_PATH CONTENT_BACKUP_PATH INDEXNOW_KEY
 unset BACKUP_MIRROR_PATH PHOTOS_MIRROR_PATH CONTENT_MIRROR_PATH UPLOADS_MIRROR_PATH
 export UPLOADS_PATH="${UPLOADS_PATH:-$DATA/uploads}"
+# The service and start_prod.sh set these two from the checkout. .env may still
+# hold the old container's /app/content/... paths, which would leave the
+# preview's blog and training pages empty.
+export BLOG_PATH="$ROOT/content/blog"
+export FITNESS_PATH="$ROOT/content/fitness"
 export PREVIEW=1
 export PORT=4100
 export MIX_ENV=dev
