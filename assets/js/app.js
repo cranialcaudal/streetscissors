@@ -31,6 +31,7 @@ import { DocumentEditor } from "./document_editor"
 import { initEmissionsControls } from "./emissions_controls"
 import { initEngland } from "./england"
 import { initChrist } from "./christ"
+import { initHomePreviews } from "./home_previews"
 
 document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
 window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
@@ -297,6 +298,11 @@ if (
       .catch((err) => console.debug("[PWA] SW register skipped:", err))
   })
 }
+
+// The homepage's newest log plays a few silent seconds on hover (or in view
+// on a phone): assets/js/home_previews.js. Nothing on any other page.
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initHomePreviews)
+else initHomePreviews()
 
 // The England trip's pages: tabs, the calendar's day links, the packing list
 // and the call clocks (assets/js/england.js). Nothing on any other page.

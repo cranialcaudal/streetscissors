@@ -531,6 +531,12 @@ the text it draws a few helps, none of which change a character:
 The same editor writes the fitness wiki and days, the files under the Files
 tab, a newsletter, and a log's notes.
 
+**A post's picture.** The homepage shows the newest post with a picture. An
+`image:` line in the frontmatter chooses it: a frame (`image: 065/6`), a roll's
+contact sheet (`image: roll065`), or an uploaded image. Without one, the first
+frame or picture the post shows is used, and a post with none has its title set
+large instead.
+
 ### Keywords
 
 `keywords:` in the frontmatter is what powers the filter buttons on `/blog`.

@@ -7,6 +7,11 @@ date: "2026-05-30"
 # native tags: key is read as an alias. Values are normalized, so
 # "Bowling Green" files as "bowling-green".
 keywords: film, darkroom, valley
+# image is the post's picture on the homepage: a frame (065/6), a roll's
+# contact sheet (roll065), or an uploaded image (/uploads/images/x.jpg).
+# Optional: without it, the first frame or picture the post shows is used,
+# and without one of those, the title is set large instead.
+# image: 065/6
 ---
 
 Start writing your post here...

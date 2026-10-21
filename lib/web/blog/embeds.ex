@@ -107,6 +107,63 @@ defmodule Web.Blog.Embeds do
   @r_keywords ~w(function library for if in)
 
   @doc """
+  The first picture a post embeds (`![[roll012/3]]` a frame, `![[roll012]]`
+  its sheet), as `picture/2` gives it, or nil. Rides and figures are not
+  pictures of the post; an embed naming nothing is skipped.
+  """
+  def first_picture(markdown) when is_binary(markdown) do
+    @embed_re
+    |> Regex.scan(markdown)
+    |> Enum.find_value(fn
+      [_full, target] -> picture(String.trim(target), nil)
+      [_full, target, caption] -> picture(String.trim(target), caption)
+    end)
+  end
+
+  def first_picture(_markdown), do: nil
+
+  @doc """
+  An embed target as a picture: `%{url, srcset, alt}` sized for a card (960
+  wide, with the 480 and full sizes in `srcset`), or nil when it names no
+  frame or sheet that is there. `012/3` and `roll012/3` are a frame;
+  `roll012` is the roll's contact sheet.
+  """
+  def picture(target, caption) do
+    cond do
+      match = Regex.run(@frame_re, target) ->
+        [_, roll, frame] = match
+
+        with {:ok, _path} <- Negatives.frame_path(roll, frame) do
+          padded = Negatives.Roll.pad(roll)
+          n = String.to_integer(frame)
+          sized("/negatives/frame/roll#{padded}/#{n}", caption, "Roll #{padded}, frame #{n}")
+        else
+          _ -> nil
+        end
+
+      match = Regex.run(@sheet_re, target) ->
+        [_, roll] = match
+
+        case Negatives.sheet_for_roll(roll) do
+          {:ok, filename} ->
+            padded = Negatives.Roll.pad(roll)
+            sized("/negatives/preview/#{filename}", caption, "Roll #{padded}, the contact sheet")
+
+          _ ->
+            nil
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp sized(url, caption, fallback) do
+    alt = if is_binary(caption) and String.trim(caption) != "", do: String.trim(caption), else: fallback
+    %{url: Negatives.sized_url(url, 960), srcset: Negatives.srcset(url), alt: alt}
+  end
+
+  @doc """
   The embeds `transform/1` left as literal text: every `![[...]]` still
   standing in already-transformed HTML names something that is not there —
   a roll that was renumbered, a frame never printed, a ride that left Komoot.

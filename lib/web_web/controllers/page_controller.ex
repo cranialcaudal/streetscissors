@@ -14,13 +14,16 @@ defmodule WebWeb.PageController do
   alias WebWeb.SEO
 
   def home(conn, _params) do
-    # Random contact sheet for the photo hero card; nil when the
-    # negatives directory is unavailable so the card degrades to its
-    # gradient background.
-    hero_sheet =
-      case Web.Negatives.list_contact_sheets() do
-        [] -> nil
-        sheets -> Enum.random(sheets)
+    # The newest work, with its pictures (Web.Happening, cached ten
+    # minutes): the newest post on the Blog tile, the newest roll as the
+    # photo hero (nil without a negatives folder, and the card keeps its
+    # paper ground), the newest log and prints in the Lately strip.
+    happening = Web.Happening.get()
+    lately = happening.lately
+    {latest_post, more_posts} =
+      case lately.posts do
+        [first | rest] -> {first, rest}
+        [] -> {nil, []}
       end
 
     author = SEO.author_name()
@@ -33,7 +36,6 @@ defmodule WebWeb.PageController do
 
     conn
     |> assign(:is_home, true)
-    |> assign(:hero_sheet, hero_sheet)
     |> assign(:page_title, title)
     |> assign(:og_title, title)
     |> assign(:og_description, desc)
@@ -46,7 +48,11 @@ defmodule WebWeb.PageController do
       spotify_playlist_id:
         Web.SiteSettings.get_setting("spotify_playlist_id", "37i9dQZF1DXcBWIGoYBM5M"),
       site_description: site_description(),
-      happening: Web.Happening.get()
+      happening: happening,
+      lately: lately,
+      hero: lately.roll,
+      latest_post: latest_post,
+      more_posts: more_posts
     )
   end
 

@@ -80,8 +80,93 @@ defmodule Web.Happening do
         reading: safe(fn -> reading() end, nil)
       },
       fresh: safe(fn -> fresh(today) end, []),
-      witnessed: safe(fn -> witnessed(today) end, [])
+      witnessed: safe(fn -> witnessed(today) end, []),
+      lately: %{
+        posts: safe(fn -> lately_posts() end, []),
+        roll: safe(fn -> lately_roll() end, nil),
+        log: safe(fn -> lately_log() end, nil)
+      }
     }
+  end
+
+  # ── Lately: the newest work, with its pictures, for the homepage's tiles
+  # and strip. Published things only, through the same public lists the
+  # pages read.
+
+  # The three newest posts, each with its picture (Blog.cover/1). The list
+  # carries no bodies, so the three are read whole.
+  defp lately_posts do
+    for %{slug: slug} <- Enum.take(Blog.list_posts(), 3),
+        {:ok, post} <- [Blog.get_post(slug)] do
+      %{
+        title: post.title,
+        path: "/blog/#{post.slug}",
+        date: post.date,
+        excerpt: post.excerpt,
+        read_min: post.read_min,
+        cover: Blog.cover(post)
+      }
+    end
+  end
+
+  # The newest roll by its sheet's date, with up to four of its prints.
+  defp lately_roll do
+    sheet =
+      Negatives.list_contact_sheets()
+      |> Enum.flat_map(fn sheet ->
+        case Date.from_iso8601(to_string(sheet.date)) do
+          {:ok, date} -> [{date, sheet}]
+          _ -> []
+        end
+      end)
+      |> Enum.max_by(fn {date, sheet} -> {Date.to_gregorian_days(date), sheet.roll_num} end, fn -> nil end)
+
+    case sheet do
+      nil ->
+        nil
+
+      {date, sheet} ->
+        prints = safe(fn -> Negatives.list_frames(sheet.roll) end, [])
+        meta = sheet.meta || %{}
+
+        %{
+          roll: sheet.roll,
+          path: "/negatives/roll/#{sheet.roll}",
+          date: date,
+          preview_url: sheet.preview_url,
+          film: Map.get(meta, :film),
+          camera: Map.get(meta, :camera),
+          place: Map.get(meta, :place),
+          count: length(prints),
+          prints:
+            prints
+            |> Enum.take(4)
+            |> Enum.map(fn f ->
+              %{
+                frame: f.frame,
+                url: f.url,
+                path: "/negatives/roll/#{sheet.roll}/frame/#{f.frame}"
+              }
+            end)
+        }
+    end
+  end
+
+  defp lately_log do
+    case Web.Logs.list_ready_logs() do
+      [l | _] ->
+        %{
+          title: Web.Logs.Log.title(l),
+          caption: l.caption,
+          path: "/logs/#{l.slug}",
+          poster: Web.Logs.Log.poster_url(l),
+          duration: l.duration,
+          video: if(Web.Logs.Log.video?(l), do: Web.Logs.Log.media_url(l))
+        }
+
+      [] ->
+        nil
+    end
   end
 
   @doc "The block's week in a line: `Get Sharp · Week 1 of 8 — Baseline`."
@@ -220,7 +305,13 @@ defmodule Web.Happening do
   defp piece(path) do
     with {:ok, ref} <- Pieces.from_path(path),
          {:ok, piece} <- Pieces.resolve(ref) do
-      {:ok, %{kind: kind_word(piece.kind), title: piece.title, path: piece.path}}
+      {:ok,
+       %{
+         kind: kind_word(piece.kind),
+         title: piece.title,
+         path: piece.path,
+         image: Map.get(piece, :image)
+       }}
     else
       _ -> roll_piece(path)
     end
@@ -228,8 +319,15 @@ defmodule Web.Happening do
 
   defp roll_piece(path) do
     with ["negatives", "roll", roll] <- String.split(path, "/", trim: true),
-         %{roll: padded} <- Enum.find(Negatives.list_contact_sheets(), &(&1.roll == pad(roll))) do
-      {:ok, %{kind: "Negatives", title: "Roll #{padded}", path: "/negatives/roll/#{padded}"}}
+         %{roll: padded} = sheet <-
+           Enum.find(Negatives.list_contact_sheets(), &(&1.roll == pad(roll))) do
+      {:ok,
+       %{
+         kind: "Negatives",
+         title: "Roll #{padded}",
+         path: "/negatives/roll/#{padded}",
+         image: sheet.preview_url
+       }}
     else
       _ -> :error
     end
