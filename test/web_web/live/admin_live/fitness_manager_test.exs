@@ -45,7 +45,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     assert html =~ ~s(class="adm-prose")
     assert html =~ "A fixture exercise page."
     # Still in the form while previewing, so a save carries the body.
-    assert has_element?(view, "#editor-form textarea[name='exercise[content]'][hidden]")
+    assert has_element?(view, "#editor-form .adm-ed[hidden] textarea[name='exercise[content]']")
   end
 
   test "the editor is the document editor, and its preview reads [[wiki]] links as the site does",
@@ -56,7 +56,11 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     |> element(~s(button[phx-click=edit_exercise][phx-value-slug="push-ups"]))
     |> render_click()
 
-    assert has_element?(view, "#wiki-exercise-push-ups[phx-hook=DocumentEditor][data-complete=fitness]")
+    assert has_element?(
+             view,
+             "#wiki-exercise-push-ups[phx-hook=DocumentEditor][data-complete=fitness]"
+           )
+
     assert_push_event(view, "editor:set", %{id: "wiki-exercise-push-ups"})
 
     view
@@ -147,7 +151,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
 
     {:ok, view, html} = live(admin_conn(conn), "/admin/fitness?tab=files")
     assert html =~ "Reads as:"
-    assert has_element?(view, ~s(a[href="/admin/fitness?tab=files&file=block:test-block"]))
+    assert has_element?(view, ~s(a[href="/admin/fitness?tab=files&file=block%3Atest-block"]))
 
     broken = before <> "\n- 7.15-08:00 strength A typo\n"
     view |> form("#source-form", source: %{content: broken}) |> render_change()

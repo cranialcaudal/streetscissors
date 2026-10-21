@@ -149,7 +149,10 @@ defmodule Web.GuestbookTest do
     test "delete_guestbook_entry/1 deletes the guestbook_entry" do
       guestbook_entry = guestbook_entry_fixture()
       assert {:ok, %GuestbookEntry{}} = Guestbook.delete_guestbook_entry(guestbook_entry)
-      assert_raise Ecto.NoResultsError, fn -> Guestbook.get_guestbook_entry!(guestbook_entry.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Guestbook.get_guestbook_entry!(guestbook_entry.id)
+      end
     end
 
     test "change_guestbook_entry/1 returns a guestbook_entry changeset" do

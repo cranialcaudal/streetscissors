@@ -371,13 +371,13 @@ defmodule WebWeb.AdminLive.DashboardTest do
       assert has_element?(view, "#figures", "Views in 56 weeks")
     end
 
-    test "the full machine and the most viewed are there, closed", %{conn: conn} do
+    test "the full machine and the views are there, closed", %{conn: conn} do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
       render_async(view)
 
       assert has_element?(view, "details#machine > summary", "The machine in full")
       assert has_element?(view, "details#machine #system", "Database snapshots")
-      assert has_element?(view, "details#most-viewed > summary", "Most viewed")
+      assert has_element?(view, "details#most-viewed > summary", "Views and visitors")
       assert has_element?(view, "details#most-viewed", "No views recorded yet.")
       refute has_element?(view, "details[open]")
     end

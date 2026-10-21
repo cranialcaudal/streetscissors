@@ -84,9 +84,14 @@ defmodule WebWeb.AdminLive.QuickAdd do
       line = "#{exercise.name}: #{Fitness.entry_line(log)}"
       {:noreply, socket |> assign(last: line) |> put_flash(:info, "Logged #{line}.")}
     else
-      nil -> {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
-      false -> {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
-      _ -> {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
+      nil ->
+        {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
+
+      false ->
+        {:noreply, put_flash(socket, :error, "Enter at least one value to log.")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
     end
   end
 
@@ -98,8 +103,11 @@ defmodule WebWeb.AdminLive.QuickAdd do
     }
 
     case Fitness.save_checkin(attrs, socket.assigns.checks) do
-      {:ok, _} -> {:noreply, socket |> assign_answers() |> put_flash(:info, "Check-in saved.")}
-      {:error, _} -> {:noreply, put_flash(socket, :error, "Check-in not saved: check the numbers.")}
+      {:ok, _} ->
+        {:noreply, socket |> assign_answers() |> put_flash(:info, "Check-in saved.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Check-in not saved: check the numbers.")}
     end
   end
 
@@ -144,11 +152,25 @@ defmodule WebWeb.AdminLive.QuickAdd do
       <div class="adm-form-row">
         <label class="adm-field">
           <span class="adm-label">Sets</span>
-          <input type="number" name="log[sets]" min="1" max="20" inputmode="numeric" class="adm-input" />
+          <input
+            type="number"
+            name="log[sets]"
+            min="1"
+            max="20"
+            inputmode="numeric"
+            class="adm-input"
+          />
         </label>
         <label class="adm-field">
           <span class="adm-label">Reps</span>
-          <input type="number" name="log[reps]" min="1" max="200" inputmode="numeric" class="adm-input" />
+          <input
+            type="number"
+            name="log[reps]"
+            min="1"
+            max="200"
+            inputmode="numeric"
+            class="adm-input"
+          />
         </label>
         <label class="adm-field">
           <span class="adm-label">Weight</span>
@@ -162,7 +184,12 @@ defmodule WebWeb.AdminLive.QuickAdd do
       <div class="adm-form-row">
         <label class="adm-field">
           <span class="adm-label">Time or distance</span>
-          <input type="text" name="log[result]" placeholder="e.g. 2 miles, 8:26 pace" class="adm-input" />
+          <input
+            type="text"
+            name="log[result]"
+            placeholder="e.g. 2 miles, 8:26 pace"
+            class="adm-input"
+          />
         </label>
         <label class="adm-field">
           <span class="adm-label">Day</span>
@@ -181,7 +208,9 @@ defmodule WebWeb.AdminLive.QuickAdd do
       </label>
       <p :if={@last} class="adm-help" id="quick-last">Last logged: {@last}</p>
       <div>
-        <button type="submit" class="adm-btn adm-btn--primary" phx-disable-with="Saving…">Log it</button>
+        <button type="submit" class="adm-btn adm-btn--primary" phx-disable-with="Saving…">
+          Log it
+        </button>
       </div>
     </form>
 
@@ -240,11 +269,18 @@ defmodule WebWeb.AdminLive.QuickAdd do
       </label>
       <label class="adm-field">
         <span class="adm-label">Keywords</span>
-        <input type="text" name="note[keywords]" placeholder="optional, comma-separated" class="adm-input" />
+        <input
+          type="text"
+          name="note[keywords]"
+          placeholder="optional, comma-separated"
+          class="adm-input"
+        />
       </label>
       <p class="adm-help">Kept in content/notes/inbox.md, which no public page shows.</p>
       <div>
-        <button type="submit" class="adm-btn adm-btn--primary" phx-disable-with="Saving…">Note it</button>
+        <button type="submit" class="adm-btn adm-btn--primary" phx-disable-with="Saving…">
+          Note it
+        </button>
       </div>
     </form>
     """

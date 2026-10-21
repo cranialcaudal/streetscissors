@@ -83,8 +83,8 @@
       </button>
     </div>
   </nav>
-  
-<%!-- Bento Section: Blog + Fitness boxes with overlapping title, photo hero below --%>
+
+  <%!-- Bento Section: Blog + Fitness boxes with overlapping title, photo hero below --%>
   <section class="bento-section">
     <div class="site-title-container">
       <div class="site-title-wrap">
@@ -106,8 +106,8 @@
         </span>
       </a>
     </div>
-    
-<%!-- Full-width photo hero: a random contact sheet behind the label --%>
+
+    <%!-- Full-width photo hero: a random contact sheet behind the label --%>
     <a href={~p"/negatives?from=home"} class="bento-card bento-card-hero">
       <%= if @hero_sheet do %>
         <%!-- The largest thing on the first screen, so it is asked for
@@ -144,8 +144,8 @@
         ]}
       />
     </a>
-    
-<%!-- Fitness Sub-row: Three skinny boxes --%>
+
+    <%!-- Fitness Sub-row: Three skinny boxes --%>
     <div class="bento-fitness-sub-row bento-fitness-sub-row--three">
       <a href={~p"/logs?from=home"} class="bento-card bento-card-skinny">
         <span class="bento-label-small">Captain's Logs</span>
@@ -227,9 +227,20 @@
         </button>
       </header>
 
-      <a :if={@lately.log} href={@lately.log.path} class="new-item" data-preview={@lately.log.video}>
+      <a
+        :if={@lately.log}
+        href={@lately.log.path}
+        class="new-item"
+        data-preview={@lately.log.video}
+      >
         <span class="new-plate new-plate--video">
-          <img :if={@lately.log.poster} src={@lately.log.poster} alt="" loading="lazy" decoding="async" />
+          <img
+            :if={@lately.log.poster}
+            src={@lately.log.poster}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
           <svg class="new-play" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="11" />
             <path d="M10 8l6 4-6 4z" />
@@ -260,7 +271,9 @@
         <span class="new-text">
           <span class="new-kind">Writing</span>
           <span class="new-name">{post.title}</span>
-          <span class="new-meta">{Calendar.strftime(post.date, "%-d %b")} · {post.read_min} min</span>
+          <span class="new-meta">
+            {Calendar.strftime(post.date, "%-d %b")} · {post.read_min} min
+          </span>
         </span>
       </a>
 

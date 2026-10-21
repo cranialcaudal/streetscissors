@@ -87,6 +87,11 @@ config :web, :darkroom_scratch, "streetscissors-darkroom-test"
 # database can see them (Web.Cuts).
 config :web, :cuts_async, false
 
+# A visit's hit is inserted in a supervised task on the site; inline here, so a
+# test can count it as soon as the request returns, and no task outlives its
+# test's database connection.
+config :web, :analytics_async, false
+
 # The print editor's repairs (Web.Darkroom.Repair): a stub stands in for the
 # Python that runs LaMa.
 config :web, :film_repair_python, Path.expand("../test/support/stub_film_repair", __DIR__)

@@ -18,7 +18,8 @@ defmodule Web.BlogCacheTest do
     %{dir: dir}
   end
 
-  defp post(title, extra \\ ""), do: "---\ntitle: #{title}\ndate: 2026-09-01\n#{extra}---\n\nWords.\n"
+  defp post(title, extra \\ ""),
+    do: "---\ntitle: #{title}\ndate: 2026-09-01\n#{extra}---\n\nWords.\n"
 
   test "a post saved again is read again, however it was saved", %{dir: dir} do
     path = Path.join(dir, "harbour.md")

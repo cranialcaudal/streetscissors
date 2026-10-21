@@ -193,7 +193,21 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     controls =
       Map.merge(kept, Darkroom.clean_controls(Map.take(params, shown), socket.assigns.schema))
 
-    {:noreply, socket |> put_recipe([controls: controls], {:slider, params["_target"]}) |> draw()}
+    # The step is the slider that moved: the browser names it in `_target`;
+    # without one, it is whichever values differ from the recipe's.
+    moved =
+      case params["_target"] do
+        nil ->
+          controls
+          |> Enum.reject(fn {id, v} -> socket.assigns.recipe.controls[id] == v end)
+          |> Enum.map(&elem(&1, 0))
+          |> Enum.sort()
+
+        target ->
+          target
+      end
+
+    {:noreply, socket |> put_recipe([controls: controls], {:slider, moved}) |> draw()}
   end
 
   def handle_event("undo", _params, %{assigns: %{history: [previous | rest]}} = socket) do
@@ -283,7 +297,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   def handle_event("apply_roll", _params, %{assigns: %{working: nil}} = socket) do
     %{dir: dir, frame: frame, frames: frames} = socket.assigns
     others = frames -- [frame]
-    {:noreply, assign(socket, roll_apply: %{others: others, edited: Enum.filter(others, &Darkroom.edited?(dir, &1))})}
+
+    {:noreply,
+     assign(socket,
+       roll_apply: %{others: others, edited: Enum.filter(others, &Darkroom.edited?(dir, &1))}
+     )}
   end
 
   def handle_event("apply_roll", _params, socket), do: {:noreply, socket}
@@ -291,7 +309,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   def handle_event("cancel_apply_roll", _params, socket),
     do: {:noreply, assign(socket, roll_apply: nil)}
 
-  def handle_event("confirm_apply_roll", _params, %{assigns: %{roll_apply: %{others: others}}} = socket) do
+  def handle_event(
+        "confirm_apply_roll",
+        _params,
+        %{assigns: %{roll_apply: %{others: others}}} = socket
+      ) do
     %{dir: dir, recipe: recipe} = socket.assigns
     controls = recipe.controls
     me = self()
@@ -309,8 +331,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   # A grey point: the author shows a patch that should be grey, on the print
   # as developed, and Temp and Tint are set to make it so (Prior.grey_point/2).
   def handle_event("pick_grey", _params, socket) do
-    {:noreply,
-     assign(socket, picking: !socket.assigns.picking, dusting: false, repairing: false)}
+    {:noreply, assign(socket, picking: !socket.assigns.picking, dusting: false, repairing: false)}
   end
 
   def handle_event("grey_point", %{"x" => x, "y" => y}, socket) do
@@ -330,7 +351,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           )
 
         colour = %{"wb.temp" => Float.round(temp / 50) * 50, "wb.tint" => Float.round(tint * 1.0)}
-        controls = socket.assigns.recipe.controls |> Map.merge(colour) |> Darkroom.clean_controls(schema)
+
+        controls =
+          socket.assigns.recipe.controls |> Map.merge(colour) |> Darkroom.clean_controls(schema)
 
         Prior.record_grey_point(%{
           roll: roll,
@@ -661,7 +684,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
     {:noreply, socket |> assign(working: nil) |> put_flash(:error, "Not printed: #{reason}")}
   end
 
-  def handle_async(:scopes, {:ok, {:ok, scopes}}, socket), do: {:noreply, assign(socket, scopes: scopes)}
+  def handle_async(:scopes, {:ok, {:ok, scopes}}, socket),
+    do: {:noreply, assign(socket, scopes: scopes)}
+
   def handle_async(:scopes, _result, socket), do: {:noreply, socket}
 
   def handle_async(:roll, {:ok, []}, socket) do
@@ -761,36 +786,67 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   defp scopes(assigns) do
     ~H"""
     <figure class="adm-dr-scopes" id="scopes" aria-label="Scopes of the preview">
-      <svg viewBox="0 0 64 32" preserveAspectRatio="none" class="adm-dr-scope" role="img" aria-label="Histogram">
+      <svg
+        viewBox="0 0 64 32"
+        preserveAspectRatio="none"
+        class="adm-dr-scope"
+        role="img"
+        aria-label="Histogram"
+      >
         <polyline
           :for={channel <- [:l, :r, :g, :b]}
           points={histogram_points(@scopes.histogram[channel])}
           class={"adm-dr-scope-line adm-dr-scope-line--#{channel}"}
         />
       </svg>
-      <svg viewBox="0 0 192 32" preserveAspectRatio="none" class="adm-dr-scope" role="img" aria-label="RGB parade">
+      <svg
+        viewBox="0 0 192 32"
+        preserveAspectRatio="none"
+        class="adm-dr-scope"
+        role="img"
+        aria-label="RGB parade"
+      >
         <g :for={{channel, i} <- Enum.with_index([:r, :g, :b])} transform={"translate(#{i * 64} 0)"}>
-          <polygon points={band_points(@scopes.parade[channel])} class={"adm-dr-scope-band adm-dr-scope-band--#{channel}"} />
-          <polyline points={mid_points(@scopes.parade[channel])} class={"adm-dr-scope-line adm-dr-scope-line--#{channel}"} />
+          <polygon
+            points={band_points(@scopes.parade[channel])}
+            class={"adm-dr-scope-band adm-dr-scope-band--#{channel}"}
+          />
+          <polyline
+            points={mid_points(@scopes.parade[channel])}
+            class={"adm-dr-scope-line adm-dr-scope-line--#{channel}"}
+          />
         </g>
       </svg>
-      <figcaption class="adm-dr-hint">Histogram and RGB parade of the preview, as the screen shows it.</figcaption>
+      <figcaption class="adm-dr-hint">
+        Histogram and RGB parade of the preview, as the screen shows it.
+      </figcaption>
     </figure>
     """
   end
 
   defp histogram_points(values) do
-    values |> Enum.with_index() |> Enum.map_join(" ", fn {v, x} -> "#{x + 0.5},#{Float.round(32 - v * 32, 2)}" end)
+    values
+    |> Enum.with_index()
+    |> Enum.map_join(" ", fn {v, x} -> "#{x + 0.5},#{Float.round(32 - v * 32, 2)}" end)
   end
 
   defp band_points(columns) do
-    top = columns |> Enum.with_index() |> Enum.map(fn {{_l, _m, h}, x} -> "#{x + 0.5},#{y(h)}" end)
-    bottom = columns |> Enum.with_index() |> Enum.reverse() |> Enum.map(fn {{l, _m, _h}, x} -> "#{x + 0.5},#{y(l)}" end)
+    top =
+      columns |> Enum.with_index() |> Enum.map(fn {{_l, _m, h}, x} -> "#{x + 0.5},#{y(h)}" end)
+
+    bottom =
+      columns
+      |> Enum.with_index()
+      |> Enum.reverse()
+      |> Enum.map(fn {{l, _m, _h}, x} -> "#{x + 0.5},#{y(l)}" end)
+
     Enum.join(top ++ bottom, " ")
   end
 
   defp mid_points(columns) do
-    columns |> Enum.with_index() |> Enum.map_join(" ", fn {{_l, m, _h}, x} -> "#{x + 0.5},#{y(m)}" end)
+    columns
+    |> Enum.with_index()
+    |> Enum.map_join(" ", fn {{_l, m, _h}, x} -> "#{x + 0.5},#{y(m)}" end)
   end
 
   defp y(value), do: Float.round(32 - value * 32, 2)
@@ -815,7 +871,9 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
         socket
 
       ids ->
-        Logger.warning("darkroom: #{whose} names settings LightCraft does not offer: #{Enum.join(ids, ", ")}")
+        Logger.warning(
+          "darkroom: #{whose} names settings LightCraft does not offer: #{Enum.join(ids, ", ")}"
+        )
 
         put_flash(
           socket,
@@ -1403,7 +1461,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
           <%!-- One edit for many prints: the sliders only; each frame keeps
                 its own crop, dust and repair. --%>
           <div class="adm-dr-actions" id="many-prints">
-            <button type="button" phx-click="copy_recipe" class="adm-btn adm-btn--small adm-btn--quiet">
+            <button
+              type="button"
+              phx-click="copy_recipe"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+            >
               Copy sliders
             </button>
             <button
@@ -1424,7 +1486,13 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               Apply to the roll
             </button>
           </div>
-          <div :if={@roll_apply} class="adm-dr-confirm" id="roll-apply" role="alertdialog" aria-labelledby="roll-apply-text">
+          <div
+            :if={@roll_apply}
+            class="adm-dr-confirm"
+            id="roll-apply"
+            role="alertdialog"
+            aria-labelledby="roll-apply-text"
+          >
             <p id="roll-apply-text">
               Print the roll's other {length(@roll_apply.others)} frames with these sliders, each
               keeping its own crop, dust and repair?
@@ -1433,7 +1501,11 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               </span>
             </p>
             <div class="adm-dr-actions">
-              <button type="button" phx-click="confirm_apply_roll" class="adm-btn adm-btn--small adm-btn--primary">
+              <button
+                type="button"
+                phx-click="confirm_apply_roll"
+                class="adm-btn adm-btn--small adm-btn--primary"
+              >
                 Print them
               </button>
               <button type="button" phx-click="cancel_apply_roll" class="adm-btn adm-btn--small">

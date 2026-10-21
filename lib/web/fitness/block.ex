@@ -118,8 +118,12 @@ defmodule Web.Fitness.Block do
         {weeks, ""} = Integer.parse(meta["weeks"])
 
         case phases(meta["phases"] || "", weeks) do
-          {:ok, _} -> :ok
-          _ -> {:error, "phases: each must be one of #{Enum.join(@phases, ", ")}, covering every week"}
+          {:ok, _} ->
+            :ok
+
+          _ ->
+            {:error,
+             "phases: each must be one of #{Enum.join(@phases, ", ")}, covering every week"}
         end
     end
   end

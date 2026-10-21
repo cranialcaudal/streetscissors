@@ -165,7 +165,10 @@ defmodule Web.Darkroom.Taste do
 
     fingerprint =
       :erlang.phash2({
-        Enum.map(prints, &{&1.dir, &1.frame, &1.stats, stamp(Darkroom.edits_path(&1.dir, &1.frame))}),
+        Enum.map(
+          prints,
+          &{&1.dir, &1.frame, &1.stats, stamp(Darkroom.edits_path(&1.dir, &1.frame))}
+        ),
         stamp(choices_path()),
         groups,
         defaults

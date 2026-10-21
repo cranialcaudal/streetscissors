@@ -1696,6 +1696,7 @@ defmodule Web.Scanner.Pipeline do
   def develop_keeper(roll_dir, frame) do
     raw = keeper_raw_path(roll_dir, frame)
     print = Path.join([roll_dir, "frames", "#{pad2(frame)}.png"])
+
     args =
       ["develop", raw, "--roll", roll_dir, "--frame", to_string(frame)] ++
         if(print_depth() == 16, do: ["--depth", "16"], else: [])
@@ -1717,6 +1718,7 @@ defmodule Web.Scanner.Pipeline do
     Task.Supervisor.start_child(Web.TaskSupervisor, fn ->
       Negatives.warm_frame_previews(Path.basename(roll_dir))
     end)
+
     :ok
   end
 
@@ -1749,8 +1751,11 @@ defmodule Web.Scanner.Pipeline do
         {command, args} = under_timeout(executable, args)
 
         case System.cmd(command, args, stderr_to_stdout: true) do
-          {_output, 124} -> {:error, "#{default} took longer than #{timeout_s()} s and was stopped"}
-          {output, status} -> {:ok, output, status}
+          {_output, 124} ->
+            {:error, "#{default} took longer than #{timeout_s()} s and was stopped"}
+
+          {output, status} ->
+            {:ok, output, status}
         end
     end
   end

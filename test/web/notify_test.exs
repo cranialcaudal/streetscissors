@@ -35,7 +35,8 @@ defmodule Web.NotifyTest do
     test "is mailed to the author, with the words and the way to approve it" do
       Notify.put_address("author@example.com")
 
-      {:ok, entry} = Guestbook.create_guestbook_entry(%{name: "Ada", message: "I read this twice."})
+      {:ok, entry} =
+        Guestbook.create_guestbook_entry(%{name: "Ada", message: "I read this twice."})
 
       assert [%{args: args}] = all_enqueued(worker: OwnerMail)
       assert args["to"] == "author@example.com"

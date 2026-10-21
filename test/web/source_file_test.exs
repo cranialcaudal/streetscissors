@@ -64,7 +64,9 @@ defmodule Web.SourceFileTest do
 
   describe "SourceCheck.check/2" do
     test "a week reads its days and blocks, and names a line it would skip" do
-      good = "## Monday\n- 07:15-08:00 strength Lower day\n\n## Tuesday\n- 06:00-07:00 swim Pool\n"
+      good =
+        "## Monday\n- 07:15-08:00 strength Lower day\n\n## Tuesday\n- 06:00-07:00 swim Pool\n"
+
       assert {:ok, "2 days, 2 blocks"} = SourceCheck.check("week", good)
 
       typo = "## Monday\n- 7.15-08:00 strength Lower day\n"
@@ -75,7 +77,9 @@ defmodule Web.SourceFileTest do
     end
 
     test "a changelog heading with a bad date is named" do
-      assert {:ok, "1 entries"} = SourceCheck.check("changelog", "## 2026-10-20 — New block\nText\n")
+      assert {:ok, "1 entries"} =
+               SourceCheck.check("changelog", "## 2026-10-20 — New block\nText\n")
+
       assert {:error, _} = SourceCheck.check("changelog", "## 2026-13-40 — Typo\n")
     end
 
@@ -86,8 +90,12 @@ defmodule Web.SourceFileTest do
 
       # 2026-10-19 is a Monday.
       assert {:ok, _} = SourceCheck.check("block:test", block.("2026-10-19"))
-      assert {:error, "start: must be a Monday"} = SourceCheck.check("block:test", block.("2026-10-20"))
-      assert {:error, "title: is missing"} = SourceCheck.check("block:test", "---\nweeks: 2\n---\n")
+
+      assert {:error, "start: must be a Monday"} =
+               SourceCheck.check("block:test", block.("2026-10-20"))
+
+      assert {:error, "title: is missing"} =
+               SourceCheck.check("block:test", "---\nweeks: 2\n---\n")
     end
   end
 end

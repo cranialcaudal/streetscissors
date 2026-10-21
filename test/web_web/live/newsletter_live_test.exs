@@ -53,7 +53,7 @@ defmodule WebWeb.NewsletterLiveTest do
     # Said inside the dialog, which covers the page's own flash group.
     assert has_element?(
              view,
-             ".glass-panel .flash-notice[role=alert]",
+             ".dialog .flash-notice[role=alert]",
              "Incorrect captcha. Please try again."
            )
 
@@ -73,7 +73,7 @@ defmodule WebWeb.NewsletterLiveTest do
 
     assert has_element?(
              view,
-             ".glass-panel .flash-notice[role=alert]",
+             ".dialog .flash-notice[role=alert]",
              "Incorrect captcha. Please try again."
            )
   end

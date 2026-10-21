@@ -276,7 +276,9 @@ defmodule Web.Darkroom do
   """
   def unknown_controls(values, schema) do
     sliders =
-      for %{"id" => id, "min" => _, "max" => _, "default" => _} <- schema, into: MapSet.new(), do: id
+      for %{"id" => id, "min" => _, "max" => _, "default" => _} <- schema,
+          into: MapSet.new(),
+          do: id
 
     values |> Map.keys() |> Enum.reject(&MapSet.member?(sliders, &1)) |> Enum.sort()
   end

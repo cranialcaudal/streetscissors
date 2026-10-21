@@ -274,7 +274,12 @@ defmodule WebWeb.NewsletterOverlayLive do
             <div :if={@contact_sent} class="dispatch-done">
               <h2 class="dispatch-done-title dispatch-done-title--loud">boom.. sent</h2>
               <p class="dispatch-done-line">Message received loud and clear.</p>
-              <button type="button" phx-click="switch_tab" phx-value-tab="contact" class="dispatch-again">
+              <button
+                type="button"
+                phx-click="switch_tab"
+                phx-value-tab="contact"
+                class="dispatch-again"
+              >
                 Send Another?
               </button>
             </div>

@@ -22,7 +22,10 @@ defmodule WebWeb.AdminLive.QuickAddTest do
     |> render_submit()
 
     assert has_element?(view, "#flash-info", "Logged Push-ups: 3 x 12.")
-    assert [%{date: date, metrics: %{"sets" => "3", "reps" => "12"}}] = Web.Fitness.list_exercise_logs()
+
+    assert [%{date: date, metrics: %{"sets" => "3", "reps" => "12"}}] =
+             Web.Fitness.list_exercise_logs()
+
     assert date == Web.Clock.local_today()
   end
 

@@ -177,7 +177,13 @@ defmodule WebWeb.FitnessLive.Index do
   end
 
   def handle_event("save_log", %{"log" => params}, %{assigns: %{logging: %{slug: slug}}} = socket) do
-    save(socket, slug, Entry.metrics(params), blank_to_nil(params["note"]), Entry.date(params["date"]))
+    save(
+      socket,
+      slug,
+      Entry.metrics(params),
+      blank_to_nil(params["note"]),
+      Entry.date(params["date"])
+    )
   end
 
   def handle_event("save_log", _params, socket), do: {:noreply, socket}
@@ -219,7 +225,9 @@ defmodule WebWeb.FitnessLive.Index do
       {:error, changeset} ->
         message =
           changeset.errors
-          |> Enum.map_join("; ", fn {_field, error} -> WebWeb.CoreComponents.translate_error(error) end)
+          |> Enum.map_join("; ", fn {_field, error} ->
+            WebWeb.CoreComponents.translate_error(error)
+          end)
 
         {:noreply, put_flash(socket, :error, "Check-in not saved: #{message}.")}
     end
@@ -460,7 +468,6 @@ defmodule WebWeb.FitnessLive.Index do
   @doc "A log entry's values in a line (`Web.Fitness.entry_line/1`)."
   def log_line(log), do: Fitness.entry_line(log)
 
-
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(v), do: v
@@ -665,7 +672,10 @@ defmodule WebWeb.FitnessLive.Index do
                         <div class="day-check-states">
                           <label
                             :for={state <- check.states}
-                            class={["day-check-state", "day-check-state--#{Checks.level(check, state)}"]}
+                            class={[
+                              "day-check-state",
+                              "day-check-state--#{Checks.level(check, state)}"
+                            ]}
                           >
                             <input
                               type="radio"

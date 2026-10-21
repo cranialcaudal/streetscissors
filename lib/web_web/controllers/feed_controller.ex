@@ -92,7 +92,8 @@ defmodule WebWeb.FeedController do
     for log <- logs do
       %{
         title: "Captain's log · " <> Log.title(log),
-        description: log.caption || nonblank(Web.Markdown.to_text(log.description)) || "A #{log.kind} log.",
+        description:
+          log.caption || nonblank(Web.Markdown.to_text(log.description)) || "A #{log.kind} log.",
         path: "/logs/#{log.slug}",
         at: log.recorded_at || noon(log.recorded_on),
         enclosure: enclosure(log)

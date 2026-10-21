@@ -72,7 +72,8 @@ defmodule WebWeb.AdminLive.BlogEditor do
       end
 
     # Publishing rewrote the draft line: the editor is shown the new text.
-    socket = if content == typed, do: socket, else: DocumentEditor.set(socket, "post-source", content)
+    socket =
+      if content == typed, do: socket, else: DocumentEditor.set(socket, "post-source", content)
 
     {:noreply, socket |> put_content(content) |> save([])}
   end

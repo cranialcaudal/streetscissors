@@ -22,7 +22,12 @@ defmodule Mix.Tasks.Darkroom.Eval do
     {:ok, %{scores: scores, previous: previous}} = Web.Darkroom.Eval.run()
 
     Mix.shell().info("#{scores["edits"]} saved edits, each left out in turn.")
-    line("Colour (hundredths of density)", scores["colour"]["mean"], previous && previous["colour"]["mean"])
+
+    line(
+      "Colour (hundredths of density)",
+      scores["colour"]["mean"],
+      previous && previous["colour"]["mean"]
+    )
 
     for {group, value} <- Enum.sort(scores["colour"]["by_group"]) do
       line("  #{group}", value, previous && get_in(previous, ["colour", "by_group", group]))
@@ -37,11 +42,13 @@ defmodule Mix.Tasks.Darkroom.Eval do
 
   defp line(label, value, before) when is_number(before) do
     change = Float.round(value - before, 4)
-    word = cond do
-      change < 0 -> "better by #{-change}"
-      change > 0 -> "WORSE by #{change}"
-      true -> "unchanged"
-    end
+
+    word =
+      cond do
+        change < 0 -> "better by #{-change}"
+        change > 0 -> "WORSE by #{change}"
+        true -> "unchanged"
+      end
 
     Mix.shell().info("#{label}: #{value} (#{word})")
   end

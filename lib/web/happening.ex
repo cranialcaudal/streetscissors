@@ -119,7 +119,9 @@ defmodule Web.Happening do
           _ -> []
         end
       end)
-      |> Enum.max_by(fn {date, sheet} -> {Date.to_gregorian_days(date), sheet.roll_num} end, fn -> nil end)
+      |> Enum.max_by(fn {date, sheet} -> {Date.to_gregorian_days(date), sheet.roll_num} end, fn ->
+        nil
+      end)
 
     case sheet do
       nil ->

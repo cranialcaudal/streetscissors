@@ -155,7 +155,9 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       view |> element("#post-conflict button", "Take the version on disk") |> render_click()
 
       refute has_element?(view, "#post-conflict")
+
       assert_push_event(view, "editor:set", %{id: "post-source", content: "Edited in Obsidian.\n"})
+
       assert File.read!(path) == "Edited in Obsidian.\n"
       assert has_element?(view, "#post-editor[data-dirty=false]")
     end

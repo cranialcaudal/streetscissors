@@ -23,7 +23,8 @@ defmodule Web.BlogCoverTest do
     end
 
     test "an uploaded image, as it is" do
-      assert %{url: "/uploads/images/gull.jpg", srcset: nil} = cover("/uploads/images/gull.jpg", "")
+      assert %{url: "/uploads/images/gull.jpg", srcset: nil} =
+               cover("/uploads/images/gull.jpg", "")
     end
 
     test "it wins over what the body embeds" do
@@ -39,7 +40,9 @@ defmodule Web.BlogCoverTest do
 
     test "an embed naming nothing, a ride or a figure is passed over" do
       body = "![[roll999/1]] ![[ride:12]] ![[figure:emissions]] ![[roll001]]"
-      assert %{url: "/negatives/preview/roll001_" <> _, alt: "Roll 001, the contact sheet"} = cover(nil, body)
+
+      assert %{url: "/negatives/preview/roll001_" <> _, alt: "Roll 001, the contact sheet"} =
+               cover(nil, body)
     end
 
     test "else the first uploaded image" do

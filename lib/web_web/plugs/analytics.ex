@@ -51,9 +51,13 @@ defmodule WebWeb.Plugs.Analytics do
       if Visitor.counted?(ip, ua, get_session(conn, "admin_user") == true) do
         hash = Analytics.hash_ip(ip)
 
-        Task.Supervisor.start_child(Web.TaskSupervisor, fn ->
-          Analytics.record_hit(path, ua, hash)
-        end)
+        insert = fn -> Analytics.record_hit(path, ua, hash) end
+
+        # Inline in the suite (`:analytics_async` false), where a test counts
+        # the hit the moment its request returns.
+        if Application.get_env(:web, :analytics_async, true),
+          do: Task.Supervisor.start_child(Web.TaskSupervisor, insert),
+          else: insert.()
       end
     end
 

@@ -42,7 +42,12 @@ defmodule Web.CrossLinksTest do
 
     test "shows what it goes with, and the logs that name it, both ways", %{conn: conn, dir: dir} do
       named = log_fixture(recorded_on: ~D[2026-09-18], caption: "Named in the post")
-      log_fixture(recorded_on: ~D[2026-09-19], caption: "Says it goes with", post_ref: "post:harbour")
+
+      log_fixture(
+        recorded_on: ~D[2026-09-19],
+        caption: "Says it goes with",
+        post_ref: "post:harbour"
+      )
 
       File.write!(Path.join(dir, "harbour.md"), """
       ---

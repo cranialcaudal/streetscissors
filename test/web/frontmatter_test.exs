@@ -20,7 +20,9 @@ defmodule Web.FrontmatterTest do
   end
 
   test "the week reads a CRLF file's days" do
-    week = Week.parse("---\r\ntitle: Week\r\n---\r\n## Monday\r\n- 07:15-08:00 strength Lower day\r\n")
+    week =
+      Week.parse("---\r\ntitle: Week\r\n---\r\n## Monday\r\n- 07:15-08:00 strength Lower day\r\n")
+
     assert [%{blocks: [_]}] = week.days
   end
 end

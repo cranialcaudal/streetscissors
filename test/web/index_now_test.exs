@@ -24,7 +24,11 @@ defmodule Web.IndexNowTest do
     assert conn |> get("/indexnow.txt") |> response(200) == "abc123key"
 
     IndexNow.changed(["/blog/a-post", "/logs/2026-09-18"])
-    assert_enqueued(worker: IndexNowPing, args: %{"paths" => ["/blog/a-post", "/logs/2026-09-18"]})
+
+    assert_enqueued(
+      worker: IndexNowPing,
+      args: %{"paths" => ["/blog/a-post", "/logs/2026-09-18"]}
+    )
   end
 
   test "a ping names the site, its key and the full addresses" do

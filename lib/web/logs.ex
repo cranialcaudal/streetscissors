@@ -90,7 +90,9 @@ defmodule Web.Logs do
 
   @doc "The public logs that belong with a post (`post_ref`, a `Web.Pieces` ref), oldest first."
   def list_logs_for_post("post:" <> _ = ref) do
-    Repo.all(from l in listed(), where: l.post_ref == ^ref, order_by: [asc: l.recorded_on, asc: l.seq])
+    Repo.all(
+      from l in listed(), where: l.post_ref == ^ref, order_by: [asc: l.recorded_on, asc: l.seq]
+    )
   end
 
   def list_logs_for_post(_ref), do: []

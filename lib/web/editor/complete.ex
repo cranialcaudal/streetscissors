@@ -45,7 +45,8 @@ defmodule Web.Editor.Complete do
     end
   end
 
-  defp candidates(_q, "link", "blog"), do: posts(&"[#{&1.title}](/blog/#{&1.slug})") ++ logs(:link)
+  defp candidates(_q, "link", "blog"),
+    do: posts(&"[#{&1.title}](/blog/#{&1.slug})") ++ logs(:link)
 
   defp candidates(q, "embed", "blog") do
     case frame_query(q) do
@@ -103,7 +104,12 @@ defmodule Web.Editor.Complete do
     Negatives.list_contact_sheets()
     |> Enum.sort_by(& &1.roll_num, :desc)
     |> Enum.map(fn sheet ->
-      detail = Enum.join(Enum.reject([sheet.format, to_string(sheet.date || "")], &(&1 in [nil, ""])), ", ")
+      detail =
+        Enum.join(
+          Enum.reject([sheet.format, to_string(sheet.date || "")], &(&1 in [nil, ""])),
+          ", "
+        )
+
       item("Roll #{sheet.roll}", detail, "![[roll#{sheet.roll}]]", [
         "roll#{sheet.roll}",
         sheet.roll,
@@ -120,15 +126,25 @@ defmodule Web.Editor.Complete do
     for frame <- Negatives.list_frames(padded),
         n = to_string(frame.frame),
         String.starts_with?(n, frame_prefix) do
-      %{label: "Roll #{padded}, frame #{n}", detail: "frame", insert: insert.(padded, n), match: :any}
+      %{
+        label: "Roll #{padded}, frame #{n}",
+        detail: "frame",
+        insert: insert.(padded, n),
+        match: :any
+      }
     end
   end
 
   defp rides do
     for ride <- Rides.list_rides() do
       date = ride.started_at && Calendar.strftime(ride.started_at, "%Y-%m-%d")
-      item(ride.name || "Ride #{ride.id}", Enum.join(Enum.reject(["ride", date], &is_nil/1), ", "),
-        "![[ride:#{ride.id}]]", [ride.name || "", "ride", to_string(ride.id)])
+
+      item(
+        ride.name || "Ride #{ride.id}",
+        Enum.join(Enum.reject(["ride", date], &is_nil/1), ", "),
+        "![[ride:#{ride.id}]]",
+        [ride.name || "", "ride", to_string(ride.id)]
+      )
     end
   end
 

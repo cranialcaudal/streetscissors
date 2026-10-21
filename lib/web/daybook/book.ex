@@ -61,7 +61,8 @@ defmodule Web.Daybook.Book do
   end
 
   defp fingerprint(year),
-    do: year |> posts() |> Enum.map(&{&1.slug, &1.mtime}) |> :erlang.phash2() |> Integer.to_string()
+    do:
+      year |> posts() |> Enum.map(&{&1.slug, &1.mtime}) |> :erlang.phash2() |> Integer.to_string()
 
   defp fingerprint_path(year), do: Path.join(dir(), ".#{year}.fingerprint")
 
@@ -150,10 +151,21 @@ defmodule Web.Daybook.Book do
       |> Enum.with_index(1)
       |> Enum.map_join("\n\n", fn {post, n} ->
         "# #{post.title}\n\n*#{Calendar.strftime(post.date, "%-d %B %Y")}*\n\n" <>
-          embeds(post.body, build, n)
+          embeds(body(post), build, n)
       end)
 
     front <> "\n" <> chapters <> "\n"
+  end
+
+  # The post list carries no bodies (`Blog.list_all_posts/0` drops them), so
+  # each chapter reads its own post whole.
+  defp body(%{body: body}) when is_binary(body), do: body
+
+  defp body(%{slug: slug}) do
+    case Blog.get_post(slug) do
+      {:ok, %{body: body}} -> body
+      _ -> ""
+    end
   end
 
   # Obsidian embeds as plain Markdown images, each a JPEG made beside the book.

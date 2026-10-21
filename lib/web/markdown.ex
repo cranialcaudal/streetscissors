@@ -30,7 +30,13 @@ defmodule Web.Markdown do
     |> String.replace(~r/!\[\[[^\]\n]*\]\]/, "")
     |> String.replace(~r/\[\[(?:[^\]|\n]*\|)?([^\]\n]*)\]\]/, "\\1")
     |> to_html()
-    |> String.replace(~r/<[^>]*>/, " ")
+    # A block ends a run of words; an inline tag (emphasis, a link) sits
+    # inside one, so it goes without leaving a space before the punctuation.
+    |> String.replace(
+      ~r{<br\s*/?>|</?(?:p|h[1-6]|li|ul|ol|div|blockquote|pre|table|tr|td|th)\b[^>]*>}i,
+      " "
+    )
+    |> String.replace(~r/<[^>]*>/, "")
     |> String.replace(~w(&amp; &lt; &gt; &quot; &#39; &nbsp;), fn
       "&amp;" -> "&"
       "&lt;" -> "<"

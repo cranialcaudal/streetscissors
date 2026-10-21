@@ -182,7 +182,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
             {:noreply,
              socket
              |> assign(source_text: content, source_conflict: on_disk)
-             |> put_flash(:error, "#{Path.basename(file.path)} changed on disk since it was opened.")}
+             |> put_flash(
+               :error,
+               "#{Path.basename(file.path)} changed on disk since it was opened."
+             )}
 
           {:error, reason} ->
             {:noreply, put_flash(socket, :error, "Not saved: #{inspect(reason)}")}
@@ -195,7 +198,11 @@ defmodule WebWeb.AdminLive.FitnessManager do
     socket = assign_source(socket, socket.assigns.source.id)
 
     {:noreply,
-     DocumentEditor.set(socket, source_editor_id(socket.assigns.source), socket.assigns.source_text)}
+     DocumentEditor.set(
+       socket,
+       source_editor_id(socket.assigns.source),
+       socket.assigns.source_text
+     )}
   end
 
   # --- The lists ---

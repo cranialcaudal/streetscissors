@@ -45,7 +45,12 @@ defmodule Web.Darkroom.Eval do
       for {ex, i} <- held do
         rest = for {other, j} <- indexed, j != i, do: other
         model = Taste.fit_examples(rest, groups, defaults)
-        %{group: ex.group, colour: colour_error(ex, model, groups), sliders: slider_errors(ex, model, defaults)}
+
+        %{
+          group: ex.group,
+          colour: colour_error(ex, model, groups),
+          sliders: slider_errors(ex, model, defaults)
+        }
       end
 
     colour = Enum.reject(results, &is_nil(&1.colour))

@@ -12,7 +12,11 @@
       <h1 class="christ-day-title">{@title}</h1>
     </header>
 
-    <p class={["christ-verses", "christ-chapter", @book.slug == "psalms" && "christ-verses--lines"]}>
+    <p class={[
+      "christ-verses",
+      "christ-chapter",
+      @book.slug == "psalms" && "christ-verses--lines"
+    ]}>
       <span :for={{verse, text} <- @verses} id={"v#{verse}"} class="christ-verse">
         <sup class="christ-verse-n">{verse}</sup>{text}
       </span>

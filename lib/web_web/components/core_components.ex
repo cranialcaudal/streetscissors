@@ -49,7 +49,13 @@ defmodule WebWeb.CoreComponents do
   def dialog(assigns) do
     ~H"""
     <div id={@id} class={["dialog-backdrop", @class]} phx-window-keydown={@on_close} phx-key="Escape">
-      <div class="dialog" role="dialog" aria-modal="true" aria-label={@label} phx-click-away={@on_close}>
+      <div
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={@label}
+        phx-click-away={@on_close}
+      >
         <button type="button" class="dialog-close" phx-click={@on_close} aria-label="Close">
           &times;
         </button>

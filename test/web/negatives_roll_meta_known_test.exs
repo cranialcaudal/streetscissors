@@ -6,7 +6,8 @@ defmodule Web.Negatives.RollMetaKnownTest do
 
   alias Web.Negatives.RollMeta
 
-  defp meta(fields), do: Map.merge(%{shot: nil, camera: nil, film: nil, place: nil, notes: nil}, fields)
+  defp meta(fields),
+    do: Map.merge(%{shot: nil, camera: nil, film: nil, place: nil, notes: nil}, fields)
 
   test "what earlier rolls said is offered, most used first, the newest roll's as the last" do
     root = archive!()

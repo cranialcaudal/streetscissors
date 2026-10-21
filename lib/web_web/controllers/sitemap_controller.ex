@@ -152,7 +152,9 @@ defmodule WebWeb.SitemapController do
   defp image_tag(nil), do: ""
 
   defp image_tag(url) do
-    loc = url |> WebWeb.SEO.absolute() |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+    loc =
+      url |> WebWeb.SEO.absolute() |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+
     "\n    <image:image><image:loc>#{loc}</image:loc></image:image>"
   end
 

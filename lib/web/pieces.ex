@@ -41,7 +41,13 @@ defmodule Web.Pieces do
     case Blog.get_post(slug) do
       {:ok, post} ->
         {:ok,
-         %{kind: :post, title: post.title, path: "/blog/#{post.slug}", date: post.date, image: nil}}
+         %{
+           kind: :post,
+           title: post.title,
+           path: "/blog/#{post.slug}",
+           date: post.date,
+           image: nil
+         }}
 
       _ ->
         :error
@@ -130,7 +136,13 @@ defmodule Web.Pieces do
 
     logs =
       for log <- Logs.list_logs_for_post(ref) do
-        %{kind: :log, title: Log.title(log), path: "/logs/#{log.slug}", date: log.recorded_on, image: nil}
+        %{
+          kind: :log,
+          title: Log.title(log),
+          path: "/logs/#{log.slug}",
+          date: log.recorded_on,
+          image: nil
+        }
       end
 
     %{posts: posts, logs: logs}

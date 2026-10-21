@@ -332,7 +332,10 @@ defmodule WebWeb.FitnessLandingTest do
 
     test "a date after today is filed under today", %{view: view} do
       tomorrow = Date.add(Web.Clock.local_today(), 1)
-      render_submit(view, "save_log", %{"log" => %{"sets" => "3", "date" => Date.to_iso8601(tomorrow)}})
+
+      render_submit(view, "save_log", %{
+        "log" => %{"sets" => "3", "date" => Date.to_iso8601(tomorrow)}
+      })
 
       assert [%{date: date}] = Web.Fitness.list_exercise_logs()
       assert date == Web.Clock.local_today()

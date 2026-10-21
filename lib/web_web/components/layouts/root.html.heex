@@ -12,8 +12,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="streetscissors" />
-    
-<%!-- PWA Manifest & App Icons --%>
+
+    <%!-- PWA Manifest & App Icons --%>
     <%!-- By its plain name, not through ~p: a deploy fingerprints static
           files, and the server gives out root-level ones by exact name only
           (WebWeb.static_paths/0), so /manifest-<hash>.json answered 404 on
@@ -140,7 +140,11 @@
         <span class="admin-indicator-label">
           <.icon name="hero-shield-check" class="size-4" /> Admin
         </span>
-        <a href={~p"/admin/quick"} aria-label="Quick add" title="Quick add: a set, a check-in, a note">
+        <a
+          href={~p"/admin/quick"}
+          aria-label="Quick add"
+          title="Quick add: a set, a check-in, a note"
+        >
           <.icon name="hero-plus" class="size-4" />
         </a>
         <a href={~p"/admin/dashboard"} aria-label="Admin overview" title="Admin overview">

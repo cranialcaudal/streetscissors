@@ -171,7 +171,11 @@ defmodule Web.ContentHealth do
           is_binary(log.post_ref),
           Web.Pieces.resolve(log.post_ref) == :error do
         %{
-          source: %{label: Web.Logs.Log.title(log), where: "logs/#{log.slug}", edit: "/admin/logs"},
+          source: %{
+            label: Web.Logs.Log.title(log),
+            where: "logs/#{log.slug}",
+            edit: "/admin/logs"
+          },
           target: "goes with " <> log.post_ref
         }
       end

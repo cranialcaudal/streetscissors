@@ -87,7 +87,9 @@ defmodule Web.GuestbookContactTest do
       {:ok, entry} = sign(%{contact: @email})
 
       {:ok, _} =
-        entry |> then(&Guestbook.get_guestbook_entry!(&1.id)) |> Guestbook.approve_guestbook_entry()
+        entry
+        |> then(&Guestbook.get_guestbook_entry!(&1.id))
+        |> Guestbook.approve_guestbook_entry()
 
       for loaded <-
             [Guestbook.get_guestbook_entry!(entry.id)] ++
@@ -170,7 +172,9 @@ defmodule Web.GuestbookContactTest do
   describe "the public page" do
     test "offers the field, says what becomes of it, and never prints one", %{conn: conn} do
       {:ok, entry} = sign(%{contact: @email})
-      {:ok, _} = entry.id |> Guestbook.get_guestbook_entry!() |> Guestbook.approve_guestbook_entry()
+
+      {:ok, _} =
+        entry.id |> Guestbook.get_guestbook_entry!() |> Guestbook.approve_guestbook_entry()
 
       {:ok, view, html} = live(conn, ~p"/guestbook")
 

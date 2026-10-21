@@ -25,7 +25,8 @@ defmodule WebWeb.DocumentEditor.Media do
   def update(assigns, socket), do: {:ok, assign(socket, id: assigns.id, editor: assigns.editor)}
 
   @impl true
-  def handle_event("toggle", _params, socket), do: {:noreply, assign(socket, open: !socket.assigns.open)}
+  def handle_event("toggle", _params, socket),
+    do: {:noreply, assign(socket, open: !socket.assigns.open)}
 
   def handle_event("tab", %{"tab" => tab}, socket) when tab in ~w(images film),
     do: {:noreply, assign(socket, tab: tab, roll: nil)}

@@ -38,7 +38,13 @@ defmodule WebWeb.VisitorTest do
 
     test "the admin, a bot and the machine itself do not" do
       refute Visitor.counted?("203.0.113.5", "Mozilla/5.0 Safari/605", true)
-      refute Visitor.counted?("203.0.113.5", "Googlebot/2.1 (+http://www.google.com/bot.html)", false)
+
+      refute Visitor.counted?(
+               "203.0.113.5",
+               "Googlebot/2.1 (+http://www.google.com/bot.html)",
+               false
+             )
+
       refute Visitor.counted?("127.0.0.1", "Mozilla/5.0 Safari/605", false)
       refute Visitor.counted?("::1", "Mozilla/5.0 Safari/605", false)
     end

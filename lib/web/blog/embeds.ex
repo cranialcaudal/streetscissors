@@ -159,7 +159,11 @@ defmodule Web.Blog.Embeds do
   end
 
   defp sized(url, caption, fallback) do
-    alt = if is_binary(caption) and String.trim(caption) != "", do: String.trim(caption), else: fallback
+    alt =
+      if is_binary(caption) and String.trim(caption) != "",
+        do: String.trim(caption),
+        else: fallback
+
     %{url: Negatives.sized_url(url, 960), srcset: Negatives.srcset(url), alt: alt}
   end
 

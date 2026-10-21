@@ -57,7 +57,8 @@ defmodule Web.Darkroom.Scopes do
 
   defp histogram(pixels) do
     counts =
-      Enum.reduce(pixels, %{r: zeros(), g: zeros(), b: zeros(), l: zeros()}, fn {r, g, b, l}, acc ->
+      Enum.reduce(pixels, %{r: zeros(), g: zeros(), b: zeros(), l: zeros()}, fn {r, g, b, l},
+                                                                                acc ->
         %{
           r: bump(acc.r, bin(r)),
           g: bump(acc.g, bin(g)),
@@ -67,6 +68,7 @@ defmodule Web.Darkroom.Scopes do
       end)
 
     peak = counts |> Map.values() |> Enum.flat_map(&Tuple.to_list/1) |> Enum.max() |> max(1)
+
     Map.new(counts, fn {channel, row} -> {channel, Enum.map(Tuple.to_list(row), &(&1 / peak))} end)
   end
 
@@ -77,7 +79,10 @@ defmodule Web.Darkroom.Scopes do
     columns =
       pixels
       |> Enum.with_index()
-      |> Enum.group_by(fn {_pixel, i} -> min(div(rem(i, width), per_column), @columns - 1) end, &elem(&1, 0))
+      |> Enum.group_by(
+        fn {_pixel, i} -> min(div(rem(i, width), per_column), @columns - 1) end,
+        &elem(&1, 0)
+      )
       |> Enum.sort_by(&elem(&1, 0))
       |> Enum.map(&elem(&1, 1))
 

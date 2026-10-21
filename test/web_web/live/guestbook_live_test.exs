@@ -29,8 +29,8 @@ defmodule WebWeb.GuestbookLiveTest do
 
     assert html =~ ~s(<h1 class="guestbook-title">Guestbook</h1>)
     assert html =~ "Leave a note — messages appear once approved."
-    assert html =~ ~s(<span class="label mb-1">Name</span>)
-    assert html =~ ~s(<span class="label mb-1">Message</span>)
+    assert html =~ ~s(<span class="label">Name</span>)
+    assert html =~ ~s(<span class="label">Message</span>)
     assert html =~ ~s(<label for="guestbook-captcha")
     assert html =~ "Sign the guestbook"
     # A prefix match: a nil entry in the component's class list renders as a

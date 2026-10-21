@@ -4,7 +4,17 @@ defmodule Web.Darkroom.EvalTest do
   alias Web.Darkroom.Eval
 
   defp stats(cast) do
-    %{cast: cast, neutral: 0.6, chroma: 0.05, l: 0.5, a: 0.0, b: 0.0, l05: 0.1, l50: 0.5, l95: 0.9}
+    %{
+      cast: cast,
+      neutral: 0.6,
+      chroma: 0.05,
+      l: 0.5,
+      a: 0.0,
+      b: 0.0,
+      l05: 0.1,
+      l50: 0.5,
+      l95: 0.9
+    }
   end
 
   defp edit(cast, controls, weight \\ 1.0) do

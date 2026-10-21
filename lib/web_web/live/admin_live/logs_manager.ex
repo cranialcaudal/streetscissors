@@ -66,7 +66,10 @@ defmodule WebWeb.AdminLive.LogsManager do
       |> assign(:progress, %{})
       |> assign(:staged, %{})
       # The posts a log can say it belongs with (Log.post_ref).
-      |> assign(:post_options, Enum.map(Web.Blog.list_posts(), &{&1.title, Web.Pieces.post(&1.slug)}))
+      |> assign(
+        :post_options,
+        Enum.map(Web.Blog.list_posts(), &{&1.title, Web.Pieces.post(&1.slug)})
+      )
       |> assign_new_form()
       |> DocumentEditor.attach()
       |> load_logs()

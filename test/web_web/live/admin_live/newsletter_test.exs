@@ -134,7 +134,11 @@ defmodule WebWeb.AdminLive.NewsletterTest do
 
     test "a draft written in HTML before stays HTML", %{conn: conn} do
       {:ok, draft} =
-        Newsletter.save_draft(%{"subject" => "Old", "body" => "<p>Kept <b>as is</b></p>", "format" => "html"})
+        Newsletter.save_draft(%{
+          "subject" => "Old",
+          "body" => "<p>Kept <b>as is</b></p>",
+          "format" => "html"
+        })
 
       {:ok, view, _html} = live(conn, "/admin/newsletter")
 
@@ -143,7 +147,11 @@ defmodule WebWeb.AdminLive.NewsletterTest do
       |> render_click()
 
       assert has_element?(view, "#newsletter-html[data-complete=none]")
-      assert_push_event(view, "editor:set", %{id: "newsletter-html", content: "<p>Kept <b>as is</b></p>"})
+
+      assert_push_event(view, "editor:set", %{
+        id: "newsletter-html",
+        content: "<p>Kept <b>as is</b></p>"
+      })
 
       view
       |> form("#newsletter-form", %{"subject" => "Old", "body" => "<p>Kept <b>as is</b></p>"})
