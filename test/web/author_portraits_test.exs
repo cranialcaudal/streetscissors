@@ -6,6 +6,11 @@ defmodule Web.AuthorPortraitsTest do
 
   alias Web.Author
 
+  # These make and inspect real pictures with ImageMagick 7's `magick`; where it
+  # is not installed (Ubuntu's apt ships version 6) they skip, as the tests that
+  # want the real ffmpeg or node do.
+  @no_magick is_nil(System.find_executable("magick")) && "ImageMagick 7 (magick) is not installed"
+
   setup do
     dir = Path.join(Web.Uploads.root(), "about")
     File.mkdir_p!(dir)
@@ -31,6 +36,7 @@ defmodule Web.AuthorPortraitsTest do
     assert place in 1..3
   end
 
+  @tag skip: @no_magick
   test "a picture taken in is shrunk, kept as a JPEG and joins the turn" do
     source = Path.join(System.tmp_dir!(), "portrait-#{System.unique_integer([:positive])}.png")
     {_, 0} = System.cmd("magick", ["-size", "3000x2000", "xc:gray", source])
@@ -43,6 +49,7 @@ defmodule Web.AuthorPortraitsTest do
     assert size == "1600x1067"
   end
 
+  @tag skip: @no_magick
   test "the same picture sent twice is kept once" do
     source = Path.join(System.tmp_dir!(), "twice-#{System.unique_integer([:positive])}.png")
     {_, 0} = System.cmd("magick", ["-size", "300x200", "gradient:", source])
@@ -54,6 +61,7 @@ defmodule Web.AuthorPortraitsTest do
     assert length(Author.portraits()) == count
   end
 
+  @tag skip: @no_magick
   test "what is not a picture is refused, and nothing is kept" do
     source =
       Path.join(System.tmp_dir!(), "not-a-picture-#{System.unique_integer([:positive])}.jpg")

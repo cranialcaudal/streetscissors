@@ -91,7 +91,12 @@ defmodule WebWeb.AdminLive.SettingsTest do
     end
   end
 
+  # They make real pictures with ImageMagick 7's `magick`; without it they skip.
+  @no_magick is_nil(System.find_executable("magick")) && "ImageMagick 7 (magick) is not installed"
+
   describe "the About page's pictures" do
+    @describetag skip: @no_magick
+
     setup do
       dir = Path.join(Web.Uploads.root(), "about")
       File.rm_rf!(dir)
