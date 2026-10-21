@@ -27,9 +27,12 @@ import topbar from "../vendor/topbar"
 import "./trail"
 import { GymRoutine } from "./gym_routine"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
+import { DocumentEditor } from "./document_editor"
 import { initEmissionsControls } from "./emissions_controls"
 import { initEngland } from "./england"
 import { initChrist } from "./christ"
+import { initHomePreviews } from "./home_previews"
+import { initHomeNew } from "./home_new"
 
 document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
 window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
@@ -44,7 +47,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll },
+  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll, DocumentEditor },
 })
 
 // Show progress bar on live navigation and form submits
@@ -296,6 +299,13 @@ if (
       .catch((err) => console.debug("[PWA] SW register skipped:", err))
   })
 }
+
+// The homepage's corner card of new work (assets/js/home_new.js), whose video
+// plays a few silent seconds on hover (assets/js/home_previews.js). Nothing
+// on any other page.
+const initHome = () => { initHomeNew(); initHomePreviews() }
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initHome)
+else initHome()
 
 // The England trip's pages: tabs, the calendar's day links, the packing list
 // and the call clocks (assets/js/england.js). Nothing on any other page.

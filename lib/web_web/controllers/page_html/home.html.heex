@@ -206,6 +206,82 @@
     <%!-- One sentence saying what the site is, when the author has written
           one (Settings: "Homepage sentence"). Nothing when he has not. --%>
     <p :if={@site_description} class="home-about">{@site_description}</p>
+    <%!-- New: the newest post, video and roll, in a card that slides into the
+          corner a moment after the page loads (assets/js/home_new.js), over
+          the tiles rather than among them. Closed, it stays closed until
+          something newer arrives. Rendered hidden: without JavaScript the
+          page is the tiles alone. The video plays a few silent seconds on
+          hover (assets/js/home_previews.js); nothing loads before that. --%>
+    <aside
+      :if={@lately.posts != [] || @lately.log || @lately.roll}
+      id="home-new"
+      class="home-new"
+      aria-labelledby="home-new-title"
+      data-new={@new_key}
+      hidden
+    >
+      <header class="home-new-head">
+        <h2 id="home-new-title" class="home-new-title">New</h2>
+        <button type="button" class="home-new-close" data-new-close aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
+
+      <a :if={@lately.log} href={@lately.log.path} class="new-item" data-preview={@lately.log.video}>
+        <span class="new-plate new-plate--video">
+          <img :if={@lately.log.poster} src={@lately.log.poster} alt="" loading="lazy" decoding="async" />
+          <svg class="new-play" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" />
+            <path d="M10 8l6 4-6 4z" />
+          </svg>
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Captain's log</span>
+          <span class="new-name">{@lately.log.title}</span>
+          <span :if={@lately.log.duration} class="new-meta">
+            {WebWeb.LogsLive.Format.format_duration(@lately.log.duration)}
+          </span>
+        </span>
+      </a>
+
+      <a :for={post <- Enum.take(@lately.posts, 1)} href={post.path} class="new-item">
+        <span class={["new-plate", !post.cover && "new-plate--type"]}>
+          <img
+            :if={post.cover}
+            src={post.cover.url}
+            srcset={post.cover.srcset}
+            sizes="7rem"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+          <span :if={!post.cover} aria-hidden="true">{String.first(post.title)}</span>
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Writing</span>
+          <span class="new-name">{post.title}</span>
+          <span class="new-meta">{Calendar.strftime(post.date, "%-d %b")} · {post.read_min} min</span>
+        </span>
+      </a>
+
+      <a :if={@lately.roll} href={@lately.roll.path} class="new-item">
+        <span class="new-plate">
+          <img
+            src={Web.Negatives.sized_url(@lately.roll.preview_url, 480)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Negatives</span>
+          <span class="new-name">Roll {@lately.roll.roll}</span>
+          <span class="new-meta">
+            {Calendar.strftime(@lately.roll.date, "%-d %b")}<span :if={@lately.roll.count > 0}> · {@lately.roll.count} prints</span>
+          </span>
+        </span>
+      </a>
+    </aside>
     <footer class="home-footer">
       &copy; {Web.Clock.local_today().year}
       <span :if={@author}>{@author} &middot;</span>

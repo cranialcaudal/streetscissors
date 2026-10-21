@@ -13,7 +13,7 @@ loads.
 | [`css/`](css/) | Every stylesheet, one file per area of the site, all brought together by `css/app.css` |
 | [`css/admin/`](css/admin/) | The admin's stylesheets, one per part of the admin (`base.css` first: shared pieces) |
 | [`js/`](js/) | The browser code: `app.js` (the entry point) and the pieces it imports |
-| [`vendor/`](vendor/) | Two small libraries kept as files: `topbar.js` (the loading bar at the top of the page) and `heroicons.js` (the icon set) |
+| [`vendor/`](vendor/) | Libraries kept as files: `topbar.js` (the loading bar at the top of the page), `heroicons.js` (the icon set), and `codemirror.js` (the admin editor's engine, with its licences in `codemirror.LICENSE.txt`; rebuilt only by `tools/vendor/codemirror/build.sh`, never edited by hand) |
 | `tsconfig.json` | Lets code editors understand the JavaScript; not used to build anything |
 
 ## How the styling works
@@ -54,7 +54,8 @@ is done by the server through LiveView. What is here:
 | `trail.js` | Makes the header's Back button return to the last thing you were reading, and puts you back where you were on it | Every page |
 | `emissions_controls.js` | Redraws the commuting-emissions charts when a reader moves a slider (the same maths as `analysis/emissions.R`) | One blog post |
 | `gym_routine.js` | The training day's checklist | `/fitness` |
-| `markdown_editor.js` | A markdown toolbar hook. Still registered in `app.js`, but **no page uses it now** (the blog editor has its own colocated hook); a candidate for removal | Nothing |
+| `document_editor.js` | The admin's document editor hook (`WebWeb.DocumentEditor`): mounts the editor over a form's textarea and keeps the two in step. Fetches `editor/core.js` only when a page has an editor | `/admin` blog, fitness, newsletter and log notes |
+| `editor/core.js` | The editor itself: CodeMirror 6 over the file's own text. Live mode, the slash menu, `[[` completion, outline and Zen are all drawn over the text; nothing untyped is ever rewritten, so Obsidian and the editor agree | Loaded by `document_editor.js` as its own chunk |
 | `pc_terminal.js` | Keeps the typing cursor in the `/pc` terminal, and scrolls it as text arrives | `/pc` |
 
 Many other small scripts are **colocated hooks**: written inside the Elixir file of the

@@ -49,7 +49,9 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
   test "opens the whole file, with the page it makes beside it", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
 
-    source = view |> element("#post-source") |> render()
+    # The field the form posts, and the editor over it (WebWeb.DocumentEditor).
+    assert has_element?(view, "#post-source[phx-hook=DocumentEditor][data-complete=blog]")
+    source = view |> element("#post-source-input") |> render()
     assert source =~ "title: &quot;An Essay&quot;"
     assert source =~ "draft: true"
 
@@ -103,7 +105,32 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
     refute File.read!(path) =~ "draft"
     assert {:ok, %{title: "An Essay", keywords: ["film", "ferry"]}} = Blog.get_post("essay")
+    # The editor is shown the text as saved, without its draft line.
+    assert_push_event(view, "editor:set", %{id: "post-source", content: saved})
+    assert saved == File.read!(path)
     assert has_element?(view, "#post-preview .adm-pill--live", "published")
+  end
+
+  test "[[ in the editor offers the blog's pieces", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+    render_hook(view, "editor_complete", %{"q" => "essay", "kind" => "link", "scope" => "blog"})
+    assert_reply(view, %{items: [%{insert: "[An Essay](/blog/essay)", detail: "draft"} | _]})
+  end
+
+  test "a file saved with \\r\\n is saved unchanged when nothing was typed",
+       %{conn: conn, path: path} do
+    crlf = "---\r\ntitle: Windows\r\n---\r\n\r\n![[roll012/3]] \r\nBody.\r\n"
+    File.write!(path, crlf)
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+    # What a browser sends back: the same text with \n.
+    sent = String.replace(crlf, "\r\n", "\n")
+    view |> form("#post-editor", content: sent) |> render_change()
+    assert has_element?(view, "#post-editor[data-dirty=false]")
+
+    view |> form("#post-editor", content: sent) |> render_submit()
+    assert File.read!(path) == crlf
   end
 
   describe "when the file changed on disk while the page was open" do
@@ -120,15 +147,15 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
       assert has_element?(view, "#post-conflict", "changed on disk while you had it open")
       assert has_element?(view, "#post-conflict pre", "Edited in Obsidian.")
-      # The author's own text is still in the editor.
-      assert view |> element("#post-source") |> render() =~ "Edited in the admin."
+      # The author's own text is still in the editor: nothing replaced it.
+      refute_push_event(view, "editor:set", %{id: "post-source"})
     end
 
     test "taking the disk version replaces the editor's text", %{view: view, path: path} do
       view |> element("#post-conflict button", "Take the version on disk") |> render_click()
 
       refute has_element?(view, "#post-conflict")
-      assert view |> element("#post-source") |> render() =~ "Edited in Obsidian."
+      assert_push_event(view, "editor:set", %{id: "post-source", content: "Edited in Obsidian.\n"})
       assert File.read!(path) == "Edited in Obsidian.\n"
       assert has_element?(view, "#post-editor[data-dirty=false]")
     end

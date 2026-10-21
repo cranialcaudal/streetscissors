@@ -313,6 +313,9 @@ defmodule Web.Blog do
       # as Web.Pieces refs; shown under the post, and on each piece's page.
       related: Web.Pieces.refs(meta["related"]),
       draft: truthy?(meta["draft"]),
+      # The post's own picture, if it names one (`image: 065/6`); cover/1
+      # falls back to the first one it embeds.
+      image: presence(meta["image"]),
       # Whether the excerpt is the author's own line or the first paragraph
       # standing in for one (the admin's content health asks).
       described: presence(meta["description"]) != nil,
@@ -321,6 +324,37 @@ defmodule Web.Blog do
       body: body
     }
   end
+
+  @doc """
+  A post's picture for a card (the homepage), `%{url, srcset, alt}` or nil.
+  In order: its `image:` line (`065/6` or `roll065/6` a frame, `roll065` the
+  roll's sheet, or an `/uploads/images/…` path), the first frame or sheet it
+  embeds, the first uploaded image it shows. Without any, the card sets the
+  title instead.
+  """
+  def cover(%{body: body} = post) do
+    from_image_line(Map.get(post, :image)) || Web.Blog.Embeds.first_picture(body) ||
+      first_upload(body)
+  end
+
+  def cover(_post), do: nil
+
+  defp from_image_line(nil), do: nil
+
+  defp from_image_line("/uploads/images/" <> _ = path),
+    do: %{url: path, srcset: nil, alt: ""}
+
+  defp from_image_line(ref),
+    do: Web.Blog.Embeds.picture(ref |> String.replace_prefix("frame:", "") |> String.trim(), nil)
+
+  defp first_upload(body) when is_binary(body) do
+    case Regex.run(~r/!\[([^\]\n]*)\]\((\/uploads\/images\/[^)\s]+)\)/, body) do
+      [_, alt, path] -> %{url: path, srcset: nil, alt: alt}
+      nil -> nil
+    end
+  end
+
+  defp first_upload(_body), do: nil
 
   defp split_frontmatter(content) do
     {yaml, body} = split_raw_frontmatter(content)

@@ -123,14 +123,41 @@ defmodule Web.Email do
 
   defp emails_path, do: Application.get_env(:web, :emails_path) || Path.expand("content/emails")
 
-  def newsletter(subscriber_email, subject, content) do
+  @doc """
+  One reader's copy of a newsletter. `format` is how `content` is written:
+  `"markdown"` is rendered as a post is (`newsletter_html/2`), and its own
+  text is the plain part; `"html"` (older newsletters) goes in as it is.
+  """
+  def newsletter(subscriber_email, subject, content, format \\ "html") do
     new()
     |> to(subscriber_email)
     |> from({"StreetScissors", "newsletter@streetscissors.com"})
     |> with_unsubscribe(subscriber_email)
     |> subject(subject)
-    |> html_body(shell(content, unsubscribe_html(subscriber_email)))
-    |> text_body(strip_tags(content) <> unsubscribe_text(subscriber_email))
+    |> html_body(shell(newsletter_html(content, format), unsubscribe_html(subscriber_email)))
+    |> text_body(newsletter_text(content, format) <> unsubscribe_text(subscriber_email))
+  end
+
+  @doc """
+  A newsletter's body as HTML. Markdown goes through the blog's renderer, so
+  `![[roll012/3]]` and `![[ride:123]]` embed as they do in a post, and every
+  address on the site is made absolute: in a mail client `/blog/x` leads
+  nowhere.
+  """
+  def newsletter_html(content, "markdown"), do: content |> Web.Blog.to_html() |> absolute()
+  def newsletter_html(content, _html), do: content
+
+  defp newsletter_text(content, "markdown"), do: String.trim(content) <> "\n"
+  defp newsletter_text(content, _html), do: strip_tags(content)
+
+  defp absolute(html) do
+    base = WebWeb.Endpoint.url()
+    html = Regex.replace(~r/\b(href|src)="\/(?!\/)/, html, "\\1=\"#{base}/")
+
+    # A srcset is a list of addresses, each made absolute in its place.
+    Regex.replace(~r/\bsrcset="([^"]*)"/, html, fn _, set ->
+      ~s(srcset="#{Regex.replace(~r/(^|,\s*)\/(?!\/)/, set, "\\1#{base}/")}")
+    end)
   end
 
   @doc """

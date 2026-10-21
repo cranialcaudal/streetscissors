@@ -323,6 +323,26 @@ defmodule WebWeb.PageControllerTest do
       refute section =~ "Evening loop"
     end
 
+    test "the corner card holds the newest post, video and roll, hidden until the page opens it",
+         %{conn: conn} do
+      [newest | _] = Web.Blog.list_posts()
+      log = Web.AudioFixtures.log_fixture(recorded_on: ~D[2026-09-18])
+      html = conn |> get(~p"/") |> html_response(200)
+
+      [card] = Regex.run(~r{<aside[^>]*id="home-new".*?</aside>}s, html)
+      # Rendered hidden: without JavaScript the page is the tiles alone.
+      assert card =~ ~r/<aside[^>]*\bhidden\b/
+      assert card =~ ~s(href="/blog/#{newest.slug}")
+      assert card =~ ~s(href="/logs/#{log.slug}")
+      assert card =~ ~s(data-preview="#{Web.Logs.Log.media_url(log)}")
+      assert card =~ ~s(href="/negatives/roll/001")
+      refute card =~ "draft-post"
+      # The video is named, never embedded: nothing of it loads with the page.
+      refute card =~ "<video"
+      # What it shows, as the key a closed card is remembered by.
+      assert card =~ ~s(data-new="/blog/#{newest.slug} /logs/#{log.slug} /negatives/roll/001")
+    end
+
     test "fresh names the newest post, never a draft", %{conn: conn} do
       html = conn |> get(~p"/") |> html_response(200)
       [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)

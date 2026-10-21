@@ -52,6 +52,7 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 ## 4. Publishing loop (done)
 
 - **Blog editor.** A post's file is edited in the admin, frontmatter and all, with the page it makes beside it. Saving refuses to overwrite a file that changed on disk since it was opened, so an edit made in Obsidian meanwhile is never lost: the author takes the version on disk, or saves over it, and the replaced version goes to the vault's trash first.
+- **The document editor.** The blog, the fitness wiki and files, the newsletter and log notes are written in one editor: CodeMirror over the file's own text, so a save changes only what was typed and Obsidian keeps agreeing. Live mode, a slash menu, `[[` links and `![[` embeds, an outline, Zen, and a drawer of images and film. Newsletters and log notes became Markdown with it.
 - **Drafts.** A `draft: true` line in a post's frontmatter keeps it off the site and lists it in the admin, where it can be published. The author can open a draft at its own address to see it as it will look.
 - **Content health.** One page reports:
   - links and images that go nowhere, each checked by asking the site itself;

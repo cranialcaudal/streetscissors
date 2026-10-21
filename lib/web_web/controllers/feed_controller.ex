@@ -92,7 +92,7 @@ defmodule WebWeb.FeedController do
     for log <- logs do
       %{
         title: "Captain's log · " <> Log.title(log),
-        description: log.caption || log.description || "A #{log.kind} log.",
+        description: log.caption || nonblank(Web.Markdown.to_text(log.description)) || "A #{log.kind} log.",
         path: "/logs/#{log.slug}",
         at: log.recorded_at || noon(log.recorded_on),
         enclosure: enclosure(log)
@@ -197,4 +197,8 @@ defmodule WebWeb.FeedController do
     |> DateTime.shift_zone!("Etc/UTC")
     |> Calendar.strftime("%a, %d %b %Y %H:%M:%S +0000")
   end
+
+  # Notes made only of an embed read as nothing; fall through to what's next.
+  defp nonblank(""), do: nil
+  defp nonblank(text), do: text
 end

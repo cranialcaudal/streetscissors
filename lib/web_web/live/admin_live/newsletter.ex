@@ -8,16 +8,23 @@ defmodule WebWeb.AdminLive.Newsletter do
   the record of the send. "Send a test" posts one `[Test]` copy to a single
   address, recorded nowhere. The subscriber list moved here from the
   dashboard, since this is the page that uses it.
+
+  A newsletter is written in Markdown in the document editor
+  (`WebWeb.DocumentEditor`), rendered as a post is, embeds and all
+  (`Web.Email.newsletter_html/2`). A draft from before that is HTML
+  (`format: "html"`), and opens and sends as HTML.
   """
 
   use WebWeb, :live_view
 
   import WebWeb.AdminComponents
+  import WebWeb.DocumentEditor, only: [document_editor: 1]
 
   alias Web.Email
   alias Web.Newsletter
   alias Web.SiteSettings
   alias Web.Workers.NewsletterSender
+  alias WebWeb.DocumentEditor
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -28,6 +35,7 @@ defmodule WebWeb.AdminLive.Newsletter do
        test_email: SiteSettings.get_setting("newsletter_test_email", "")
      )
      |> assign_compose("", "")
+     |> DocumentEditor.attach()
      |> load()}
   end
 
@@ -40,30 +48,44 @@ defmodule WebWeb.AdminLive.Newsletter do
     )
   end
 
-  defp assign_compose(socket, subject, body) do
+  defp assign_compose(socket, subject, body, format \\ "markdown") do
+    format = if format == "html", do: "html", else: "markdown"
+
     assign(socket,
-      form: to_form(%{"subject" => subject, "body" => body}),
-      preview: preview(body)
+      form: to_form(%{"subject" => subject, "body" => body, "format" => format}),
+      preview: preview(body, format)
     )
   end
 
+  # The composer's text is replaced (a draft opened, a new message, a send):
+  # the editor is told, since it is never patched in place.
+  defp compose(socket, subject, body, format \\ "markdown") do
+    socket = assign_compose(socket, subject, body, format)
+    DocumentEditor.set(socket, editor_id(format(socket)), body)
+  end
+
+  defp editor_id("html"), do: "newsletter-html"
+  defp editor_id(_markdown), do: "newsletter-body"
+
   # The reader's view. Unsubscribe links are per-subscriber tokens, so the
   # preview's footer is the real footer with no address behind it.
-  defp preview(body) do
+  defp preview(body, format) do
     content =
-      if String.trim(body) == "", do: "<p><em>The message will appear here.</em></p>", else: body
+      if String.trim(body) == "",
+        do: "<p><em>The message will appear here.</em></p>",
+        else: Email.newsletter_html(body, format)
 
     Email.preview_page(content, Email.unsubscribe_html("preview@example.com"))
   end
 
   # --- Composing ---
 
-  def handle_event("validate", %{"subject" => subject, "body" => body}, socket) do
-    {:noreply, assign_compose(socket, subject, body)}
+  def handle_event("validate", %{"subject" => subject, "body" => body} = params, socket) do
+    {:noreply, assign_compose(socket, subject, body, params["format"] || format(socket))}
   end
 
   def handle_event("save_draft", _params, socket) do
-    attrs = %{"subject" => subject(socket), "body" => body(socket)}
+    attrs = %{"subject" => subject(socket), "body" => body(socket), "format" => format(socket)}
 
     case Newsletter.save_draft(socket.assigns.draft, attrs) do
       {:ok, draft} ->
@@ -84,12 +106,13 @@ defmodule WebWeb.AdminLive.Newsletter do
         {:noreply, put_flash(socket, :error, "That draft is gone.")}
 
       draft ->
-        {:noreply, socket |> assign(:draft, draft) |> assign_compose(draft.subject, draft.body)}
+        {:noreply,
+         socket |> assign(:draft, draft) |> compose(draft.subject, draft.body, draft.format)}
     end
   end
 
   def handle_event("new_message", _params, socket) do
-    {:noreply, socket |> assign(:draft, nil) |> assign_compose("", "")}
+    {:noreply, socket |> assign(:draft, nil) |> compose("", "")}
   end
 
   def handle_event("delete_draft", %{"id" => id}, socket) do
@@ -118,7 +141,7 @@ defmodule WebWeb.AdminLive.Newsletter do
         {:noreply, put_flash(socket, :error, "The test needs an address to go to.")}
 
       true ->
-        case Newsletter.send_test(address, subject(socket), body(socket)) do
+        case Newsletter.send_test(address, subject(socket), body(socket), format(socket)) do
           {:ok, _} ->
             {:noreply,
              socket
@@ -136,7 +159,8 @@ defmodule WebWeb.AdminLive.Newsletter do
   # Process.sleep(500) loop gave, but as durable jobs: a crash or redeploy
   # mid-broadcast no longer loses whoever hadn't been reached yet, and Oban
   # retries a failed send instead of silently dropping it.
-  def handle_event("send", %{"subject" => subject, "body" => body}, socket) do
+  def handle_event("send", %{"subject" => subject, "body" => body} = params, socket) do
+    format = params["format"] || format(socket)
     subscribers = Newsletter.list_active_emails()
     now = DateTime.utc_now()
 
@@ -144,19 +168,19 @@ defmodule WebWeb.AdminLive.Newsletter do
     |> Enum.with_index()
     |> Enum.map(fn {email, index} ->
       NewsletterSender.new(
-        %{"email" => email, "subject" => subject, "body" => body},
+        %{"email" => email, "subject" => subject, "body" => body, "format" => format},
         scheduled_at: DateTime.add(now, index * 250, :millisecond)
       )
     end)
     |> Oban.insert_all()
 
-    Newsletter.record_send(subject, body, length(subscribers), socket.assigns.draft)
+    Newsletter.record_send(subject, body, length(subscribers), socket.assigns.draft, format)
 
     {:noreply,
      socket
      |> put_flash(:info, "Queued #{length(subscribers)} subscribers for delivery.")
      |> assign(:draft, nil)
-     |> assign_compose("", "")
+     |> compose("", "")
      |> load()}
   end
 
@@ -173,6 +197,7 @@ defmodule WebWeb.AdminLive.Newsletter do
 
   defp subject(socket), do: String.trim(socket.assigns.form.params["subject"] || "")
   defp body(socket), do: String.trim(socket.assigns.form.params["body"] || "")
+  defp format(socket), do: socket.assigns.form.params["format"] || "markdown"
 
   def render(assigns) do
     ~H"""
@@ -207,18 +232,24 @@ defmodule WebWeb.AdminLive.Newsletter do
               phx-debounce="300"
               required
             />
-            <.input
-              field={@form[:body]}
-              type="textarea"
-              label="Body (HTML)"
-              placeholder="<p>Hello everyone…</p>"
-              rows="14"
-              class="adm-input adm-input--code"
-              phx-debounce="400"
-              required
+            <input type="hidden" name="format" value={@form.params["format"]} />
+            <label class="adm-label" for={"#{editor_id(@form.params["format"])}-input"}>
+              {if @form.params["format"] == "html", do: "Body (HTML)", else: "Body (Markdown)"}
+            </label>
+            <.document_editor
+              id={editor_id(@form.params["format"])}
+              name="body"
+              value={@form.params["body"]}
+              complete={if @form.params["format"] == "html", do: "none", else: "blog"}
+              media={@form.params["format"] != "html"}
+              label="Body"
             />
-            <p class="adm-help">
-              Basic HTML, set inside the site's paper shell. Each reader's copy carries their own unsubscribe link.
+            <p :if={@form.params["format"] == "html"} class="adm-help">
+              An older draft, written in HTML, and sent as it is. Each reader's copy carries their own unsubscribe link.
+            </p>
+            <p :if={@form.params["format"] != "html"} class="adm-help">
+              Markdown, set as a post is: <code>![[roll012/3]]</code> embeds a frame, and links to the
+              site work from a mail client. Each reader's copy carries their own unsubscribe link.
             </p>
 
             <div class="adm-form-actions">

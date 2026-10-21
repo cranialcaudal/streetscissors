@@ -12,9 +12,10 @@ defmodule Web.Workers.NewsletterSender do
   alias Web.Mailer
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"email" => email, "subject" => subject, "body" => body}}) do
+  # A job queued before newsletters were Markdown carries no format: HTML.
+  def perform(%Oban.Job{args: %{"email" => email, "subject" => subject, "body" => body} = args}) do
     email
-    |> Email.newsletter(subject, body)
+    |> Email.newsletter(subject, body, Map.get(args, "format", "html"))
     |> Mailer.deliver()
   end
 end

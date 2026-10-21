@@ -9,6 +9,10 @@ defmodule Web.SourceFile do
     revision}}` with what is on disk now, for the author to choose.
   * **`force: true`** saves anyway, first copying the version it replaces into
     `trash` (the vault's `.trash/`, where Obsidian keeps what it deletes).
+  * **Line endings are the file's own** (`keep_line_endings/2`). A browser
+    hands back a textarea's text with `\n` only, so a file Obsidian saved
+    with `\r\n` would otherwise change on every line the first time it was
+    saved from the admin, typed in or not.
   * **Every write is atomic** (`write_atomic/2`): beside the file, then
     renamed over it, so nothing reading at that moment (Obsidian, a request)
     sees half a file.
@@ -42,6 +46,7 @@ defmodule Web.SourceFile do
   """
   def write(path, content, revision, opts \\ []) do
     {:ok, %{content: on_disk, revision: current}} = read(path)
+    content = keep_line_endings(content, on_disk)
 
     cond do
       current == revision ->
@@ -54,6 +59,17 @@ defmodule Web.SourceFile do
       true ->
         {:error, :conflict, %{content: on_disk, revision: current}}
     end
+  end
+
+  @doc """
+  `content` with the line endings of `original`: when the file on disk uses
+  `\r\n` and the new text has none, every `\n` becomes `\r\n` again. Text that
+  already carries `\r\n`, or a file that never did, is left as it is.
+  """
+  def keep_line_endings(content, original) do
+    if String.contains?(original, "\r\n") and not String.contains?(content, "\r\n"),
+      do: String.replace(content, "\n", "\r\n"),
+      else: content
   end
 
   defp save(path, content) do

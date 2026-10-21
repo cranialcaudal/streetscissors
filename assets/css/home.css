@@ -789,3 +789,163 @@
 
 /* The top bar's desktop links sit in the bar's own flex row. */
 .desktop-top-bar-contents { display: contents; }
+
+/* ── New: the corner card over the tiles (#home-new, home_new.js) ─────────
+   Out of the way by design: fixed to the lower right, a column of three
+   small rows, sliding in once and closing for good with ×. It sits above
+   the tiles (--z-sticky) and below any dialog. */
+.home-new {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: var(--z-sticky);
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.75rem 0.75rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink) 18%, transparent);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.home-new.is-open {
+  opacity: 1;
+  transform: none;
+}
+.home-new-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home-new-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-ink);
+}
+.home-new-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -0.5rem;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.home-new-close:hover,
+.home-new-close:focus-visible {
+  color: var(--accent-ink);
+}
+.new-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+.new-item:hover .new-name,
+.new-item:focus-visible .new-name {
+  color: var(--accent-ink);
+}
+.new-item:focus-visible {
+  outline: 3px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+.new-plate {
+  position: relative;
+  flex: 0 0 auto;
+  width: 7rem;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: var(--paper-sunk);
+}
+.new-plate--video {
+  aspect-ratio: 16 / 9;
+  background: var(--ink);
+}
+.new-plate img,
+.new-plate video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A post with no picture: its first letter, set. */
+.new-plate--type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--accent-ink);
+}
+.new-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.75rem;
+  height: 1.75rem;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.25s ease;
+}
+.new-play circle { fill: var(--paper); fill-opacity: 0.88; }
+.new-play path { fill: var(--accent-ink); }
+.new-item.is-playing .new-play { opacity: 0; }
+.new-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.new-kind {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-3);
+}
+.new-name {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.new-meta {
+  font-family: var(--font-data);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+}
+
+/* Phones: along the bottom edge, with smaller pictures, so the tiles above
+   stay in view. */
+@media (max-width: 550px) {
+  .home-new {
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 1.5rem);
+  }
+  .new-plate {
+    width: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-new {
+    transform: none;
+    transition: none;
+  }
+}

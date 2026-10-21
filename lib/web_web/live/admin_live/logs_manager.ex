@@ -6,8 +6,10 @@ defmodule WebWeb.AdminLive.LogsManager do
   alias Web.Media
   alias Web.Media.Transcoder
   alias Web.Uploads
+  alias WebWeb.DocumentEditor
 
   import WebWeb.AdminComponents
+  import WebWeb.DocumentEditor, only: [document_editor: 1]
   import WebWeb.LogsLive.Format, only: [format_duration: 1, presence: 1]
 
   @moduledoc """
@@ -66,6 +68,7 @@ defmodule WebWeb.AdminLive.LogsManager do
       # The posts a log can say it belongs with (Log.post_ref).
       |> assign(:post_options, Enum.map(Web.Blog.list_posts(), &{&1.title, Web.Pieces.post(&1.slug)}))
       |> assign_new_form()
+      |> DocumentEditor.attach()
       |> load_logs()
       |> allow_upload(:media,
         accept: @accept,
@@ -124,7 +127,8 @@ defmodule WebWeb.AdminLive.LogsManager do
     {:noreply,
      socket
      |> assign(:editing, log)
-     |> assign(:form, to_form(Logs.change_log(log)))}
+     |> assign(:form, to_form(Logs.change_log(log)))
+     |> DocumentEditor.set(notes_editor_id(log), log.description || "")}
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -280,8 +284,8 @@ defmodule WebWeb.AdminLive.LogsManager do
   defp log_or_new(%Log{} = log), do: log
 
   defp assign_new_form(socket) do
-    assign(
-      socket,
+    socket
+    |> assign(
       :form,
       to_form(
         Logs.change_log(%Log{}, %{
@@ -291,7 +295,13 @@ defmodule WebWeb.AdminLive.LogsManager do
         })
       )
     )
+    |> DocumentEditor.set(notes_editor_id(nil), "")
   end
+
+  # The notes' editor, one per entry (and one for the next recording), so
+  # editing another entry mounts a fresh editor over its notes.
+  defp notes_editor_id(nil), do: "log-notes-new"
+  defp notes_editor_id(%Log{id: id}), do: "log-notes-#{id}"
 
   defp load_logs(socket), do: assign(socket, :logs, Logs.list_logs())
 
@@ -907,11 +917,15 @@ defmodule WebWeb.AdminLive.LogsManager do
             placeholder="ferry, bowling-green"
             class="adm-input"
           />
-          <.input
-            field={@form[:description]}
-            type="textarea"
+          <%!-- Markdown, shown as such on the log's page; [[ links a post. --%>
+          <label class="adm-label" for={"#{notes_editor_id(@editing)}-input"}>Notes</label>
+          <.document_editor
+            id={notes_editor_id(@editing)}
+            name={@form[:description].name}
+            value={@form[:description].value}
+            complete="blog"
+            size="short"
             label="Notes"
-            class="adm-input adm-input--prose"
           />
           <.input
             field={@form[:post_ref]}

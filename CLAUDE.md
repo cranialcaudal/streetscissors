@@ -175,6 +175,33 @@ title/description/date/keywords (`content/templates/blog-template.md`).
 - The index's styles are in `writing.css`, scoped to `.writing`. The `blog-bento-*` classes
   serve the fitness pages, from `fitness_cards.css`.
 
+### The document editor
+
+`WebWeb.DocumentEditor` (`assets/js/document_editor.js`, `assets/js/editor/core.js`, styled by
+`admin/editor.css`) is how the admin writes the blog, the fitness wiki/days and Files tab, a
+newsletter and log notes. **CodeMirror 6, source-first, because Obsidian edits the same files**:
+the text is never re-serialised, and Live mode, task boxes and embed highlighting are decorations,
+never changes. Don't swap in a WYSIWYG editor; it would rewrite lines no one typed.
+
+- **The contract:** the component renders the real `<textarea name=…>` (`<id>-input`), and the hook
+  writes every edit into it with a bubbling `input` event, so `to_form`, `phx-change` and tests
+  work as for a plain textarea. The textarea and the editor div are `phx-update="ignore"` (a reply
+  must never put older text back), and everything the hook draws lives inside the ignored div,
+  since LiveView resets attributes it renders. **When the server changes the text** (take the
+  disk version, publish's `draft:` line, open a draft) it calls `DocumentEditor.set/3`. An editor's
+  id names its document (`source-<file>`, `wiki-exercise-<slug>`), so another document mounts a
+  fresh editor.
+- `DocumentEditor.attach/1` in `mount` answers `[[`/`![[`/`related:`/`keywords:` from
+  `Web.Editor.Complete`. The blog has no `[[slug]]` link syntax, so post links insert Markdown links.
+  The media drawer (`DocumentEditor.Media`) has **no forms** (it sits inside the host's form).
+- **Line endings:** a browser sends `\n`; `Web.SourceFile.write/4` puts a file's `\r\n` back.
+- The engine is **vendored**: `assets/vendor/codemirror.js`, rebuilt only by
+  `tools/vendor/codemirror/build.sh` (pinned lockfile; the site's build needs no Node). It loads
+  as a lazy chunk, so public pages never fetch it.
+- Newsletters carry `format` (`"markdown"`, or `"html"` for older rows), rendered by
+  `Email.newsletter_html/2` (the blog's renderer, addresses made absolute). Log notes are Markdown
+  on `/logs/<slug>`, and `Web.Markdown.to_text/1` wherever a plain line is wanted.
+
 ### Keywords and counts
 
 `Web.Keywords` (`parse/1`, `normalize/1`, `tally/1`, `slugify/1`) is the one vocabulary, so
@@ -190,7 +217,7 @@ onto an existing one merges them.
 - **Posts are "witnessed":** distinct `ip_hash` in `analytics_hits`, across every address the post
   has had.
 - **Logs have "views":** each `audio_plays` row. The `.LogPlayer` hook sends one after 30 s of real
-  play (or half a short entry) and again at the end. `Audio.record_play/4` takes at most one per
+  play (or half a short entry) and again at the end. `Logs.record_play/4` takes at most one per
   browser (`audio_plays.witness`, an id in `localStorage`) per log per 30 min, and none from an
   admin session.
 - **Prefetch must not count:** `SEO.speculation_rules_tag/0` prefetches on hover (**never
@@ -578,7 +605,7 @@ same public list functions the pages read, so drafts and unlisted pages can't le
 All approved signatures show, newest first. **An optional email or phone is the most protected
 data on the site**: `Web.Guestbook.Contact` encrypts it under a key derived from `SECRET_KEY_BASE`
 into `contact_sealed` (`load_in_query: false`, `redact: true`, in `:filter_parameters`). Only
-`General.guestbook_contact/1` reads it, one at a time on `/admin/guestbook`. **Rotating
+`Guestbook.guestbook_contact/1` reads it, one at a time on `/admin/guestbook`. **Rotating
 `SECRET_KEY_BASE` makes every contact unreadable for good.** Never add it to an export, search,
 email, PubSub or a log. `test/web/guestbook_contact_test.exs` pins each rule.
 
@@ -664,6 +691,13 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
 - **A tab left open across a deploy reloads itself** (`WebWeb.FreshAssets` + `phx:stale-assets`).
 - `@view-transition { navigation: auto }` in `header.css`. The homepage hero is 480/960 with
   `fetchpriority="high"`, never lazy.
+- **The homepage is the bento tiles; the newest work is a corner card over them** (`#home-new`,
+  rendered `hidden`, opened by `assets/js/home_new.js` a moment after load; not a dialog, takes no
+  focus). It shows `Web.Happening.build/1`'s `lately`: the newest post with its picture
+  (`Blog.cover/1`: the `image:` line, else the first embedded frame/sheet, else the first upload),
+  log and roll. Closed, it stays closed until `data-new` (what it shows) changes. The log's silent
+  preview is `assets/js/home_previews.js`: on hover or in view only, never under reduced motion or
+  Save-Data.
 - Print rules: the post page's are at the end of `writing.css`, the year's in `daybook.css`.
 
 ## Deployment

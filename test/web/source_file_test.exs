@@ -44,6 +44,22 @@ defmodule Web.SourceFileTest do
       assert {:ok, %{content: "", revision: empty}} = SourceFile.read(path)
       assert {:ok, _} = SourceFile.write(path, "first", empty)
     end
+
+    test "a file saved with \\r\\n keeps them when the browser sends \\n", %{dir: dir} do
+      path = Path.join(dir, "post.md")
+      original = "---\r\ntitle: Tide\r\n---\r\n![[roll012/3]] \r\nBody\r\n"
+      File.write!(path, original)
+      {:ok, %{revision: opened}} = SourceFile.read(path)
+
+      # Saved unchanged from the admin: the same bytes, so the same revision.
+      as_sent = String.replace(original, "\r\n", "\n")
+      assert {:ok, ^opened} = SourceFile.write(path, as_sent, opened)
+      assert File.read!(path) == original
+
+      # An edit keeps the file's line endings on every line.
+      assert {:ok, _} = SourceFile.write(path, as_sent <> "More\n", opened)
+      assert File.read!(path) == original <> "More\r\n"
+    end
   end
 
   describe "SourceCheck.check/2" do

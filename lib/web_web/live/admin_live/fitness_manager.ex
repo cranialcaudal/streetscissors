@@ -26,8 +26,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
   use WebWeb, :live_view
 
   import WebWeb.AdminComponents
+  import WebWeb.DocumentEditor, only: [document_editor: 1]
 
   alias Web.Fitness
+  alias WebWeb.DocumentEditor
   alias Web.Fitness.{Block, Checks, Guardrails, SourceCheck, Training, Vault}
   alias Web.SourceFile
 
@@ -49,7 +51,8 @@ defmodule WebWeb.AdminLive.FitnessManager do
          editing_item: nil,
          form_data: %{},
          preview: false
-       )}
+       )
+       |> DocumentEditor.attach()}
     else
       {:ok, push_navigate(socket, to: "/")}
     end
@@ -189,7 +192,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   # Take the version on disk instead, dropping the edit here.
   def handle_event("take_disk", _params, socket) do
-    {:noreply, assign_source(socket, socket.assigns.source.id)}
+    socket = assign_source(socket, socket.assigns.source.id)
+
+    {:noreply,
+     DocumentEditor.set(socket, source_editor_id(socket.assigns.source), socket.assigns.source_text)}
   end
 
   # --- The lists ---
@@ -323,9 +329,18 @@ defmodule WebWeb.AdminLive.FitnessManager do
 
   # ── Helpers ───────────────────────────────────────────────────────────────
 
+  # Opening an item again while it is open reloads it, so the editor is told.
   defp open_editor(socket, mode, item, form) do
-    assign(socket, editor_mode: mode, editing_item: item, form_data: form, preview: false)
+    socket
+    |> assign(editor_mode: mode, editing_item: item, form_data: form, preview: false)
+    |> DocumentEditor.set(wiki_editor_id(mode, item), form["content"] || "")
   end
+
+  # Each file and item gets its own editor id, so moving to another one mounts
+  # a fresh editor over its text (the editor is never patched in place).
+  defp source_editor_id(%{id: id}), do: "source-" <> String.replace(id, ~r/[^\w-]/, "-")
+
+  defp wiki_editor_id(mode, item), do: "wiki-#{mode}-#{(item && item.slug) || "new"}"
 
   defp filtered(exercises, ""), do: exercises
 
@@ -430,13 +445,12 @@ defmodule WebWeb.AdminLive.FitnessManager do
       </nav>
 
       <form id="source-form" phx-change="check_source" phx-submit="save_source">
-        <textarea
+        <.document_editor
+          id={source_editor_id(@source)}
           name="source[content]"
-          class="adm-input adm-input--code"
-          rows="24"
-          phx-debounce="400"
-          aria-label={@source.label}
-        >{@source_text}</textarea>
+          value={@source_text}
+          label={@source.label}
+        />
 
         <p
           id="source-check"
@@ -795,17 +809,19 @@ defmodule WebWeb.AdminLive.FitnessManager do
             Preview
           </button>
         </div>
-        <%!-- The textarea stays in the form while previewing, or the save
-              would go out without the body. --%>
-        <textarea
+        <%!-- The editor stays in the form while previewing, or the save
+              would go out without the body. The preview is the vault's own
+              rendering, so [[wiki]] links show as the public page has them. --%>
+        <.document_editor
+          id={wiki_editor_id(@editor_mode, @editing_item)}
           name={"#{@editor_mode}[content]"}
-          class="adm-input adm-input--code"
+          value={@form_data["content"]}
+          complete="fitness"
           hidden={@preview}
-          phx-debounce="400"
-          aria-label="Markdown"
-        >{@form_data["content"]}</textarea>
+          label="Markdown"
+        />
         <div :if={@preview} class="adm-prose">
-          {raw(Web.Markdown.to_html(@form_data["content"] || ""))}
+          {raw(Vault.render_markdown(@form_data["content"] || ""))}
         </div>
       </div>
     </form>

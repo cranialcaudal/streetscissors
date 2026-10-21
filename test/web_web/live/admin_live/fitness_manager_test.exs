@@ -48,6 +48,28 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     assert has_element?(view, "#editor-form textarea[name='exercise[content]'][hidden]")
   end
 
+  test "the editor is the document editor, and its preview reads [[wiki]] links as the site does",
+       %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
+
+    view
+    |> element(~s(button[phx-click=edit_exercise][phx-value-slug="push-ups"]))
+    |> render_click()
+
+    assert has_element?(view, "#wiki-exercise-push-ups[phx-hook=DocumentEditor][data-complete=fitness]")
+    assert_push_event(view, "editor:set", %{id: "wiki-exercise-push-ups"})
+
+    view
+    |> form("#editor-form", exercise: %{content: "Pair it with [[push-ups|Push-ups]]."})
+    |> render_change()
+
+    html = view |> element("button", "Preview") |> render_click()
+    assert html =~ ~s(href="/fitness/wiki/push-ups")
+
+    render_hook(view, "editor_complete", %{"q" => "push", "kind" => "link", "scope" => "fitness"})
+    assert_reply(view, %{items: [%{insert: "[[push-ups|Push-ups]]"}]})
+  end
+
   test "deleting asks first", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
     assert has_element?(view, "button[phx-click=delete_exercise][data-confirm]")

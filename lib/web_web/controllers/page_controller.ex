@@ -23,6 +23,10 @@ defmodule WebWeb.PageController do
         sheets -> Enum.random(sheets)
       end
 
+    # The newest work, with its pictures (Web.Happening, cached ten minutes),
+    # for the corner card that slides in over the tiles.
+    happening = Web.Happening.get()
+
     author = SEO.author_name()
     title = if author, do: "streetscissors · #{author}", else: "streetscissors"
 
@@ -46,8 +50,18 @@ defmodule WebWeb.PageController do
       spotify_playlist_id:
         Web.SiteSettings.get_setting("spotify_playlist_id", "37i9dQZF1DXcBWIGoYBM5M"),
       site_description: site_description(),
-      happening: Web.Happening.get()
+      happening: happening,
+      lately: happening.lately,
+      new_key: new_key(happening.lately)
     )
+  end
+
+  # What the corner card shows, as one string: the card stays closed for a
+  # reader who closed it until this changes (assets/js/home_new.js).
+  defp new_key(%{posts: posts, log: log, roll: roll}) do
+    [List.first(posts), log, roll]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map_join(" ", & &1.path)
   end
 
   def about(conn, params) do

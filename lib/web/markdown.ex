@@ -16,4 +16,30 @@ defmodule Web.Markdown do
       {:error, html, _} -> html
     end
   end
+
+  @doc """
+  Markdown as plain words, for the places that want a line rather than a
+  page: a feed's description, a meta description. Embeds (`![[roll012/3]]`)
+  are left out, a wiki link (`[[slug|Name]]`) keeps its name, and the
+  rest is rendered and its tags dropped, so `**ferry**` reads as `ferry`.
+  """
+  def to_text(nil), do: ""
+
+  def to_text(markdown) when is_binary(markdown) do
+    markdown
+    |> String.replace(~r/!\[\[[^\]\n]*\]\]/, "")
+    |> String.replace(~r/\[\[(?:[^\]|\n]*\|)?([^\]\n]*)\]\]/, "\\1")
+    |> to_html()
+    |> String.replace(~r/<[^>]*>/, " ")
+    |> String.replace(~w(&amp; &lt; &gt; &quot; &#39; &nbsp;), fn
+      "&amp;" -> "&"
+      "&lt;" -> "<"
+      "&gt;" -> ">"
+      "&quot;" -> "\""
+      "&#39;" -> "'"
+      "&nbsp;" -> " "
+    end)
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+  end
 end

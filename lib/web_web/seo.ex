@@ -178,7 +178,7 @@ defmodule WebWeb.SEO do
       "@context" => "https://schema.org",
       "@type" => type,
       "name" => title,
-      "description" => log.caption || log.description || title,
+      "description" => log.caption || nonblank(Web.Markdown.to_text(log.description)) || title,
       "url" => url,
       "author" => %{
         "@type" => "Person",
@@ -290,4 +290,8 @@ defmodule WebWeb.SEO do
   defp json_ld_tag(data) do
     ~s(<script type="application/ld+json">#{Jason.encode!(data)}</script>)
   end
+
+  # Notes made only of an embed read as nothing; fall through to what's next.
+  defp nonblank(""), do: nil
+  defp nonblank(text), do: text
 end

@@ -240,6 +240,16 @@ defmodule WebWeb.LogsLiveTest do
       assert html =~ "Log 2026-09-18"
     end
 
+    test "notes are Markdown, set on the page and plain in its description", %{conn: conn} do
+      log = log_fixture(description: "Crossing at **dawn**, see [the post](/blog/essay).")
+
+      {:ok, view, html} = live(conn, "/logs/#{log.slug}")
+
+      assert has_element?(view, ".log-notes-body strong", "dawn")
+      assert has_element?(view, ~s(.log-notes-body a[href="/blog/essay"]), "the post")
+      assert html =~ ~s(content="Crossing at dawn, see the post.")
+    end
+
     test "the second entry of a day has an address of its own", %{conn: conn} do
       log_fixture(recorded_on: ~D[2026-09-18])
       second = log_fixture(recorded_on: ~D[2026-09-18])
