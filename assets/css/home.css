@@ -299,13 +299,10 @@
 .bento-card-blog:focus-visible .bento-label {
   transform: translateY(-4px);
 }
-/* The photo hero: the newest roll's sheet, picture first. */
-.bento-hero-wrap {
-  position: relative;
-  margin-top: 1.5rem;
-}
+/* Full-width photo hero card: a random contact sheet behind the wordmark */
 .bento-card-hero {
-  min-height: 380px;
+  margin-top: 1.5rem;
+  min-height: 320px;
   align-items: center !important;
   justify-content: center !important;
   padding: 2rem;
@@ -326,64 +323,33 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  opacity: 0.5;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .bento-card-hero:hover .bento-hero-image,
 .bento-card-hero:focus-visible .bento-hero-image {
+  opacity: 0.75;
   transform: scale(1.02);
 }
-/* The photographs are the point, so they stand at full strength; only the
-   bottom edge darkens, enough for the lettering and the caption on it. */
+/* An even veil, not a bottom gradient — the wordmark covers the whole card and
+   the sheet behind it changes on every request. Deep, because at half opacity
+   the letters need a quiet ground or they dissolve into a busy contact sheet. */
 .bento-hero-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, color-mix(in srgb, var(--ink) 78%, transparent) 0%, transparent 42%);
+  background: rgba(0, 0, 0, 0.62);
 }
-/* Baker-style lettering, now a title in the lower left rather than a veil
-   over the whole sheet. The crop lives in the viewBox (see home.html.heex);
-   aspect-ratio keeps the stretched line its measured shape. */
+/* Baker-style: one heavy line filling the card corner to corner. Absolutely
+   positioned rather than laid out as a flex child so it escapes the card's
+   2rem padding — the letters have to touch the borders, not sit inside them.
+   The crop lives in the viewBox (see home.html.heex). */
 .bento-hero-wordmark {
   position: absolute;
-  left: 1.25rem;
-  bottom: 3rem;
+  inset: 0;
   z-index: 2;
   display: block;
-  width: min(62%, 560px);
-  height: auto;
-  aspect-ratio: 993.34 / 66.96;
-}
-.bento-card-hero .baker-wordmark text {
-  fill: var(--paper);
-  fill-opacity: 0.95;
-}
-.bento-hero-caption {
-  position: absolute;
-  left: 1.25rem;
-  bottom: 1rem;
-  z-index: 2;
-  font-family: var(--font-data);
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  color: var(--paper);
-}
-.bento-hero-all {
-  position: absolute;
-  right: 1rem;
-  bottom: 0.85rem;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 0.85rem;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  color: var(--paper);
-  background: color-mix(in srgb, var(--ink) 55%, transparent);
-  text-decoration: none;
-}
-.bento-hero-all:hover,
-.bento-hero-all:focus-visible {
-  background: var(--accent-ink);
+  width: 100%;
+  height: 100%;
 }
 /* Face, size and ink come from .baker-wordmark in app.css.
 
@@ -644,13 +610,12 @@
   .home-wrapper {
     /* dvh, so a collapsing address bar cannot push the footer off the
        bottom. vh first as the fallback for older engines. */
-    /* The first screen is still composed to the screen (the hero takes
-       what is left of it), but the page goes on: the Lately strip and the
-       rest follow when scrolled to. */
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
     padding: 0 1rem;
     padding-bottom: env(safe-area-inset-bottom, 0);
+    overflow: hidden;
     gap: 1.5vh;
   }
 
@@ -701,42 +666,13 @@
     margin-bottom: 0;
   }
 
-  /* The photograph takes a good part of the first screen. */
-  .bento-hero-wrap {
-    margin-top: 0;
-  }
-
+  /* The flexible one: whatever height is left belongs to the photograph. */
   .bento-card-hero {
-    height: 38vh;
+    flex: 1 1 auto;
     min-height: 0;
+    margin-top: 0;
     padding: 3vw;
   }
-
-  .bento-hero-wordmark {
-    left: 0.75rem;
-    bottom: 2.4rem;
-    width: 72%;
-  }
-
-  .baker-wordmark.bento-hero-wordmark--stacked {
-    aspect-ratio: 1000 / 148.8;
-  }
-
-  .bento-hero-caption {
-    left: 0.75rem;
-    bottom: 0.8rem;
-    font-size: 0.7rem;
-  }
-
-  /* Up in the corner, clear of the roll's caption along the bottom. */
-  .bento-hero-all {
-    top: 0.5rem;
-    right: 0.5rem;
-    bottom: auto;
-    font-size: 0.7rem;
-  }
-
-
 
   .baker-wordmark.bento-hero-wordmark {
     display: none;
@@ -763,8 +699,36 @@
     font-size: 0.65rem;
   }
 
+  /* The page is locked to the screen here, the photograph taking what is
+     left: Happening keeps only its Now line, one row that costs it little. */
   .home-happening {
+    flex: 0 0 auto;
+    display: block;
     margin: 0;
+    padding: 0.5vh 0 0;
+  }
+
+  .home-happening-fresh,
+  .home-happening-witnessed,
+  .home-happening-head {
+    display: none;
+  }
+
+  .home-happening-now {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 0.75rem;
+  }
+
+  .home-happening-line {
+    margin: 0;
+    font-size: 0.75rem;
+  }
+
+  /* A sentence of reading is too long for the one line. */
+  .home-happening-now .home-happening-line:nth-child(n + 4) {
+    display: none;
   }
 }
 
@@ -826,318 +790,162 @@
 /* The top bar's desktop links sit in the bar's own flex row. */
 .desktop-top-bar-contents { display: contents; }
 
-/* ── The live tiles: each big tile shows its newest thing ───────────────
-   The wordmark overlays the top of both tiles, so their content starts
-   below it. The section's label shrinks to the corner and stays a link. */
-.bento-card-live {
-  flex-direction: column;
-  align-items: stretch !important;
-  justify-content: flex-end !important;
-  padding: 8.5rem 1.5rem 1.5rem !important;
+/* ── New: the corner card over the tiles (#home-new, home_new.js) ─────────
+   Out of the way by design: fixed to the lower right, a column of three
+   small rows, sliding in once and closing for good with ×. It sits above
+   the tiles (--z-sticky) and below any dialog. */
+.home-new {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: var(--z-sticky);
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.75rem 0.75rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink) 18%, transparent);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
-.bento-tile-label {
-  text-decoration: none;
+.home-new.is-open {
+  opacity: 1;
+  transform: none;
 }
-.bento-card-live .bento-tile-label {
-  position: absolute;
-  top: 1rem;
-  left: 1.25rem;
-  width: auto;
-  margin: 0 !important;
-  font-size: 1rem;
-  text-align: left;
-}
-.bento-live {
+.home-new-head {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  color: var(--ink);
-  text-decoration: none;
+  align-items: center;
+  justify-content: space-between;
 }
-.bento-live-image {
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  max-height: 190px;
-  object-fit: cover;
-  border: 1px solid var(--hairline);
-  background: var(--paper-sunk);
-}
-.bento-live-kicker {
+.home-new-title {
+  margin: 0;
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--ink-3);
-}
-.bento-live-title {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  font-family: var(--font-heading);
-  font-size: 1.5rem;
-  line-height: 1.15;
-  color: var(--ink);
-}
-/* No picture: the title is the picture. */
-.bento-live-title--set {
-  -webkit-line-clamp: 3;
-  font-size: 2.2rem;
-}
-.bento-live-excerpt {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--ink-2);
-}
-.bento-live:hover .bento-live-title,
-.bento-live:focus-visible .bento-live-title {
   color: var(--accent-ink);
 }
-.bento-live:focus-visible {
-  outline: 3px solid var(--accent-ink);
-  outline-offset: 3px;
+.home-new-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -0.5rem;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
 }
-/* The training tile: its label, then the week it is in. */
-#home-fitness {
-  flex-direction: column;
-  align-items: center !important;
-  justify-content: flex-end !important;
+.home-new-close:hover,
+.home-new-close:focus-visible {
+  color: var(--accent-ink);
 }
-.bento-live-note {
-  margin-top: 0.75rem;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--ink-2);
-  text-align: center;
-}
-
-/* ── Lately: the newest work as pictures ───────────────────────────────── */
-.home-lately {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr 1fr;
-  gap: 1.5rem;
-  margin: 1.5rem 0 0;
-}
-.lately-card {
+.new-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 0;
-  padding: 0.75rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--hairline);
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--rule);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color 0.25s ease, transform 0.25s ease;
 }
-a.lately-card:hover,
-a.lately-card:focus-visible,
-.lately-card:focus-within {
-  border-color: var(--accent-ink);
+.new-item:hover .new-name,
+.new-item:focus-visible .new-name {
+  color: var(--accent-ink);
 }
-a.lately-card:hover {
-  transform: translateY(-2px);
-}
-a.lately-card:focus-visible {
+.new-item:focus-visible {
   outline: 3px solid var(--accent-ink);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
-.lately-plate {
+.new-plate {
   position: relative;
-  display: block;
-  aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
+  width: 7rem;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
+  background: var(--paper-sunk);
+}
+.new-plate--video {
+  aspect-ratio: 16 / 9;
   background: var(--ink);
 }
-.lately-plate img,
-.lately-plate video {
+.new-plate img,
+.new-plate video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.lately-play {
+/* A post with no picture: its first letter, set. */
+.new-plate--type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--accent-ink);
+}
+.new-play {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
   transform: translate(-50%, -50%);
   transition: opacity 0.25s ease;
 }
-.lately-play circle { fill: var(--paper); fill-opacity: 0.88; }
-.lately-play path { fill: var(--accent-ink); }
-/* While the preview plays, the mark steps aside. */
-.lately-card.is-playing .lately-play { opacity: 0; }
-.lately-length {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.5rem;
-  padding: 0.1rem 0.4rem;
-  font-family: var(--font-data);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--paper);
-  background: color-mix(in srgb, var(--ink) 75%, transparent);
-}
-.lately-kicker {
-  margin-top: 0.25rem;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--ink-3);
-}
-.lately-title {
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  line-height: 1.2;
-  color: var(--ink);
-  text-decoration: none;
-}
-a.lately-title:hover,
-a.lately-title:focus-visible,
-.lately-card:hover .lately-title {
-  color: var(--accent-ink);
-}
-.lately-note {
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  color: var(--ink-2);
-}
-.lately-prints {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.lately-prints a {
-  display: block;
-  aspect-ratio: 1;
-  overflow: hidden;
-  background: var(--paper-sunk);
-}
-.lately-prints img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-.lately-prints a:hover img,
-.lately-prints a:focus-visible img {
-  transform: scale(1.04);
-}
-.lately-post {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  min-height: 44px;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--rule);
-  text-decoration: none;
-}
-.lately-post img {
-  flex: 0 0 auto;
-  width: 6rem;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  background: var(--paper-sunk);
-}
-.lately-post-text {
+.new-play circle { fill: var(--paper); fill-opacity: 0.88; }
+.new-play path { fill: var(--accent-ink); }
+.new-item.is-playing .new-play { opacity: 0; }
+.new-text {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.lately-post:hover .lately-title,
-.lately-post:focus-visible .lately-title {
-  color: var(--accent-ink);
-}
-.lately-date {
-  font-family: var(--font-data);
-  font-size: 0.75rem;
+.new-kind {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   color: var(--ink-3);
 }
-.lately-more {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  color: var(--accent-ink);
-  text-decoration: none;
+.new-name {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
 }
-.lately-more:hover { text-decoration: underline; }
-
-/* Witnessed: a small picture where the piece has one. */
-.home-happening-thumb {
-  float: left;
-  width: 3rem;
-  height: 3rem;
-  margin: 0.1rem 0.6rem 0 0;
-  object-fit: cover;
-  background: var(--paper-sunk);
-}
-.home-happening-line::after {
-  content: "";
-  display: block;
-  clear: both;
+.new-meta {
+  font-family: var(--font-data);
+  font-size: 0.7rem;
+  color: var(--ink-3);
 }
 
-@media (max-width: 900px) and (min-width: 551px) {
-  .home-lately {
-    grid-template-columns: 1fr 1fr;
+/* Phones: along the bottom edge, with smaller pictures, so the tiles above
+   stay in view. */
+@media (max-width: 550px) {
+  .home-new {
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 1.5rem);
   }
-  .lately-card--log {
-    grid-column: 1 / -1;
+  .new-plate {
+    width: 5rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  a.lately-card:hover,
-  .bento-card-hero:hover .bento-hero-image,
-  .lately-prints a:hover img {
+  .home-new {
     transform: none;
-  }
-}
-
-/* Phones and short screens, for the live tiles and the strip. Last in the
-   file, because these rules override the ones just above them. */
-@media (max-width: 550px), (max-height: 560px) and (max-width: 1024px) {
-  /* Half a phone is too narrow for a picture and a paragraph: the newest
-     post's tile keeps its title, and the Lately strip below shows the rest. */
-  .bento-card-live {
-    padding: 2.5vw !important;
-    justify-content: center !important;
-  }
-
-  .bento-card-live .bento-tile-label {
-    position: static;
-    font-size: 3.2vw;
-  }
-
-  .bento-live-image,
-  .bento-live-excerpt,
-  .bento-live-kicker,
-  .bento-live-note {
-    display: none;
-  }
-
-  .bento-live-title,
-  .bento-live-title--set {
-    font-size: 4.2vw;
-    -webkit-line-clamp: 3;
-  }
-
-  .home-lately {
-    grid-template-columns: 1fr;
-    margin-top: 0;
+    transition: none;
   }
 }

@@ -32,6 +32,7 @@ import { initEmissionsControls } from "./emissions_controls"
 import { initEngland } from "./england"
 import { initChrist } from "./christ"
 import { initHomePreviews } from "./home_previews"
+import { initHomeNew } from "./home_new"
 
 document.addEventListener("DOMContentLoaded", () => initEmissionsControls())
 window.addEventListener("phx:page-loading-stop", () => initEmissionsControls())
@@ -299,10 +300,12 @@ if (
   })
 }
 
-// The homepage's newest log plays a few silent seconds on hover (or in view
-// on a phone): assets/js/home_previews.js. Nothing on any other page.
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initHomePreviews)
-else initHomePreviews()
+// The homepage's corner card of new work (assets/js/home_new.js), whose video
+// plays a few silent seconds on hover (assets/js/home_previews.js). Nothing
+// on any other page.
+const initHome = () => { initHomeNew(); initHomePreviews() }
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initHome)
+else initHome()
 
 // The England trip's pages: tabs, the calendar's day links, the packing list
 // and the call clocks (assets/js/england.js). Nothing on any other page.

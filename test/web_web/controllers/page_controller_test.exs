@@ -323,54 +323,32 @@ defmodule WebWeb.PageControllerTest do
       refute section =~ "Evening loop"
     end
 
-  end
-
-  describe "the newest work" do
-    test "the Blog tile shows the newest post, and its label still leads to /blog", %{conn: conn} do
+    test "the corner card holds the newest post, video and roll, hidden until the page opens it",
+         %{conn: conn} do
       [newest | _] = Web.Blog.list_posts()
+      log = Web.AudioFixtures.log_fixture(recorded_on: ~D[2026-09-18])
       html = conn |> get(~p"/") |> html_response(200)
 
-      [tile] = Regex.run(~r{<div id="home-blog".*?</div>}s, html)
-      assert tile =~ ~s(href="/blog")
-      assert tile =~ ~s(href="/blog/#{newest.slug}")
-      assert tile =~ Phoenix.HTML.html_escape(newest.title) |> Phoenix.HTML.safe_to_string()
-      refute tile =~ "draft-post"
+      [card] = Regex.run(~r{<aside[^>]*id="home-new".*?</aside>}s, html)
+      # Rendered hidden: without JavaScript the page is the tiles alone.
+      assert card =~ ~r/<aside[^>]*\bhidden\b/
+      assert card =~ ~s(href="/blog/#{newest.slug}")
+      assert card =~ ~s(href="/logs/#{log.slug}")
+      assert card =~ ~s(data-preview="#{Web.Logs.Log.media_url(log)}")
+      assert card =~ ~s(href="/negatives/roll/001")
+      refute card =~ "draft-post"
+      # The video is named, never embedded: nothing of it loads with the page.
+      refute card =~ "<video"
+      # What it shows, as the key a closed card is remembered by.
+      assert card =~ ~s(data-new="/blog/#{newest.slug} /logs/#{log.slug} /negatives/roll/001")
     end
 
-    test "the hero is the newest roll, linked to its own page", %{conn: conn} do
-      %{roll: roll} = Web.Happening.build().lately.roll
+    test "fresh names the newest post, never a draft", %{conn: conn} do
       html = conn |> get(~p"/") |> html_response(200)
+      [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)
 
-      [hero] = Regex.run(~r{<div class="bento-hero-wrap".*?All contact sheets}s, html)
-      assert hero =~ ~s(href="/negatives/roll/#{roll}")
-      assert hero =~ ~s(href="/negatives?from=home")
-      assert hero =~ "Roll #{roll}"
-    end
-
-    test "Lately shows the newest log as a card that previews, and no draft", %{conn: conn} do
-      log = Web.AudioFixtures.log_fixture(recorded_on: ~D[2026-09-18], caption: "Crossing at dawn")
-      html = conn |> get(~p"/") |> html_response(200)
-
-      [lately] = Regex.run(~r{<section[^>]*id="home-lately".*?</section>}s, html)
-      assert lately =~ ~s(href="/logs/#{log.slug}")
-      assert lately =~ ~s(data-preview="#{Web.Logs.Log.media_url(log)}")
-      assert lately =~ "Crossing at dawn"
-      refute lately =~ "draft-post"
-      # Never fetched on load: the page names the video, it doesn't embed it.
-      refute lately =~ "<video"
-    end
-
-    test "comes after the hero and before the section links", %{conn: conn} do
-      Web.AudioFixtures.log_fixture()
-      html = conn |> get(~p"/") |> html_response(200)
-
-      positions =
-        for marker <- [~s(id="home-hero"), ~s(id="home-lately"), "bento-fitness-sub-row--three", ~s(class="home-footer")] do
-          {at, _} = :binary.match(html, marker)
-          at
-        end
-
-      assert positions == Enum.sort(positions)
+      assert section =~ "home-happening-fresh"
+      refute section =~ "draft-post"
     end
   end
 end

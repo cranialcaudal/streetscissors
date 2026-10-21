@@ -94,155 +94,58 @@
       </div>
     </div>
 
-    <%!-- The two big tiles are windows on their newest thing: the newest
-          post (its picture, Blog.cover/1, else its title set large), and the
-          training block of the week. Each label stays a link to its section. --%>
     <div class="bento-row">
-      <div id="home-blog" class={["bento-card bento-card-blog", @latest_post && "bento-card-live"]}>
-        <a href={~p"/blog"} class="bento-label bento-tile-label">[Blog]</a>
-        <a :if={@latest_post} href={@latest_post.path} class="bento-live">
-          <img
-            :if={@latest_post.cover}
-            class="bento-live-image"
-            src={@latest_post.cover.url}
-            srcset={@latest_post.cover.srcset}
-            sizes="(max-width: 550px) 50vw, 480px"
-            alt={@latest_post.cover.alt}
-            decoding="async"
-          />
-          <span class="bento-live-kicker">
-            Newest <span aria-hidden="true">·</span> {Calendar.strftime(@latest_post.date, "%-d %b")}
-            <span aria-hidden="true">·</span> {@latest_post.read_min} min
-          </span>
-          <span class={["bento-live-title", !@latest_post.cover && "bento-live-title--set"]}>
-            {@latest_post.title}
-          </span>
-          <span class="bento-live-excerpt">{@latest_post.excerpt}</span>
-        </a>
-      </div>
-      <a href={~p"/fitness"} id="home-fitness" class="bento-card bento-card-blog">
+      <a href={~p"/blog"} class="bento-card bento-card-blog">
+        <span class="bento-label">[Blog]</span>
+      </a>
+      <a href={~p"/fitness"} class="bento-card bento-card-blog">
         <span class="bento-label bento-label-stacked">
           <span>Fitness</span>
           <span>&amp;</span>
           <span>Sport</span>
         </span>
-        <span :if={@happening.now.block} class="bento-live-note">{@happening.now.block}</span>
       </a>
     </div>
-
-    <%!-- The photo hero: the newest roll's sheet, at full strength, with its
-          name. The largest thing on the first screen, so it is asked for
-          first and at the size it is drawn (480/960, never lazy). --%>
-    <div class="bento-hero-wrap" id="home-hero">
-      <a href={(@hero && @hero.path) || ~p"/negatives?from=home"} class="bento-card bento-card-hero">
+    
+<%!-- Full-width photo hero: a random contact sheet behind the label --%>
+    <a href={~p"/negatives?from=home"} class="bento-card bento-card-hero">
+      <%= if @hero_sheet do %>
+        <%!-- The largest thing on the first screen, so it is asked for
+              first and at the size it is drawn: the full preview was 410 KB
+              here, and it was marked lazy. --%>
         <img
-          :if={@hero}
           class="bento-hero-image"
-          src={Web.Negatives.sized_url(@hero.preview_url, 960)}
-          srcset={"#{Web.Negatives.sized_url(@hero.preview_url, 480)} 480w, #{Web.Negatives.sized_url(@hero.preview_url, 960)} 960w"}
+          src={Web.Negatives.sized_url(@hero_sheet.preview_url, 960)}
+          srcset={"#{Web.Negatives.sized_url(@hero_sheet.preview_url, 480)} 480w, #{Web.Negatives.sized_url(@hero_sheet.preview_url, 960)} 960w"}
           sizes="(max-width: 550px) 100vw, 960px"
-          alt={"The contact sheet of roll #{@hero.roll}"}
+          alt=""
           fetchpriority="high"
           decoding="async"
         />
-        <div class="bento-hero-scrim"></div>
-        <%!-- Geometry is measured off the rendered font, never guessed — see
-              WebWeb.CoreComponents.baker_wordmark/1. --%>
-        <WebWeb.CoreComponents.baker_wordmark
-          class="bento-hero-wordmark"
-          viewbox="3.84 31.52 993.34 66.96"
-          label="Contact Sheets/Photos"
-          lines={[%{text: "Contact Sheets/Photos", x: "0", y: "100", length: "1000"}]}
-        />
-        <%!-- Phones: 21 glyphs stretched across ~340px collapses into a picket
-              fence of vertical strokes, so narrow screens get two lines instead. --%>
-        <WebWeb.CoreComponents.baker_wordmark
-          class="bento-hero-wordmark bento-hero-wordmark--stacked"
-          viewbox="0 34.6 1000 148.8"
-          label="Contact Sheets/Photos"
-          lines={[
-            %{text: "Contact Sheets", x: "-5.95", y: "100", length: "1010.32"},
-            %{text: "Photos", x: "-17.61", y: "188", length: "1027.29"}
-          ]}
-        />
-        <span :if={@hero} class="bento-hero-caption">
-          Roll {@hero.roll}<span :if={@hero.film}> · {@hero.film}</span>
-          · {Calendar.strftime(@hero.date, "%-d %b")}<span :if={@hero.count > 0}> · {@hero.count} prints</span>
-        </span>
-      </a>
-      <a href={~p"/negatives?from=home"} class="bento-hero-all">All contact sheets →</a>
-    </div>
-
-    <%!-- Lately: the newest work as pictures (Web.Happening.lately). The
-          video plays a few silent seconds on hover, or in view on a phone
-          (assets/js/home_previews.js); nothing loads until then. --%>
-    <section
-      :if={@lately.log || (@lately.roll && @lately.roll.prints != []) || @more_posts != []}
-      id="home-lately"
-      class="home-lately"
-      aria-label="Lately"
-    >
-      <a
-        :if={@lately.log}
-        href={@lately.log.path}
-        class="lately-card lately-card--log"
-        data-preview={@lately.log.video}
-      >
-        <span class="lately-plate">
-          <img :if={@lately.log.poster} src={@lately.log.poster} alt="" loading="lazy" decoding="async" />
-          <svg class="lately-play" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="11" />
-            <path d="M10 8l6 4-6 4z" />
-          </svg>
-          <span :if={@lately.log.duration} class="lately-length">
-            {WebWeb.LogsLive.Format.format_duration(@lately.log.duration)}
-          </span>
-        </span>
-        <span class="lately-kicker">Captain's log</span>
-        <span class="lately-title">{@lately.log.title}</span>
-        <span :if={@lately.log.caption} class="lately-note">{@lately.log.caption}</span>
-      </a>
-
-      <div :if={@lately.roll && @lately.roll.prints != []} class="lately-card lately-card--prints">
-        <ul class="lately-prints">
-          <li :for={print <- @lately.roll.prints}>
-            <a href={print.path}>
-              <img
-                src={Web.Negatives.sized_url(print.url, 480)}
-                alt={"Roll #{@lately.roll.roll}, frame #{print.frame}"}
-                loading="lazy"
-                decoding="async"
-              />
-            </a>
-          </li>
-        </ul>
-        <span class="lately-kicker">Newest prints</span>
-        <a href={@lately.roll.path} class="lately-title">Roll {@lately.roll.roll}</a>
-        <span :if={@lately.roll.place} class="lately-note">{@lately.roll.place}</span>
-      </div>
-
-      <div :if={@more_posts != []} class="lately-card lately-card--writing">
-        <span class="lately-kicker">More writing</span>
-        <a :for={post <- @more_posts} href={post.path} class="lately-post">
-          <img
-            :if={post.cover}
-            src={post.cover.url}
-            srcset={post.cover.srcset}
-            sizes="6rem"
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-          <span class="lately-post-text">
-            <span class="lately-title">{post.title}</span>
-            <span class="lately-date">{Calendar.strftime(post.date, "%-d %b %Y")}</span>
-          </span>
-        </a>
-        <a href={~p"/blog"} class="lately-more">All writing →</a>
-      </div>
-    </section>
-
-    <%!-- Fitness Sub-row: Three skinny boxes --%>
+      <% end %>
+      <div class="bento-hero-scrim"></div>
+      <%!-- Geometry is measured off the rendered font, never guessed — see
+            WebWeb.CoreComponents.baker_wordmark/1. --%>
+      <WebWeb.CoreComponents.baker_wordmark
+        class="bento-hero-wordmark"
+        viewbox="3.84 31.52 993.34 66.96"
+        label="Contact Sheets/Photos"
+        lines={[%{text: "Contact Sheets/Photos", x: "0", y: "100", length: "1000"}]}
+      />
+      <%!-- Phones: 21 glyphs stretched across ~340px collapses into a picket
+            fence of vertical strokes, so narrow screens get two lines instead. --%>
+      <WebWeb.CoreComponents.baker_wordmark
+        class="bento-hero-wordmark bento-hero-wordmark--stacked"
+        viewbox="0 34.6 1000 148.8"
+        label="Contact Sheets/Photos"
+        lines={[
+          %{text: "Contact Sheets", x: "-5.95", y: "100", length: "1010.32"},
+          %{text: "Photos", x: "-17.61", y: "188", length: "1027.29"}
+        ]}
+      />
+    </a>
+    
+<%!-- Fitness Sub-row: Three skinny boxes --%>
     <div class="bento-fitness-sub-row bento-fitness-sub-row--three">
       <a href={~p"/logs?from=home"} class="bento-card bento-card-skinny">
         <span class="bento-label-small">Captain's Logs</span>
@@ -254,11 +157,11 @@
         <span class="bento-label-small">Christ</span>
       </a>
     </div>
-    <%!-- Happening (Web.Happening): what is going on, and what people looked
-          at this week. Dates only, never a clock time. What is new is the
-          Lately strip above. --%>
+    <%!-- Happening (Web.Happening): what is going on, what is new, and what
+          people looked at this week. Dates only, never a clock time; on the
+          locked phone layout only the Now line shows (home.css). --%>
     <section
-      :if={@happening.now.block || @happening.now.ride || @happening.witnessed != []}
+      :if={@happening.now.block || @happening.now.ride || @happening.fresh != []}
       class="home-happening"
       aria-label="Happening"
     >
@@ -279,17 +182,19 @@
           Reading {@happening.now.reading}
         </p>
       </div>
+      <div :if={@happening.fresh != []} class="home-happening-col home-happening-fresh">
+        <h2 class="home-happening-head">Fresh</h2>
+        <p :for={item <- @happening.fresh} class="home-happening-line">
+          <span class="home-happening-kind">{item.kind}</span>
+          <a href={item.path}>{item.title}</a>
+          <span :if={item.date} class="home-happening-date">
+            {Calendar.strftime(item.date, "%-d %b")}
+          </span>
+        </p>
+      </div>
       <div :if={@happening.witnessed != []} class="home-happening-col home-happening-witnessed">
         <h2 class="home-happening-head">Witnessed this week</h2>
         <p :for={item <- @happening.witnessed} class="home-happening-line">
-          <img
-            :if={item[:image]}
-            class="home-happening-thumb"
-            src={Web.Negatives.sized_url(item.image, 480)}
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
           <span class="home-happening-kind">{item.kind}</span>
           <a href={item.path}>{item.title}</a>
           <span class="home-happening-date">
@@ -301,6 +206,82 @@
     <%!-- One sentence saying what the site is, when the author has written
           one (Settings: "Homepage sentence"). Nothing when he has not. --%>
     <p :if={@site_description} class="home-about">{@site_description}</p>
+    <%!-- New: the newest post, video and roll, in a card that slides into the
+          corner a moment after the page loads (assets/js/home_new.js), over
+          the tiles rather than among them. Closed, it stays closed until
+          something newer arrives. Rendered hidden: without JavaScript the
+          page is the tiles alone. The video plays a few silent seconds on
+          hover (assets/js/home_previews.js); nothing loads before that. --%>
+    <aside
+      :if={@lately.posts != [] || @lately.log || @lately.roll}
+      id="home-new"
+      class="home-new"
+      aria-labelledby="home-new-title"
+      data-new={@new_key}
+      hidden
+    >
+      <header class="home-new-head">
+        <h2 id="home-new-title" class="home-new-title">New</h2>
+        <button type="button" class="home-new-close" data-new-close aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
+
+      <a :if={@lately.log} href={@lately.log.path} class="new-item" data-preview={@lately.log.video}>
+        <span class="new-plate new-plate--video">
+          <img :if={@lately.log.poster} src={@lately.log.poster} alt="" loading="lazy" decoding="async" />
+          <svg class="new-play" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" />
+            <path d="M10 8l6 4-6 4z" />
+          </svg>
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Captain's log</span>
+          <span class="new-name">{@lately.log.title}</span>
+          <span :if={@lately.log.duration} class="new-meta">
+            {WebWeb.LogsLive.Format.format_duration(@lately.log.duration)}
+          </span>
+        </span>
+      </a>
+
+      <a :for={post <- Enum.take(@lately.posts, 1)} href={post.path} class="new-item">
+        <span class={["new-plate", !post.cover && "new-plate--type"]}>
+          <img
+            :if={post.cover}
+            src={post.cover.url}
+            srcset={post.cover.srcset}
+            sizes="7rem"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+          <span :if={!post.cover} aria-hidden="true">{String.first(post.title)}</span>
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Writing</span>
+          <span class="new-name">{post.title}</span>
+          <span class="new-meta">{Calendar.strftime(post.date, "%-d %b")} · {post.read_min} min</span>
+        </span>
+      </a>
+
+      <a :if={@lately.roll} href={@lately.roll.path} class="new-item">
+        <span class="new-plate">
+          <img
+            src={Web.Negatives.sized_url(@lately.roll.preview_url, 480)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+        <span class="new-text">
+          <span class="new-kind">Negatives</span>
+          <span class="new-name">Roll {@lately.roll.roll}</span>
+          <span class="new-meta">
+            {Calendar.strftime(@lately.roll.date, "%-d %b")}<span :if={@lately.roll.count > 0}> · {@lately.roll.count} prints</span>
+          </span>
+        </span>
+      </a>
+    </aside>
     <footer class="home-footer">
       &copy; {Web.Clock.local_today().year}
       <span :if={@author}>{@author} &middot;</span>

@@ -1,9 +1,10 @@
-// The homepage's newest captain's log plays a few silent seconds on its card:
+// The homepage's newest captain's log plays a few silent seconds in the corner
+// card (#home-new):
 // on hover with a mouse, or while it is on screen on a phone. Enhancement
 // only: the card is a link with a poster, and nothing here runs, or fetches
 // a byte of video, until the reader points at it or scrolls to it.
 //
-// Cards opt in with data-preview="<video address>" (home.html.heex). Never
+// Items opt in with data-preview="<video address>" (home.html.heex). Never
 // under prefers-reduced-motion or a Save-Data connection.
 
 const PREVIEW_SECONDS = 8
@@ -17,7 +18,7 @@ const allowed = () => {
 // One video per card, made on first use and kept (paused) after.
 const videoFor = (card) => {
   if (card._preview) return card._preview
-  const plate = card.querySelector(".lately-plate")
+  const plate = card.querySelector(".new-plate")
   if (!plate) return null
   const video = document.createElement("video")
   video.muted = true

@@ -691,12 +691,13 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
 - **A tab left open across a deploy reloads itself** (`WebWeb.FreshAssets` + `phx:stale-assets`).
 - `@view-transition { navigation: auto }` in `header.css`. The homepage hero is 480/960 with
   `fetchpriority="high"`, never lazy.
-- **The homepage shows the newest work** (`Web.Happening.build/1`'s `lately`, cached 10 min): the
-  Blog tile is the newest post with its picture (`Blog.cover/1`: the `image:` line, else the first
-  embedded frame/sheet, else the first upload, else the title set large); the hero is the **newest
-  roll** (not a random one); `#home-lately` has the newest log, prints and posts. The log card's
-  silent preview is `assets/js/home_previews.js` (the homepage has no LiveView socket): only on
-  hover or in view, never under reduced motion or Save-Data, nothing fetched on load.
+- **The homepage is the bento tiles; the newest work is a corner card over them** (`#home-new`,
+  rendered `hidden`, opened by `assets/js/home_new.js` a moment after load; not a dialog, takes no
+  focus). It shows `Web.Happening.build/1`'s `lately`: the newest post with its picture
+  (`Blog.cover/1`: the `image:` line, else the first embedded frame/sheet, else the first upload),
+  log and roll. Closed, it stays closed until `data-new` (what it shows) changes. The log's silent
+  preview is `assets/js/home_previews.js`: on hover or in view only, never under reduced motion or
+  Save-Data.
 - Print rules: the post page's are at the end of `writing.css`, the year's in `daybook.css`.
 
 ## Deployment
