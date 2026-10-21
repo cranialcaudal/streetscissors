@@ -5,7 +5,7 @@ How this app is wired, and the rules that are easy to break. The plain-language 
 
 ## Project
 
-**Street Scissors** is a single-author personal website + CMS on Phoenix 1.8 / LiveView 1.1
+**Street Scissors** is a single-author personal website + CMS on Phoenix 1.8 / LiveView 1.2
 (Elixir ~> 1.15), backed by **SQLite** (`ecto_sqlite3`). The OTP app is `:web`; the web layer
 namespace is `WebWeb`. Contexts and schemas are in `lib/web/<context>/`; controllers, LiveViews,
 components and plugs in `lib/web_web/`.

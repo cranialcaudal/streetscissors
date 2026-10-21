@@ -141,8 +141,7 @@ defmodule WebWeb.AdminLive.Cuts do
             playsinline
             tabindex="-1"
             aria-hidden="true"
-          >
-          </video>
+          ></video>
           <span :if={is_nil(card.picture)} class="adm-cut-card-blank st-bay">
             <.icon name="hero-film" class="size-6" />
             <span>Nothing on the timeline yet</span>

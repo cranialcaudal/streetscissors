@@ -220,8 +220,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           <span
             class={["adm-status-dot", @measured > 0 && "adm-status-dot--ok"]}
             aria-hidden="true"
-          >
-          </span>
+          ></span>
           <span class="adm-status-name">On file</span>
           <span class="adm-status-detail">
             Heart rate and energy for {@measured} of {length(@rides)} activities.
@@ -233,8 +232,7 @@ defmodule WebWeb.AdminLive.RidesManager do
           <span class="adm-status-detail">{import_line(@import)}</span>
         </li>
         <li id="health-webhook">
-          <span class={["adm-status-dot", @webhook_open && "adm-status-dot--ok"]} aria-hidden="true">
-          </span>
+          <span class={["adm-status-dot", @webhook_open && "adm-status-dot--ok"]} aria-hidden="true"></span>
           <span class="adm-status-name">Automatic</span>
           <span class="adm-status-detail">
             {if @webhook_open,

@@ -71,8 +71,7 @@
                   <span
                     :for={kind <- kinds_on(entries)}
                     class={["daybook-mark", "daybook-mark--#{kind}"]}
-                  >
-                  </span>
+                  ></span>
                 </span>
               </.link>
             <% true -> %>
@@ -93,8 +92,7 @@
           </.link>
           <ul class="daybook-ledger-entries">
             <li :for={entry <- entries}>
-              <span class={["daybook-mark", "daybook-mark--#{entry.kind}"]} aria-hidden="true">
-              </span>
+              <span class={["daybook-mark", "daybook-mark--#{entry.kind}"]} aria-hidden="true"></span>
               <.link href={entry.path}>{entry.title}</.link>
             </li>
           </ul>

@@ -116,8 +116,7 @@ defmodule WebWeb.Activity do
       title={"#{title(@ride)} on Komoot"}
       loading={@loading}
       allow="fullscreen"
-    >
-    </iframe>
+    ></iframe>
     <.link
       :if={!@src && @link}
       navigate={~p"/fitness/rides/#{@ride.id}"}
@@ -282,8 +281,7 @@ defmodule WebWeb.Activity do
           :if={zone.share > 0}
           class={"heart-zone heart-zone--#{index}"}
           style={"flex-grow: #{zone.share}"}
-        >
-        </span>
+        ></span>
       </div>
       <ol class="heart-zones-list">
         <li :for={{zone, index} <- Enum.with_index(@zones, 1)} class={"heart-zone--#{index}"}>

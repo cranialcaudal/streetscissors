@@ -1090,8 +1090,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
               :for={handle <- ~w[nw n ne e se s sw w]}
               class={"adm-dr-handle adm-dr-handle--#{handle}"}
               data-handle={handle}
-            >
-            </span>
+            ></span>
           </div>
         </div>
         <div
@@ -1115,8 +1114,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
             data-index={i}
             style={"--x: #{spot.x}; --y: #{spot.y}; --s: #{spot.size}"}
             aria-label={"Speck #{i + 1}: take it off"}
-          >
-          </button>
+          ></button>
         </div>
         <%!-- Picking a grey point: the print as developed, uncropped, since the
               patch is measured there (Prior.grey_point/2). --%>

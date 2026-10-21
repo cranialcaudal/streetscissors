@@ -89,8 +89,8 @@ defmodule WebWeb.FitnessLive.Wiki do
         <h1 class="blog-header-title">Fitness & Sport</h1>
         <div class="blog-header-subtitle">Pro sports, amateur training & movement science</div>
       </header>
-      
-    <!-- Section Navigation -->
+
+      <!-- Section Navigation -->
       <WebWeb.FitnessSubnav.subnav active={:wiki} />
 
       <div class="blog-bento-card bento-span-full wiki-index">

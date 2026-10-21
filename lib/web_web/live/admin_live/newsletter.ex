@@ -299,8 +299,7 @@ defmodule WebWeb.AdminLive.Newsletter do
             title="Newsletter preview"
             sandbox=""
             srcdoc={@preview}
-          >
-          </iframe>
+          ></iframe>
           <p class="adm-help">
             The paper shell and footer a reader gets. The unsubscribe link is a placeholder; each
             reader's copy has their own.

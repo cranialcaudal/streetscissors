@@ -2780,8 +2780,7 @@ defmodule WebWeb.AdminLive.Scanner do
     <.panel title="Scanner" id="setup-scanner">
       <ul class="adm-status">
         <li>
-          <span class={["adm-status-dot", @scanner && "adm-status-dot--ok"]} aria-hidden="true">
-          </span>
+          <span class={["adm-status-dot", @scanner && "adm-status-dot--ok"]} aria-hidden="true"></span>
           <span class="adm-status-name">In use</span>
           <span class="adm-status-detail">
             {if @scanner, do: "#{@scanner.name} (#{@scanner.id})", else: "none"}
@@ -2793,8 +2792,7 @@ defmodule WebWeb.AdminLive.Scanner do
           <span class="adm-status-detail">{device.name} ({device.id})</span>
         </li>
         <li>
-          <span class={["adm-status-dot", @simulation? && "adm-status-dot--warn"]} aria-hidden="true">
-          </span>
+          <span class={["adm-status-dot", @simulation? && "adm-status-dot--warn"]} aria-hidden="true"></span>
           <span class="adm-status-name">Simulation</span>
           <span class="adm-status-detail">
             {if @simulation?,
@@ -2821,8 +2819,7 @@ defmodule WebWeb.AdminLive.Scanner do
               if(area_line(format), do: "adm-status-dot--ok", else: "adm-status-dot--warn")
             ]}
             aria-hidden="true"
-          >
-          </span>
+          ></span>
           <span class="adm-status-name">{format}</span>
           <span class="adm-status-detail">
             {area_line(format) || "not set — scans cover the whole transparency area"}

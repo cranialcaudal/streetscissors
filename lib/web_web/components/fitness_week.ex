@@ -63,8 +63,7 @@ defmodule WebWeb.FitnessWeek do
               :for={{left, width} <- @sleep}
               class="week-sleep"
               style={"left: #{left}%; width: #{width}%"}
-            >
-            </span>
+            ></span>
             <span
               :for={block <- day.blocks}
               class={"week-block week-block--#{block.kind}"}

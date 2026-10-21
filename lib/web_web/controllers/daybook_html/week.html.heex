@@ -39,7 +39,9 @@
           <img src={plate_src(@week.plate)} alt={@week.plate.title} loading="lazy" />
         </.link>
         <figcaption>
-          <.link href={@week.plate.path}>{@week.plate.title}</.link><span>{if @week.plate.of_week, do: ", from this week", else: ", from the archive"}</span>
+          <.link href={@week.plate.path}>{@week.plate.title}</.link><span>{if @week.plate.of_week,
+            do: ", from this week",
+            else: ", from the archive"}</span>
         </figcaption>
       </figure>
 
@@ -107,8 +109,7 @@
           <p :if={day.observance} class="daybook-diary-observance">{day.observance}</p>
           <ul :if={day.entries != []} class="daybook-diary-entries">
             <li :for={entry <- day.entries}>
-              <span class={["daybook-mark", "daybook-mark--#{entry.kind}"]} aria-hidden="true">
-              </span>
+              <span class={["daybook-mark", "daybook-mark--#{entry.kind}"]} aria-hidden="true"></span>
               <.link href={entry.path}>{entry.title}</.link>
               <span :if={entry.note} class="daybook-diary-note">{entry.note}</span>
             </li>

@@ -795,7 +795,7 @@ anything, and no container.
 |---|---|---|
 | Operating system | Fedora Linux | 43 |
 | Language and VM | Elixir on Erlang/OTP | 1.19 on OTP 26 (`mix.exs` asks for `~> 1.15`) |
-| Web framework | Phoenix, with LiveView | 1.8 and 1.1 |
+| Web framework | Phoenix, with LiveView | 1.8 and 1.2 |
 | HTTP server inside the app | Bandit | 1.12 |
 | Database | SQLite, through `ecto_sqlite3` | one file, in WAL mode; the adapter 0.22 |
 | Queued jobs | Oban, on its SQLite engine (`Oban.Engines.Lite`) | 2.20 |

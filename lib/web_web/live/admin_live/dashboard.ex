@@ -244,8 +244,7 @@ defmodule WebWeb.AdminLive.Dashboard do
             class={["ov-trend-bar", index == length(traffic.trend) - 1 && "is-current"]}
             style={"--h: #{bar_height(count, traffic.trend_max)}%"}
             title={"#{Calendar.strftime(start, "%b %-d")}: #{count} views"}
-          >
-          </span>
+          ></span>
         </div>
         <p :if={traffic.trend != []} class="ov-trend-axis">
           <span>{traffic.trend |> List.first() |> elem(0) |> Calendar.strftime("%b %Y")}</span>

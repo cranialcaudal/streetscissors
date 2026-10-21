@@ -717,7 +717,9 @@ defmodule WebWeb.FitnessLive.Index do
                     class={"week-chip week-chip--#{block.kind}"}
                     title={block.label}
                   >
-                    {block.label}<span :if={@is_admin} class="week-chip-time">{Web.Fitness.Week.span(block)}</span>
+                    {block.label}<span :if={@is_admin} class="week-chip-time">{Web.Fitness.Week.span(
+                      block
+                    )}</span>
                   </li>
                 </ul>
               </header>

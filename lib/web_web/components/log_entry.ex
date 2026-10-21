@@ -115,8 +115,7 @@ defmodule WebWeb.LogEntry do
         preload="none"
         playsinline
         controls
-      >
-      </video>
+      ></video>
 
       <audio :if={@log.kind == "audio"} class="log-audio" preload="none" controls></audio>
 
