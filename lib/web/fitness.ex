@@ -90,6 +90,23 @@ defmodule Web.Fitness do
 
   def loggable_exercise(_slug), do: :error
 
+  @doc """
+  The row a whole circuit is logged under (`Web.Fitness.Vault.circuit/1`):
+  named by its module, which is not a wiki page, so it is made here.
+  """
+  def circuit_exercise(slug, name) when is_binary(slug) do
+    case get_exercise_by_slug(slug) do
+      %Exercise{} = exercise ->
+        {:ok, exercise}
+
+      nil ->
+        case create_exercise(%{slug: slug, name: name, muscle_group: "full body"}) do
+          {:ok, exercise} -> {:ok, exercise}
+          {:error, _changeset} -> if e = get_exercise_by_slug(slug), do: {:ok, e}, else: :error
+        end
+    end
+  end
+
   def create_exercise_log(attrs \\ %{}) do
     %ExerciseLog{}
     |> ExerciseLog.changeset(attrs)

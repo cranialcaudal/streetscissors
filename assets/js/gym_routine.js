@@ -11,6 +11,46 @@
 export const GymRoutine = {
     mounted() {
         this.initGym();
+        // The admin's page for today is the one used mid-workout: keep the
+        // phone's screen on while it is open, until 20 minutes pass with no
+        // tap, no set and no running timer (timers send `fitness:active`).
+        if (this.el.dataset.logTicks === 'true') this.keepAwake();
+    },
+    destroyed() {
+        if (this.awake) this.awake.stop();
+    },
+    keepAwake() {
+        if (!('wakeLock' in navigator)) return;
+        const IDLE = 20 * 60 * 1000;
+        let lock = null;
+        let last = Date.now();
+        const request = async () => {
+            if (lock || document.visibilityState !== 'visible') return;
+            try {
+                lock = await navigator.wakeLock.request('screen');
+                lock.addEventListener('release', () => { lock = null; });
+            } catch (_) { lock = null; }
+        };
+        const active = () => { last = Date.now(); request(); };
+        // The browser lets go of the lock when the page is hidden; take it
+        // back on return.
+        const visible = () => { if (document.visibilityState === 'visible') active(); };
+        const idle = setInterval(() => {
+            if (lock && Date.now() - last > IDLE) { lock.release(); lock = null; }
+        }, 30000);
+        document.addEventListener('pointerdown', active);
+        document.addEventListener('visibilitychange', visible);
+        window.addEventListener('fitness:active', active);
+        this.awake = {
+            stop: () => {
+                clearInterval(idle);
+                document.removeEventListener('pointerdown', active);
+                document.removeEventListener('visibilitychange', visible);
+                window.removeEventListener('fitness:active', active);
+                if (lock) lock.release();
+            }
+        };
+        request();
     },
     updated() {
         this.initGym();

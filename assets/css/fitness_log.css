@@ -386,3 +386,39 @@
   border-radius: 4px;
 }
 .day-checkin-form .log-save-btn { justify-self: start; }
+
+/* The circuit timer under a circuit's title: one log for the whole circuit. */
+.circuit {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.75rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+}
+.circuit-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+.circuit-how { font-size: 0.85rem; color: var(--ink-2); }
+.circuit-clock {
+  font-family: var(--font-data);
+  font-size: 1.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.circuit-cue { margin: 0; font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--ink); }
+.circuit-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.circuit-btn {
+  min-height: 44px;
+  padding: 0 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.circuit-btn[hidden] { display: none; }
+.circuit-btn--go { color: var(--paper); background: var(--color-jade); border-color: var(--color-jade); }
+.circuit-logged { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--color-jade); }

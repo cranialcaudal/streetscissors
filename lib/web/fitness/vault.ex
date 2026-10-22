@@ -46,6 +46,95 @@ defmodule Web.Fitness.Vault do
     end)
   end
 
+  @doc """
+  A module that is a circuit, as its own "How to run it" callout says: `%{rounds,
+  every, rest, weight, name}`, or nil. `every` is the seconds between round
+  starts ("one starting every 5 minutes"), `rest` the seconds between rounds
+  ("2 minutes between rounds"), either 0 when not given; `weight` the one
+  bell's pounds ("one 25 lb bell"), or nil.
+
+  A circuit is logged once, as a whole, by the day page's circuit timer, so
+  `day_markdown/1` brackets it in `<!-- circuit:… -->` comments: its lines get
+  no Log button (`inject_log_markers/1`), and `Web.Fitness.Prescription`
+  reads it as one line of `rounds` sets.
+  """
+  def circuit(markdown) do
+    with true <- String.contains?(markdown, "How to run it"),
+         [_, rounds] <- Regex.run(~r/(\d+)\s+rounds/i, markdown) do
+      %{
+        rounds: String.to_integer(rounds),
+        every: seconds_of(~r/every\s+(\d+)\s+minutes?/i, markdown),
+        rest: seconds_of(~r/(\d+)\s+minutes?\s+between\s+rounds/i, markdown),
+        weight:
+          case Regex.run(~r/(\d+(?:\.\d+)?)\s*lb\s+bell/i, markdown) do
+            [_, lbs] -> lbs |> Float.parse() |> elem(0)
+            _ -> nil
+          end,
+        name:
+          case Regex.run(~r/^###\s+(.+?)(?:\s*\(\d+\s*min\))?\s*$/im, markdown) do
+            [_, name] -> name
+            _ -> "Circuit"
+          end
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  @circuit_open ~r/^<!-- circuit:([a-z0-9-]+) rounds=(\d+) every=(\d+) rest=(\d+) weight=([\d.]*) name=(.*?) -->$/
+
+  @doc "A circuit's opening comment read back: `{slug, circuit}`, or nil."
+  def circuit_marker(line) do
+    case Regex.run(@circuit_open, String.trim(line)) do
+      [_, slug, rounds, every, rest, weight, name] ->
+        {slug,
+         %{
+           rounds: String.to_integer(rounds),
+           every: String.to_integer(every),
+           rest: String.to_integer(rest),
+           weight: if(weight == "", do: nil, else: weight |> Float.parse() |> elem(0)),
+           name: name
+         }}
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc "The line that closes a circuit."
+  def circuit_close?(line), do: String.trim(line) == "<!-- /circuit -->"
+
+  defp seconds_of(regex, text) do
+    case Regex.run(regex, text) do
+      [_, n] -> String.to_integer(n) * 60
+      _ -> 0
+    end
+  end
+
+  # The circuit's comments go round everything under its own heading, so the
+  # timer sits under the title.
+  defp mark_circuit(body, slug) do
+    case circuit(body) do
+      nil ->
+        body
+
+      c ->
+        weight = if c.weight, do: Web.Fitness.Entry.number(c.weight), else: ""
+
+        open =
+          "<!-- circuit:#{slug} rounds=#{c.rounds} every=#{c.every} rest=#{c.rest} " <>
+            "weight=#{weight} name=#{String.replace(c.name, "--", "-")} -->"
+
+        case String.split(String.trim_leading(body), "\n", parts: 2) do
+          ["### " <> _ = heading, rest] ->
+            heading <> "\n\n" <> open <> "\n\n" <> rest <> "\n\n<!-- /circuit -->"
+
+          _ ->
+            open <> "\n\n" <> body <> "\n\n<!-- /circuit -->"
+        end
+    end
+  end
+
   @doc "Returns {:ok, html} for a given day slug, or :error."
   def get_day(slug) do
     case day_markdown(slug) do
@@ -84,7 +173,7 @@ defmodule Web.Fitness.Vault do
                   m_path = Path.join([base_path(), "modules", m_slug <> ".md"])
 
                   case File.read(m_path) do
-                    {:ok, m_content} -> strip_frontmatter(m_content)
+                    {:ok, m_content} -> m_content |> strip_frontmatter() |> mark_circuit(m_slug)
                     _ -> ""
                   end
                 end)
@@ -626,14 +715,23 @@ defmodule Web.Fitness.Vault do
   defp checklist_only(md) do
     md
     |> String.split("\n")
-    |> Enum.filter(&checklist_line?/1)
+    |> Enum.filter(&(checklist_line?(&1) or circuit_line?(&1)))
     |> drop_empty_sections()
-    # Earmark wants a blank line before a heading that follows a list.
-    |> Enum.flat_map(fn line -> if heading?(line), do: ["", line], else: [line] end)
+    # Earmark wants a blank line before a heading that follows a list, and
+    # round a comment so it stays a comment.
+    |> Enum.flat_map(fn line ->
+      cond do
+        heading?(line) -> ["", line]
+        circuit_line?(line) -> ["", line, ""]
+        true -> [line]
+      end
+    end)
     |> Enum.join("\n")
   end
 
   defp checklist_line?(line), do: heading?(line) or exercise_checkbox?(line)
+
+  defp circuit_line?(line), do: circuit_marker(line) != nil or circuit_close?(line)
 
   defp heading?(line), do: Regex.match?(~r/^\#{1,6}\s+\S/, line)
 
@@ -746,19 +844,30 @@ defmodule Web.Fitness.Vault do
   # wiki-link already share — never about matching `<li>...</li>` boundaries
   # in the rendered HTML, which would be unsafe once sub-bullets (nested
   # `<li>`s, e.g. the Shoulder Triage checklist) are involved.
+  #
+  # A circuit's lines get none: the circuit is logged once, as a whole.
   defp inject_log_markers(md) do
     md
     |> String.split("\n")
-    |> Enum.map(fn line ->
-      if Regex.match?(~r/^\s*-\s*\[[ xX]\]/, line) do
-        case Regex.run(~r/\[\[([a-z0-9][a-z0-9-]*)/, line) do
-          [_, slug] -> line <> " ⟦LOG:#{slug}⟧"
-          _ -> line
-        end
-      else
-        line
+    |> Enum.map_reduce(false, fn line, in_circuit? ->
+      cond do
+        circuit_marker(line) != nil ->
+          {line, true}
+
+        circuit_close?(line) ->
+          {line, false}
+
+        not in_circuit? and Regex.match?(~r/^\s*-\s*\[[ xX]\]/, line) ->
+          case Regex.run(~r/\[\[([a-z0-9][a-z0-9-]*)/, line) do
+            [_, slug] -> {line <> " ⟦LOG:#{slug}⟧", in_circuit?}
+            _ -> {line, in_circuit?}
+          end
+
+        true ->
+          {line, in_circuit?}
       end
     end)
+    |> elem(0)
     |> Enum.join("\n")
   end
 

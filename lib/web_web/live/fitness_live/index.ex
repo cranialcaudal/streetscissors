@@ -42,6 +42,9 @@ defmodule WebWeb.FitnessLive.Index do
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   @fuelling "nutrition-module"
+  # The circuit timer is drawn inside the plan's raw HTML, where HEEx does not
+  # expand a colocated hook's short name, so it is named in full.
+  @circuit_hook "#{inspect(__MODULE__)}.Circuit"
 
   # ── Opening a day ─────────────────────────────────────────────────────────
 
@@ -232,7 +235,7 @@ defmodule WebWeb.FitnessLive.Index do
   # it) and starts the rest timer; a tap on a logged chip opens its stepper;
   # once the planned sets are in, one tap gives the last set's RPE.
   def handle_event(event, _params, %{assigns: %{is_admin: false}} = socket)
-      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe),
+      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe circuit_done),
       do: {:noreply, socket}
 
   def handle_event("set_done", %{"slug" => slug}, socket) do
@@ -283,6 +286,48 @@ defmodule WebWeb.FitnessLive.Index do
           socket |> assign(:open_set, nil) |> save_sets(exercise, sets)
       end
     end)
+  end
+
+  # The circuit timer's Finish: the whole circuit as one entry, its rounds as
+  # the sets, its time, and the one bell. A second run today replaces it.
+  def handle_event("circuit_done", %{"slug" => slug} = params, socket) do
+    with %{prescription: %{kind: :circuit} = p} <- socket.assigns.coach[slug],
+         rounds when is_integer(rounds) and rounds > 0 <- whole(params["rounds"]),
+         seconds when is_integer(seconds) and seconds >= 0 <- whole(params["seconds"]),
+         {:ok, exercise} <- Fitness.circuit_exercise(slug, p.name) do
+      metrics =
+        %{"sets" => Integer.to_string(min(rounds, 20)), "time" => rest_clock(seconds)}
+        |> then(
+          &if(p.weight, do: Map.put(&1, "weight", "#{Entry.number(p.weight)} lbs"), else: &1)
+        )
+
+      result =
+        case todays_log(socket, slug) do
+          nil ->
+            Fitness.create_exercise_log(%{
+              exercise_id: exercise.id,
+              date: Web.Clock.local_today(),
+              metrics: metrics
+            })
+
+          log ->
+            Fitness.update_exercise_log(log, %{metrics: metrics})
+        end
+
+      case result do
+        {:ok, log} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Logged #{p.name}: #{Fitness.entry_line(log)}.")
+           |> assign_coach()
+           |> assign_logged_today()}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
   end
 
   def handle_event("set_rpe", %{"slug" => slug, "rpe" => rpe}, socket) do
@@ -496,6 +541,11 @@ defmodule WebWeb.FitnessLive.Index do
   defp rest_clock(seconds),
     do: "#{div(seconds, 60)}:#{String.pad_leading("#{rem(seconds, 60)}", 2, "0")}"
 
+  defp whole(n) when is_integer(n), do: n
+  defp whole(n) when is_float(n), do: round(n)
+  defp whole("" <> text), do: index(text)
+  defp whole(_), do: nil
+
   defp index(text) do
     case Integer.parse(to_string(text)) do
       {i, ""} when i >= 0 -> i
@@ -590,6 +640,61 @@ defmodule WebWeb.FitnessLive.Index do
   defp annotate(html, coach, _logged, _open) when coach == %{}, do: html
 
   defp annotate(html, coach, logged, open) do
+    html
+    |> annotate_lifts(coach, logged, open)
+    |> annotate_circuits(coach, logged)
+  end
+
+  # Where a circuit begins (`Vault.circuit/1`'s comment), its timer.
+  defp annotate_circuits(html, coach, logged) do
+    Regex.replace(~r/<!-- circuit:[^>]*-->/, html, fn comment ->
+      with {slug, circuit} <- Vault.circuit_marker(comment),
+           %{prescription: %{kind: :circuit}} <- coach[slug] do
+        log = logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last()
+        circuit_bar(slug, circuit, log)
+      else
+        _ -> comment
+      end
+    end)
+  end
+
+  defp circuit_bar(slug, c, log) do
+    how =
+      cond do
+        c.every > 0 -> "a round every #{div(c.every, 60)} min"
+        c.rest > 0 -> "#{div(c.rest, 60)} min between rounds"
+        true -> "straight through"
+      end
+
+    bell = if c.weight, do: ", one #{Entry.number(c.weight)} lb bell", else: ""
+
+    logged =
+      if log do
+        line =
+          log
+          |> Fitness.entry_line()
+          |> Phoenix.HTML.html_escape()
+          |> Phoenix.HTML.safe_to_string()
+
+        ~s(<p class="circuit-logged" id="circuit-logged-#{slug}">Logged today: #{line}</p>)
+      else
+        ""
+      end
+
+    ~s(<div class="circuit" id="circuit-#{slug}" phx-hook="#{@circuit_hook}" phx-update="ignore" ) <>
+      ~s(data-slug="#{slug}" data-rounds="#{c.rounds}" data-every="#{c.every}" data-rest="#{c.rest}" ) <>
+      ~s(data-day="#{Date.to_iso8601(Web.Clock.local_today())}">) <>
+      ~s(<div class="circuit-head"><span class="circuit-how">#{c.rounds} rounds, #{how}#{bell}</span>) <>
+      ~s(<span class="circuit-clock" data-clock>0:00</span></div>) <>
+      ~s(<p class="circuit-cue" data-cue aria-live="polite">Round 1 of #{c.rounds}</p>) <>
+      ~s(<div class="circuit-actions">) <>
+      ~s(<button type="button" class="circuit-btn circuit-btn--go" data-start>Start circuit</button>) <>
+      ~s(<button type="button" class="circuit-btn circuit-btn--go" data-round hidden>Round done</button>) <>
+      ~s(<button type="button" class="circuit-btn" data-finish hidden>Finish and log</button>) <>
+      ~s(</div></div>) <> logged
+  end
+
+  defp annotate_lifts(html, coach, logged, open) do
     Regex.replace(
       ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)},
       html,
@@ -1155,6 +1260,7 @@ defmodule WebWeb.FitnessLive.Index do
             const until = Date.now() + Number(this.el.dataset.seconds) * 1000
             const left = this.el.querySelector("[data-left]")
             const tick = () => {
+              window.dispatchEvent(new Event("fitness:active"))
               const s = Math.max(0, Math.round((until - Date.now()) / 1000))
               left.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
               if (s === 0) {
@@ -1171,6 +1277,144 @@ defmodule WebWeb.FitnessLive.Index do
               this.el.hidden = true
             })
           },
+          destroyed() {
+            clearInterval(this.timer)
+          }
+        }
+      </script>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".Circuit">
+        // A circuit run on the clock. "A round every 5 minutes" counts the
+        // rounds off the clock; "2 minutes between rounds" waits for Round done
+        // and counts the rest down. Each change of round buzzes and beeps.
+        // Finish sends the rounds and the time, logged as one entry. The run
+        // is kept in this browser, so a reload or a locked phone loses nothing.
+        export default {
+          mounted() {
+            const d = this.el.dataset
+            this.rounds = Number(d.rounds)
+            this.every = Number(d.every) * 1000
+            this.rest = Number(d.rest) * 1000
+            this.key = `circuit:${d.day}:${d.slug}`
+            this.clock = this.el.querySelector("[data-clock]")
+            this.cue = this.el.querySelector("[data-cue]")
+            this.startBtn = this.el.querySelector("[data-start]")
+            this.roundBtn = this.el.querySelector("[data-round]")
+            this.finishBtn = this.el.querySelector("[data-finish]")
+            try { this.state = JSON.parse(localStorage.getItem(this.key) || "null") } catch (_) { this.state = null }
+
+            this.startBtn.addEventListener("click", () => {
+              this.unlockSound()
+              this.state = { start: Date.now(), done: 0, restUntil: 0, cued: 1 }
+              this.save()
+              this.run()
+            })
+            this.roundBtn.addEventListener("click", () => this.roundDone())
+            this.finishBtn.addEventListener("click", () => this.finish())
+            if (this.state) this.run()
+          },
+
+          save() {
+            try { localStorage.setItem(this.key, JSON.stringify(this.state)) } catch (_) {}
+          },
+
+          run() {
+            this.startBtn.hidden = true
+            this.finishBtn.hidden = false
+            this.roundBtn.hidden = this.every > 0
+            clearInterval(this.timer)
+            this.timer = setInterval(() => this.tick(), 250)
+            this.tick()
+          },
+
+          tick() {
+            const s = this.state
+            if (!s) return
+            const now = Date.now()
+            const elapsed = now - s.start
+            this.clock.textContent = this.fmt(elapsed)
+            window.dispatchEvent(new Event("fitness:active"))
+
+            if (this.every > 0) {
+              const total = this.every * this.rounds
+              const round = Math.min(Math.floor(elapsed / this.every) + 1, this.rounds)
+              if (round > s.cued) { s.cued = round; this.save(); this.buzz() }
+              if (elapsed >= total) {
+                if (!s.over) { s.over = true; this.save(); this.buzz() }
+                this.cue.textContent = `All ${this.rounds} rounds done: finish and log`
+              } else {
+                const left = this.every - (elapsed % this.every)
+                const next = round < this.rounds ? `next round in ${this.fmt(left)}` : `ends in ${this.fmt(left)}`
+                this.cue.textContent = `Round ${round} of ${this.rounds} · ${next}`
+              }
+            } else if (s.restUntil > now) {
+              this.cue.textContent = `Rest ${this.fmt(s.restUntil - now)}, then round ${s.done + 1} of ${this.rounds}`
+            } else {
+              if (s.restUntil && !s.restCued) { s.restCued = true; this.save(); this.buzz() }
+              this.cue.textContent = `Round ${s.done + 1} of ${this.rounds}`
+            }
+          },
+
+          roundDone() {
+            const s = this.state
+            if (!s) return
+            s.done += 1
+            if (s.done >= this.rounds) return this.finish()
+            s.restUntil = Date.now() + this.rest
+            s.restCued = this.rest === 0
+            this.save()
+            this.tick()
+          },
+
+          finish() {
+            const s = this.state
+            if (!s) return
+            const elapsed = Date.now() - s.start
+            const rounds = this.every > 0
+              ? Math.min(Math.floor(elapsed / this.every) + 1, this.rounds)
+              : Math.min(s.restUntil > Date.now() ? s.done : s.done + 1, this.rounds)
+            this.pushEvent("circuit_done", {
+              slug: this.el.dataset.slug,
+              rounds: Math.max(rounds, 1),
+              seconds: Math.round(elapsed / 1000)
+            })
+            clearInterval(this.timer)
+            try { localStorage.removeItem(this.key) } catch (_) {}
+            this.state = null
+            this.cue.textContent = `Logged ${Math.max(rounds, 1)} rounds in ${this.fmt(elapsed)}`
+            this.startBtn.textContent = "Start again"
+            this.startBtn.hidden = false
+            this.roundBtn.hidden = true
+            this.finishBtn.hidden = true
+          },
+
+          fmt(ms) {
+            const t = Math.max(0, Math.round(ms / 1000))
+            return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`
+          },
+
+          // A phone that will not vibrate (an iPhone) still beeps; the sound
+          // is allowed because Start was a tap.
+          unlockSound() {
+            try {
+              this.audio = this.audio || new (window.AudioContext || window.webkitAudioContext)()
+              this.audio.resume()
+            } catch (_) {}
+          },
+
+          buzz() {
+            try { navigator.vibrate && navigator.vibrate([200, 100, 200]) } catch (_) {}
+            try {
+              if (!this.audio) return
+              const tone = this.audio.createOscillator()
+              const gain = this.audio.createGain()
+              tone.frequency.value = 880
+              gain.gain.value = 0.2
+              tone.connect(gain).connect(this.audio.destination)
+              tone.start()
+              tone.stop(this.audio.currentTime + 0.25)
+            } catch (_) {}
+          },
+
           destroyed() {
             clearInterval(this.timer)
           }

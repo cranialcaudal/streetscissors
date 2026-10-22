@@ -469,6 +469,82 @@ defmodule WebWeb.FitnessLandingTest do
     end
   end
 
+  # A circuit (2026-10-21) is logged once, as a whole, from its timer. The
+  # fixture's Thursday has one: 3 rounds, 2 minutes between, one 25 lb bell.
+  describe "a circuit, as the admin" do
+    setup %{conn: conn} do
+      conn = init_test_session(conn, %{"admin_user" => true})
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/thursday")
+      %{view: view}
+    end
+
+    test "the circuit has a timer, and its moves no log of their own", %{view: view} do
+      assert has_element?(
+               view,
+               "#circuit-kb-test-circuit[data-rounds='3'][data-rest='120'][data-every='0']",
+               "3 rounds, 2 min between rounds, one 25 lb bell"
+             )
+
+      refute has_element?(view, "button.log-trigger[phx-value-slug='push-ups']")
+      refute has_element?(view, "#sets-push-ups")
+    end
+
+    test "Finish logs the circuit once: rounds, time and the bell", %{view: view} do
+      render_click(view, "circuit_done", %{
+        "slug" => "kb-test-circuit",
+        "rounds" => 3,
+        "seconds" => 860
+      })
+
+      assert [%{exercise: %{name: "Kettlebell Test Circuit"}, metrics: metrics}] =
+               Web.Fitness.list_exercise_logs()
+
+      assert metrics == %{"sets" => "3", "time" => "14:20", "weight" => "25 lbs"}
+      assert has_element?(view, "#circuit-logged-kb-test-circuit", "25 lbs · 3 sets · 14:20")
+
+      # A second run today replaces the first.
+      render_click(view, "circuit_done", %{
+        "slug" => "kb-test-circuit",
+        "rounds" => 2,
+        "seconds" => 600
+      })
+
+      assert [%{metrics: %{"sets" => "2", "time" => "10:00"}}] = Web.Fitness.list_exercise_logs()
+    end
+
+    test "only a circuit on the plan can be logged this way", %{view: view} do
+      render_click(view, "circuit_done", %{"slug" => "push-ups", "rounds" => 3, "seconds" => 60})
+
+      render_click(view, "circuit_done", %{
+        "slug" => "kb-test-circuit",
+        "rounds" => 0,
+        "seconds" => 60
+      })
+
+      assert Web.Fitness.list_exercise_logs() == []
+    end
+
+    test "the plan reads the circuit as one line of its rounds" do
+      assert [%{slug: "kb-test-circuit", kind: :circuit, sets: 3, weight: 25.0}] =
+               Web.Fitness.Prescription.lines("thursday")
+    end
+  end
+
+  test "a visitor sees the circuit's moves, but no timer", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/fitness/day/thursday")
+
+    assert html =~ "Kettlebell Test Circuit"
+    refute has_element?(view, "#circuit-kb-test-circuit")
+
+    render_click(view, "circuit_done", %{
+      "slug" => "kb-test-circuit",
+      "rounds" => 3,
+      "seconds" => 60
+    })
+
+    assert Web.Fitness.list_exercise_logs() == []
+  end
+
   describe "logging, for everyone else" do
     test "a visitor can open nothing, save nothing, and is shown nobody's log", %{conn: conn} do
       {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")

@@ -16,7 +16,9 @@ defmodule Web.Fitness.Prescription do
     * `:reps` — sets and reps, an optional added weight (bodyweight work);
     * `:hold` — sets and seconds;
     * `:carry` — weight, sets and metres;
-    * `:jump` — sets, reps and height.
+    * `:jump` — sets, reps and height;
+    * `:circuit` — a whole circuit (`Web.Fitness.Vault.circuit/1`): its
+      rounds as the sets, logged once by the day page's circuit timer.
 
   A day is the plan; the logs are what was done. `planned_sets/1` is the
   day's sets, which compliance counts against. Universal: it reads any
@@ -79,29 +81,58 @@ defmodule Web.Fitness.Prescription do
   def parse(markdown) do
     markdown
     |> String.split("\n")
-    |> Enum.flat_map_reduce({{nil, nil}, %{title: nil, minutes: nil}}, fn line,
-                                                                          {heading, section} ->
-      cond do
-        # A "### Lower … (75 Min)" heading is the section the lines under it
-        # belong to, and its minutes are the session's length.
-        String.starts_with?(line, "### ") ->
-          {[], {sets_reps(line), section(line)}}
+    |> Enum.flat_map_reduce(
+      {{nil, nil}, %{title: nil, minutes: nil}, false},
+      fn line, {heading, section, in_circuit?} ->
+        cond do
+          # A circuit (`Vault.circuit/1`) is one line of its rounds, logged
+          # whole; the moves inside it are not lines of their own.
+          marker = Vault.circuit_marker(line) ->
+            {slug, c} = marker
+            {[circuit_line(slug, c, section)], {heading, section, true}}
 
-        # A smaller heading's "4 x 6-10" is the default for the lines under it.
-        String.starts_with?(line, "#") ->
-          {[], {sets_reps(line), section}}
+          Vault.circuit_close?(line) ->
+            {[], {heading, section, false}}
 
-        m = Regex.run(@line, line) ->
-          [_, slug, name | rest] = m
+          in_circuit? ->
+            {[], {heading, section, true}}
 
-          {[Map.put(read(slug, name, List.first(rest) || "", heading), :section, section)],
-           {heading, section}}
+          # A "### Lower … (75 Min)" heading is the section the lines under it
+          # belong to, and its minutes are the session's length.
+          String.starts_with?(line, "### ") ->
+            {[], {sets_reps(line), section(line), false}}
 
-        true ->
-          {[], {heading, section}}
+          # A smaller heading's "4 x 6-10" is the default for the lines under it.
+          String.starts_with?(line, "#") ->
+            {[], {sets_reps(line), section, false}}
+
+          m = Regex.run(@line, line) ->
+            [_, slug, name | rest] = m
+
+            {[Map.put(read(slug, name, List.first(rest) || "", heading), :section, section)],
+             {heading, section, false}}
+
+          true ->
+            {[], {heading, section, false}}
+        end
       end
-    end)
+    )
     |> elem(0)
+  end
+
+  defp circuit_line(slug, c, section) do
+    %{
+      slug: slug,
+      name: c.name,
+      text: "#{c.rounds} rounds",
+      sets: c.rounds,
+      reps: nil,
+      seconds: nil,
+      metres: nil,
+      weight: c.weight,
+      kind: :circuit,
+      section: section
+    }
   end
 
   defp read(slug, name, text, {head_sets, head_reps}) do
