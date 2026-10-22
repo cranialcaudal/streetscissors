@@ -8,7 +8,8 @@ defmodule Web.Fitness.Export do
   block's structured log (`Web.Fitness.Progression`): the wiki slug, sets,
   reps, RPE, Epley's e1RM and the volume load, all in pounds. A value that
   is not there is `NA`, as R reads it. `checkins_csv/2` is the check-ins
-  in the same manner, a column per check.
+  in the same manner, a column per check, and `rides_csv/1` the Komoot
+  rides, which stand for the cycling stats.
   """
 
   alias Web.Fitness.Progression
@@ -23,6 +24,73 @@ defmodule Web.Fitness.Export do
               exercise_slug sets reps rpe e1rm_lbs volume_load_lbs)
 
   def headers, do: @headers
+
+  @ride_headers ~w(date week_num year quarter month weekday start_local sport kind tt
+                   distance_miles duration_min moving_min avg_mph ascent_ft kcal
+                   avg_hr max_hr)
+
+  def ride_headers, do: @ride_headers
+
+  @doc """
+  Komoot activities (`Web.Rides.list_rides/0`, Apple Health attached) as CSV
+  text, header first, oldest first: Komoot's figures stand for the cycling
+  stats. The date and `start_local` are Pacific. `kind` is the sport's family
+  (`bike`, `run`, `hike`, `other`), so R can keep to the bike. `tt` is `TRUE`
+  for a bike ride that is the week's time trial: one on a Thursday before
+  9 AM (the regimen's TT ride in), or any whose Komoot name says TT or time
+  trial. The tour's name and route are not written out. Miles, feet and mph,
+  as the log's distances are; an unrecorded figure is `NA`.
+  """
+  def rides_csv(rides) do
+    rows =
+      rides
+      |> Enum.sort_by(&DateTime.to_unix(&1.started_at))
+      |> Enum.map(&ride_row/1)
+
+    encode([@ride_headers | rows])
+  end
+
+  defp ride_row(ride) do
+    local = Web.Clock.local_naive(ride.started_at)
+    date = NaiveDateTime.to_date(local)
+    {year, week} = :calendar.iso_week_number(Date.to_erl(date))
+    kind = Web.Rides.Units.sport_kind(ride.sport)
+    health = ride.health
+
+    [
+      date,
+      week,
+      year,
+      div(date.month - 1, 3) + 1,
+      date.month,
+      Calendar.strftime(date, "%a"),
+      Calendar.strftime(local, "%H:%M"),
+      ride.sport || "NA",
+      kind,
+      kind == "bike" and tt?(ride, date, local),
+      scaled(ride.distance_m, 1 / 1609.344),
+      scaled(ride.duration_s, 1 / 60),
+      scaled(ride.time_in_motion_s, 1 / 60),
+      scaled(ride.avg_speed_mps, 2.23694),
+      scaled(ride.ascent_m, 3.28084),
+      na(ride.kcal),
+      na(health && health.avg_hr),
+      na(health && health.max_hr)
+    ]
+    |> Enum.map(fn
+      true -> "TRUE"
+      false -> "FALSE"
+      v -> v
+    end)
+  end
+
+  defp tt?(ride, date, local) do
+    (Date.day_of_week(date) == 4 and local.hour < 9) or
+      String.match?(ride.name || "", ~r/\bTT\b|time.?trial/i)
+  end
+
+  defp scaled(nil, _factor), do: "NA"
+  defp scaled(value, factor), do: Float.round(value * factor * 1.0, 2)
 
   @doc "Exercise log entries (exercise loaded) as CSV text, header first."
   def logs_csv(logs) do

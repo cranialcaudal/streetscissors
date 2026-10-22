@@ -73,6 +73,18 @@ read_logs <- function(csv, lifts) {
   merge(logs, lifts, by = "exercise_slug", all.x = TRUE)
 }
 
+#' The Komoot activities from `mix fitness.export` (`fitness_rides.csv`), in the
+#' shape `read_db` gives them (date, minutes, km) with the file's own columns
+#' beside: `kind` (bike, run, hike), `tt`, `avg_mph`, `ascent_ft`, heart rate.
+read_rides_csv <- function(csv) {
+  r <- utils::read.csv(csv, na.strings = "NA", stringsAsFactors = FALSE)
+  if (nrow(r) == 0) return(NULL)
+  r$date <- as.Date(r$date)
+  r$minutes <- r$duration_min
+  r$km <- r$distance_miles * 1.609344
+  r
+}
+
 #' Rides and check-ins from the database, opened read-only. A database
 #' without a table answers an empty frame for it.
 read_db <- function(db_path) {
@@ -348,6 +360,12 @@ run_models <- function(csv, db_path = NULL, block_path, flare_date = NULL) {
   lifts <- block_lifts(block)
   logs <- read_logs(csv, lifts)
   db <- read_db(db_path)
+  # The export's rides file, beside the log, wins over the database's rows.
+  rides_csv <- file.path(dirname(csv), "fitness_rides.csv")
+  if (file.exists(rides_csv)) {
+    r <- read_rides_csv(rides_csv)
+    if (!is.null(r)) db$rides <- r
+  }
   n_weeks <- weeks_of_data(logs$date)
 
   banister <- lapply(lifts$exercise_slug, function(s) fit_banister(logs, s))

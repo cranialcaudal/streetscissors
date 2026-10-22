@@ -18,6 +18,15 @@ defmodule Web.Clock do
     |> DateTime.to_date()
   end
 
+  @doc "The Pacific-local wall clock at `now`, as a `NaiveDateTime`."
+  def local_naive(now \\ DateTime.utc_now()) do
+    offset_hours = if dst?(now), do: -7, else: -8
+
+    now
+    |> DateTime.add(offset_hours * 3600, :second)
+    |> DateTime.to_naive()
+  end
+
   @doc "Weekday slug (\"monday\"..\"sunday\") for the Pacific-local date."
   def today_slug(now \\ DateTime.utc_now()) do
     Enum.at(@week, Date.day_of_week(local_today(now)) - 1)

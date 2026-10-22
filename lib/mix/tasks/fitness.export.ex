@@ -2,9 +2,10 @@ defmodule Mix.Tasks.Fitness.Export do
   @shortdoc "Writes the training log and check-ins as CSV for R"
 
   @moduledoc """
-  Writes `fitness_logs.csv` and `fitness_checkins.csv` (`Web.Fitness.Export`)
-  into a folder, for `analysis/fitness_models.R` and the Quarto report, with
-  no browser and no cookie.
+  Writes `fitness_logs.csv`, `fitness_checkins.csv` and `fitness_rides.csv`
+  (`Web.Fitness.Export`) into a folder, for `analysis/fitness_models.R` and the
+  Quarto report, with no browser and no cookie. The rides file is the Komoot
+  activities, which stand for the cycling stats.
 
       mix fitness.export --db PATH             # into ./tmp/fitness
       mix fitness.export DIR --db PATH
@@ -57,9 +58,19 @@ defmodule Mix.Tasks.Fitness.Export do
       Fitness.Export.checkins_csv(checkins, Fitness.Checks.all())
     )
 
+    rides = rides()
+    File.write!(Path.join(dir, "fitness_rides.csv"), Fitness.Export.rides_csv(rides))
+
     Mix.shell().info(
-      "#{length(logs)} entries and #{length(checkins)} check-ins written to #{dir}"
+      "#{length(logs)} entries, #{length(checkins)} check-ins and #{length(rides)} rides written to #{dir}"
     )
+  end
+
+  # A database from before the rides' migration has no table for them.
+  defp rides do
+    Web.Rides.list_rides()
+  rescue
+    Exqlite.Error -> []
   end
 
   # A database from before the check-ins' migration has no table for them.

@@ -67,4 +67,41 @@ defmodule Web.Fitness.ExportTest do
     assert Export.checkins_csv(Fitness.checkins_between(~D[2026-10-01], ~D[2026-11-01]), checks) ==
              "date,shoulder,bodyweight,note\n2026-10-27,sore,171.4,NA\n2026-10-28,NA,NA,ok\n"
   end
+
+  test "Komoot rides as CSV, in miles and Pacific time, the Thursday morning ride a TT" do
+    {:ok, _} =
+      Web.Rides.create_ride(%{
+        komoot_id: "t1",
+        name: "Home to the lab",
+        sport: "racebike",
+        started_at: ~U[2026-10-22 13:00:00Z],
+        distance_m: 24_140.16,
+        duration_s: 3600,
+        time_in_motion_s: 3500,
+        avg_speed_mps: 6.7,
+        ascent_m: 100.0,
+        kcal: 500
+      })
+
+    {:ok, _} =
+      Web.Rides.create_ride(%{
+        komoot_id: "t2",
+        name: "Sunday loop",
+        sport: "hike",
+        started_at: ~U[2026-10-25 17:00:00Z],
+        distance_m: 8_046.72
+      })
+
+    [header, tt, hike] =
+      Web.Rides.list_rides() |> Export.rides_csv() |> String.split("\n", trim: true)
+
+    assert header ==
+             "date,week_num,year,quarter,month,weekday,start_local,sport,kind,tt," <>
+               "distance_miles,duration_min,moving_min,avg_mph,ascent_ft,kcal,avg_hr,max_hr"
+
+    assert tt ==
+             "2026-10-22,43,2026,4,10,Thu,06:00,racebike,bike,TRUE,15.0,60.0,58.33,14.99,328.08,500,NA,NA"
+
+    assert hike == "2026-10-25,43,2026,4,10,Sun,10:00,hike,hike,FALSE,5.0,NA,NA,NA,NA,NA,NA,NA"
+  end
 end
