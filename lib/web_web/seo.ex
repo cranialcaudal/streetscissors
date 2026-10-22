@@ -15,7 +15,9 @@ defmodule WebWeb.SEO do
 
   @default_title "streetscissors"
   @default_description "Photographs, essays and recordings from the streetscissors darkroom."
-  @default_image "/images/preview_logo.png"
+  @default_image "/images/share_default.png"
+  # The publisher logo wants a square mark, not a 1.91:1 card.
+  @logo_image "/images/icon-512.png"
 
   @doc "Absolute site URL, e.g. `https://streetscissors.com`."
   def base_url, do: WebWeb.Endpoint.url()
@@ -149,7 +151,7 @@ defmodule WebWeb.SEO do
         "name" => site_name(),
         "logo" => %{
           "@type" => "ImageObject",
-          "url" => absolute(@default_image)
+          "url" => absolute(@logo_image)
         }
       },
       "image" => [absolute(Map.get(post, :image) || @default_image)]
