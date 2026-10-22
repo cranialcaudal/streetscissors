@@ -58,6 +58,15 @@ export const GymRoutine = {
                 cb.onchange = () => {
                     saved[key] = cb.checked;
                     keep();
+                    // On the admin's page for today a tick is a log: the
+                    // line's planned sets, done (the server skips a held one).
+                    if (cb.checked && this.el.dataset.logTicks === 'true') {
+                        const own = line && Array.from(line.querySelectorAll('.log-trigger'))
+                            .find((button) => button.closest('li') === line);
+                        if (own && !own.hasAttribute('data-logged')) {
+                            this.pushEvent('log_planned', { slug: own.getAttribute('phx-value-slug') });
+                        }
+                    }
                 };
             });
         });

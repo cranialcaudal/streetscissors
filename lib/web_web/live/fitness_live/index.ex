@@ -10,7 +10,11 @@ defmodule WebWeb.FitnessLive.Index do
   **For the admin, the page is also the training log.** Each exercise gets a
   Log button. During a training block the line under it says what today's
   target is and why (`Web.Fitness.Coach`), and the log form starts from the
-  plan's own numbers. Visitors see only the plan.
+  plan's own numbers. A lift (sets of reps, loaded or not) also gets its sets
+  as chips with the target written on them: a tap logs a set and starts the
+  rest timer, a tap on a logged set opens its stepper, and after the planned
+  sets one tap gives the RPE. On today's page, ticking a lift's box logs its
+  planned sets. Visitors see only the plan.
 
   The days link to each other with `navigate`, never `patch` (the comment
   above `mount/3` explains why).
@@ -20,9 +24,9 @@ defmodule WebWeb.FitnessLive.Index do
   1. **Opening a day** (`mount/3`, `mount_day/4`, `handle_params/3`): which
      day, its plan, and its strip of days.
   2. **Logging** (`handle_event/3`): opening, filling, saving, editing and
-     removing a log entry. Admin only; each event checks. An entry is filed
-     under today unless the form names an earlier day.
-  3. **Saving an entry** (`save/4`).
+     removing a log entry, and the set chips. Admin only; each event checks.
+     An entry is filed under today unless the form names an earlier day.
+  3. **Saving an entry** (`save/5`, and `save_sets/4` for the chips).
   4. **Targets** (`assign_coach/1` to `format_n/1`): what the plan's own
      lines and the training block ask of each exercise today.
   5. **What a logged entry says** (`log_line/1` to `blank_to_nil/1`).
@@ -90,6 +94,8 @@ defmodule WebWeb.FitnessLive.Index do
     # visitor's page says nothing of training state (see the privacy tests).
     |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
     |> assign(:logging, nil)
+    |> assign(:open_set, nil)
+    |> assign(:rest, nil)
     |> assign(:log_today, Web.Clock.local_today())
     |> assign_coach()
     |> assign_logged_today()
@@ -194,14 +200,101 @@ defmodule WebWeb.FitnessLive.Index do
     {:noreply, socket}
   end
 
+  # A lift with set chips gets the sets still to do, so a tick or a Done
+  # after two logged sets makes three, not six. A held lift is not logged.
   def handle_event("log_planned", %{"slug" => slug}, socket) do
     with {:ok, exercise} <- Fitness.loggable_exercise(slug) do
       plan = plan_for(socket, slug, exercise.name)
-      save(socket, slug, planned_metrics(plan), nil, Web.Clock.local_today())
+
+      cond do
+        elem(plan.verdict, 0) == :stop ->
+          {:noreply, put_flash(socket, :info, "Not logged: #{plan.guard || "held today"}.")}
+
+        chips?(plan) ->
+          done = todays_sets(socket, slug)
+          todo = max(planned_sets(plan) - length(done), 0)
+          sets = done ++ List.duplicate(next_set(plan, done), todo)
+          {:noreply, socket |> close_log() |> save_sets(exercise, sets, flash: true)}
+
+        true ->
+          save(socket, slug, planned_metrics(plan), nil, Web.Clock.local_today())
+      end
     else
       :error ->
         {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
     end
+  end
+
+  # ── Logging: the set chips ────────────────────────────────────────────────
+
+  # Under each lift the admin sees its sets as chips. A tap on a chip still
+  # to do logs that set (the first makes today's entry, each after it adds to
+  # it) and starts the rest timer; a tap on a logged chip opens its stepper;
+  # once the planned sets are in, one tap gives the last set's RPE.
+  def handle_event(event, _params, %{assigns: %{is_admin: false}} = socket)
+      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe),
+      do: {:noreply, socket}
+
+  def handle_event("set_done", %{"slug" => slug}, socket) do
+    with_plan(socket, slug, fn exercise, plan ->
+      done = todays_sets(socket, slug)
+
+      socket
+      |> assign(open_set: nil, rest: rest(plan))
+      |> save_sets(exercise, done ++ [next_set(plan, done)])
+    end)
+  end
+
+  def handle_event("set_open", %{"slug" => slug, "i" => i}, socket) do
+    open = {slug, index(i)}
+
+    {:noreply,
+     assign(socket, :open_set, if(socket.assigns.open_set == open, do: nil, else: open))}
+  end
+
+  def handle_event("set_close", _params, socket), do: {:noreply, assign(socket, :open_set, nil)}
+
+  def handle_event(
+        "set_adjust",
+        %{"slug" => slug, "i" => i, "field" => field, "by" => by},
+        socket
+      )
+      when field in ["w", "r"] do
+    with_plan(socket, slug, fn exercise, _plan ->
+      case {index(i), Float.parse(by)} do
+        {i, {by, ""}} when is_integer(i) ->
+          sets = List.update_at(todays_sets(socket, slug), i, &adjust(&1, field, by))
+          save_sets(socket, exercise, sets)
+
+        _ ->
+          socket
+      end
+    end)
+  end
+
+  def handle_event("set_remove", %{"slug" => slug, "i" => i}, socket) do
+    with_plan(socket, slug, fn exercise, _plan ->
+      case index(i) do
+        nil ->
+          socket
+
+        i ->
+          sets = List.delete_at(todays_sets(socket, slug), i)
+          socket |> assign(:open_set, nil) |> save_sets(exercise, sets)
+      end
+    end)
+  end
+
+  def handle_event("set_rpe", %{"slug" => slug, "rpe" => rpe}, socket) do
+    with_plan(socket, slug, fn exercise, _plan ->
+      case {todays_sets(socket, slug), Float.parse(rpe)} do
+        {[_ | _] = sets, {rpe, ""}} when rpe >= 6 and rpe <= 10 ->
+          save_sets(socket, exercise, List.update_at(sets, -1, &Map.put(&1, "rpe", rpe)))
+
+        _ ->
+          socket
+      end
+    end)
   end
 
   # Today's check-in, from the day page itself: one tap per check, saved over
@@ -299,6 +392,117 @@ defmodule WebWeb.FitnessLive.Index do
 
   defp close_log(socket), do: assign(socket, :logging, nil)
 
+  # The chips' sets, saved as today's entry for the exercise: made by the
+  # first, updated by every one after, removed when the last set goes. What
+  # else the entry says (a distance, a note) stays.
+  defp save_sets(socket, exercise, sets, opts \\ []) do
+    log = todays_log(socket, exercise.slug)
+    metrics = Entry.sets_metrics(sets)
+
+    result =
+      cond do
+        sets == [] and log != nil ->
+          Fitness.delete_exercise_log(log.id)
+
+        sets == [] ->
+          {:ok, nil}
+
+        log != nil ->
+          kept = Map.drop(log.metrics, ~w(weight sets reps rpe result set_list))
+          Fitness.update_exercise_log(log, %{metrics: Map.merge(kept, metrics)})
+
+        true ->
+          Fitness.create_exercise_log(%{
+            exercise_id: exercise.id,
+            date: Web.Clock.local_today(),
+            metrics: metrics
+          })
+      end
+
+    case result do
+      {:ok, saved} ->
+        socket = socket |> assign_coach() |> assign_logged_today()
+
+        if opts[:flash] && saved,
+          do:
+            put_flash(
+              socket,
+              :info,
+              "#{saved_words(exercise.name, saved)}: #{Fitness.entry_line(saved)}."
+            ),
+          else: socket
+
+      {:error, _changeset} ->
+        put_flash(socket, :error, "Couldn't save that — try again.")
+    end
+  end
+
+  defp with_plan(socket, slug, fun) do
+    case Fitness.loggable_exercise(slug) do
+      {:ok, exercise} ->
+        {:noreply, fun.(exercise, plan_for(socket, slug, exercise.name))}
+
+      :error ->
+        {:noreply, put_flash(socket, :error, "There is no exercise by that name in the wiki.")}
+    end
+  end
+
+  # Today's entry for an exercise (the newest, if there are two), and its sets.
+  defp todays_log(socket, slug),
+    do: socket.assigns.logged_today |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last()
+
+  defp todays_sets(socket, slug) do
+    case todays_log(socket, slug) do
+      nil -> []
+      log -> Entry.set_list(log.metrics)
+    end
+  end
+
+  # A lift gets chips: sets of reps, loaded or not, and not held today.
+  defp chips?(plan) do
+    plan.prescription.kind in [:weight, :reps] and is_integer(plan.defaults.reps) and
+      elem(plan.verdict, 0) != :stop
+  end
+
+  # How many sets the day asks for: its own line, else the block's target.
+  # Not the form's defaults, which take today's entry as "last time" the
+  # moment a first set is logged.
+  defp planned_sets(plan),
+    do: plan.prescription.sets || (plan.target && plan.target.sets) || 3
+
+  # The next set repeats the last one logged today, else it is the target
+  # (the plan's numbers when there is none). Once today is logged, Coach's
+  # target is already the next session's, which is why the logged sets lead.
+  defp next_set(plan, done) do
+    case List.last(done) do
+      nil -> %{"w" => plan.defaults.weight, "r" => plan.defaults.reps, "rpe" => nil}
+      last -> %{"w" => last["w"], "r" => last["r"], "rpe" => nil}
+    end
+  end
+
+  defp adjust(set, "w", by),
+    do: Map.put(set, "w", max(Float.round((set["w"] || 0) + by, 1), 0.0))
+
+  defp adjust(set, "r", by), do: Map.put(set, "r", max((set["r"] || 0) + trunc(by), 1))
+
+  # Rest after a set: 2.5 minutes on a block lift worked heavy (a range
+  # topping out at 10 or under), 1.5 on the rest (the block's Design). The id
+  # is new for every set, so the timer starts over.
+  defp rest(plan) do
+    seconds = if plan.rule && plan.rule.high <= 10, do: 150, else: 90
+    %{id: System.unique_integer([:positive]), seconds: seconds}
+  end
+
+  defp rest_clock(seconds),
+    do: "#{div(seconds, 60)}:#{String.pad_leading("#{rem(seconds, 60)}", 2, "0")}"
+
+  defp index(text) do
+    case Integer.parse(to_string(text)) do
+      {i, ""} when i >= 0 -> i
+      _ -> nil
+    end
+  end
+
   defp saved_words(name, %{date: date}) do
     if date == Web.Clock.local_today(),
       do: "Logged #{name}",
@@ -383,22 +587,118 @@ defmodule WebWeb.FitnessLive.Index do
   # The admin's notes under each Log button in the rendered plan: the line
   # (last time, the target), the guardrail, and the one-tap Done. Escaped
   # text only; no checkbox and no `data-day`, which GymRoutine counts.
-  defp annotate(html, coach) when coach == %{}, do: html
+  defp annotate(html, coach, _logged, _open) when coach == %{}, do: html
 
-  defp annotate(html, coach) do
+  defp annotate(html, coach, logged, open) do
     Regex.replace(
       ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)},
       html,
       fn whole, _button, slug ->
         case coach[slug] do
-          nil -> whole
-          plan -> whole <> notes(plan)
+          nil ->
+            whole
+
+          plan ->
+            if chips?(plan) do
+              sets =
+                case logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last() do
+                  nil -> []
+                  log -> Entry.set_list(log.metrics)
+                end
+
+              whole <> notes(plan, false) <> chips(plan, sets, open)
+            else
+              whole <> notes(plan, true)
+            end
         end
       end
     )
   end
 
-  defp notes(plan) do
+  # The chips for a lift's sets: the logged ones (a tap opens the stepper),
+  # then the ones still to do with the next set written on them (a tap logs
+  # it), then a chip for one more. The stepper and the RPE row follow.
+  defp chips(plan, sets, open) do
+    slug = plan.slug
+    planned = planned_sets(plan)
+    next = set_label(next_set(plan, sets))
+
+    logged =
+      for {set, i} <- Enum.with_index(sets) do
+        ~s(<button type="button" class="log-set is-done#{if open == {slug, i}, do: " is-open"}" phx-click="set_open" phx-value-slug="#{slug}" phx-value-i="#{i}" aria-label="Set #{i + 1}, #{set_label(set)}, logged: change it">#{set_label(set)}</button>)
+      end
+
+    todo =
+      for n <- (length(sets) + 1)..planned//1 do
+        ~s(<button type="button" class="log-set" phx-click="set_done" phx-value-slug="#{slug}" aria-label="Log set #{n}, #{next}">#{next}</button>)
+      end
+
+    more =
+      if length(sets) >= planned,
+        do: [
+          ~s(<button type="button" class="log-set log-set--more" phx-click="set_done" phx-value-slug="#{slug}" aria-label="Log another set, #{next}">+ set</button>)
+        ],
+        else: []
+
+    stepper =
+      case open do
+        {^slug, i} -> if set = Enum.at(sets, i), do: stepper(plan, set, i), else: ""
+        _ -> ""
+      end
+
+    rpe =
+      if sets != [] and length(sets) >= planned,
+        do: rpe_row(slug, List.last(sets)["rpe"]),
+        else: ""
+
+    ~s(<span class="log-sets" id="sets-#{slug}">#{Enum.join(logged ++ todo ++ more)}</span>) <>
+      stepper <> rpe
+  end
+
+  defp set_label(%{"w" => w, "r" => r}) when is_number(w) and w > 0, do: "#{num(w * 1.0)}×#{r}"
+  defp set_label(%{"r" => r}), do: "#{r} reps"
+
+  defp stepper(plan, set, i) do
+    w = set["w"] || 0
+    small = if w < 25, do: 2.5, else: 5.0
+
+    step = fn field, by, text, label ->
+      ~s(<button type="button" class="log-step-btn" phx-click="set_adjust" phx-value-slug="#{plan.slug}" phx-value-i="#{i}" phx-value-field="#{field}" phx-value-by="#{by}" aria-label="#{label}">#{text}</button>)
+    end
+
+    big = plan.prescription.kind == :weight
+    weight = if w > 0, do: "#{num(w * 1.0)} lb", else: "no weight"
+
+    ~s(<span class="log-stepper" id="stepper-#{plan.slug}" role="group" aria-label="Set #{i + 1}">) <>
+      ~s(<span class="log-step">) <>
+      if(big, do: step.("w", -25, "−25", "25 lb lighter"), else: "") <>
+      step.("w", -small, "−#{num(small)}", "#{num(small)} lb lighter") <>
+      ~s(<output class="log-step-value">#{weight}</output>) <>
+      step.("w", small, "+#{num(small)}", "#{num(small)} lb heavier") <>
+      if(big, do: step.("w", 25, "+25", "25 lb heavier"), else: "") <>
+      ~s(</span><span class="log-step">) <>
+      step.("r", -1, "−", "One rep fewer") <>
+      ~s(<output class="log-step-value">#{set["r"]} reps</output>) <>
+      step.("r", 1, "+", "One rep more") <>
+      ~s(</span>) <>
+      ~s(<button type="button" class="log-step-btn log-step-btn--quiet" phx-click="set_remove" phx-value-slug="#{plan.slug}" phx-value-i="#{i}">Remove set</button>) <>
+      ~s(<button type="button" class="log-step-btn log-step-btn--quiet" phx-click="set_close">Close</button>) <>
+      ~s(</span>)
+  end
+
+  defp rpe_row(slug, current) do
+    current = current && Entry.number(current * 1.0)
+
+    buttons =
+      Enum.map_join(~w(7 8 9 10), fn rpe ->
+        ~s(<button type="button" class="log-rpe-btn" phx-click="set_rpe" phx-value-slug="#{slug}" phx-value-rpe="#{rpe}" aria-pressed="#{current == rpe}">#{rpe}</button>)
+      end)
+
+    ~s(<span class="log-rpe" id="rpe-#{slug}" role="group" aria-label="How hard was the last set? RPE">) <>
+      ~s(<span class="log-rpe-label">Last set, RPE</span>#{buttons}</span>)
+  end
+
+  defp notes(plan, done_button?) do
     esc = &(&1 |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string())
     level = plan.verdict |> elem(0) |> to_string()
 
@@ -407,7 +707,7 @@ defmodule WebWeb.FitnessLive.Index do
         plan.hint && ~s(<span class="log-hint">#{esc.(plan.hint)}</span>),
         plan.guard &&
           ~s(<span class="log-guard log-guard--#{level}">#{esc.(plan.guard)}#{if plan.instead, do: esc.(". Instead: " <> plan.instead), else: ""}</span>),
-        elem(plan.verdict, 0) != :stop && planned_metrics(plan) != %{} &&
+        done_button? && elem(plan.verdict, 0) != :stop && planned_metrics(plan) != %{} &&
           ~s(<button type="button" class="log-quick" phx-click="log_planned" phx-value-slug="#{plan.slug}" phx-disable-with="Logging…" title="Log the planned set as done">Done</button>)
       ]
       |> Enum.filter(& &1)
@@ -627,6 +927,7 @@ defmodule WebWeb.FitnessLive.Index do
         class={"blog-bento-card" <> if(@is_admin, do: " is-admin", else: "")}
         id="weekly-routine"
         phx-hook="GymRoutine"
+        data-log-ticks={@is_admin && @day.slug == @today_slug && "true"}
       >
         <div class="fitness-layout">
           <div class="fitness-main">
@@ -727,7 +1028,7 @@ defmodule WebWeb.FitnessLive.Index do
               <div class="day-content vault-day markdown-body">
                 {raw(
                   @day.html
-                  |> annotate(@coach)
+                  |> annotate(@coach, @logged_today, @open_set)
                   |> mark_logged(logged_slugs(@logged_today, @day.slug, @today_slug))
                 )}
 
@@ -750,7 +1051,7 @@ defmodule WebWeb.FitnessLive.Index do
                     <div class="option-content vault-day markdown-body">
                       {raw(
                         option.html
-                        |> annotate(@coach)
+                        |> annotate(@coach, @logged_today, @open_set)
                         |> mark_logged(logged_slugs(@logged_today, @day.slug, @today_slug))
                       )}
                     </div>
@@ -830,6 +1131,51 @@ defmodule WebWeb.FitnessLive.Index do
       <%!-- The big picture, under the day. Visitors get untimed chips; the
             clock times render for the admin only. --%>
       <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
+
+      <%!-- The rest after a logged set. A new id for every set, so the hook
+            mounts afresh and the count starts over. --%>
+      <div
+        :if={@rest}
+        id={"rest-timer-#{@rest.id}"}
+        class="rest-timer"
+        phx-hook=".RestTimer"
+        phx-update="ignore"
+        data-seconds={@rest.seconds}
+        role="timer"
+      >
+        <span class="rest-timer-label">Rest</span>
+        <span class="rest-timer-left" data-left>{rest_clock(@rest.seconds)}</span>
+        <button type="button" class="rest-timer-skip" data-skip>Skip</button>
+      </div>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".RestTimer">
+        // Counts the rest down from the moment the set was logged; at zero the
+        // timer says so and, where the phone can, buzzes. Skip hides it.
+        export default {
+          mounted() {
+            const until = Date.now() + Number(this.el.dataset.seconds) * 1000
+            const left = this.el.querySelector("[data-left]")
+            const tick = () => {
+              const s = Math.max(0, Math.round((until - Date.now()) / 1000))
+              left.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
+              if (s === 0) {
+                clearInterval(this.timer)
+                this.el.classList.add("is-up")
+                left.textContent = "Go"
+                try { navigator.vibrate && navigator.vibrate([200, 100, 200]) } catch (_) {}
+              }
+            }
+            tick()
+            this.timer = setInterval(tick, 1000)
+            this.el.querySelector("[data-skip]").addEventListener("click", () => {
+              clearInterval(this.timer)
+              this.el.hidden = true
+            })
+          },
+          destroyed() {
+            clearInterval(this.timer)
+          }
+        }
+      </script>
 
       <%= if @logging do %>
         <%!-- No phx-click on the backdrop: LiveView hands a click to the

@@ -46,6 +46,51 @@ defmodule Web.Fitness.Entry do
     end
   end
 
+  @doc """
+  An entry's sets one by one, `[%{"w" => lbs | nil, "r" => reps, "rpe" => n | nil}]`:
+  the list the day page's set chips keep under `set_list`, else the summary
+  read back as that many equal sets (the hardest RPE on the last).
+  """
+  def set_list(%{"set_list" => list}) when is_list(list), do: list
+
+  def set_list(metrics) when is_map(metrics) do
+    case Web.Fitness.Progression.parse_log_metrics(metrics) do
+      %{sets: sets, reps: reps} = parsed when is_integer(sets) and is_integer(reps) ->
+        for i <- 1..sets,
+            do: %{"w" => parsed.weight, "r" => reps, "rpe" => if(i == sets, do: parsed.rpe)}
+
+      _ ->
+        []
+    end
+  end
+
+  def set_list(_metrics), do: []
+
+  @doc """
+  Sets as an entry's `metrics`: the list whole under `set_list`, beside the
+  summary the export, `Progression` and the entry's line read. The summary
+  is the heaviest weight, the number of sets, the fewest reps (so "every set
+  reached the top of the range" is true only when every set did) and the
+  hardest RPE.
+  """
+  def sets_metrics(sets) do
+    weights = for %{"w" => w} <- sets, is_number(w) and w > 0, do: w
+    reps = for %{"r" => r} <- sets, is_integer(r), do: r
+    rpes = for %{"rpe" => rpe} <- sets, is_number(rpe), do: rpe
+
+    %{"set_list" => sets, "sets" => Integer.to_string(length(sets))}
+    |> put_summary("weight", weights != [] && "#{number(Enum.max(weights))} lbs")
+    |> put_summary("reps", reps != [] && Integer.to_string(Enum.min(reps)))
+    |> put_summary("rpe", rpes != [] && number(Enum.max(rpes)))
+  end
+
+  @doc "`135.0` as `\"135\"`, `47.5` as `\"47.5\"`."
+  def number(n) when is_float(n) and n == trunc(n), do: Integer.to_string(trunc(n))
+  def number(n), do: to_string(n)
+
+  defp put_summary(map, _key, false), do: map
+  defp put_summary(map, key, value), do: Map.put(map, key, value)
+
   defp suffix(nil, _unit), do: nil
   defp suffix(value, unit), do: value <> unit
 

@@ -154,6 +154,95 @@
 }
 .log-quick:disabled { opacity: 0.5; cursor: progress; }
 
+/* The set chips under a lift: logged sets filled, sets to do outlined with
+   the next set written on them. Every target is 44px. */
+.log-sets { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.35rem 0 0.15rem; }
+.log-set,
+.log-step-btn,
+.log-rpe-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.75rem;
+  font-family: var(--font-data);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.log-set.is-done {
+  color: var(--paper);
+  background: var(--color-jade);
+  border-color: var(--color-jade);
+}
+.log-set.is-open { outline: 2px solid var(--ink); outline-offset: 2px; }
+.log-set--more { color: var(--ink-3); border-style: dashed; }
+.log-set:hover:not(.is-done),
+.log-step-btn:hover,
+.log-rpe-btn:hover { border-color: var(--accent-ink, var(--ink)); }
+
+.log-stepper,
+.log-rpe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  margin: 0.35rem 0 0.15rem;
+}
+.log-step { display: inline-flex; align-items: center; gap: 0.3rem; }
+.log-step-value {
+  min-width: 5.5rem;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ink);
+}
+.log-step-btn--quiet { font-family: var(--font-ui); font-size: 0.8rem; color: var(--ink-2); background: none; }
+.log-rpe-label { font-size: 0.8rem; color: var(--ink-2); }
+.log-rpe-btn[aria-pressed="true"] {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/* The rest after a set, pinned to the bottom of the screen. */
+.rest-timer {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.4rem 0.4rem 1rem;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.rest-timer[hidden] { display: none; }
+.rest-timer-label { font-size: 0.8rem; color: var(--ink-2); }
+.rest-timer-left { min-width: 3.5rem; font-size: 1.25rem; font-weight: 600; }
+.rest-timer.is-up { border-color: var(--color-jade); }
+.rest-timer.is-up .rest-timer-left { color: var(--color-jade); }
+.rest-timer-skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .day-logged-list { list-style: none; margin: 0 0 1.5rem; padding: 0; }
 .day-logged-list li {
   display: flex;

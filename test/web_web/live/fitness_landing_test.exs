@@ -388,6 +388,87 @@ defmodule WebWeb.FitnessLandingTest do
     end
   end
 
+  # The set chips (2026-10-21): under a lift, a tap a set. The fixture's
+  # push-ups are 3 x 12 at bodyweight, so the chips read "12 reps".
+  describe "logging a lift set by set, as the admin" do
+    setup %{conn: conn} do
+      conn = init_test_session(conn, %{"admin_user" => true})
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      %{view: view}
+    end
+
+    test "the planned sets show as chips, and a tap logs one and starts the rest", %{view: view} do
+      assert view |> element("#sets-push-ups") |> render() |> count_chips("log-set\"") == 3
+      refute has_element?(view, ".rest-timer")
+
+      render_click(view, "set_done", %{"slug" => "push-ups"})
+
+      assert [%{metrics: metrics}] = Web.Fitness.list_exercise_logs()
+      assert %{"sets" => "1", "reps" => "12", "set_list" => [%{"r" => 12}]} = metrics
+      assert has_element?(view, "#sets-push-ups .log-set.is-done", "12 reps")
+      assert has_element?(view, ".rest-timer[phx-hook]")
+      refute has_element?(view, "#rpe-push-ups"), "the RPE waits for the last planned set"
+    end
+
+    test "the sets fill one entry, then the RPE goes on the last", %{view: view} do
+      for _ <- 1..3, do: render_click(view, "set_done", %{"slug" => "push-ups"})
+      assert has_element?(view, "#sets-push-ups .log-set--more")
+
+      view |> element("#rpe-push-ups button[phx-value-rpe='9']") |> render_click()
+
+      assert [%{metrics: metrics}] = Web.Fitness.list_exercise_logs()
+      assert %{"sets" => "3", "reps" => "12", "rpe" => "9"} = metrics
+      assert List.last(metrics["set_list"])["rpe"] == 9.0
+      assert has_element?(view, "#rpe-push-ups button[aria-pressed=true]", "9")
+      assert has_element?(view, "#logged-today .day-logged-values", "3 x 12 @ RPE 9")
+    end
+
+    test "a logged set opens its stepper; fewer reps are kept set by set", %{view: view} do
+      for _ <- 1..3, do: render_click(view, "set_done", %{"slug" => "push-ups"})
+
+      view |> element("#sets-push-ups .log-set.is-done[phx-value-i='2']") |> render_click()
+      assert has_element?(view, "#stepper-push-ups")
+
+      for _ <- 1..2 do
+        view
+        |> element("#stepper-push-ups button[phx-value-field=r][phx-value-by='-1']")
+        |> render_click()
+      end
+
+      # The summary keeps the fewest reps, so the block only steps up when
+      # every set reached the top of the range.
+      assert [%{metrics: %{"reps" => "10"}}] = Web.Fitness.list_exercise_logs()
+      assert has_element?(view, "#logged-today .day-logged-values", "12, 12, 10")
+    end
+
+    test "removing every set removes the entry", %{view: view} do
+      render_click(view, "set_done", %{"slug" => "push-ups"})
+      view |> element("#sets-push-ups .log-set.is-done") |> render_click()
+      view |> element("#stepper-push-ups button", "Remove set") |> render_click()
+
+      assert Web.Fitness.list_exercise_logs() == []
+      refute has_element?(view, "#stepper-push-ups")
+    end
+
+    # A tick on today's page sends log_planned: it fills the sets still to do.
+    test "a tick after one set logs the other two, not three more", %{view: view} do
+      render_click(view, "set_done", %{"slug" => "push-ups"})
+      render_click(view, "log_planned", %{"slug" => "push-ups"})
+
+      assert [%{metrics: %{"sets" => "3"}}] = Web.Fitness.list_exercise_logs()
+    end
+
+    test "a weight change on a loaded set is a summary the export still reads" do
+      sets = [%{"w" => 135.0, "r" => 8, "rpe" => nil}, %{"w" => 140.0, "r" => 6, "rpe" => 9.0}]
+
+      assert %{"weight" => "140 lbs", "sets" => "2", "reps" => "6", "rpe" => "9"} =
+               Web.Fitness.Entry.sets_metrics(sets)
+
+      assert Web.Fitness.Entry.set_list(%{"weight" => "20 lbs", "sets" => "2", "reps" => "8"}) ==
+               [%{"w" => 20.0, "r" => 8, "rpe" => nil}, %{"w" => 20.0, "r" => 8, "rpe" => nil}]
+    end
+  end
+
   describe "logging, for everyone else" do
     test "a visitor can open nothing, save nothing, and is shown nobody's log", %{conn: conn} do
       {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
@@ -412,6 +493,11 @@ defmodule WebWeb.FitnessLandingTest do
       render_click(view, "open_log", %{"slug" => "push-ups"})
       refute has_element?(view, "form[phx-submit=save_log]")
       refute has_element?(view, "#log-target")
+
+      refute html =~ "log-set"
+      refute html =~ "data-log-ticks"
+      render_click(view, "set_done", %{"slug" => "push-ups"})
+      assert length(Web.Fitness.list_exercise_logs()) == 1
 
       render_click(view, "save_log", %{"log" => %{"result" => "9 x 99"}})
       [log] = Web.Fitness.list_exercise_logs()
@@ -462,6 +548,8 @@ defmodule WebWeb.FitnessLandingTest do
       assert section =~ "6:45–7:30"
     end
   end
+
+  defp count_chips(html, marker), do: html |> String.split(marker) |> length() |> Kernel.-(1)
 
   defp week_section(html) do
     [section] = Regex.run(~r{<section id="the-week".*?</section>}s, html)

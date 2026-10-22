@@ -117,7 +117,10 @@ defmodule Web.Fitness do
     )
   end
 
-  @doc "A log entry's values in a line: `185 lbs · 3 x 8 @ RPE 8 · 40 m`."
+  @doc """
+  A log entry's values in a line: `185 lbs · 3 x 8 @ RPE 8 · 40 m`. Sets that
+  were not all alike are written one by one: `135x8, 135x8, 130x6 @ RPE 9`.
+  """
   def entry_line(%{metrics: metrics, note: note}) do
     work =
       case {metrics["sets"], metrics["reps"]} do
@@ -127,14 +130,36 @@ defmodule Web.Fitness do
         {sets, reps} -> "#{sets} x #{reps}"
       end
 
-    work = if(work && metrics["rpe"], do: "#{work} @ RPE #{metrics["rpe"]}", else: work)
+    rpe = fn line ->
+      if(line && metrics["rpe"], do: "#{line} @ RPE #{metrics["rpe"]}", else: line)
+    end
+
+    load =
+      case uneven_sets(metrics["set_list"]) do
+        nil -> [metrics["weight"], rpe.(work)]
+        sets -> [rpe.(sets)]
+      end
 
     values =
-      [metrics["weight"], work, metrics["distance"], metrics["time"], metrics["result"]]
+      (load ++ [metrics["distance"], metrics["time"], metrics["result"]])
       |> Enum.reject(&is_nil/1)
 
     Enum.join(values ++ List.wrap(note), " · ")
   end
+
+  defp uneven_sets([_, _ | _] = sets) do
+    if sets |> Enum.map(&{&1["w"], &1["r"]}) |> Enum.uniq() |> length() > 1 do
+      Enum.map_join(sets, ", ", fn set ->
+        w = set["w"]
+
+        if is_number(w) and w > 0,
+          do: "#{Web.Fitness.Entry.number(w)}x#{set["r"]}",
+          else: "#{set["r"]}"
+      end)
+    end
+  end
+
+  defp uneven_sets(_sets), do: nil
 
   @doc "Everything logged on a day, in the order it was entered, exercise loaded."
   def exercise_logs_on(%Date{} = date) do
