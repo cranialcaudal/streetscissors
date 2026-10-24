@@ -1292,9 +1292,11 @@ defmodule Web.Scanner.Pipeline do
   def print_depth, do: if(Application.get_env(:web, :print_depth) == 16, do: 16, else: 8)
 
   @doc """
-  What the analysis read of the roll's bath off its clear film, as sentences
-  for the page; `[]` when it found nothing. Only said, never acted on beyond
-  developing each strip on its own clear film: refixing is the author's.
+  What the analysis read of the roll's bath off its clear film, and of its
+  exposure off its pictures (thin, flat), as sentences for the page; `[]`
+  when it found nothing. Only said, never acted on beyond developing each
+  strip on its own clear film and holding a thin roll's contrast: refixing
+  is the author's.
   """
   def bath_notes(roll_dir) do
     case analysis(roll_dir) do
@@ -1320,6 +1322,21 @@ defmodule Web.Scanner.Pipeline do
 
   defp bath_note("blocked", %{"blocked" => share}) when is_number(share),
     do: ["#{round(share * 100)}% of the pictures lie at the scanner's floor."]
+
+  defp bath_note("thin", %{"on_base" => share}) when is_number(share) do
+    [
+      "#{round(share * 100)}% of the pictures lie on bare film: underexposed, so their " <>
+        "shadows are not on the negative. Its contrast is held back, since more would " <>
+        "lift the grain rather than the picture."
+    ]
+  end
+
+  defp bath_note("flat", %{"top" => top}) when is_number(top) do
+    [
+      "Its densest highlights reach only D #{:erlang.float_to_binary(top / 1, decimals: 2)}: " <>
+        "short development, or a roll of flat light."
+    ]
+  end
 
   defp bath_note(_found, _diagnosis), do: []
 

@@ -1020,6 +1020,24 @@ defmodule Web.ScannerTest do
       assert veil =~ "refix the roll before scanning its singles"
       assert uneven =~ "not fixed or developed alike"
       assert blocked == "31% of the pictures lie at the scanner's floor."
+
+      write.(%{
+        "mode" => "color",
+        "diagnosis" => %{"found" => ["thin"], "on_base" => 0.59, "top" => 1.44, "deep" => false}
+      })
+
+      [thin] = Web.Scanner.bath_notes(dir)
+      assert thin =~ "59% of the pictures lie on bare film"
+      refute Web.Scanner.deep?(dir)
+
+      write.(%{
+        "mode" => "bw",
+        "diagnosis" => %{"found" => ["flat"], "on_base" => 0.12, "top" => 1.01, "deep" => false}
+      })
+
+      assert Web.Scanner.bath_notes(dir) == [
+               "Its densest highlights reach only D 1.01: short development, or a roll of flat light."
+             ]
     end
   end
 

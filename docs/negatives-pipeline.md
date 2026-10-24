@@ -426,6 +426,27 @@ is current. In particular, 35mm is no longer cut into six frames a strip.
   `Web.Scanner.Pipeline.develop_keeper/2`** (by `bin/web rpc`), which also turns the print
   and remakes its previews. A slide's singles are scanned at **16 bits**
   (`Driver.band_args/5` `deep: true`, when `Scanner.slide?/1`); the print is 8.
+- **A crossed colour negative gets a curve per channel, when roll.json says so**
+  (2026-10-24). Film kept warm loses speed layer by layer, and a layer that starts late and
+  catches up prints one colour in the shadows and another in the highlights, which one power
+  per channel can't undo. With `"crossed": true` in `roll.json`, `layer_curves` reads each
+  layer's rate against green at `CURVE_POINTS`, fits a straight line through the bends (log,
+  against density) and keeps its two ends as the channel's `curve`; `apply_args` then draws
+  the channel through a 16-bit lookup table (`clut_file`) instead of the divide and power.
+  On synth's aged film (`Film.aged()`) a grey's channels part by 46 of 255 without it and 26
+  with it, as fresh film does. **It is never automatic:** read off a roll's pictures, the bend
+  is the scene's as much as the film's. Tried on every colour roll, it took a purple cast off
+  roll 022's sky and put one on rolls 025 and 031, and most rolls bent to the limits.
+- **A thin roll's contrast is held** (2026-10-24). The roll's contrast is the power that puts
+  its middle density at a middle grey. On an underexposed roll much of the picture is bare
+  film, and that power rose to the top of `POWER_LIMITS` (rolls 030, 067, 069, 070, with 44%
+  to 59% of their pictures within `THIN_DENSITY` of the base; no other roll is over 36%),
+  lifting grain and veil rather than shadows the negative never held. With `THIN_SHARE` of
+  the picture on the base the roll is **thin**: its contrast is held to `THIN_POWER_MOST` and
+  the diagnosis says so. A roll whose densest highlights stop under `FLAT_TOP` is **flat**
+  (short development, or flat light) and is only named: raising the contrast is the right
+  remedy for underdevelopment. Both go in `frames.json`'s `diagnosis` (`on_base`, and `top`
+  as D), for colour rolls too, and `Pipeline.bath_notes/1` says them on the page.
 - **Medium format's frame count is read off the film** (`count_by_template/4`): 120 and
   620 are one film in different cameras, and a 620 roll of 6x9 (two to a strip) was being
   cut in three. On a strip on glass, each count from 2 to 6 is laid cut to cut and the one

@@ -202,3 +202,101 @@ def test_preview_develops_a_frame_off_the_strip(roll, env, tmp_path):
     png = read_png(env, tmp_path / "p.png")
     assert max(png.shape[:2]) == 200
     assert png.shape[1] / png.shape[0] == pytest.approx(region[2] / region[3], rel=0.02)
+
+
+# ── Aged film and thin film ───────────────────────────────────────────────
+
+def load_film_develop():
+    """film-develop as a module, for its readings without a scan."""
+    import importlib.machinery
+    import importlib.util
+    loader = importlib.machinery.SourceFileLoader("film_develop", str(FILM_DEVELOP))
+    spec = importlib.util.spec_from_loader("film_develop", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def grey_spread(env, out, truth, image, number):
+    """The widest channel spread of any grey patch, single `number` developed."""
+    frame = truth["frames"][number - 1]
+    x, y, w, h = frame["rect"]
+    raw = out / "raw-frames" / f"frame-{number:02d}.tiff"
+    raw.parent.mkdir(exist_ok=True)
+    synth.write_tiff(raw, np.ascontiguousarray(image[y:y + h, x:x + w]), synth.STUDIO_MARK)
+    film_develop(env, "develop", raw, "--roll", out, "--frame", number)
+    png = read_png(env, out / "frames" / f"{number:02d}.png")
+    return max(np.ptp(patch_mean(png, p["rect"], frame["rect"]))
+               for p in frame["patches"] if neutral(p["scene"]))
+
+
+@pytest.fixture(scope="module", params=[False, True], ids=["as-shot", "crossed"])
+def aged(request, tmp_path_factory, env):
+    """The c41 film aged (its top layer slow and soft-toed), analysed with
+    roll.json saying "crossed": true or saying nothing."""
+    out = tmp_path_factory.mktemp("aged") / "roll001_35mm_c41"
+    out.mkdir()
+    image, truth = synth.strip(synth.Film.for_process("c41").aged(), synth.Scanner(), LAYOUT,
+                               FRAMES, seed=7)
+    synth.write_tiff(out / "strip-01.tiff", image, f"{synth.STUDIO_MARK}; synth aged seed 7")
+    if request.param:
+        (out / "roll.json").write_text(json.dumps({"crossed": True}))
+    film_develop(env, "analyze", out, "--mode", "color")
+    doc = json.loads((out / "frames.json").read_text())
+    return request.param, out, truth, image, doc
+
+
+def test_a_curve_only_where_roll_json_says_crossed(aged):
+    crossed, _, _, _, doc = aged
+    curved = [bool(ch.get("curve")) for ch in doc["film"]["channels"]]
+    assert any(curved) == crossed, curved
+    assert not curved[1], "green is what the others are read against"
+
+
+def test_a_crossed_roll_prints_its_greys_as_fresh_film_does(aged, env):
+    """Frame 3 (a stop over) of the aged film: as shot, a grey's channels part
+    by 46 of 255, yellow shadows and blue highlights; the fresh film's part by
+    about 26. With its curves the aged film comes back within the same 32."""
+    crossed, out, truth, image, _ = aged
+    spread = grey_spread(env, out, truth, image, 3)
+    if crossed:
+        assert spread <= 32, spread
+    else:
+        assert spread > 32, f"the aged film should be crossed as shot: {spread}"
+
+
+def roll_reading(fd, values, kept=10000):
+    """film_model's black-and-white reading of a roll whose pictures are
+    `values` (a {scan value: share} dict) and whose clear film reads 200."""
+    hist = [0] * 256
+    for v, share in values.items():
+        hist[v] += int(kept * share)
+    strip = [0] * 256
+    strip[200] = kept
+    return fd.film_model("bw", [([hist] * 3, hist, kept, 1.0)],
+                         [([strip] * 3, strip, kept, 1.0)])
+
+
+def test_a_thin_roll_is_named_and_its_contrast_held():
+    """Half the picture on bare film: the middle asks for the most contrast
+    there is, and gets THIN_POWER_MOST."""
+    fd = load_film_develop()
+    film = roll_reading(fd, {199: 0.5, 190: 0.2, 170: 0.2, 120: 0.1})
+    assert film["development"]["found"] == ["thin"]
+    assert film["contrast"] == fd.THIN_POWER_MOST
+    assert film["development"]["held"] > fd.THIN_POWER_MOST
+
+
+def test_a_flat_roll_is_named_and_left_its_contrast():
+    """Little on bare film and nothing dense: flat, and the contrast is what
+    the middle asks for."""
+    fd = load_film_develop()
+    film = roll_reading(fd, {180: 0.3, 150: 0.4, 120: 0.3})
+    assert film["development"]["found"] == ["flat"]
+    assert "held" not in film["development"]
+
+
+def test_a_sound_roll_is_named_nothing():
+    fd = load_film_develop()
+    film = roll_reading(fd, {170: 0.3, 90: 0.4, 20: 0.3})
+    assert film["development"]["found"] == []

@@ -8,6 +8,8 @@ Parts 1 to 4 assume nothing. They say what the site is for, how a photograph get
 
 Parts 5 to 9 are for someone who programs: not a Phoenix expert, but someone who can read a shell script and a config file and wants to know exactly how the thing is built and kept running. Which process listens on which port. What the deploy script does, in order, and why. Where every kind of data lives, how it is backed up, and how to get it back. What to check first when something breaks.
 
+Part 11 goes further into the darkroom, for a reader who programs and knows some photography: the chemistry under the pipeline, the scanner studio and the print editor, down to the functions.
+
 Every unfamiliar word is explained the first time it appears, and again in the glossary at the end. Read it in order or jump to the part you need.
 
 ---
@@ -2326,7 +2328,285 @@ on the walls, which is the point: fill it with your own.
 
 ---
 
-## Part 11: Glossary
+## Part 11: The darkroom, in depth
+
+Part 3 says how a roll gets from the glass to the page. This part is for a reader who programs and knows some photography, and wants the reasons: what is physically in a frame and where each fact of it shows up in the code, what the scanner studio does between a press of the button and a sheet on the site, and how the print editor is built and how to change it without harm. It names functions and constants, which drift; where it and the code disagree, the code is right and this part is wrong.
+
+### The chemistry under the pipeline
+
+Every correction in `film-develop` answers something that happened in the emulsion. This section says what is physically in a frame, and then, fact by fact, where the scan shows it and which function deals with it. It states only what the makers' datasheets and the standard texts agree on. Where a thing is commonly said but not settled, it says so or leaves it out.
+
+#### What is in a frame
+
+Seen in section, a frame is a few layers on a clear base.
+
+**The base.** Cellulose triacetate on most 35mm and 120 film. Some films use polyester (PET) instead; Kodak's datasheet for Portra 400 (E-4050) lists an ESTAR base, which is Kodak's polyester. A base carries no picture. It is the clear plastic the layers sit on.
+
+**The emulsion.** Gelatin, which is purified collagen, holding crystals ("grains") of silver halide, mostly silver bromide with some iodide. Gelatin keeps the grains apart and lets the processing baths in. Kodak describes the grains in T-Max films as tabular, or T-grain: flat crystals, not lumps. Silver halide on its own responds to blue and violet light. Spectral sensitising dyes, adsorbed on the grain surface, extend that to green, red and, in panchromatic film, the whole visible range. A dye that has absorbed a photon passes an electron into the grain.
+
+**The latent image.** Enough absorbed photons in one grain leave a speck of silver on it. Nothing is visible. The speck makes the grain developable: a developer reduces a marked grain to metallic silver far faster than an unmarked one. That difference in rate is the whole of development.
+
+**Colour film has three emulsion layers**, one sensitised to blue, one to green, one to red, with filter and interlayers between them. Colour couplers sit in the layers.
+
+#### Three kinds of development
+
+**Black-and-white negative.** The developer reduces the exposed grains to silver. The fixer then dissolves the unexposed halide: thiosulfate forms a soluble silver-thiosulfate complex, which the wash carries away. What stays is the image, and it is metallic silver. Silver absorbs light, so the denser the silver, the darker the negative.
+
+**Colour negative (C-41).** The colour developer is a p-phenylenediamine derivative. When it reduces a grain, it is itself oxidised, and the oxidised developer reacts ("couples") with a coupler in that layer to form a dye: yellow in the blue-sensitive layer, magenta in the green, cyan in the red. Then the silver is bleached (converted back to halide) and fixed out. A finished colour negative holds dye and no silver. Two more kinds of coupler matter here. Coloured masking couplers in the colour layers correct the unwanted absorption of the dyes; they are why the base looks orange. DIR couplers release a development inhibitor when they couple, which sharpens edges and reduces the interaction between layers.
+
+**Colour reversal (E-6).** A first developer makes a negative silver image. The remaining halide is then fogged and developed in a colour developer, which forms dye where the first development did not. All silver is removed. What is left is a positive, and a slide is the picture itself.
+
+Chromogenic black-and-white film (Ilford XP2 and its kind) is a black-and-white film developed in C-41. Its image is dye, not silver. This matters for the scanner, below.
+
+#### Why each of these shows up in a scan
+
+**Non-film is not film.** The bed is clear glass and the holder's gaps are black, and both sit at the extremes of the scan. Statistics taken over a whole scan measure them and not the emulsion. `film_pixels` drops any pixel that is bright on all three channels (bed) or dark on all three (holder), and every histogram the pipeline keeps is taken from what is left. The exception is dense film: in `cmd_analyze`, a strip that has a quarter or more of its film pixels under the holder's black (`DENSE_STRIP_SHARE`) keeps them, because a heavily fogged negative is that dark and is not a holder.
+
+**The base is measured, not assumed.** Light through bare film is the 100 per cent reference. `film_model` takes each strip's base as a high percentile of its own values (`BASE_PCT`, which is the rebate, the clear film beside the frames) and then the middle strip's reading for the roll, so that one fogged strip cannot move it. `density` then gives, per channel, the density above the base: log10 of the base over the value, never less than zero. A caution: the studio's scans carry the scanner's default tone curve, with a gamma of about 1.8 (`SCAN_GAMMA`), so this is a density of the scan and not an optical density read by a densitometer. It is monotonic in the film's density, which is what the arithmetic needs.
+
+**The orange mask is divided out.** Because the base is taken per channel, the mask is in the base. Dividing each channel by its own base takes the mask off the clear film. It does not take it off the picture. A mask is not a fixed offset: the three dye layers build density at different rates as exposure rises, and the masking couplers and the dyes do not respond alike. So a neutral grey in the scene is not a neutral grey in the negative at every density.
+
+**Each layer builds density at its own rate.** Once the base is divided out, what is left of the mask's cast is that the three layers do not climb together: in a given film the blue-sensitive layer may build density faster than the green, the red slower. `layer_rates` reads, at several points up the scale and pooled over every frame of the roll, how dense red and blue are against green, and keeps the middle reading. Each channel's power is the roll's contrast over its layer's rate, so a grey on the film prints grey at every density, not only at the few points a levels-and-gamma fit could pin.
+
+That holds while the layers keep one rate against each other from the thinnest density to the densest. Film kept warm for years may not. Its layers lose speed unequally, and a layer that starts late and then catches up is *crossed*: one power per channel leaves the shadows one colour and the highlights another. A roll whose `roll.json` says `"crossed": true` gets a curve per channel instead. `layer_curves` reads each layer's rate again at points along the scale, fits a straight line through how far it parts from the whole-scale rate, and `apply_args` draws each channel through a 16-bit lookup table rather than a single power. It is never switched on by itself. Read off a roll's pictures, the bend belongs to the scene as much as to the film: tried on every colour roll in the archive, it took a purple cast off one sky and put one on another roll's grass. Whether a roll is crossed is judged from its prints.
+
+**Why a roll is low in contrast decides what to do about it.** Underdeveloped film is short of density everywhere by much the same factor, and raising the contrast puts back what the bath left out. Underexposed film is different: much of the picture lies on bare film, because the shadows were never recorded. Raising the contrast to bring its middle up lifts the grain and any fog or veil with it, not the shadows. `film_model` measures how much of the roll's picture sits within a small density of the base. Where that is 40 per cent or more the roll is **thin**, its contrast is held to a ceiling (`THIN_POWER_MOST`), and the diagnosis says so. A roll whose densest highlights stay low is called **flat**, short development or flat light, and is only named. Fog is a third thing again: it adds density to the clear film too, so it comes off with the base, but what it hid does not come back.
+
+The scanner makes this harder. Its red, green and blue filters are broadband. They are not the narrow-band response (Status M) that densitometry for colour negatives is defined by, so one inversion and one gain per channel cannot cancel the mask. The per-channel treatment is a fit to what this scanner sees. It is not a measurement of the film's dye densities.
+
+**Black-and-white uses one range.** A silver image has no hue. In `film_model`, a black-and-white roll is read from the grey histogram alone: one base, one curve. Treating the three channels separately would only teach the print to follow the scanner's channel noise and tint a picture that should be grey. The same holds for a chromogenic film: its dye is neutral by design.
+
+**A slide is not inverted.** `film_model` has a separate slide branch. Nothing is negated and there is no mask to remove. What a slide needs is a black and a white. The black is read per channel, off the darkest pictures of the roll, because badly developed reversal film has a black that is not neutral. A frame may move its own white and black only a little from the roll's (`SLIDE_WHITE_FLOOR`, `SLIDE_BLACK_CEILING`). `roll_mode` and `film_look` decide which of the three kinds a roll is: a colour negative's clear film is far redder than blue and nothing on it is truly black; a slide's gaps are the blackest thing in the scan.
+
+**Fog and veil are flagged, not fixed.** Clear film that is denser than it should be carries either fog (silver where no light fell) or a veil. A veil is undissolved halide left by a short fix or tired fixer; a cut piece in fresh fixer tells the two apart, because halide clears and fog does not. Both add density to the whole strip, unexposed film included. `strip_veils` finds black-and-white strips whose clear film, read in the gaps between frames, is off the roll's by more than `VEIL_STEP` (20 per cent of the light), and gives each its own base, which takes the added density off. That keeps a print readable. It cannot recover what the veil hid. Highlights that fall under the scanner's noise floor are gone. `diagnose` reads the clear film in density against `CLEAR_NORMAL`, and writes `veil`, `uneven` and `blocked` into `frames.json` and to the terminal. It corrects nothing, and says so. One reason to leave the film alone: halide that is still in the film darkens for good under any lamp, the scanner's included, so the right answer is to refix the roll, not to scan harder. It applies to black-and-white only. A colour negative's clear film is its mask, and says nothing about the bath.
+
+Telling a dense black-and-white negative from a colour one uses the same fact from the other side. Silver, a veil included, adds the same density to every channel. A mask does not. `film_look` compares the channels of the clear film (`MASK_DENSITY`) and calls a roll colour only if they part.
+
+**Dust.** Dust and fibres block the lamp, so on a negative they print white. `remove_dust` replaces small bright specks with the local median and leaves anything larger, because a lamp or a window in a picture is also bright. On silver black-and-white film an infrared dust channel cannot do this job (see the next section), so this is a software guess, and the print editor's Dust and Repair tools exist for the cases it gets wrong.
+
+**Reciprocity.** The law of reciprocity says that exposure is intensity times time, and that equal products give equal results. For long exposures it fails: the film is less sensitive than the product predicts. Schwarzschild's law replaces the product with `E = I·t^p`, with `p` below 1 for the effective exposure. Makers publish it as a corrected time. Ilford's sheets give `Tc = Tm^P`, with a different `P` for each film. For colour films the sheets give a few rows of added stops and a colour compensating filter, since the three layers fail by different amounts. Why the failure happens, at the level of the grain, is not something to state in one sentence, and this manual does not. `priv/film/stocks.json` holds only these datasheet figures, each with the sheet it came from and the date it was checked. Where the maker publishes nothing past a range, the entry says `unpublished`, and the figure is not invented. `Film.reciprocity/2` reads them: the exponent form gives extra stops, the table form interpolates on the log of the time, and the colour filter becomes a cast that `Web.Darkroom.Prior` adds to the print editor's suggested colour. The extra stops are reported and not applied, because `film-develop` already exposes each single on its own picture.
+
+#### What the scanner adds
+
+**Digital ICE does not work on silver.** The scanner's infrared pass sees dye as nearly transparent and dust as opaque, so dust shows up on its own and can be removed. Metallic silver is opaque to infrared too. On silver black-and-white film, the image itself reads as dust. ICE is therefore of no use there, and fine on C-41 and on chromogenic black-and-white such as XP2.
+
+**Broadband filters.** Covered above. They are why a negative mask cannot be cancelled by one invert, and why the fit is made per roll, from the roll's own film.
+
+**Nominal dpi is not resolved detail.** A scan at 1600 dpi samples at 1600 points per inch. It resolves what the optics, the focus and the film's grain allow, which on a flatbed is usually well under the number on the dial. Grain that is finer than the sampling pitch folds into the sampled values as pattern noise (aliasing), which sharpening makes worse. Strips are kept at 300 dpi (`STRIP_DPI`) because the contact sheet is 300 dpi, not because 300 shows the film.
+
+**Dmax.** A scanner has a deepest density it can read. A dense slide's shadows, or an overexposed negative's highlights, can sit at that limit, where the scan holds only noise. For black-and-white, `diagnose` counts the share of pictures at the floor (`SCAN_FLOOR`, `BLOCKED_SHARE`) and flags `blocked`, and singles from such a roll are scanned at 16 bits. No setting recovers detail the scanner could not measure.
+
+#### Further reading
+
+- Mees, C. E. K., *The Theory of the Photographic Process* (1942), public domain, [at the Internet Archive](https://archive.org/details/TheTheoryOfThePhotographicProcess)
+- Rogers, *The Chemistry of Photography* ([Royal Society of Chemistry](https://doi.org/10.1039/9781847557599))
+- Haist, G., *Modern Photographic Processing* (Wiley, 1979)
+- Mason, L. F. A., *Photographic Processing Chemistry* (Focal Press, 1966)
+- Tani, T., *Photographic Sensitivity* ([Oxford University Press](https://global.oup.com/academic/product/photographic-sensitivity-9780195072402), 1995)
+- Kodak, publication E-30, [on storing and handling film](https://kodakprofessional.com/sites/default/files/wysiwyg/pro/CIS_E30.pdf)
+- darktable, [negadoctor module reference](https://docs.darktable.org/usermanual/development/en/module-reference/processing-modules/negadoctor/)
+
+### The scanner studio, in depth
+
+The section above says what to press. This one says what the server does, so that when a scan goes wrong you know which layer to look at. The code is in `lib/web/scanner/`: `Bed` runs the scanner, `Driver` builds its arguments, `Detect` reads a look, and `Pipeline` turns scans into a roll.
+
+#### One scanner, one scan at a time
+
+`Web.Scanner.Bed` is a single process that owns the scanner. A scan is a `scanimage` child process held on a port, so the page is answered at once and progress arrives as messages. A second request while one runs is refused with `{:error, :busy}` rather than queued. What is on the glass is whatever the person at the scanner put there for the first scan, and a queued scan would photograph something else.
+
+A scan is written beside its target with `.partial` added to the name. The file is renamed only when `scanimage` exits 0 and has written something. A failed, killed or timed-out scan removes its partial file, so a truncated TIFF never sits in a roll folder looking like a strip. A scan past 15 minutes is killed at the OS process, since closing the port alone would leave the carriage moving.
+
+Only the tab that started a scan acts on its result. The Epson backend sometimes answers `sane_start: Invalid argument` straight after a scan. The page retries once after 2.5 seconds.
+
+#### Why every scan is "Positive Film"
+
+`Driver` passes `--source "Transparency Unit"` and `--film-type "Positive Film"` on every scan, negatives included. The backend's "Negative Film" setting does not invert anything. It rebalances the channels against the orange mask of colour negative film. `film-develop` measures and removes that mask itself, so a strip scanned with the setting would be corrected twice. "Positive Film" hands over what the sensor saw, and that is what every strip in the archive is.
+
+#### Resolutions the scanner really has
+
+With the transparency unit selected, the V550 offers 400, 800, 1600 and 3200 dpi. Ask for 300 and `scanimage` rounds to a figure it has, says so on one line and exits 0. A strip once came back at 400 when 300 was asked for. So every figure the driver asks for is one the scanner has.
+
+| Pass | Scanned at | Kept at |
+|---|---|---|
+| Look | 400 dpi | the whole-holder scan |
+| Strip | 400 dpi | 300 dpi |
+| Single | 1600 dpi | 1600 dpi |
+
+The archive holds strips to 300 dpi, so a strip is scanned at 400 and brought down by `resample_args/2`, an ImageMagick resize to 75 per cent that also records the new density. `Bed` does this before the rename, and a resample that fails is a failed scan. A look takes about 28 seconds at 400 dpi, against 135 at 1600.
+
+#### The look, detection and where film lies
+
+A look is one colour pass over the whole transparency area. It is colour even for black and white film, because whether the film is colour is read off it.
+
+`Detect.read/2` reads the look and answers three things.
+
+- **Format** is the width of the film: 35mm below 40 mm, 120 above. 620 is 120 film on a thinner spool, measures the same and is answered as 120.
+- **Colour** is the orange mask, read as a high red-to-blue ratio or a strong colour spread across the film. It is a proposal you can overrule.
+- **Strips** are runs of film at least 15 mm across, left to right in millimetres. Two filled slots give two.
+
+Dark film is the hard case, since a slide is as black as the holder. `Detect` looks for bare glass past the film's ends, and tells a dense negative from a slide by whether the gaps between frames are much brighter than the pictures.
+
+`add_pass/6` cuts each strip out of the look at 300 dpi, in grey for black and white film, and writes where each lies on the glass into the roll's `holder.json`. That is what lets a chosen frame be scanned again without anyone placing the film.
+
+Each look has a name, its scan's file name. The name is kept in the roll's `holder.json` and, alone, in `.on-glass` at the archive's root. A roll's record counts only while its name matches `.on-glass`, because any later look, into this roll or another, means the film has been changed. Turning, deleting or reordering a strip drops its place from `holder.json`. If you lay strips back in the holder, `relocate/5` finds them by comparing pictures and writes a new record.
+
+#### Why singles are scanned in bands
+
+A single is a 1600 dpi scan of one frame. The scanner's time goes with the length of glass it crosses. One scan per frame pays the carriage's travel for each, and one scan of the whole holder crosses far more glass than the frames need.
+
+`Driver.bands/2` is the compromise. It sorts the chosen frames by their top edge on the glass and joins a frame to the current band when it starts within 5 mm of the band's bottom. Frames side by side in the two slots share a band, and so do neighbours on a strip. Each band is as wide as its frames need.
+
+After the band is scanned, `cut_from_band/6` crops each frame out into `raw-frames/`, turning it back if its strip lies the other way up from its first scan. Each frame is then developed in its own background task, three at a time, so the scanner is free to move on. A strip still in place from its look needs no margin, since a frame's rectangle in `frames.json` is the picture with the rebate left out. A strip put back by hand gets 3 mm. A slide's singles, and a veiled roll's, are scanned at 16 bits (`deep?/1`).
+
+#### What was chosen, and what is owed
+
+Before the scanner starts, `record_selects/3` writes `selects.json`. It lists, for each offered frame, whether the studio proposed it and whether you chose it.
+
+If the page is closed or the service restarts mid-run, what is left is exactly "chosen but no print". `owed_singles/1` finds those on opening the roll. For each it also says whether its strip is still on the glass, which is whether the scan can simply run again. A restart kills a run, which is why a deploy waits for an idle scanner.
+
+#### Strips move, and their singles go with them
+
+Frames are numbered across the strips of a roll, and a single is filed by frame number, so reordering, turning or deleting a strip renumbers the singles after it. `reorder_strips/2`, `rotate_strip/2` and `delete_strip/2` therefore call `carry_singles/3`, which moves each print, its raw scan and its `selects.json` entry to its frame's new number and removes those of a deleted strip. The stale `frames.json` is removed, and a roll with singles is analysed again. A deleted strip is moved to the archive's `.trash` by `set_aside/2`, not destroyed.
+
+#### Splitting a roll
+
+A holder takes two strips, so the strip that fills one roll often shares the glass with the first strip of the next. Both join the bench roll. When the roll is one strip over its count, the page asks which strip begins the next roll, and `split_roll/2` moves that strip and every strip after it to the next free roll number, with the same date and film. A roll cannot begin at its own first strip.
+
+A moved strip takes its singles, their raw scans, its `selects.json` entries and its place on the glass. Both rolls are analysed again.
+
+#### No invented analysis
+
+`Pipeline` runs the real `film-develop` and `digital-contact-sheet-maker`, found on the server's PATH. Each has a time limit, 30 minutes by default. A missing tool is an error the page shows. Nothing stands in for them.
+
+The rings drawn on `/negatives` come from the rectangles in `frames.json`. A fallback that wrote a plausible one once put the rings in the wrong place. A visible failure costs a re-run. A believable wrong answer costs a roll. Do not add a fallback.
+
+#### When a scan fails
+
+Work from the outside in.
+
+1. **Read the flash message.** `Bed` keeps the last lines of `scanimage` output, and the page shows them after "Scan failed".
+2. **"Invalid argument" twice** is the scanner's own fault state. Check the holder sits square, the lid cable is in and the document mat is out of the lid, then switch the scanner off and on.
+3. **"scanimage is not installed" or no device** means the server cannot see the scanner. Check the cable and the Setup tab.
+4. **"couldn't bring the scan to 300 dpi"** is the ImageMagick step. The partial file is gone. Scan again.
+5. **"ran past its time limit"** is the 15-minute kill. Something hung.
+6. **A `film-develop` or sheet-maker error** after a good scan names the tool and its exit status. The scanner has finished by then.
+7. **A single will not scan** when its strip is no longer known to be on the glass: `holder.json` is missing, or `.on-glass` names a later look. Look again and let `relocate/5` find the strip.
+
+#### Practical notes
+
+These are general facts about flatbed film scanning, not features of this site.
+
+- **Keep the scanner's infrared dust removal off for silver black-and-white film.** The infrared channel sees dust and scratches on film dyes, because dye is transparent to it. Silver is not, so the grain itself shows up as a defect and the software smears it.
+- **More resolution is not more detail.** A flatbed's lens resolves much less than its top setting suggests. Scanning past what the optics resolve adds file size and grain aliasing, not picture.
+- **Film height matters.** Film touching glass gives Newton rings, the rainbow ripples, which is why holders hold the film a little above the glass. The lens focuses at one height, and advice on what it is varies from one source to the next, so the honest way to find it for a holder is to scan one frame at two heights and compare the grain.
+
+### The print editor, in depth
+
+This section is for someone who wants to change the editor. The section above says what the sliders do. This one says how the machinery is arranged, and how to know a change did no harm.
+
+#### One engine for every adjustment
+
+The editor has no image processing of its own. Every adjustment, in the preview and in the saved print, is done by LightCraft (`lightcraft-cli`, built from a pinned checkout and installed under `~/.local/bin`; the path is the `:lightcraft_bin` setting).
+
+There is one implementation on purpose. If the preview and the print were made by different code, they would drift, and the bench would lie. Here both are given the same commands, built by `Darkroom.commands/1` from a recipe.
+
+The sliders come from LightCraft's own schema, cut down to what film needs (`Darkroom.sections/2`). Browser values pass through `clean_controls/2` first, because one unknown id makes the whole `develop.set` call fail. Crop edges are snapped to whole pixels, because LightCraft resamples a crop whose edge falls between two.
+
+#### How a session talks to it
+
+`Web.Darkroom.Session` is a `GenServer`. It holds one `lightcraft-cli mcp --compact` process open for as long as an editor is open, and speaks MCP (JSON-RPC, one message per line) over its standard input and output. Every edit goes through the tool `run_command`, and `app.export` then writes a JPEG.
+
+Starting a program for each slider move costs about a quarter of a second before it does anything. Held open, a move takes about 65 ms, and the first picture about 300 ms.
+
+A dragged slider asks faster than pictures can be made. So before each render the session empties its mailbox of waiting requests and draws only the newest. A finished picture is sent to the editor as `{:darkroom_preview, n, file}`, a failure as `{:darkroom_error, n, text}`, where `n` numbers the request.
+
+The pictures go to a folder of the session's own, mode 0700, under the system temporary directory, named by a random 32-character token. The darkroom controller's `picture/2` serves them by token to the admin only. The session monitors its owner and ends with it, taking the program and the folder along. Each environment has its own folder (`:darkroom_scratch`).
+
+#### An edit is a recipe
+
+Saving does not change a picture. It writes a small file, `edits/NN.json`, holding the sliders that are off their default and, if there is one, `crop: {rect, angle}`.
+
+The recipe applies to `developed/NN.png`, the print exactly as `film-develop` made it. That file is set aside the first time a frame is saved. `frames/NN.png`, the picture the site shows, is rendered from the pair. `develop_keeper/2` re-applies a recipe, and turning a frame rotates its crop with it (`turn_crop/2`).
+
+Applying sliders to a whole roll (`apply_controls/4`) keeps each frame's crop, dust and repair. If a saved recipe names a slider LightCraft no longer offers, `unknown_controls/2` lists it on the page and the control is left out of the render. It is never dropped silently.
+
+If a frame has been repaired, the sliders work on the repaired picture instead (`Darkroom.source_path/2`).
+
+#### The film prior
+
+"Start from the film" suggests where a print's colour should begin. `Web.Darkroom.Prior` works in two numbers, `rg = log10(R/G)` and `bg = log10(B/G)` of linear light (`Web.Darkroom.Film`). On that scale a colour filter is an offset and a white balance is a gain. For print `i` on film `s`:
+
+```
+c_i = (S_s^-1 m_s + R_i^-1 g_i) / (S_s^-1 + R_i^-1)    the print's cast
+t_s = alpha_s m_s + o_s                                where it should sit
+D_i = t_s - c_i + r_s(T_i)                             the correction
+```
+
+The moduledoc writes it with Greek letters. The terms:
+
+| Term | Meaning |
+|---|---|
+| g | The print's own cast, from its near-neutral pixels (`Stats`) |
+| R | How little g says: `0.02^2` over the near-neutral share |
+| m, S | The film's average cast and its spread over the archive (`Archive.groups/1`), the spread floored at `0.02^2` |
+| alpha, o | How much of the film's character to keep, and a lean; learned from the author's edits |
+| r(T) | The datasheet's correction for an exposure of T seconds (`Film.reciprocity/2`) |
+
+The first line is a precision-weighted average of two guesses at the print's true cast: the film's average and the print's own reading. A print with little grey has a large R, so it is read mostly from its film. With fewer than three prints of a film there is no average, and the print stands for itself.
+
+Untaught, alpha is 1 and o is 0, so each print is brought to its film's average. The reciprocity term is zero unless the roll names an exposure time. `priv/film/stocks.json` holds only figures from the maker's datasheets, each with its source; do not add a number that has none. A grey print gets no suggestion.
+
+D is turned into Temp and Tint by `Film.sliders/2`, using how far each slider moves the two ratios, measured by rendering a neutral grey through LightCraft.
+
+#### The grey point, and why Temp and Tint are absolute
+
+A grey point is a patch the author clicks and says is neutral. `Stats.read_region/4` averages a small square of the print, and `Prior.grey_point/2` returns the Temp and Tint that carry that cast to neutral. Each pick is also kept in a file under the archive's `.darkroom` folder.
+
+Both this and `Prior.suggest/5` return absolute slider values, not changes. The cast is always read off the print as developed, never off the preview. So the answer is anchored where the sliders stand on that print (6500 and 0 by default, the `:temp` and `:tint` options), and pressing the button twice gives the same print. Kelvins do not add, so the temperature comes out as a new value and the tint as an offset.
+
+#### How Taste learns
+
+`Web.Darkroom.Taste` learns from two things: every saved `edits/NN.json`, which counts as one example, and every pick on the Taste page, which counts as half of one. Nothing is learned from anyone else's data.
+
+Colour. Each edit says where the author wants that film to sit: the print's cast moved by the Temp and Tint chosen (`Film.cast_of/3`). The target for a film is its own edits' average, shrunk toward one rule for all films, `alpha m + o`, fitted across every edit by least squares. The film's own edits weigh n against a constant 3, so a film edited three times is a little the author's, thirty times nearly all.
+
+Other sliders. Each slider the author moves gets a small ridge regression on the print's measured features (`Stats.features/1`, standardized), plus an offset per film and per bath condition (`Taste.condition/1`, read from the diagnosis `film-develop` gave the roll). The penalty is the shrinkage: 1 on the feature weights, 3 on the offsets, so a film seen once barely moves the answer. A slider is predicted only once it has moved in three edits.
+
+`Taste.fit_cached/3` keeps the model in `:persistent_term` under a fingerprint of the prints and their readings, the modification time and size of each saved edit, the choices file, the archive averages and the slider defaults. Change any of those and the next call refits; otherwise it returns the stored model.
+
+#### The scopes
+
+`Scopes.read/1` runs on each preview JPEG. ImageMagick shrinks it to 256 by 96 pixels, and Elixir bins it: a histogram of 64 bins per channel plus luma, each as a share of the tallest bin, and an RGB parade of 64 columns giving the 5th, 50th and 95th percentile of each channel. The values are display-encoded, what the screen shows, not scene light. They are for seeing a clipped highlight or a cast.
+
+#### Repair
+
+A repair is a mask and a picture made from it, never a change to the print. The mask is `edits/NN.mask.png`; the result is the repaired file beside `developed/NN.png`, and the sliders then work on that. `Web.Darkroom.Repair` calls `film_repair.py` (in `priv/repair/`), which runs in its own Python (`:film_repair_python`).
+
+The order is fixed, and each step exists because of the one before it.
+
+1. Scanner lines first. A run of rows or columns that the mask covers the whole way along is a scanner fault. The picture under it is still there, a gain and an offset away in each channel. The script fits those per row and per channel from the rows on both sides and undoes them. This keeps real detail that a painter would paint over.
+2. LaMa second, for only what is left: pixels a line pushed to black or white, nearly blank rows, and every other masked mark. It works in 512-pixel windows at the picture's own resolution. Only masked pixels are taken, and the grain of the surrounding ring is measured and put back, since LaMa paints smooth.
+3. Stable Diffusion last, and only as a candidate. It paints what could have been there, not what was. So `Repair.diffuse/2` writes a separate candidate file, and the author chooses Keep (`keep/2`) or Discard. It is never applied by itself.
+
+Stable Diffusion runs under `systemd-run --user --scope` with `MemoryMax=3G` and `MemorySwapMax=0` (the `:sd_memory_max` setting), at the lowest priority. Loaded whole it needed 5 GB, and an uncapped first try got the server killed by the kernel for running out of memory. If `systemd-run` is missing, `Repair` refuses to start it rather than run uncapped. One run at a time is enforced with `:global.trans`; a second request is told another print is being filled.
+
+#### Checking a change
+
+`Web.Darkroom.Eval` scores the prior and the taste model against the author's own saved edits by leaving each one out. For every saved edit it fits Taste on all the others, guesses the colour target, and measures the distance to what was saved, in hundredths of density in the `rg`, `bg` plane. Taste-page choices are used in the fit but never held out. Each slider's mean error is reported too.
+
+Run it from the repository:
+
+```
+mix darkroom.eval
+```
+
+The task never boots the site. It reads the archive at `NEGATIVES_PATH`, writes one dated JSON file under the archive's `.darkroom/eval` folder, and prints each score against the previous file as "better by", "WORSE by" or "unchanged".
+
+The rule: a change to `Prior` or `Taste` must not make the mean colour error worse. Run it once before editing, so there is a baseline file, and once after. A grey print, or a film with no average yet, has no colour score.
+
+---
+
+## Part 12: Glossary
 
 **Backup**: Four things here, each kept its own way. The database is asked to
 write a clean copy of itself every night, and the copy is reopened and checked

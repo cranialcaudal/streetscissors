@@ -13,8 +13,10 @@ The model, per pixel, in this order:
     E   = S @ scene                    exposure through the layers' sensitivity
                                        (S: 3x3, rows R G B; crosstalk off-diagonal)
     H   = log10(E) + log10(exposure)   log exposure
-    d_c = gamma_c * (H_c - H0) + toe   the dye each layer forms (shoulderless,
-                                       with an optional soft toe)
+    d_c = gamma_c * (H_c - H0_c) + toe the dye each layer forms (shoulderless,
+                                       with an optional soft toe). H0 and the
+                                       toe may be one number or one a layer: an
+                                       aged film's layers lose speed unequally
     D   = Dmin + A @ d                 density the scanner's channels read: the
                                        base (orange mask) plus the dyes, each
                                        seen a little by the other channels (A)
@@ -74,8 +76,8 @@ class Film:
     process: str = "c41"
     dmin: list[float] = field(default_factory=lambda: [0.25, 0.60, 0.85])
     gamma: list[float] = field(default_factory=lambda: [0.55, 0.60, 0.65])
-    h0: float = -2.2
-    toe: float = 0.0
+    h0: float | list[float] = -2.2
+    toe: float | list[float] = 0.0
     sensitivity: list[list[float]] = field(
         default_factory=lambda: [[0.92, 0.07, 0.01], [0.06, 0.88, 0.06], [0.01, 0.10, 0.89]]
     )
@@ -99,6 +101,18 @@ class Film:
                 [[1.00, 0.06, 0.02], [0.08, 1.00, 0.10], [0.02, 0.15, 1.00]],
             )
         raise ValueError(f"unknown process {process!r}")
+
+    def aged(self) -> "Film":
+        """The same film kept warm for years: its blue-sensitive layer, the
+        top one, has lost most of a stop and gained a soft toe, so the
+        yellow dye starts late and then catches up. The layers no longer
+        build density in proportion, which no single power per channel
+        undoes. (Which layer goes first varies by film and keeping; the top
+        layer is the usual one, but this is a test case, not a claim.)"""
+        h0 = np.broadcast_to(np.asarray(self.h0, dtype=np.float64), (3,)).tolist()
+        h0[2] += 0.6
+        return Film(self.process, list(self.dmin), list(self.gamma), h0, [0.0, 0.0, 0.25],
+                    [list(r) for r in self.sensitivity], [list(r) for r in self.crosstalk])
 
 
 @dataclass
@@ -125,9 +139,11 @@ def dye(film: Film, scene: np.ndarray, exposure: float) -> np.ndarray:
     e = np.einsum("ij,...j->...i", s, scene)
     h = np.log10(np.maximum(e, 1e-6)) + np.log10(exposure)
     g = np.asarray(film.gamma)
-    d = g * (h - film.h0)
-    if film.toe > 0:
-        d = film.toe * np.logaddexp(0.0, d / film.toe)
+    d = g * (h - np.asarray(film.h0))
+    toe = np.broadcast_to(np.asarray(film.toe, dtype=np.float64), g.shape)
+    if (toe > 0).any():
+        soft = np.maximum(toe, 1e-9)
+        d = np.where(toe > 0, soft * np.logaddexp(0.0, d / soft), d)
     if film.process == "e6":
         # A slide's dye is full where unexposed and clears with exposure; the
         # curve is clipped to its maximum density.
