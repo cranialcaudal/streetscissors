@@ -2872,11 +2872,15 @@ def cmd_analyze(args):
         report["on_base"] = developed["on_base"]
         report["top"] = round(SCAN_GAMMA * developed["top"], 2)
         if "thin" in developed["found"]:
+            # A thin picture spans a few steps of an 8-bit scan: roll 067's
+            # red held four, and its prints were those four steps pushed
+            # apart. Its singles are scanned at sixteen bits.
+            report["deep"] = True
             lines.append(f"  THIN: {developed['on_base']:.0%} of the pictures lie on bare film: "
                          "underexposed, so their shadows are not on the negative. Contrast held "
                          f"at {THIN_POWER_MOST:g}" + (f" (the middle asked for {developed['held']:g})"
                                                        if developed.get("held") else "") +
-                         ", since more lifts grain, not picture.")
+                         ", since more lifts grain, not picture. Singles are scanned at 16 bits.")
         else:
             lines.append(f"  FLAT: the densest highlights reach only D {SCAN_GAMMA * developed['top']:.2f}: "
                          "short development, or a roll of flat light.")
@@ -3036,10 +3040,43 @@ def cmd_develop(args):
     # the darkroom's edits want so a strong Temp or curve does not band
     depth = str(getattr(args, "depth", 8))
     _magick([args.raw] + apply_args(settings) + ["-depth", depth, dst])
-    if args.dust and settings.get("mode") != "slide":
-        remove_dust(dst)
+    finish(dst, settings.get("mode"), roll_dir, args.frame, args,
+           getattr(args, "stage", None))
     print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")
     return 0
+
+
+def finish_command():
+    """film-finish beside this tool, under a Python that has numpy and
+    OpenCV (the print repair's), or None where either is missing."""
+    python = os.environ.get("FILM_FINISH_PYTHON") or os.path.expanduser(
+        "~/.local/share/film-repair/venv/bin/python")
+    script = os.path.join(os.path.dirname(os.path.realpath(__file__)), "film-finish")
+    if os.access(python, os.X_OK) and os.path.isfile(script):
+        return [python, "-I", script]
+    return None
+
+
+def finish(dst, mode, roll_dir, frame, args, stage=None):
+    """The print finished (film-finish: scanner lines, dust, a colour print's
+    grey balance against its roll). stage "measure" leaves the balance for
+    redevelop's second pass. Where film-finish cannot run, the white specks
+    are still taken off as before (remove_dust)."""
+    command = finish_command()
+    if command is None:
+        if args.dust and mode != "slide":
+            remove_dust(dst)
+        return
+    command += [dst, "--roll", roll_dir, "--frame", str(frame)]
+    if mode:
+        command += ["--mode", mode]
+    if not args.dust:
+        command.append("--no-dust")
+    if not getattr(args, "balance", True):
+        command.append("--no-balance")
+    if stage == "measure":
+        command.append("--measure-only")
+    subprocess.run(command, check=True, capture_output=True)
 
 
 def cmd_redevelop(args):
@@ -3050,13 +3087,26 @@ def cmd_redevelop(args):
     if not raws:
         print(f"error: no raw singles in {roll_dir}/raw-frames", file=sys.stderr)
         return 1
-    failed = 0
+    # Every print is developed and measured first, then each is balanced
+    # against all of the roll's (film-finish), so the first print of the
+    # roll is balanced as the last is.
+    command = finish_command()
+    failed, made = 0, []
     for raw in raws:
-        number = re.search(r"frame-(\d+)\.", os.path.basename(raw))
-        one = argparse.Namespace(raw=raw, roll=roll_dir, frame=int(number.group(1)),
+        number = int(re.search(r"frame-(\d+)\.", os.path.basename(raw)).group(1))
+        one = argparse.Namespace(raw=raw, roll=roll_dir, frame=number,
                                  weight=args.weight, out=args.out, dust=args.dust,
-                                 depth=args.depth)
-        failed += 1 if cmd_develop(one) else 0
+                                 balance=args.balance, depth=args.depth, stage="measure")
+        if cmd_develop(one):
+            failed += 1
+        else:
+            made.append(number)
+    if command and args.balance:
+        out_dir = args.out or os.path.join(roll_dir, "frames")
+        for number in made:
+            subprocess.run(command + [os.path.join(out_dir, f"{number:02d}.png"), "--roll",
+                                      roll_dir, "--frame", str(number), "--balance-only"],
+                           check=True, capture_output=True)
     return 1 if failed else 0
 
 
@@ -3100,7 +3150,9 @@ def main():
                         "own (default 0.3)")
     d.add_argument("--out")
     d.add_argument("--no-dust", dest="dust", action="store_false",
-                   help="leave white specks where they are")
+                   help="leave dust and hairs where they are")
+    d.add_argument("--no-balance", dest="balance", action="store_false",
+                   help="leave a colour print's grey as developed (film-finish)")
     d.add_argument("--depth", type=int, choices=[8, 16], default=8,
                    help="bits per channel of the print (default 8; 16 for editing)")
     d.set_defaults(func=cmd_develop)
@@ -3110,6 +3162,7 @@ def main():
     r.add_argument("--weight", type=float, default=0.3)
     r.add_argument("--out")
     r.add_argument("--no-dust", dest="dust", action="store_false")
+    r.add_argument("--no-balance", dest="balance", action="store_false")
     r.add_argument("--depth", type=int, choices=[8, 16], default=8)
     r.set_defaults(func=cmd_redevelop)
 

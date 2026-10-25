@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+"""film-finish: what a developed print needs after film-develop, in place.
+
+    film-finish PRINT [--roll DIR --frame N] [--mode color|bw|slide]
+                [--measure-only | --balance-only]
+                [--no-lines] [--no-dust] [--no-balance]
+
+Three things, in this order:
+
+  lines    A scanner line (a row or column that differs from the rows on both
+           sides the whole way along) is undone by a gain and an offset per
+           channel, as the print editor's repair does: the finder and the
+           correction are priv/repair/film_repair.py's, imported. What a line
+           blanked past bringing back is filled with the dust.
+
+  dust     A mark is thinner than a speck can be wide (DUST_OPEN), stands out of
+           its ground by more than the grain there does, sits on plain ground
+           with no edge beside it, and, on colour film, moved every channel the
+           same way (dust stops the lamp in every layer; a clump of grain is
+           one layer's dye). White marks are dust and fibres; dark ones hairs
+           and scratches, held to a higher bar. Thin, long marks (hairs,
+           fibres) are taken at a lower bar than round ones, which grain makes
+           everywhere. Marks are filled from around them and the ground's grain
+           drawn back in. A slide is left alone: dust prints dark there, and
+           the picture's own blacks are where it would look.
+
+  balance  Colour only. The print's grey axis is read: in bands of brightness,
+           the least coloured pixels, and per channel against green
+           log(c/g) = cast + slope * log(g), a cast at the print's middle and
+           how it changes from shadow to highlight (a crossed film). Each
+           print's reading is kept in the roll's finish.json; the roll's is the
+           median over its prints, which one sunset or one lamp-lit room cannot
+           move, and a print leans LEAN of the way from the roll's to its own.
+           The cast is split into tint (green against magenta), which light
+           almost never gives and is taken off nearly whole, and temperature,
+           whose warmth (lamps, evening) is mostly kept and whose cold is taken
+           off more. Every move is capped.
+
+--measure-only does lines and dust and records the cast without balancing;
+--balance-only balances a print measured before. film-develop redevelop runs
+the first over a whole roll and then the second, so every print of the roll
+is balanced against all of them; a single developed by itself is measured,
+recorded and balanced at once against what the roll holds so far.
+
+Needs numpy and OpenCV: film-develop runs this under the print repair's
+Python (FILM_FINISH_PYTHON, else ~/.local/share/film-repair/venv/bin/python).
+Prints one JSON line of what it did.
+"""
+
+import argparse
+import fcntl
+import json
+import os
+import sys
+
+import cv2
+import numpy as np
+
+# --- dust ----------------------------------------------------------------
+DUST_OPEN = 6         # px (prints are 1600 dpi): a mark is thinner than 13 px
+DUST_K_WHITE = 5.0    # a white mark's seed stands this far out of the local hat
+DUST_K_DARK = 6.0
+DUST_K_GREY = 1.15    # black and white has only size to go by: a higher bar
+DUST_MIN_LIFT = 0.05  # and at least this much (0..1)
+DUST_PEAK = 6.0       # its peak over its ground, in the ground's grain
+DUST_RING = 5         # px of ground looked at around a mark
+DUST_SMOOTH = 2.2     # the ground varies no more than this many times the grain
+DUST_EDGE = 0.012     # most slope (per px) of the ground beside a mark
+DUST_MAX_AREA = 2500  # px; larger is picture
+DUST_CHANNELS = 0.4   # on colour, each free channel moves this share of the most
+LINE_THICK = 2.6      # px, half-width: a hair or a fibre
+LINE_AREA = 25
+LINE_LONG = 12
+
+# --- balance -------------------------------------------------------------
+BANDS = 8
+GREY_KEEP = 0.3
+LEAN = 0.5            # how far a print goes from the roll's warmth to its own
+LEAN_TINT = 0.8       # and from the roll's tint: a frame tinted unlike its roll
+                      # (a dense frame of a crossed film) is its own
+ROLL_MIN = 4          # prints before the roll has a cast of its own
+TINT, WARM, COLD = 0.9, 0.35, 0.7
+CAP_TINT, CAP_TEMP = 0.6, 0.45
+REACH = 1.5           # a print cast past this many times a cap is said to be
+                      # out of reach: it is moved the most it may be and named
+                      # (roll 067's dense frames: red at a fifth of green)
+SLOPE_STRENGTH = 0.7
+CAP_SLOPE = 0.35
+
+
+def read(path):
+    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        sys.exit(f"error: cannot read {path}")
+    grey = img.ndim == 2
+    top = 65535.0 if img.dtype == np.uint16 else 255.0
+    if grey:
+        img = img[..., None].repeat(3, 2)
+    return img[..., :3][..., ::-1].astype(np.float32) / top, img.dtype, top, grey
+
+
+def write(path, rgb, dtype, top, grey):
+    out = (np.clip(rgb, 0, 1) * top + 0.5).astype(dtype)
+    out = out[..., 1] if grey else out[..., ::-1]
+    # hidden, and no digits before its .png: the site reads any name ending
+    # in digits and .png in frames/ as a frame
+    part = os.path.join(os.path.dirname(path) or ".", f".{os.path.basename(path)}.finishing.png")
+    if not cv2.imwrite(part, out):
+        sys.exit(f"error: cannot write {path}")
+    os.replace(part, path)
+
+
+# --- lines ---------------------------------------------------------------
+
+def film_repair():
+    """priv/repair/film_repair.py of the checkout this tool lives in."""
+    here = os.path.dirname(os.path.realpath(__file__))
+    path = os.environ.get("FILM_REPAIR_PY") or os.path.join(here, "..", "..", "..", "priv", "repair")
+    path = os.path.dirname(path) if path.endswith(".py") else path
+    sys.path.insert(0, os.path.abspath(path))
+    try:
+        import film_repair
+        return film_repair
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+
+
+def lines(rgb):
+    """Undoes the scanner's lines in place; returns (count, what they lost)."""
+    fr = film_repair()
+    lost = np.zeros(rgb.shape[:2], np.uint8)
+    if fr is None:
+        return None, lost
+    bgr = np.ascontiguousarray(rgb[..., ::-1])
+    mask, _ = fr.find_lines(bgr)
+    bands = fr.line_bands(mask)
+    for axis, first, last in bands:
+        if axis == 0:
+            lost |= fr.correct_line(bgr, first, last)
+        else:
+            lost |= fr.correct_line(bgr.transpose(1, 0, 2), first, last).T
+    rgb[...] = bgr[..., ::-1]
+    return len(bands), lost
+
+
+# --- dust ----------------------------------------------------------------
+
+def grain(L):
+    """local grain: the mean absolute high-pass over a 31 px window"""
+    hp = L - cv2.GaussianBlur(L, (0, 0), 1.5)
+    return cv2.blur(np.abs(hp), (31, 31)) * 1.25 + 1e-3
+
+
+def marks(L, sigma, bright, k, rgb=None):
+    kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * DUST_OPEN + 1,) * 2)
+    if bright:
+        hat = L - cv2.morphologyEx(L, cv2.MORPH_OPEN, kern)
+    else:
+        hat = cv2.morphologyEx(L, cv2.MORPH_CLOSE, kern) - L
+    # the hat's own spread nearby: grain makes a hat everywhere, a mark
+    # stands out of that
+    mu = cv2.blur(hat, (41, 41))
+    sd = np.sqrt(np.maximum(cv2.blur(hat * hat, (41, 41)) - mu * mu, 1e-8))
+    seed = ((hat > mu + k * sd) & (hat > DUST_MIN_LIFT)).astype(np.uint8)
+    near = cv2.dilate(seed, np.ones((5, 5), np.uint8), iterations=2)
+    low = ((hat > mu + 0.45 * k * sd) & (hat > DUST_MIN_LIFT * 0.5)).astype(np.uint8)
+    # the ground with the marks taken out, so a speck's own blur is no edge
+    plain = cv2.medianBlur((np.clip(L, 0, 1) * 255).astype(np.uint8), 2 * DUST_OPEN + 1)
+    soft = cv2.GaussianBlur(plain.astype(np.float32) / 255.0, (0, 0), 2.0)
+    edges = np.hypot(cv2.Sobel(soft, cv2.CV_32F, 1, 0), cv2.Sobel(soft, cv2.CV_32F, 0, 1)) / 8.0
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(low, connectivity=8)
+    seeded = np.zeros(n, bool)
+    seeded[np.unique(lab[seed > 0])] = True
+    out = np.zeros(L.shape, bool)
+    ring_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * DUST_RING + 1,) * 2)
+    for i in range(1, n):
+        x, y, w, h, area = stats[i]
+        if area < 2 or area > DUST_MAX_AREA * 4:
+            continue
+        x0, y0 = max(x - DUST_RING - 2, 0), max(y - DUST_RING - 2, 0)
+        x1, y1 = min(x + w + DUST_RING + 2, L.shape[1]), min(y + h + DUST_RING + 2, L.shape[0])
+        m = (lab[y0:y1, x0:x1] == i).astype(np.uint8)
+        thick = float(cv2.distanceTransform(m, cv2.DIST_L2, 3).max())
+        line = thick <= LINE_THICK and area >= LINE_AREA and max(w, h) >= LINE_LONG
+        if not line:
+            if not seeded[i]:
+                continue
+            m = m & (near[y0:y1, x0:x1] > 0)
+            if m.sum() > DUST_MAX_AREA:
+                continue
+        others = (low[y0:y1, x0:x1] > 0) & (m == 0)
+        ring = (cv2.dilate(m, ring_k) > 0) & (m == 0) & ~others
+        if ring.sum() < 8:
+            continue
+        local = L[y0:y1, x0:x1]
+        s = float(np.median(sigma[y0:y1, x0:x1][m > 0]))
+        if np.abs(local[m > 0] - np.median(local[ring])).max() < DUST_PEAK * s:
+            continue      # no more than the grain does here
+        if local[ring].std() > DUST_SMOOTH * s + 0.004:
+            continue      # the ground is picture, not plain
+        if edges[y0:y1, x0:x1][ring].max() > DUST_EDGE:
+            continue      # an edge runs by: an eye, a lip, a strand of hair
+        if rgb is not None:
+            px = rgb[y0:y1, x0:x1]
+            ground = px[ring].mean(0)
+            lift = px[m > 0].mean(0) - ground
+            lift = lift if bright else -lift
+            free = (ground < 0.9) if bright else (ground > 0.1)   # room to move
+            if free.any() and lift[free].min() < DUST_CHANNELS * lift.max():
+                continue
+        if not bright and not line and max(w, h) < 4:
+            continue      # a dark dot this small is as likely a pupil
+        out[y0:y1, x0:x1] |= m > 0
+    return out
+
+
+def dust(rgb, grey, extra=None):
+    """Finds and fills the marks, in place; returns how many."""
+    L = rgb.mean(2)
+    sigma = grain(L)
+    k = DUST_K_GREY if grey else 1.0
+    colour = None if grey else rgb
+    mask = marks(L, sigma, True, DUST_K_WHITE * k, colour) | marks(L, sigma, False, DUST_K_DARK * k, colour)
+    if extra is not None:
+        mask |= extra > 0
+    if not mask.any():
+        return 0
+    m8 = cv2.dilate(mask.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=2)
+    u8 = (np.clip(rgb, 0, 1) * 255 + 0.5).astype(np.uint8)
+    filled = cv2.inpaint(np.ascontiguousarray(u8[..., ::-1]), m8, 4, cv2.INPAINT_TELEA)
+    filled = filled[..., ::-1].astype(np.float32) / 255.0
+    # Telea paints smooth where film has grain: the ground's grain goes back
+    noise = np.random.default_rng(1).standard_normal(rgb.shape[:2]).astype(np.float32)
+    filled += (cv2.GaussianBlur(noise, (0, 0), 0.7) * 1.6 * sigma)[..., None]
+    w = np.clip(cv2.GaussianBlur(m8.astype(np.float32), (0, 0), 1.0) * 1.5, 0.85, 1.0)
+    w = (w * (m8 > 0))[..., None]
+    rgb[...] = rgb * (1 - w) + filled * w
+    return int(cv2.connectedComponents(m8)[0]) - 1
+
+
+# --- balance -------------------------------------------------------------
+
+def greys(rgb):
+    """[(log g, cast r, cast b, count)] per band of brightness: where the
+    least coloured pixels of the band sit, against green, in log."""
+    h, w = rgb.shape[:2]
+    f = 500.0 / max(h, w)
+    px = cv2.resize(rgb, (max(int(w * f), 1), max(int(h * f), 1)), interpolation=cv2.INTER_AREA)
+    px = px.reshape(-1, 3)
+    px = px[(px.min(1) > 0.03) & (px.max(1) < 0.97)]
+    if len(px) < 2000:
+        return []
+    lg = np.log(px)
+    cr, cb, g = lg[:, 0] - lg[:, 1], lg[:, 2] - lg[:, 1], lg[:, 1]
+    edges = np.quantile(g, np.linspace(0.03, 0.97, BANDS + 1))
+    out = []
+    for lo, hi in zip(edges, edges[1:]):
+        sel = (g >= lo) & (g < hi)
+        if sel.sum() < 200:
+            continue
+        r_, b_ = cr[sel], cb[sel]
+        c = np.array([np.median(r_), np.median(b_)])
+        for _ in range(2):
+            dist = np.hypot(r_ - c[0], b_ - c[1])
+            k = dist <= np.quantile(dist, GREY_KEEP)
+            c = np.array([np.median(r_[k]), np.median(b_[k])])
+        out.append((float(np.median(g[sel])), float(c[0]), float(c[1]), int(sel.sum())))
+    return out
+
+
+def measure(rgb):
+    rows = greys(rgb)
+    if len(rows) < 4:
+        return None
+    x = np.array([r[0] for r in rows])
+    wt = np.sqrt(np.array([r[3] for r in rows], float))
+    gm = float(np.average(x, weights=wt ** 2))
+    A = np.stack([np.ones_like(x), x - gm], 1) * wt[:, None]
+    fit = [np.linalg.lstsq(A, np.array([r[i] for r in rows]) * wt, rcond=None)[0] for i in (1, 2)]
+    return {"gm": round(gm, 4), "cast": [round(float(f[0]), 4) for f in fit],
+            "slope": [round(float(f[1]), 4) for f in fit]}
+
+
+def split(cast):
+    r, b = cast
+    return (r - b) / 2.0, (r + b) / 2.0             # warmth (+ warm), tint (+ magenta)
+
+
+def axes(temp, tint):
+    temp = float(np.clip(temp, -CAP_TEMP, CAP_TEMP)) * (WARM if temp > 0 else COLD)
+    tint = float(np.clip(tint, -CAP_TINT, CAP_TINT)) * TINT
+    return np.array([temp + tint, tint - temp])
+
+
+def balance(rgb, own, ledger):
+    """Moves the print toward grey, in place; returns the move made."""
+    got = [v for v in ledger.values() if v]
+    if len(got) >= ROLL_MIN:
+        roll_cast = np.median([v["cast"] for v in got], 0)
+        roll_slope = np.median([v["slope"] for v in got], 0)
+    else:
+        # too few prints to say what the roll is: no move of the roll's own,
+        # so the print goes only its lean of the way
+        roll_cast, roll_slope = np.zeros(2), np.zeros(2)
+    (rt, rn), (ot, on) = split(roll_cast), split(own["cast"])
+    cast = axes((1 - LEAN) * rt + LEAN * ot, (1 - LEAN_TINT) * rn + LEAN_TINT * on)
+    slope = np.clip((1 - LEAN) * roll_slope + LEAN * np.array(own["slope"]),
+                    -CAP_SLOPE, CAP_SLOPE) * SLOPE_STRENGTH
+    ot_abs, on_abs = abs(ot), abs(on)
+    reach = ot_abs > REACH * CAP_TEMP or on_abs > REACH * CAP_TINT
+    lg = np.log(np.maximum(rgb, 1e-4))
+    dg = lg[..., 1] - own["gm"]
+    for i, c in enumerate((0, 2)):
+        rgb[..., c] = np.exp(lg[..., c] - (cast[i] + slope[i] * dg))
+    said = {"cast": [round(float(v), 4) for v in cast], "slope": [round(float(v), 4) for v in slope]}
+    if reach:
+        said["out_of_reach"] = True
+    return said
+
+
+class Ledger:
+    """The roll's finish.json: each print's reading, under a lock, since the
+    scanner page develops several singles at once."""
+
+    def __init__(self, roll):
+        self.path = os.path.join(roll, "finish.json")
+        self.lock = open(os.path.join(roll, ".finish.lock"), "w")
+
+    def __enter__(self):
+        fcntl.flock(self.lock, fcntl.LOCK_EX)
+        try:
+            with open(self.path) as fh:
+                self.doc = json.load(fh)
+        except (OSError, ValueError):
+            self.doc = {}
+        self.doc.setdefault("prints", {})
+        return self
+
+    def __exit__(self, *exc):
+        part = f"{self.path}.{os.getpid()}"
+        with open(part, "w") as fh:
+            json.dump(self.doc, fh, indent=1, sort_keys=True)
+        os.replace(part, self.path)
+        fcntl.flock(self.lock, fcntl.LOCK_UN)
+        self.lock.close()
+
+
+def main():
+    p = argparse.ArgumentParser(prog="film-finish", description=__doc__.split("\n")[0])
+    p.add_argument("print")
+    p.add_argument("--roll")
+    p.add_argument("--frame", type=int)
+    p.add_argument("--mode", choices=["color", "bw", "slide"])
+    stage = p.add_mutually_exclusive_group()
+    stage.add_argument("--measure-only", action="store_true")
+    stage.add_argument("--balance-only", action="store_true")
+    p.add_argument("--no-lines", dest="lines", action="store_false")
+    p.add_argument("--no-dust", dest="dust", action="store_false")
+    p.add_argument("--no-balance", dest="balance", action="store_false")
+    args = p.parse_args()
+
+    rgb, dtype, top, grey = read(args.print)
+    mode = args.mode or ("bw" if grey or float(np.abs(rgb[..., 0] - rgb[..., 2]).mean()) < 0.004 else "color")
+    said = {"print": args.print, "mode": mode}
+    key = str(args.frame) if args.frame is not None else os.path.splitext(os.path.basename(args.print))[0]
+
+    if not args.balance_only:
+        lost = np.zeros(rgb.shape[:2], np.uint8)
+        if args.lines:
+            said["lines"], lost = lines(rgb)
+        if args.dust and mode != "slide":
+            said["marks"] = dust(rgb, mode == "bw", lost)
+        elif lost.any():
+            said["marks"] = dust(rgb, mode == "bw", lost)
+
+    if mode == "color" and args.balance and args.roll:
+        with Ledger(args.roll) as ledger:
+            prints = ledger.doc["prints"]
+            if args.balance_only:
+                own = prints.get(key)
+            else:
+                own = measure(rgb)
+                prints[key] = own
+            if own and not args.measure_only:
+                said["balance"] = balance(rgb, own, prints)
+    write(args.print, rgb, dtype, top, grey)
+    print(json.dumps(said))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

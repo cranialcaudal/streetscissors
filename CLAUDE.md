@@ -358,7 +358,13 @@ on `/negatives`. The detailed behaviour of `film-develop` that it relies on is i
   `assets/css/admin/darkroom.css`.
 - On a published roll, redevelop through `Web.Scanner.Pipeline.develop_keeper/2` (via
   `bin/web rpc`), not `film-develop redevelop` by hand: it also re-applies the print's edit and
-  remakes previews. Slides and veiled or blocked rolls get 16-bit singles (`Pipeline.deep?/1`).
+  remakes previews. Slides and veiled, blocked or thin rolls get 16-bit singles (`Pipeline.deep?/1`).
+- **A developed single is finished by `tools/film/bin/film-finish`** (scanner lines, dust and
+  hairs, a colour print's grey balanced against its roll's `finish.json`), which `film-develop`
+  runs under the print repair's Python; without that Python only white specks are taken off.
+  `redevelop` measures the whole roll before balancing any of it, so on a published roll run
+  it once into a scratch `--out` (it fills `finish.json`) before `develop_keeper/2` frame by
+  frame. How it decides is in `docs/negatives-pipeline.md` §9.
 
 ### The print editor
 

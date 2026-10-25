@@ -447,6 +447,40 @@ is current. In particular, 35mm is no longer cut into six frames a strip.
   (short development, or flat light) and is only named: raising the contrast is the right
   remedy for underdevelopment. Both go in `frames.json`'s `diagnosis` (`on_base`, and `top`
   as D), for colour rolls too, and `Pipeline.bath_notes/1` says them on the page.
+  **A thin roll's singles are scanned at 16 bits** (its diagnosis says `deep`, which
+  `Pipeline.deep?/1` reads): roll 067's pictures lie within D 0.05 to 0.25 of its base, and
+  in an 8-bit scan its red held four steps, which the print pushed apart into posterised
+  colour and blotchy grain. Its dense frames (02, 03) read red at a fifth of green and stay
+  cyan whatever is done to the print; only a 16-bit rescan gives them back.
+- **A developed single is finished by `film-finish`** (2026-10-24; `tools/film/bin/`, numpy
+  and OpenCV, run by `film-develop` under the print repair's Python). Three steps, in place:
+  - *Lines*: the print editor's line finder and per-channel gain/offset correction
+    (`priv/repair/film_repair.py`, imported), so the green scanner line across rolls 064 to
+    067 is gone from every single, not only from those repaired by hand.
+  - *Dust*, replacing `remove_dust`, which left nearly every speck (a 7 px median and a 14%
+    lift miss most specks on grainy film, and it never took a hair). A mark is thinner than
+    13 px, stands out of the local spread of a top-hat by 5 (white) or 6 (dark) times, peaks
+    6 times over the ground's grain, sits on plain ground with no edge beside it (read off a
+    median of the print, so a speck's own blur is not an edge), and on colour **moved every
+    free channel**: dust stops the lamp in every layer, a grain clump is one layer's dye.
+    That last test is what kept faces clean (teeth, catchlights and hair strands were taken
+    before it). Thin, long marks (hairs, fibres) clear a lower bar. Black and white has
+    only size to go by (`DUST_K_GREY`). Long fibres across textured ground are left: the
+    repair notes record that a line finder there found only real things.
+  - *Balance*, colour only. Per brightness band the least coloured pixels give the print's
+    grey axis, fitted per channel as a cast at the middle and a slope from shadow to
+    highlight. Each print's reading goes into the roll's `finish.json`; the roll's cast is
+    the median over its prints, and a print leans half of the way to its own warmth and
+    0.8 of the way to its own tint. Tint (green against magenta) is taken off nearly whole,
+    cold more than warmth, every move capped; a print past 1.5 times a cap is moved the
+    most it may be and said `out_of_reach`. `redevelop` measures every print first and
+    balances them after, so the first print of a roll is balanced as the last is.
+  Tried on twelve rolls (colour 031, 048, 049, 064 to 067; black and white 034, 044, 057,
+  060, 069) in a scratch copy: the lavender road and pavement of 031, 049, 065 and 067 went
+  grey, 048's red face and 067's orange kitchen came back, lamp-lit rooms kept their
+  warmth. A roll-wide fit of the grey axis on the raw densities (one base and power per
+  channel) was tried first and moved little: the casts are frame by frame as much as roll by
+  roll. About 8 s a print, most of it the line finder.
 - **Medium format's frame count is read off the film** (`count_by_template/4`): 120 and
   620 are one film in different cameras, and a 620 roll of 6x9 (two to a strip) was being
   cut in three. On a strip on glass, each count from 2 to 6 is laid cut to cut and the one

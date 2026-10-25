@@ -17,6 +17,9 @@ bin/negatives                    the scan-session wizard (one roll at a time)
 bin/film-develop                 turns a scan of a negative into a positive print: finds the
                                  frames on a strip, removes the orange mask of colour film,
                                  sets the colour once per roll and the exposure per frame
+bin/film-finish                  what a developed single needs after that, in place: the
+                                 scanner's lines undone, dust and hairs filled, and a colour
+                                 print's grey balanced against its roll (film-develop runs it)
 bin/digital-contact-sheet-maker  headless GIMP contact-sheet builder
 gimp/film-contact-sheet.scm      the layout engine (also a GIMP dialog:
                                  File > Create > Film Contact Sheet…)
@@ -28,7 +31,9 @@ test-model/                      a pretend roll of film with known numbers, for 
 
 Requirements: bash, GIMP 3.x (native or flatpak), Python 3 (standard library only, for `film-develop`),
 ImageMagick, and optionally Epson's `iscan` (falls back to simple-scan, or set
-`NEGATIVES_SCANNER`). Install with `tools/install.sh` from the top of the repository (it runs
+`NEGATIVES_SCANNER`). `film-finish` needs numpy and OpenCV, so `film-develop` runs it under the
+print repair's Python (`~/.local/share/film-repair/venv`, or `FILM_FINISH_PYTHON`); without it
+a single only has its white specks taken off, as before. Install with `tools/install.sh` from the top of the repository (it runs
 this folder's `install.sh`). The finished sheets are served by
 [streetscissors](https://streetscissors.com/negatives) straight from the collection folder
 described below.
