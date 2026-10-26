@@ -120,8 +120,8 @@ defmodule Web.Fitness.Figure do
   @neck 3.0
   @spine_lo 13.0
   @spine_up 13.0
-  @upper_arm 14.0
-  @forearm 15.0
+  @upper_arm 13.2
+  @forearm 15.8
   @thigh 20.0
   @shin 20.0
   @foot 7.0
@@ -543,7 +543,8 @@ defmodule Web.Fitness.Figure do
 
   defp parse_props(_props), do: {[], ["props must be a list"]}
 
-  defp parse_prop(%{"kind" => kind} = prop, n) when kind in ~w(kettlebell dumbbell ball bar) do
+  defp parse_prop(%{"kind" => kind} = prop, n)
+       when kind in ~w(kettlebell dumbbell ball bar hexbar) do
     hold = Map.get(prop, "hold", "hands")
     mode = Map.get(prop, "mode", "hang")
     grip = Map.get(prop, "grip", "neutral")
@@ -590,6 +591,60 @@ defmodule Web.Fitness.Figure do
 
       _ ->
         {nil, ["prop #{n}: a box needs x, w and h"]}
+    end
+  end
+
+  # A gym bench, drawn as one: a padded seat on a steel frame. `x` and `w` are
+  # the seat's pad along the stage, `y` its top (a bench's pad is 45 cm up,
+  # y 79.5). `incline` raises a back pad, hinged at the seat's `toward` end
+  # ("left", the default, or "right") and `back` long, by that many degrees.
+  # `across: true` turns a flat bench to run into the picture, as a hip thrust
+  # braces on it: `w` is then its width.
+  defp parse_prop(%{"kind" => "bench"} = prop, n) do
+    x = prop["x"]
+    w = prop["w"]
+    y = Map.get(prop, "y", 79.5)
+    incline = Map.get(prop, "incline", 0)
+    back = Map.get(prop, "back", 40)
+    toward = Map.get(prop, "toward", "left")
+    across = Map.get(prop, "across", false)
+
+    cond do
+      not (is_number(x) and is_number(w) and is_number(y) and w > 0) ->
+        {nil, ["prop #{n}: a bench needs x and w (and y, its top)"]}
+
+      not (is_number(incline) and incline >= 0 and incline <= 90) ->
+        {nil, ["prop #{n}: a bench's incline is 0 to 90 degrees"]}
+
+      not (is_number(back) and back > 0) or toward not in ~w(left right) ->
+        {nil, ["prop #{n}: a bench's back is a length, toward left or right"]}
+
+      across not in [true, false] or (across and incline != 0) ->
+        {nil, ["prop #{n}: across is true or false, and only for a flat bench"]}
+
+      true ->
+        {%{
+           kind: :bench,
+           x: x * 1.0,
+           w: w * 1.0,
+           y: y * 1.0,
+           incline: incline * 1.0,
+           back: back * 1.0,
+           toward: String.to_existing_atom(toward),
+           across: across
+         }, unknown_keys(prop, ~w(kind x w y incline back toward across), "prop #{n}")}
+    end
+  end
+
+  # A Smith machine: its two rails stand at `x`, one either side of the
+  # figure, and its bar runs up and down between them.
+  defp parse_prop(%{"kind" => "smith"} = prop, n) do
+    case prop["x"] do
+      x when is_number(x) ->
+        {%{kind: :smith, x: x * 1.0}, unknown_keys(prop, ~w(kind x), "prop #{n}")}
+
+      _ ->
+        {nil, ["prop #{n}: a Smith machine needs x, where its rails stand"]}
     end
   end
 
@@ -671,7 +726,7 @@ defmodule Web.Fitness.Figure do
     do:
       {nil,
        [
-         "prop #{n} must have a kind: kettlebell, dumbbell, ball, bar, mat, box, block, disc, dome or line"
+         "prop #{n} must have a kind: kettlebell, dumbbell, ball, bar, hexbar, mat, box, block, bench, smith, disc, dome or line"
        ]}
 
   defp line_end([x, y]) when is_number(x) and is_number(y), do: {x * 1.0, y * 1.0}
@@ -825,6 +880,14 @@ defmodule Web.Fitness.Figure do
           {sub(neck, half), add(neck, half), sub(pose.pelvis, hips), add(pose.pelvis, hips)}
       end
 
+    # The shoulder is not fixed at the root of the neck. With the arm down it
+    # hangs a man's three units below it (measure.mjs); raised overhead, the
+    # shoulder blade turns and carries it up there. How far it drops goes by
+    # where the hand is going, measured from the root of the neck. Drawn at
+    # the neck with the arm down, every figure shrugged.
+    sh_a = drop_shoulder(sh_a, neck, Map.fetch!(pose, :arm_a), spine)
+    sh_b = drop_shoulder(sh_b, neck, Map.fetch!(pose, :arm_b), spine)
+
     refs = %{
       front: across_up,
       feetward: mul(dir(spine), -1.0),
@@ -897,6 +960,14 @@ defmodule Web.Fitness.Figure do
       bent: Map.new(reached, fn {limb, r} -> {limb, r.bent} end),
       miss: Map.new(reached, fn {limb, r} -> {limb, r.miss} end)
     }
+  end
+
+  @shoulder_drop 3.0
+  defp drop_shoulder(shoulder, neck, arm, spine) do
+    up = dir(spine)
+    to = unit(sub(target(arm, neck, @upper_arm + @forearm), neck))
+    raised = ease(clamp((dot(to, up) + 0.3) / 1.2))
+    sub(shoulder, mul(up, @shoulder_drop * (1 - raised)))
   end
 
   defp target({:xy, point}, _root, _length), do: point
@@ -1022,7 +1093,7 @@ defmodule Web.Fitness.Figure do
       frames =
         for n <- 0..(count - 1) do
           {from, to, share} = locate(pairs, n * total / count)
-          {between(spec, from, to, ease(share)), from.name, to.name}
+          {between(spec, from, to, motion(share)), from.name, to.name}
         end
 
       problems =
@@ -1056,6 +1127,12 @@ defmodule Web.Fitness.Figure do
   end
 
   defp ease(share), do: share * share * (3 - 2 * share)
+
+  # How far along a move is at a share of its time: the minimum-jerk profile
+  # (Flash & Hogan 1985), which a person's reach follows. Speed rises and falls
+  # as a bell, and so does acceleration, which smoothstep left at full tilt at
+  # each pose: a small jolt every time the figure arrived.
+  defp motion(t), do: t * t * t * (10 + t * (-15 + 6 * t))
   defp clamp(value), do: value |> max(0.0) |> min(1.0)
 
   defp between(_spec, from, _to, share) when share == 0.0, do: from.joints
@@ -1072,8 +1149,10 @@ defmodule Web.Fitness.Figure do
             else: String.to_existing_atom("foot_" <> suffix(limb))
 
         value =
-          case {Map.fetch!(from, limb), Map.fetch!(to, limb)} do
-            {{:polar, a1, r1}, {:polar, a2, r2}} -> {:polar, mix.(a1, a2), mix.(r1, r2)}
+          case {limb in [:arm_a, :arm_b] && hinged(from.joints, to.joints, suffix(limb), share),
+                Map.fetch!(from, limb), Map.fetch!(to, limb)} do
+            {{_, _} = hand, _, _} -> {:xy, hand}
+            {_, {:polar, a1, r1}, {:polar, a2, r2}} -> {:polar, mix.(a1, a2), mix.(r1, r2)}
             _ -> {:xy, mix_point.(Map.fetch!(from.joints, tip), Map.fetch!(to.joints, tip))}
           end
 
@@ -1111,6 +1190,38 @@ defmodule Web.Fitness.Figure do
     sides = if share < 0.5, do: from.joints.side, else: to.joints.side
     joints = solve(view, pose, sides)
     if floor, do: ride_up(view, pose, sides, joints, 4), else: joints
+  end
+
+  # When the upper arm all but holds still between two poses (a curl, a
+  # triceps extension), the movement is the elbow's: the hand swings round
+  # it. Mixing the hand's place in a straight line instead made the solver
+  # throw the elbow back to reach the chord, and a curl rowed the arm
+  # backward. So the arm is moved by its angles, the upper arm's and the
+  # forearm's, and the hand is put where they lead. A reach that moves the
+  # whole arm keeps its straight path, as a person's does.
+  @hinge_turn 30.0
+  defp hinged(from, to, side, share) do
+    key = fn name -> String.to_existing_atom(name <> "_" <> side) end
+    angle = fn {x, y} -> :math.atan2(y, x) end
+    turn = fn a, b -> :math.atan2(:math.sin(b - a), :math.cos(b - a)) end
+
+    [s1, e1, h1] = Enum.map(~w(sh elbow hand), &Map.fetch!(from, key.(&1)))
+    [s2, e2, h2] = Enum.map(~w(sh elbow hand), &Map.fetch!(to, key.(&1)))
+    {u1, u2, f1, f2} = {sub(e1, s1), sub(e2, s2), sub(h1, e1), sub(h2, e2)}
+    upper = turn.(angle.(u1), angle.(u2))
+
+    if abs(upper) * 180 / :math.pi() < @hinge_turn do
+      fore = turn.(angle.(f1), angle.(f2))
+      a = angle.(u1) + upper * share
+      b = angle.(f1) + fore * share
+      lu = len(u1) + (len(u2) - len(u1)) * share
+      lf = len(f1) + (len(f2) - len(f1)) * share
+      shoulder = add(s1, mul(sub(s2, s1), share))
+
+      shoulder
+      |> add({lu * :math.cos(a), lu * :math.sin(a)})
+      |> add({lf * :math.cos(b), lf * :math.sin(b)})
+    end
   end
 
   # A body rocking over its knees pivots on them, so the hips travel an arc.
@@ -1326,6 +1437,8 @@ defmodule Web.Fitness.Figure do
       Enum.flat_map(props, fn
         %{kind: :block} = b -> [flip.({b.x, b.y}), flip.({b.x + b.w, b.y + b.h})]
         %{kind: :box} = b -> [flip.({b.x, @ground - b.h}), flip.({b.x + b.w, @ground})]
+        %{kind: :bench} = b -> Enum.map(bench_outline(b), flip)
+        %{kind: :smith, x: x} -> [flip.({x, @ground}), flip.({x, @ground - 60.0})]
         %{kind: :disc, at: {x, y}, r: r} -> [flip.({x - r, y - r}), flip.({x + r, y + r})]
         %{kind: :dome} = d -> [flip.({d.x - d.w / 2, @rest - d.h}), flip.({d.x + d.w / 2, @rest})]
         %{kind: :line} = l -> for {_, _} = fixed <- [l.from, l.to], do: flip.(fixed)
@@ -1362,6 +1475,26 @@ defmodule Web.Fitness.Figure do
     {x1, _} = flip.({block.x, 0.0})
     {x2, _} = flip.({block.x + block.w, 0.0})
     %{kind: :block, x: fmt(min(x1, x2)), y: fmt(block.y), w: fmt(block.w), h: fmt(block.h)}
+  end
+
+  defp bake_prop(%{kind: :bench} = bench, _frames, flip) do
+    pad =
+      bench
+      |> bench_pads()
+      |> Enum.map_join(&(&1 |> Enum.map(flip) |> polyline() |> Kernel.<>("Z")))
+
+    {mid_x, _} = flip.({bench.x + bench.w / 2, 0.0})
+    top = bench.y + 3.0
+
+    legs =
+      "M#{fmt(mid_x - 1.2)} #{fmt(top)}H#{fmt(mid_x + 1.2)}V#{fmt(@ground)}H#{fmt(mid_x - 1.2)}Z"
+
+    %{kind: :bench, d: pad <> legs}
+  end
+
+  defp bake_prop(%{kind: :smith, x: x}, _frames, flip) do
+    {sx, _} = flip.({x, 0.0})
+    %{kind: :smith, d: "M#{fmt(sx)} #{fmt(@ground)}V#{fmt(@ground - 100.0)}"}
   end
 
   defp bake_prop(%{kind: :disc, at: at, r: r}, _frames, flip) do
@@ -1410,7 +1543,7 @@ defmodule Web.Fitness.Figure do
 
     %{
       kind: prop.kind,
-      r: %{kettlebell: 4.4, dumbbell: 2.6, ball: 4.8, bar: 3.2}[prop.kind],
+      r: %{kettlebell: 4.4, dumbbell: 2.6, ball: 4.8, bar: 3.2, hexbar: 3.2}[prop.kind],
       # Behind the body when a pose says so; otherwise what the far hand
       # holds alone is behind, and anything else in front.
       behind:
@@ -1461,6 +1594,27 @@ defmodule Web.Fitness.Figure do
     up = min(max((shoulder_y - elem(grip, 1)) / 12, 0.0), 1.0)
     grip |> add(mul(back, @rack_off * up)) |> add(mul(fore, -@rack_down))
   end
+
+  # A bench's pads seen from the side, each as the corners of its outline:
+  # the seat, and the back pad raised from its hinge when it has one. A pad
+  # is 3 thick (6.5 cm).
+  @pad 3.0
+  defp bench_pads(%{x: x, w: w, y: y, incline: incline, back: back, toward: toward}) do
+    seat = [{x, y}, {x + w, y}, {x + w, y + @pad}, {x, y + @pad}]
+
+    if incline == 0 do
+      [seat]
+    else
+      {hinge, sign} = if toward == :left, do: {{x, y}, -1.0}, else: {{x + w, y}, 1.0}
+      angle = incline * :math.pi() / 180
+      along = {sign * :math.cos(angle), -:math.sin(angle)}
+      under = {sign * :math.sin(angle), :math.cos(angle)}
+      far = add(hinge, mul(along, back))
+      [seat, [hinge, far, add(far, mul(under, @pad)), add(hinge, mul(under, @pad))]]
+    end
+  end
+
+  defp bench_outline(bench), do: bench |> bench_pads() |> Enum.concat()
 
   defp polyline([first | rest]) do
     "M" <> xy(first) <> Enum.map_join(rest, "", &("L" <> xy(&1)))

@@ -276,6 +276,12 @@ defmodule WebWeb.FitnessFigure do
     """
   end
 
+  defp gear(%{prop: %{kind: kind}} = assigns) when kind in [:bench, :smith] do
+    ~H"""
+    <path class={"fig-prop fig-prop--#{@prop.kind}"} d={@prop.d} />
+    """
+  end
+
   defp gear(%{prop: %{kind: :dome}} = assigns) do
     ~H"""
     <path class="fig-prop fig-prop--dome" d={@prop.d} />

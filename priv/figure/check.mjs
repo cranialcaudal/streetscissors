@@ -27,6 +27,12 @@ const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k]
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const len = (a) => Math.sqrt(dot(a, a))
 const clamp = (x) => Math.max(0, Math.min(1, x))
+// a point in the frame of a box turned in the picture's plane (types 5 and 6:
+// a raised back pad), so it can be tested as an upright box is
+const local = (t, q) => {
+  const d = sub(q, t.a), c = Math.cos(t.ang || 0), s = Math.sin(t.ang || 0)
+  return t.type === 5 ? [c * d[0] + s * d[1], -s * d[0] + c * d[1], d[2]] : [d[0], s * d[2] + c * d[1], c * d[2] - s * d[1]]
+}
 
 // the nearest the segments a–b and c–d come to each other
 function apart(a, b, c, d) {
@@ -90,10 +96,11 @@ function frameProblems(track, J, things) {
         const depth = t.r + p.r - apart(at, at, p.a, p.b)
         if (depth > Math.max(2.4, t.r * 0.55)) say("through", `a weight is inside the ${p.name}`)
       }
-    } else if (t.type === 1) {
+    } else if (t.type === 1 || t.type === 5 || t.type === 6) {
       // a box, a bench, a wall: the middle of the body may not be inside it
       for (const [name, q] of [["pelvis", J.pelvis], ["chest", J.chest], ["head", J.head], ["knee", J.knee_a], ["knee", J.knee_b]]) {
-        const inside = [0, 1, 2].every((i) => Math.abs(q[i] - t.a[i]) < t.b[i] - 1.2)
+        const d = t.type === 1 ? sub(q, t.a) : local(t, q)
+        const inside = [0, 1, 2].every((i) => Math.abs(d[i]) < t.b[i] - 1.2)
         if (inside) say("inside", `the ${name} is inside a bench, box or wall`)
       }
     }
@@ -120,6 +127,11 @@ function frameProblems(track, J, things) {
       let top = 0
       for (const t of things) {
         if (t.type === 1 && Math.abs(q[0] - t.a[0]) < t.b[0] + 1 && Math.abs(q[2] - t.a[2]) < t.b[2] + 1) top = Math.max(top, Math.min(t.a[1] + t.b[1], q[1] + 0.5))
+        if (t.type === 5 || t.type === 6) {
+          // the top face of a raised pad, under the point if the point is over it
+          const d = local(t, q)
+          if (Math.abs(d[0]) < t.b[0] + 1 && Math.abs(d[2]) < t.b[2] + 1 && d[1] > 0) top = Math.max(top, Math.min(q[1] - (d[1] - t.b[1]), q[1] + 0.5))
+        }
         if (t.type === 3 && len([q[0] - t.a[0], 0, q[2] - t.a[2]]) < Math.max(t.b[0], t.b[2])) top = Math.max(top, Math.min(t.a[1] + t.b[1], q[1] + 0.5))
       }
       return top

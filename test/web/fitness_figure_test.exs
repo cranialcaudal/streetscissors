@@ -176,7 +176,27 @@ defmodule Web.Fitness.FigureTest do
     assert Enum.map(figure.back, & &1.name) == [:leg_a, :leg_b, :trunk]
     assert Enum.map(figure.top, & &1.name) == [:arm_a, :arm_b]
     assert [%{d: [shape | _]}] = layer(figure, :trunk).shapes
-    assert shape =~ ~r/^M72\.0 34\.0L88\.0 34\.0L85\.0 60\.0L75\.0 60\.0Z$/
+    # the shoulders hang three below the root of the neck with the arms down
+    assert shape =~ ~r/^M72\.0 37\.0L88\.0 37\.0L85\.0 60\.0L75\.0 60\.0Z$/
+  end
+
+  test "a shoulder hangs below the neck with the arm down and rises with it overhead" do
+    pose = fn angle ->
+      %{
+        "view" => "side",
+        "poses" => [
+          %{"name" => "p", "pelvis" => [80, 60], "arms" => [angle, 0.97], "feet" => [80, 99]}
+        ]
+      }
+    end
+
+    {:ok, down} = Figure.track(pose.(180))
+    {:ok, up} = Figure.track(pose.(0))
+    [%{sh_a: [_, down_y], neck: [_, neck_y]} | _] = down.frames
+    [%{sh_a: [_, up_y]} | _] = up.frames
+
+    assert_in_delta down_y - neck_y, 3.0, 0.01
+    assert_in_delta up_y, neck_y, 0.01
   end
 
   describe "a figure that cannot be is refused, with the pose named" do
@@ -346,6 +366,39 @@ defmodule Web.Fitness.FigureTest do
 
       # and the flat drawing still draws them
       assert {:ok, _figure} = Figure.build(rigged)
+    end
+
+    test "a bench with its back raised, a Smith machine's rails and a hex bar" do
+      rigged =
+        Map.put(@squat, "props", [
+          %{"kind" => "bench", "x" => 60, "w" => 18, "incline" => 35, "back" => 40},
+          %{"kind" => "bench", "x" => 40, "w" => 13, "across" => true},
+          %{"kind" => "smith", "x" => 88},
+          %{"kind" => "hexbar", "hold" => "hands"}
+        ])
+
+      assert {:ok, track} = Figure.track(rigged)
+
+      assert [
+               %{kind: :bench, y: 79.5, incline: 35.0, toward: :left, across: false},
+               %{kind: :bench, across: true},
+               %{kind: :smith, x: 88.0},
+               %{kind: :hexbar, hold: :hands}
+             ] = track.props
+
+      # the flat drawing draws the seat and the raised back as two pads
+      assert {:ok, figure} = Figure.build(rigged)
+      [bench | _] = figure.props
+      assert bench.d |> String.split("Z") |> Enum.count(&(&1 =~ "M")) == 3
+    end
+
+    test "a bench raised past upright, or a turned bench with a back, is refused" do
+      for prop <- [
+            %{"kind" => "bench", "x" => 60, "w" => 18, "incline" => 120},
+            %{"kind" => "bench", "x" => 60, "w" => 18, "incline" => 30, "across" => true}
+          ] do
+        assert {:error, [_problem]} = Figure.build(Map.put(@squat, "props", [prop]))
+      end
     end
 
     test "a depth that is not a number is refused" do

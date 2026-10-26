@@ -68,6 +68,12 @@
 }
 
 .fig-prop--dome { fill: var(--ink-4); }
+.fig-prop--bench {
+  fill: var(--paper-raised);
+  stroke: var(--ink-3);
+  stroke-width: 1.2;
+}
+.fig-prop--smith { fill: none; stroke: var(--ink-3); stroke-width: 2.6; }
 
 /* A band or a cable pulls, so it is in the load's colour; a pole is gear. */
 .fig-rope { fill: none; stroke-linecap: round; }
@@ -87,7 +93,8 @@
   paint-order: stroke;
 }
 
-.fig-held--bar .fig-weight { fill: var(--paper-sunk); stroke: var(--theme-color); stroke-width: 2; }
+.fig-held--bar .fig-weight,
+.fig-held--hexbar .fig-weight { fill: var(--paper-sunk); stroke: var(--theme-color); stroke-width: 2; }
 
 /* The film: the figure in three dimensions, filmed on this panel's own
    ground (render.html carries --paper-sunk as a number; keep the two the

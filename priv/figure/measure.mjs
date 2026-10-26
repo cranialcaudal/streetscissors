@@ -122,7 +122,7 @@ function posed(arm) {
   const armless = (list) => list.filter((shape) => shape.part !== "arm")
   return { J, D: solid(shapes), T: solid({ cones: armless(shapes.cones), ells: armless(shapes.ells) }) }
 }
-const UPPER = 14, FORE = 15
+const UPPER = 13.2, FORE = 15.8 // as figure3d.js and the pose engine have them
 const along = (S, dir) => [add(S, mul(dir, UPPER)), add(S, mul(dir, UPPER + FORE))]
 const rad = (deg) => (deg * Math.PI) / 180
 // arms hanging; arms held 40° out from the sides, clear of the trunk; the

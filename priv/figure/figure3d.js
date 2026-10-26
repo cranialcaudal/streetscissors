@@ -35,7 +35,7 @@ export const MUSCLES = [
 ]
 
 const SKIN = 0, SHORTS = 1, SHOES = 2, HAIR = 3
-const MAT = 10, GEAR = 11, BAND = 12, IRON = 13
+const MAT = 10, GEAR = 11, BAND = 12, IRON = 13, PAD = 14
 
 // How a track is seen: from the side, from the front, or (a front view with
 // no floor) from above, the figure lying face down.
@@ -52,7 +52,9 @@ function mode(track) {
 // brings them together, and anything else leaves them a shoulder's width apart.
 function handGap(track) {
   const held = track.props.find((p) => p.hold === "hands")
-  if (held) return { kettlebell: 2.3, ball: 4.6, bar: 9.6, dumbbell: 3.0 }[held.kind] ?? 3
+  // a barbell is gripped a little wider than the shoulders (a bench press's
+  // hands are 70–80 cm apart), a hex bar's handles beside the thighs
+  if (held) return { kettlebell: 2.3, ball: 4.6, bar: 14, hexbar: 11.5, dumbbell: 3.0 }[held.kind] ?? 3
   if (track.props.some((p) => p.kind === "line" && p.ends.includes("hands"))) return 2.4
   return 9.4
 }
@@ -61,7 +63,7 @@ function handGap(track) {
 // placed it for a flat arm, and an arm that also reaches sideways would
 // otherwise be drawn too long. `hint` is the flat pose's elbow, which says
 // which way the arm bends.
-const UPPER = 14, FORE = 15
+const UPPER = 13.2, FORE = 15.8
 // How far from the middle of the body each hip joint, knee and ankle is. They
 // were 4.8, 5.4 and 5.2, which set the hips a quarter wider than a man's
 // (measure.mjs): the joints are 4 apart from the middle, and the legs come
@@ -242,20 +244,11 @@ export function body(J, hot, touch = {}) {
     belly(P(J.pelvis, [frLo, -2.5], [upLo, 3.0], [latH, 1.7 * s]), P(rib, [upUp, -2.0], [frUp, -3.1], [lat, 1.8 * s]), v.mul(frLo, -1), 1.9, 2.0, "lowback")
   }
 
-  // Where the arm hangs from. The pose engine puts the shoulder joint level
-  // with the root of the neck, which is three units higher than a man's is
-  // at rest (measure.mjs) and about right with the arm overhead. Drawn there
-  // the figure shrugged. So the arm is hung a little lower while it is down
-  // and from the pose's point once it is raised, as a shoulder blade carries
-  // a shoulder. It is a correction to the drawing only: the elbow stays
-  // where the pose has it, so the upper arm is drawn a tenth short while it
-  // hangs. Lowering the joint in the engine would mean reaching every pose
-  // again.
-  const socket = (S, E) => {
-    const up = v.dot(v.norm(v.sub(E, S), v.mul(upUp, -1)), upUp)
-    const raised = Math.min(Math.max((up + 0.3) / 1.2, 0), 1)
-    return P(S, [upUp, -1.4 * (1 - raised * raised * (3 - 2 * raised))])
-  }
+  // Where the arm hangs from: the pose's own shoulder. The pose engine drops
+  // it below the root of the neck while the arm is down and carries it up
+  // with the arm, as a shoulder blade does (Figure.drop_shoulder/4); this used
+  // to fake that in the drawing alone and drew the upper arm short.
+  const socket = (S) => S
 
   // The chest, built the way a body is: bone, then muscle, then skin.
   //
@@ -339,7 +332,7 @@ export function body(J, hot, touch = {}) {
     // has shortened, and stands up over the joint
     cone(v.mix(J.nape, J.neck, 0.5), P(S, [upUp, 0.6]), 2.1, 1.5, "traps")
     const delt = 1 + 0.4 * (swell(7.2, dist(P(S, [lat, 1.5 * s], [upUp, 1.5]), P(S, [along, 5.5]))) - 1)
-    ell(P(S, [along, 2.4], [lat, 0.5 * s]), along, lat, [3.9, 3.0 * delt, 3.1 * delt], "delts")
+    ell(P(S, [along, 2.25], [lat, 0.5 * s]), along, lat, [3.65, 3.0 * delt, 3.1 * delt], "delts")
     let fr = v.reject(v.sub(H, E), along)
     fr = v.len(fr) < 0.8 ? v.norm(v.reject(frUp, along), [1, 0, 0]) : v.norm(fr)
     // The arm bone is thin; the arm's shape is the two muscles on it. The one
@@ -351,7 +344,7 @@ export function body(J, hot, touch = {}) {
     const reachDir = v.norm(v.sub(H, E), along)
     const biFrom = P(S, [fr, 1.2], [along, 1.0]), biTo = P(v.mix(E, H, 0.16), [fr, 0.4])
     const biceps = swell(dist(biFrom, E) + dist(E, biTo), dist(biFrom, biTo))
-    ell(P(v.mix(S, E, 0.56 - 0.1 * (biceps - 1)), [fr, 0.7]), along, fr, [5.2 / biceps, 1.85 * biceps, 2.0], "biceps")
+    ell(P(v.mix(S, E, 0.56 - 0.1 * (biceps - 1)), [fr, 0.7]), along, fr, [5.2 / biceps, 1.85 * biceps, 1.92], "biceps")
     const triFrom = P(S, [fr, -1.2], [along, 1.2]), triTo = P(v.mix(E, H, 0.08), [fr, -1.0])
     const triceps = swell(dist(triFrom, E) + dist(E, triTo), round(triFrom, P(E, [fr, -2.0]), triTo))
     ell(P(v.mix(S, E, 0.5), [fr, -0.8]), along, fr, [5.8, 1.88 * triceps, 2.05], "triceps")
@@ -547,6 +540,8 @@ function touching(H, things, track) {
         const at = H.slice(); at[axis] = t.a[axis] + n[axis] * half[axis]
         take(Math.abs(out[axis]) - 0.6, { flat: n, at })
       }
+    } else if (t.type === 5 || t.type === 6) {
+      continue
     } else if (t.type === 2) {
       const n = v.norm(v.sub(H, t.a), [0, 1, 0])
       take(Math.abs(v.len(v.sub(H, t.a)) - t.r) - 0.8, { flat: n, at: v.add(t.a, v.mul(n, t.r)), round: t.r })
@@ -567,7 +562,7 @@ function touching(H, things, track) {
 
 // A kettlebell: the bell's radius, half the width of its grip, and how far
 // the middle of the bell hangs from the middle of the grip.
-const KB_BELL = 4.0, KB_GRIP = 2.9, KB_REACH = 7.4
+const KB_BELL = 4.3, KB_GRIP = 2.9, KB_REACH = 7.6
 // a racked bell's middle off the axis of the forearm: the bell's radius and
 // the forearm's, so it rests on the arm without sinking into it
 const KB_RACK = 5.9
@@ -581,6 +576,11 @@ export function gear(track, i, J) {
   const blob = (c, radii, mat = GEAR) => out.push({ type: 3, a: c, b: radii, r: 0, mat })
   // a flat-faced disc from a to b: a plate, the head of a dumbbell, a bell's foot
   const disc = (a, b, r, mat = IRON) => out.push({ type: 4, a, b, r, mat })
+  // a box turned in the picture's plane by `ang` radians: a raised back pad
+  const tilted = (c, half, ang, mat = PAD, round = 1.0) => out.push({ type: m === "side" ? 5 : 6, a: c, b: half, r: round, mat, ang })
+  // something too tall for the picture to be fitted round (a machine's
+  // uprights): drawn, and cut off by the frame as a photograph would
+  const tall = (a, b, r) => out.push({ type: 0, a, b, r, mat: GEAR, tall: true })
   // a point on the stage, at a depth
   const at = (p, z = 0) => (m === "side" ? [p[0], G - p[1], z] : m === "front" ? [z, G - p[1], -(p[0] - 80)] : [60 - p[1], 3, -(p[0] - 80)])
   const depthOf = (hold) => (hold === "hand_a" ? J.hand_a : hold === "hand_b" ? J.hand_b : hold === "foot_a" ? J.foot_a : hold === "foot_b" ? J.foot_b : null)
@@ -594,6 +594,58 @@ export function gear(track, i, J) {
     } else if (p.kind === "box") {
       if (m === "side") box([p.x + p.w / 2, p.h / 2, 0], [p.w / 2, p.h / 2, 11])
       else box([0, p.h / 2, -(p.x + p.w / 2 - 80)], [11, p.h / 2, p.w / 2])
+    } else if (p.kind === "bench") {
+      // A gym bench (Rogue's flat and adjustable benches, measured): a pad
+      // 29 cm wide and 6.5 cm thick, its top 45 cm up, on one steel spine
+      // with a post under the seat and a T-foot at each end. A back pad is
+      // hinged at the seat's end and raised on a strut.
+      const PADH = 1.5, HALF = 6.5, TUBE = 1.15
+      const top = G - p.y, sign = p.toward === "left" ? -1 : 1
+      const ang = (p.incline * Math.PI) / 180
+      const seatX = [p.x, p.x + p.w], hingeX = sign < 0 ? p.x : p.x + p.w
+      const along = [sign * Math.cos(ang), Math.sin(ang), 0], under = [sign * Math.sin(ang), -Math.cos(ang), 0]
+      const far = v.add([hingeX, top, 0], v.mul(along, p.back))
+      const deck = (q, z = 0) => (m === "side" ? [q[0], q[1], z] : [z, q[1], -(q[0] - 80)])
+      if (p.across) {
+        // turned to run into the picture: its length is across, a foot at each end
+        const LONG = 27
+        box(deck([p.x + p.w / 2, top - PADH, 0]), m === "side" ? [p.w / 2, PADH, LONG] : [LONG, PADH, p.w / 2], PAD, 1.0)
+        for (const z of [-19, 19]) {
+          capsule(deck([p.x + p.w / 2 - 9, TUBE, 0], z), deck([p.x + p.w / 2 + 9, TUBE, 0], z), TUBE)
+          capsule(deck([p.x + p.w / 2, TUBE, 0], z), deck([p.x + p.w / 2, top - 2 * PADH, 0], z), TUBE)
+        }
+        capsule(deck([p.x + p.w / 2, top - 2 * PADH - 2.2, 0], -19), deck([p.x + p.w / 2, top - 2 * PADH - 2.2, 0], 19), TUBE)
+        continue
+      }
+      if (m === "side") box([p.x + p.w / 2, top - PADH, 0], [p.w / 2, PADH, HALF], PAD, 1.0)
+      else box([0, top - PADH, -(p.x + p.w / 2 - 80)], [HALF, PADH, p.w / 2], PAD, 1.0)
+      if (p.incline > 0) {
+        const mid = v.add(v.add([hingeX, top, 0], v.mul(along, p.back / 2)), v.mul(under, PADH))
+        const turn = Math.atan2(along[1], along[0])
+        tilted(deck(mid), m === "side" ? [p.back / 2, PADH, HALF * 0.96] : [HALF * 0.96, PADH, p.back / 2], m === "side" ? turn : -turn)
+      }
+      // the frame: feet under each end of the bench, a spine between them
+      const ends = p.incline > 0 ? [Math.min(seatX[0], far[0]) + 4, Math.max(seatX[1], far[0]) - 4] : [seatX[0] + 4, seatX[1] - 4]
+      const spine = top - 2 * PADH - 2.2
+      for (const [x, wide] of [[ends[0], 12], [ends[1], 12]]) {
+        capsule(deck([x, TUBE, 0], -wide), deck([x, TUBE, 0], wide), TUBE)
+        capsule(deck([x, TUBE, 0]), deck([x + (x < (ends[0] + ends[1]) / 2 ? 3 : -3), spine, 0]), TUBE)
+      }
+      capsule(deck([ends[0] + 3, spine, 0]), deck([ends[1] - 3, spine, 0]), TUBE)
+      capsule(deck([(seatX[0] + seatX[1]) / 2, spine, 0]), deck([(seatX[0] + seatX[1]) / 2, top - 2 * PADH, 0]), TUBE)
+      if (p.incline > 0) {
+        const brace = v.add(v.add([hingeX, top, 0], v.mul(along, p.back * 0.55)), v.mul(under, 2 * PADH))
+        capsule(deck([hingeX + sign * 2, spine, 0]), deck(brace), TUBE)
+      }
+    } else if (p.kind === "smith") {
+      // A Smith machine's two rails, a stride apart either side of the bar,
+      // a beam across their tops and a foot under each
+      const RAIL = 29
+      for (const z of [-RAIL, RAIL]) {
+        tall(at([p.x, 99.5], z), at([p.x, 0], z), 1.4)
+        capsule(at([p.x - 13, 99], z), at([p.x + 13, 99], z), 1.3)
+      }
+      tall(at([p.x, 0], -RAIL), at([p.x, 0], RAIL), 1.6)
     } else if (p.kind === "block") {
       if (p.w > 100 && p.h <= 1.5) continue // the water's surface is drawn by the shader
       const cy = G - (p.y + p.h / 2)
@@ -668,23 +720,44 @@ export function gear(track, i, J) {
         // disc with a smaller one outside it, as plates are stacked. They
         // were two balls on a stick.
         const on = (k) => v.add(grip, v.mul(axis, k))
-        capsule(on(-4.9), on(4.9), 0.62)
+        // A gym's hex-head dumbbell of 10–15 kg: a 13 cm handle between heads
+        // 15 cm across, 35 cm in all. It was 21 cm, a toy's.
+        capsule(on(-7.2), on(7.2), 0.62)
         for (const s of [-1, 1]) {
-          disc(on(2.3 * s), on(4.1 * s), 2.7)
-          disc(on(4.1 * s), on(4.9 * s), 2.0)
-          disc(on(1.95 * s), on(2.3 * s), 1.15, GEAR)
+          disc(on(3.0 * s), on(6.4 * s), 3.4)
+          disc(on(6.4 * s), on(7.2 * s), 2.4)
+          disc(on(2.6 * s), on(3.0 * s), 1.3, GEAR)
         }
       } else if (p.kind === "bar") {
-        // A barbell: the bar, and on each sleeve a big plate, a smaller one
-        // outside it and a collar, all square to the bar whichever way it lies.
+        // An Olympic bar, 2.2 m long, its sleeves from 30 cm either side of the
+        // hands' 70–80 cm; on each a 20 kg plate (45 cm across) and a collar,
+        // square to the bar whichever way it lies. It was drawn at 92 cm with
+        // plates a hand's width from the grip.
         const on = (k) => v.add(grip, v.mul(across, k))
-        capsule(on(-21), on(21), 0.7)
+        capsule(on(-50), on(50), 0.65)
         for (const s of [-1, 1]) {
-          capsule(on(14.2 * s), on(21 * s), 1.0)
-          disc(on(15 * s), on(16.3 * s), 6.2)
-          disc(on(16.3 * s), on(17.3 * s), 4.4)
-          disc(on(17.3 * s), on(18.0 * s), 1.6, GEAR)
+          disc(on(30.5 * s), on(31.5 * s), 2.4, GEAR)
+          capsule(on(31.5 * s), on(50 * s), 1.15)
+          disc(on(32 * s), on(33.8 * s), 10.2)
+          disc(on(33.8 * s), on(34.6 * s), 1.9, GEAR)
         }
+      } else if (p.kind === "hexbar") {
+        // A hex (trap) bar: a frame round the lifter, its handles at the
+        // hands either side of the thighs, and a sleeve out of each side
+        // with a 20 kg plate on it, so the bar sits where a plate's middle
+        // holds it, 22 cm up
+        const fwd = m === "side" ? [1, 0, 0] : [0, 0, -1]
+        const P = (x, z) => v.add(grip, v.add(v.mul(fwd, x), v.mul(across, z)))
+        const H = 12.5
+        for (const s of [-1, 1]) {
+          capsule(P(-5.5, H * s), P(5.5, H * s), 0.85)
+          capsule(P(5.5, H * s), P(15, 6 * s), 0.85)
+          capsule(P(-5.5, H * s), P(-15, 6 * s), 0.85)
+          capsule(P(0, H * s), P(0, (H + 17) * s), 1.15)
+          disc(P(0, (H + 4) * s), P(0, (H + 5.8) * s), 10.2)
+        }
+        capsule(P(15, -6), P(15, 6), 0.85)
+        capsule(P(-15, -6), P(-15, 6), 0.85)
       } else if (p.kind === "ball") {
         sphere(weight, 4.8)
       }
@@ -709,8 +782,9 @@ export function camera(track, frames3) {
   for (const { J, things } of frames3) {
     for (const k in J) see(J[k], k === "head" ? 8 : 5.5)
     for (const t of things) {
-      if (t.mat === MAT) continue
-      if (t.type === 1) for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) see(v.add(t.a, [t.b[0] * sx, t.b[1] * sy, t.b[2] * sz]), 0.5)
+      if (t.mat === MAT || t.tall) continue
+      if (t.type === 5 || t.type === 6) see(t.a, Math.hypot(...t.b))
+      else if (t.type === 1) for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) see(v.add(t.a, [t.b[0] * sx, t.b[1] * sy, t.b[2] * sz]), 0.5)
       else if (t.type === 3) see(t.a, Math.max(...t.b))
       else { see(t.a, t.r + 0.5); if (t.type === 0) see(t.b, t.r + 0.5) }
     }
@@ -838,6 +912,13 @@ float things(vec3 p, out float mat) {
     else if (t == 1) di = sdBox(p - uPA[i].xyz, uPB[i].xyz, uPM[i].z);
     else if (t == 2) di = length(p - uPA[i].xyz) - uPM[i].z;
     else if (t == 4) di = sdDisc(p, uPA[i].xyz, uPB[i].xyz, uPM[i].z);
+    else if (t == 5 || t == 6) {
+      // a box turned in the picture's plane: about z from the side, about x
+      // from the front
+      vec3 q = p - uPA[i].xyz; float c = cos(uPM[i].w), s = sin(uPM[i].w);
+      q = t == 5 ? vec3(c * q.x + s * q.y, -s * q.x + c * q.y, q.z) : vec3(q.x, s * q.z + c * q.y, c * q.z - s * q.y);
+      di = sdBox(q, uPB[i].xyz, uPM[i].z);
+    }
     else di = sdEllipsoid(p - uPA[i].xyz, uPB[i].xyz);
     if (di < d) { d = di; mat = uPM[i].y; }
   }
@@ -965,7 +1046,8 @@ vec3 shade(vec2 px) {
     else if (mat < 10.5) base = vec3(0.17, 0.22, 0.27);    // the mat
     else if (mat < 11.5) base = vec3(0.36, 0.41, 0.47);    // equipment
     else if (mat < 12.5) base = vec3(0.93, 0.70, 0.22);    // a band or cable
-    else base = vec3(0.115, 0.125, 0.14);                  // cast iron
+    else if (mat < 13.5) base = vec3(0.115, 0.125, 0.14);  // cast iron
+    else base = vec3(0.075, 0.08, 0.09);                   // a bench's black vinyl
     float glow = hot;
     vec3 warm = vec3(1.0, 0.38, 0.13);
     base = mix(base, warm, glow * (mat < 0.5 ? 0.95 : 0.82));
@@ -1054,7 +1136,7 @@ export function renderer(canvas) {
     gl.uniform1i(U("uNE"), ells.length); gl.uniform4fv(U("uEC"), ec); gl.uniform4fv(U("uER"), er); gl.uniform3fv(U("uEX"), ex); gl.uniform3fv(U("uEY"), ey)
 
     const pa = new Float32Array(NP * 4), pb = new Float32Array(NP * 4), pm = new Float32Array(NP * 4)
-    things.forEach((t, i) => { pa.set([...t.a, 0], i * 4); pb.set([...t.b, 0], i * 4); pm.set([t.type, t.mat, t.r, 0], i * 4) })
+    things.forEach((t, i) => { pa.set([...t.a, 0], i * 4); pb.set([...t.b, 0], i * 4); pm.set([t.type, t.mat, t.r, t.ang || 0], i * 4) })
     gl.uniform1i(U("uNP"), things.length); gl.uniform4fv(U("uPA"), pa); gl.uniform4fv(U("uPB"), pb); gl.uniform4fv(U("uPM"), pm)
 
     // A frame is drawn a band at a time, each band finished before the next.
@@ -1084,7 +1166,7 @@ export function renderer(canvas) {
 function bound(J, things) {
   const pts = Object.values(J).map((p) => [p, 7])
   for (const t of things) {
-    if (t.type === 1) pts.push([t.a, Math.hypot(...t.b)])
+    if (t.type === 1 || t.type === 5 || t.type === 6) pts.push([t.a, Math.hypot(...t.b)])
     else if (t.type === 3) pts.push([t.a, Math.max(...t.b)])
     else { pts.push([t.a, t.r + 0.5]); if (t.type === 0) pts.push([t.b, t.r + 0.5]) }
   }
