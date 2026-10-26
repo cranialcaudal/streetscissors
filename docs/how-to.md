@@ -725,6 +725,15 @@ those back quietly. To show one, split or trim the tour in the Komoot app, then
 press **Sync now** on the admin's Activities page, which reads every tour
 again.
 
+**Power is estimated, not measured.** There is no power meter on the bike. A
+script in R (`analysis/ride_power.R`) works out the watts each ride took from
+how fast it went and how much it climbed, using a published model of the forces
+on a rider (air, tyres, gravity, the chain). It uses the route's speed and
+height point by point when Komoot shares the route, and the ride's totals when
+it does not. The ride's page shows the average and the work done, marked as an
+estimate: wind and riding in someone's slipstream are invisible to it. It runs
+after a sync that brings a ride and again every night.
+
 **Heart rate and energy come from the watch, by way of the phone.** Komoot
 keeps neither. The watch writes them to Apple Health, and getting them to the
 site is a job done by hand every so often:
@@ -1089,6 +1098,7 @@ site only starts answering once everything it depends on is standing.
 | 03:23 daily | Copy the training block's private photographs | `Web.Backup.FitnessPhotos` |
 | 03:37 daily | Forget old visits: browser details after 30 days, visits after 400 | `Web.Analytics` |
 | 03:47 daily | Rebuild a year's book (EPUB and PDF) if one of its essays changed | `Web.Daybook.Book` |
+| 03:53 daily | Estimate each bike ride's power, in R (also after a sync that brought a ride) | `Web.Rides.Power` |
 | 03:41 on Sundays | Rehearse a restore | `Web.Backup.Drill` |
 
 03:17 UTC is 8:17 in the evening, Pacific daylight time, and an hour earlier

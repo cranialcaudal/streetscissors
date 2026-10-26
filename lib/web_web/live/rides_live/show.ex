@@ -1,8 +1,9 @@
 defmodule WebWeb.RidesLive.Show do
   @moduledoc """
   One activity. What the watch measured leads — heart rate, energy, the time
-  in each zone and the heart rate over the whole outing — and Komoot's embed
-  follows with the map, its figures and the elevation profile.
+  in each zone and the heart rate over the whole outing — then the power the
+  ride took, estimated in R, and Komoot's embed follows with the map, its
+  figures and the elevation profile.
   """
   use WebWeb, :live_view
 
@@ -31,6 +32,7 @@ defmodule WebWeb.RidesLive.Show do
         <h1 class="activity-title">{Activity.title(@ride)}</h1>
 
         <Activity.health ride={@ride} detail ceiling={@ceiling} />
+        <Activity.power ride={@ride} />
 
         <%!-- Komoot's embed for every tour it will show — a private one through
               its share token — else the static map cached at sync time. --%>

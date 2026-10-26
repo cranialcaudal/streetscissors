@@ -462,6 +462,14 @@ at the query (`list_rides/0`, `get_ride/1`), but `komoot_index/0` still sees the
     failure.**
   - `nil`: not asked yet.
 - Private tours are shown through share tokens (`Client.share_token/2`).
+- **Power is estimated in R, never measured** (`analysis/ride_power.R`, Martin et al. 1998). The
+  sync keeps each tour's `profile` (`Web.Rides.Profile`: seconds, metres covered and altitude per
+  point of the **stranger's** view; **no latitude or longitude is ever stored**; `load_in_query:
+  false`). A pedalled ride with no profile counts as unseen, so the next pass that reads fetches one;
+  `sync(force: true)` fills them all. `Web.Rides.Power` runs the script (after a sync that changed a
+  ride, and nightly), reads its JSON beside the uploads root, and the ride page shows it marked as
+  an estimate. Masses, CdA and Crr live in the private `content/fitness/bike.json`; bodyweight
+  comes from check-ins when there are some. No W/kg on public pages.
 - **Heart rate comes from Apple Health** (`Web.Rides.Workout`), paired to the nearest ride start
   within 10 min at read time. It arrives two ways, both via `Rides.store_workouts/1`:
   - Apple's export uploaded on `/admin/rides`: streamed with `unzip -p`, written by

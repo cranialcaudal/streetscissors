@@ -219,6 +219,68 @@ defmodule WebWeb.Activity do
 
   def health(assigns), do: ~H""
 
+  # ── Power, estimated ──────────────────────────────────────────────────────
+
+  attr :ride, :map, required: true
+
+  @doc """
+  The power the ride took, as `analysis/ride_power.R` estimated it from the
+  route's speed and climb (or, with no route to read, the ride's totals): no
+  power meter measured it, and the panel says so. Renders nothing without an
+  estimate.
+  """
+  def power(assigns) do
+    estimate = Web.Rides.Power.for_ride(assigns.ride)
+
+    figures =
+      if estimate,
+        do:
+          for(
+            {label, value, format} <- [
+              {"Avg power", estimate["avg_w"], &Units.watts/1},
+              {"Work", estimate["work_kj"], &Units.kilojoules/1}
+            ],
+            is_number(value),
+            do: {label, format.(value)}
+          ),
+        else: []
+
+    assigns =
+      assign(assigns,
+        figures: figures,
+        basis:
+          if(estimate && estimate["basis"] == "totals",
+            do: "from the ride's distance, time and climb",
+            else: "from the route's speed and climb"
+          )
+      )
+
+    ~H"""
+    <section
+      :if={@figures != []}
+      class="activity-power"
+      aria-labelledby={"activity-power-#{@ride.id}"}
+    >
+      <header class="activity-health-head">
+        <h2 id={"activity-power-#{@ride.id}"} class="activity-health-title">
+          <span class="activity-power-mark" aria-hidden="true">≈</span> Power, estimated
+        </h2>
+        <p class="activity-health-source">No power meter · worked out in R {@basis}</p>
+      </header>
+
+      <dl class="activity-figures">
+        <div :for={{label, value} <- @figures} class="activity-figure">
+          <dt class="activity-figure-label">{label}</dt>
+          <dd class="activity-figure-value">{value}</dd>
+        </div>
+      </dl>
+      <p class="activity-power-note">
+        On a calm ride alone it should be within about a tenth to a fifth. It cannot see wind or riding in someone's slipstream, so a windy ride or a group ride can be further off.
+      </p>
+    </section>
+    """
+  end
+
   # Five zones, each a tenth of the ceiling wide, from half of it up. The
   # names say what the effort feels like rather than number it.
   @zone_names ["Easy", "Steady", "Tempo", "Hard", "All out"]

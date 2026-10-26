@@ -15,6 +15,7 @@ output is missing.
 | [`emissions.R`](emissions.R) | How much carbon does each way of getting to work emit, per month and over a working life? | The charts in the blog post about commuting, and the post's "show the code" box | `Rscript analysis/emissions.R` |
 | [`fitness_models.R`](fitness_models.R) | During a training block: is the lifting getting stronger, is the load climbing too fast, and was any day unusual? | The weekly training report (admin only) | Through the report, below |
 | [`fitness_report.qmd`](fitness_report.qmd) | The weekly report itself: a Quarto document that runs `fitness_models.R` and lays out its charts and tables | `/admin/fitness/report` | `quarto render analysis/fitness_report.qmd …` (below) |
+| [`ride_power.R`](ride_power.R) | How many watts did each bike ride take? There is no power meter, so it works the power out from speed and climb with a published physics model (Martin et al. 1998) | The "Power, estimated" panel on each ride's page | The site runs it after a sync and nightly; by hand: `Rscript analysis/ride_power.R --db DB --settings content/fitness/bike.json --out FILE`, and `--self-test` checks its arithmetic |
 | [`fitness_synthetic.R`](fitness_synthetic.R) | None. It invents eight weeks of plausible training data, so the models can be tried before real data exists | Never shown by the site | `Rscript analysis/fitness_synthetic.R tmp/fitness-synthetic` |
 
 Run every command from the top of the repository (the folder with `mix.exs` in it). The scripts

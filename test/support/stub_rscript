@@ -1,0 +1,24 @@
+#!/bin/sh
+# Stands in for Rscript in the suite (Web.Rides.Power).
+#
+# `SCRIPT --db DB --settings FILE --out FILE` writes FILE with one ride's
+# estimate, for the ride id in STUB_RSCRIPT_RIDE (1 when unset).
+# STUB_RSCRIPT_FAIL=1 fails as R does, on stderr, with status 1.
+if [ "${STUB_RSCRIPT_FAIL:-0}" = "1" ]; then
+  echo "Error in dbConnect(SQLite(), db): could not open the database" >&2
+  exit 1
+fi
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out) out="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+cat > "$out" <<JSON
+{"generated_at": "2026-10-25T12:00:00Z",
+ "model": {"name": "Martin et al. 1998", "not_counted": ["wind", "drafting"]},
+ "rides": [{"id": ${STUB_RSCRIPT_RIDE:-1}, "basis": "profile", "avg_w": 182.4, "work_kj": 1243.6,
+            "moving_s": 6800, "climb_share": 0.21, "mass_kg": 75.0}]}
+JSON
+echo "1 rides estimated"

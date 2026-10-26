@@ -1,8 +1,11 @@
 defmodule Web.Rides.KomootSyncTest do
   use Web.DataCase
 
+  import Ecto.Query
+
+  alias Web.Repo
   alias Web.Rides
-  alias Web.Rides.{KomootSync, Thumbs}
+  alias Web.Rides.{KomootSync, Ride, Thumbs}
 
   @login_body %{"username" => "u123", "password" => "tok"}
 
@@ -651,6 +654,57 @@ defmodule Web.Rides.KomootSyncTest do
   # Only a tour that has been read as a stranger, and found clear, is shown
   # through Komoot. Until then it is its figures.
   @tag :capture_log
+  describe "a ride's profile" do
+    # three points 100 m apart going north, climbing, ten seconds apart
+    @climbing [
+      %{"lat" => 10.01, "lng" => 20.01, "alt" => 20.0, "t" => 0},
+      %{"lat" => 10.0109, "lng" => 20.01, "alt" => 23.5, "t" => 10_000},
+      %{"lat" => 10.0118, "lng" => 20.01, "alt" => 27.0, "t" => 20_000}
+    ]
+
+    test "is the speed and climb of a stranger's view, with no place in it" do
+      stub_komoot(points: %{444 => @climbing})
+
+      assert {:ok, %{imported: 1}} = KomootSync.sync()
+      [ride] = Rides.list_rides()
+      profile = Repo.one(from r in Ride, where: r.id == ^ride.id, select: r.profile)
+
+      assert profile["t"] == [0, 10, 20]
+      assert profile["alt"] == [20.0, 23.5, 27.0]
+      assert [+0.0, d1, d2] = profile["d"]
+      assert_in_delta d1, 100.1, 0.5
+      assert_in_delta d2, 200.2, 1.0
+      assert Map.keys(profile) |> Enum.sort() == ["alt", "d", "t"]
+    end
+
+    test "a bike ride read before profiles were kept is read again for one on the next pass that reads" do
+      {:ok, log} = Agent.start_link(fn -> [] end)
+      stub_komoot(log: log, points: %{444 => @climbing})
+      {:ok, _} = KomootSync.sync()
+      ride = Enum.find(Rides.list_rides(), &(&1.komoot_id == "444"))
+      # as the migration leaves a ride from before: no profile at all
+      Ecto.Adapters.SQL.query!(Repo, "UPDATE rides SET profile = NULL WHERE id = ?", [ride.id])
+      assert Rides.needs_profile?(ride)
+
+      # a new tour changes the listing, so the pass reads
+      stub_komoot(log: log, tours: [@tour, @other_tour], points: %{444 => @climbing})
+      {:ok, _} = KomootSync.sync()
+      refute Rides.needs_profile?(ride)
+
+      # and once it has one, a pass that reads leaves it be
+      Agent.update(log, fn _ -> [] end)
+      {:ok, _} = KomootSync.sync()
+      refute "/v007/tours/444" in strangers_reads(log)
+    end
+
+    test "points with no time or height give an empty profile, not a nil one" do
+      stub_komoot(points: %{444 => @clear})
+      {:ok, _} = KomootSync.sync()
+      [ride] = Rides.list_rides()
+      refute Rides.needs_profile?(ride)
+    end
+  end
+
   test "a tour not yet read as a stranger is not embedded, public or not" do
     stub_komoot(broken: [:strangers_read])
     assert {:ok, %{failed: 1}} = KomootSync.sync()

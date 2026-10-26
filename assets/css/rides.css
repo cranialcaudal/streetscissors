@@ -304,6 +304,16 @@
 
 .activity-health .activity-figures { margin-top: 0.75rem; }
 
+/* Power, estimated: laid out as the heart panel is, marked as an estimate. */
+.activity-power { margin: 0 0 1.75rem; }
+.activity-power .activity-figures { margin-top: 0.75rem; }
+.activity-power-mark { color: var(--color-dodger); }
+.activity-power-note {
+  margin: 0.6rem 0 0;
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
 /* The trace: one 2px hot-metal line on a 10% wash, bpm rules in the panel's
    hairline with their numbers in the left gutter, stopwatch time beneath. */
 .heart-trace {

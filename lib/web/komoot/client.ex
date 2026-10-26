@@ -182,7 +182,7 @@ defmodule Web.Komoot.Client do
   `{:error, :access_denied}` for any other refusal (no token, or a dead one).
   """
   @spec public_tour(String.t(), String.t() | nil) ::
-          {:ok, %{points: [{float, float}], map_image: String.t() | nil}}
+          {:ok, %{points: [{float, float}], map_image: String.t() | nil, profile: map}}
           | :hidden
           | {:error, term}
   def public_tour(tour_id, share_token \\ nil) do
@@ -191,14 +191,21 @@ defmodule Web.Komoot.Client do
 
     case Req.get(req(), url: "/v007/tours/#{tour_id}", params: params) do
       {:ok, %{status: 200, body: %{} = body}} ->
+        items = get_in(body, ["_embedded", "coordinates", "items"]) || []
+
         points =
-          for %{"lat" => lat, "lng" => lng} <-
-                get_in(body, ["_embedded", "coordinates", "items"]) || [],
+          for %{"lat" => lat, "lng" => lng} <- items,
               is_number(lat) and is_number(lng),
               do: {lat / 1, lng / 1}
 
         image = get_in(body, ["map_image", "src"]) || get_in(body, ["map_image_preview", "src"])
-        {:ok, %{points: points, map_image: if(is_binary(image), do: image)}}
+
+        {:ok,
+         %{
+           points: points,
+           map_image: if(is_binary(image), do: image),
+           profile: Web.Rides.Profile.from_points(items)
+         }}
 
       # Komoot's own word for it: the tour lies inside a privacy zone, and a
       # stranger is refused the whole of it, share token or not.

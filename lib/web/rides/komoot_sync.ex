@@ -79,6 +79,10 @@ defmodule Web.Rides.KomootSync do
         # stuck, hence the debug line.
         if summary.imported + summary.updated + summary.deleted + summary.failed > 0 do
           Logger.info("Komoot sync: #{inspect(summary)}")
+
+          # new or changed rides: their power is estimated again, in R
+          if summary.imported + summary.updated > 0,
+            do: Task.Supervisor.start_child(Web.TaskSupervisor, &Web.Rides.Power.run_scheduled/0)
         else
           Logger.debug("Komoot sync: #{inspect(summary)}")
         end
@@ -320,7 +324,9 @@ defmodule Web.Rides.KomootSync do
   # nothing, so this costs a request per such ride only when something else
   # changed.)
   defp unseen?(%{stranger_view: "clear"} = ride),
-    do: is_binary(ride.map_image_url) and not Thumbs.exists?(ride)
+    do:
+      (is_binary(ride.map_image_url) and not Thumbs.exists?(ride)) or
+        (Rides.pedalled?(ride) and Rides.needs_profile?(ride))
 
   defp unseen?(_ride), do: true
 
@@ -386,10 +392,11 @@ defmodule Web.Rides.KomootSync do
 
   defp view_attrs(:hidden), do: %{stranger_view: "hidden", map_image_url: nil}
 
-  defp view_attrs(%{points: points, map_image: image}) do
+  defp view_attrs(%{points: points, map_image: image} = view) do
     %{
       stranger_view: Atom.to_string(Privacy.verdict(points)),
-      map_image_url: map_image_url(image)
+      map_image_url: map_image_url(image),
+      profile: Map.get(view, :profile, %{})
     }
   end
 

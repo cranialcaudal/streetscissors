@@ -87,6 +87,17 @@ defmodule Web.Rides do
   """
   def clear?(%Ride{stranger_view: view}), do: view == "clear"
 
+  # Komoot's sports a person pedals: no e-bike, whose motor no estimate of
+  # the rider's power can see past.
+  @pedalled ~w(racebike touringbicycle mtb mtb_easy mtb_advanced downhillbike)
+
+  @doc "Whether a ride was on a bike with no motor, the rides power is estimated for."
+  def pedalled?(%Ride{sport: sport}), do: sport in @pedalled
+
+  @doc "Whether a ride has yet to be given a profile by a stranger's read."
+  def needs_profile?(%Ride{id: id}),
+    do: Repo.exists?(from r in Ride, where: r.id == ^id and is_nil(r.profile))
+
   @doc """
   Komoot's embed for a tour — its live map, stats, elevation profile and
   photographs — or nil when there is nothing safe or possible to embed: a

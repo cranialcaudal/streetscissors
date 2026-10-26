@@ -186,3 +186,5 @@ config :web,
        Path.expand("../test/support/fixtures/fitness_scripts", __DIR__)
 
 config :web, :quarto_bin, Path.expand("../test/support/stub_quarto", __DIR__)
+config :web, :rscript_bin, Path.expand("../test/support/stub_rscript", __DIR__)
+config :web, :ride_power_path, Path.expand("../tmp/test_ride_power.json", __DIR__)

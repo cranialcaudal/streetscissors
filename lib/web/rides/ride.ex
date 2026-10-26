@@ -28,6 +28,11 @@ defmodule Web.Rides.Ride do
 
   Anything but clear keeps its figures and loses everything Komoot would draw.
 
+  `profile` is the tour's speed and climb without its places
+  (`Web.Rides.Profile`), from the same stranger's read; `analysis/ride_power.R`
+  estimates the ride's power from it. `nil` until a stranger's read has given
+  one, `%{}` when Komoot's points could not.
+
   `health` is never stored: `Web.Rides.attach_health/1` fills it with the
   Apple Health workout recorded alongside the tour, or leaves it nil.
   """
@@ -52,6 +57,8 @@ defmodule Web.Rides.Ride do
     field :share_token, :string
     field :map_image_url, :string
     field :stranger_view, :string
+    # hundreds of points a tour: read only by what asks for it
+    field :profile, :map, load_in_query: false
     field :health, :any, virtual: true
 
     timestamps()
@@ -59,7 +66,7 @@ defmodule Web.Rides.Ride do
 
   @fields ~w(komoot_id name sport started_at distance_m duration_s time_in_motion_s
              avg_speed_mps ascent_m descent_m kcal visibility komoot_changed_at
-             share_token map_image_url stranger_view)a
+             share_token map_image_url stranger_view profile)a
 
   @doc false
   def changeset(ride, attrs) do
