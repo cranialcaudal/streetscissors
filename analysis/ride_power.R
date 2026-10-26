@@ -53,7 +53,9 @@ WHEEL_I <- 0.14 # kg m^2, both wheels' moment of inertia
 WHEEL_R <- 0.311 # m, a 700c wheel's radius
 CHAIN <- 0.976 # the drivetrain's efficiency
 STOPPED <- 1.0 # m/s: slower than this is standing, not riding
-TOO_FAST <- 25 # m/s: faster than this is a GPS jump, not riding
+TOO_FAST <- 20 # m/s (72 km/h): faster is a car, a train or a GPS jump, not riding
+FLAT_OUT <- 16 # m/s (58 km/h): faster than this anywhere but downhill is not pedalled
+CARRIED <- 0.05 # a ride carried this share of its moving time is a mixed trip: no estimate
 GRADE_SPAN <- 60 # m of road the slope is measured over
 SHORTEST <- 2000 # m: a shorter "ride" is a recording left running, not a ride
 SLOWEST <- 2.5 # m/s (9 km/h) moving average: slower is a bike pushed, not ridden
@@ -113,7 +115,12 @@ from_profile <- function(p, m, cda, crr, temp_c) {
   road <- dd * sqrt(1 + grade^2)
   slope <- grade / sqrt(1 + grade^2)
   v <- ifelse(keep, road / dt, 0)
-  riding <- keep & v >= STOPPED & v <= TOO_FAST
+  # a stretch no one pedals: a car's or a train's speed, or racing speed on
+  # level road. One trip on record was partly driven, at 114-128 km/h.
+  carried <- keep & (v > TOO_FAST | (v > FLAT_OUT & slope > -0.02))
+  moving_all <- sum(dt[keep & v >= STOPPED])
+  if (moving_all > 0 && sum(dt[carried]) / moving_all > CARRIED) return(list(carried = TRUE))
+  riding <- keep & v >= STOPPED & !carried
   if (sum(dt[riding]) < 300) return(NULL)
   # the speed at each point: the mean of the stretches either side of it
   at <- c(v[1], (head(v, -1) + tail(v, -1)) / 2, v[length(v)])
@@ -193,6 +200,7 @@ estimate_all <- function(db, settings) {
     m <- rider$kg + bike$bike_kg + settings$kit_kg
     p <- if (!is.na(r$profile) && nchar(r$profile) > 2) fromJSON(r$profile) else NULL
     e <- if (!is.null(p)) from_profile(p, m, bike$cda, bike$crr, settings$temp_c) else NULL
+    if (isTRUE(e$carried)) next # part of the trip was not on the bike: no honest estimate
     if (is.null(e)) e <- from_totals(r, m, bike$cda, bike$crr, settings$temp_c)
     if (is.null(e)) next
     out[[length(out) + 1]] <- list(
@@ -224,6 +232,10 @@ self_test <- function() {
   a <- from_profile(p, 72, 0.32, 0.0045, 15)$avg_w
   b <- from_totals(list(time_in_motion_s = 3600, duration_s = 3600, distance_m = 28800, ascent_m = 0), 72, 0.32, 0.0045, 15)$avg_w
   check("steady ride: profile vs totals (W apart)", abs(a - b), 0, 1.5)
+  # a ride with a stretch in a car is no ride to estimate
+  car <- list(t = seq(0, 3600, 10), d = c(seq(0, 1800, 10) * 8, 14400 + seq(10, 1800, 10) * 30), alt = rep(20, 361))
+  if (!isTRUE(from_profile(car, 72, 0.32, 0.0045, 15)$carried)) stop("a driven stretch was counted as riding")
+  cat("ok  a trip partly driven is not estimated\n")
   invisible(TRUE)
 }
 
