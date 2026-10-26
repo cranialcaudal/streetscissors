@@ -97,6 +97,8 @@ config :web, :analytics_async, false
 config :web, :film_repair_python, Path.expand("../test/support/stub_film_repair", __DIR__)
 config :web, :sd_python, Path.expand("../test/support/stub_film_repair", __DIR__)
 config :web, :sd_memory_max, nil
+# no film LoRA unless a test hands one over
+config :web, :sd_lora, nil
 
 # The transcoder reads the database on boot, which the sandbox owns during a
 # test run. Tests that want the requeue start their own instance.

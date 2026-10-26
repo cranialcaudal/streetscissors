@@ -12,6 +12,8 @@
 # STUB_FILM_REPAIR_FAIL=1 fails instead.
 set -euo pipefail
 shift 2
+# STUB_FILM_REPAIR_ARGS=FILE records the arguments it was given.
+[ -n "${STUB_FILM_REPAIR_ARGS:-}" ] && echo "$@" > "$STUB_FILM_REPAIR_ARGS"
 if [ "${STUB_FILM_REPAIR_FAIL:-0}" = "1" ]; then
   echo "film_repair: could not read the picture" >&2
   exit 1

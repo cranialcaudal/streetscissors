@@ -456,6 +456,10 @@ def diffuse(args):
             # The fills.
             unet = UNet2DConditionModel.from_pretrained(model, subfolder="unet", torch_dtype=torch.float16, **half)
             rss("unet loaded")
+            if args.lora:
+                fold_lora(unet, args.lora)
+                let_go()
+                rss("lora folded in")
             for layer in unet.modules():
                 lift(layer)
             rss("unet hooked")
@@ -491,6 +495,29 @@ def diffuse(args):
     repair(args, fill_all=fill_all)
 
 
+def fold_lora(unet, path):
+    """A LoRA trained on the author's own prints (2026-10-25 pilot, colour
+    35 mm), folded into the UNet's weights once as it loads: each layer it
+    names gains B·A (its alpha equals its rank, so the scale is one). Nothing
+    is added to the running model, so a fill costs the same time and memory
+    as without it. It moved Stable Diffusion's fills about a fifth nearer the
+    film's colour on held-out prints; LaMa remains the better repair."""
+    import torch
+    from safetensors.torch import load_file
+
+    state = load_file(path)
+    layers = dict(unet.named_modules())
+    for key in [k for k in state if k.endswith(".lora_A.weight")]:
+        name = key[: -len(".lora_A.weight")]
+        weight = layers[name].weight
+        a = state[key].to(weight.device, torch.float32)
+        b = state[name + ".lora_B.weight"].to(weight.device, torch.float32)
+        # added in place, at the weights' own precision: a full-precision copy
+        # of every layer left 400 MB behind and took the fill past its 3 GB
+        weight.data.add_((b @ a).to(weight.dtype))
+    del state
+
+
 def main():
     parser = argparse.ArgumentParser(prog="film_repair")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -509,6 +536,7 @@ def main():
     g.add_argument("out")
     g.add_argument("--model", required=True)
     g.add_argument("--steps", type=int, default=15)
+    g.add_argument("--lora", default=None)
     args = parser.parse_args()
     {"detect": detect, "lama": lama, "diffuse": diffuse}[args.command](args)
 

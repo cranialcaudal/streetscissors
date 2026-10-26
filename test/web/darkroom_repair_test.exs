@@ -103,6 +103,40 @@ defmodule Web.Darkroom.RepairTest do
       refute Repair.candidate?(folder, 3)
     end
 
+    test "the film LoRA is folded in for a colour print, never a grey one", %{
+      folder: folder,
+      print: print
+    } do
+      lora =
+        Path.join(
+          System.tmp_dir!(),
+          "film-lora-#{System.unique_integer([:positive])}.safetensors"
+        )
+
+      said = lora <> ".args"
+      File.write!(lora, "stand-in")
+      Application.put_env(:web, :sd_lora, lora)
+      System.put_env("STUB_FILM_REPAIR_ARGS", said)
+
+      on_exit(fn ->
+        Application.put_env(:web, :sd_lora, nil)
+        System.delete_env("STUB_FILM_REPAIR_ARGS")
+        File.rm(lora)
+        File.rm(said)
+      end)
+
+      {:ok, _} = Repair.find_lines(folder, 3)
+      {:ok, _} = Repair.diffuse(folder, 3)
+      refute File.read!(said) =~ "--lora"
+
+      :ok = Repair.discard(folder, 3)
+      :ok = Darkroom.revert(folder, 3)
+      {_, 0} = System.cmd("magick", ["-size", "40x20", "gradient:orange-navy", print])
+      {:ok, _} = Repair.find_lines(folder, 3)
+      {:ok, _} = Repair.diffuse(folder, 3)
+      assert File.read!(said) =~ "--lora #{lora}"
+    end
+
     test "one fill at a time on the machine", %{folder: folder} do
       {:ok, _} = Repair.find_lines(folder, 3)
       parent = self()

@@ -40,7 +40,9 @@ defmodule Web.Darkroom.Repair do
   (`:sd_memory_max`, systemd's `MemoryMax`, 3G, no swap, at the lowest
   priority): loaded whole it needed 5 GB, and the first try on this machine
   ran it out of memory and was killed by the kernel. It peaks at 2.1 GB, about
-  two minutes a window, and one runs at a time on the machine.
+  two minutes a window, and one runs at a time on the machine. On a colour
+  print a LoRA trained on the author's own prints is folded in (`sd_lora/0`),
+  a mild improvement to colour and grain until something better comes.
   """
 
   alias Web.Darkroom
@@ -76,6 +78,26 @@ defmodule Web.Darkroom.Repair do
         :sd_model,
         Path.expand("~/.local/share/film-repair/sd15-inpaint")
       )
+
+  # A LoRA trained on the author's colour prints, folded into Stable
+  # Diffusion as it loads (film_repair.py `fold_lora`): it brought the fills
+  # about a fifth nearer the film's colour and grain. Only for a colour print,
+  # since it never saw a grey one, and only if the file is there.
+  def sd_lora,
+    do:
+      Application.get_env(
+        :web,
+        :sd_lora,
+        Path.expand("~/.local/share/film-repair/film-lora.safetensors")
+      )
+
+  defp lora_args(picture) do
+    lora = sd_lora()
+
+    if is_binary(lora) and File.regular?(lora) and not Darkroom.grey?(picture),
+      do: ["--lora", lora],
+      else: []
+  end
 
   # The most memory Stable Diffusion may take, or nil to run it with no cap
   # (the suite, whose stand-in takes none).
@@ -209,7 +231,7 @@ defmodule Web.Darkroom.Repair do
             partial,
             "--model",
             sd_model()
-          ],
+          ] ++ lora_args(Darkroom.base_path(roll_dir, frame)),
           sd_memory()
         )
         |> finish(partial, out)

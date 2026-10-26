@@ -402,7 +402,7 @@ developed print with sliders, crop, straightening, dust and repair.
   `priv/repair/film_repair.py` corrects scanner lines by per-channel gain/offset and gives LaMa
   only what that can't fix. **Stable Diffusion makes a candidate only** (`developed/NN.candidate.png`;
   Keep or Discard), and **runs under `systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0`**
-  (`:sd_memory_max`), because uncapped it got the server OOM-killed. One at a time (`:global.trans`).
+  (`:sd_memory_max`), because uncapped it got the server OOM-killed. One at a time (`:global.trans`). On a colour print a LoRA trained on the author's own prints (`:sd_lora`, `~/.local/share/film-repair/film-lora.safetensors`) is folded into the weights as they load (`fold_lora`), costing no time or memory; a mild gain, LaMa is still better (pilot in `~/streetscissors-attic/lora-pilot/`).
 - **Film prior** (`Web.Darkroom.Prior`, equation in the moduledoc): where colour starts, from the
   print's cast, its stock's average and reciprocity. `priv/film/stocks.json` holds **only figures
   from the maker's datasheet**, with sources. **Taste** (`Web.Darkroom.Taste`) learns from saved
