@@ -89,7 +89,14 @@ defmodule WebWeb.Plugs.Analytics do
   end
 
   defp filtered?(path) do
-    String.starts_with?(path, ["/admin", "/assets", "/favicon", "/phoenix", "/live", "/dev"]) or
-      Analytics.sub_resource_path?(path)
+    String.starts_with?(path, [
+      "/admin",
+      "/assets",
+      "/favicon",
+      "/phoenix",
+      "/live",
+      "/dev",
+      "/Christ/bible/"
+    ]) or Analytics.sub_resource_path?(path)
   end
 end

@@ -63,7 +63,7 @@ defmodule Web.Analytics do
   research crawlers without needing a name for each. Checked against every
   distinct UA this site has recorded: no plain-browser string matches.
   """
-  @bot_ua ~r/bot\b|bots?\/|crawler|spider|scrape|headless|phantomjs|\+http|curl\/|wget\/|python[-\/]|aiohttp|httpx|scrapy|libwww|okhttp|java\/|go-http|node-fetch|axios|feedparser|simplepie|facebookexternalhit|slurp|bingpreview|semrush|ahrefs|serpstat|dataprovider|petalsearch|archive\.org|censys|leakix|internet-measurement|paloaltonetworks|palo alto networks/i
+  @bot_ua ~r/bot\b|bots?\/|crawler|spider|scrape|headless|phantomjs|\+http|curl\/|wget\/|python[-\/]|aiohttp|httpx|scrapy|libwww|okhttp|java\/|go-http|node-fetch|axios|feedparser|simplepie|facebookexternalhit|meta-external|bytespider|bytedance|baiduspider|yandexbot|amazonbot|applebot|sogou|google-inspectiontool|selenium|playwright|puppeteer|slurp|bingpreview|semrush|ahrefs|serpstat|dataprovider|petalsearch|archive\.org|censys|leakix|internet-measurement|paloaltonetworks|palo alto networks/i
 
   def bot_user_agent?(nil), do: false
   def bot_user_agent?(ua) when is_binary(ua), do: Regex.match?(@bot_ua, ua)

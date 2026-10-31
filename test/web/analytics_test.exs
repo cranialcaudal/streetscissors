@@ -137,6 +137,9 @@ defmodule Web.AnalyticsTest do
       assert Analytics.bot_user_agent?("Mozilla/5.0 (compatible; SeznamBot/4.0)")
       assert Analytics.bot_user_agent?("Scrapy/2.16.0 (+https://scrapy.org)")
       assert Analytics.bot_user_agent?("python-requests/2.32.4")
+      assert Analytics.bot_user_agent?("Mozilla/5.0 (compatible; Meta-ExternalAgent/1.0)")
+      assert Analytics.bot_user_agent?("Mozilla/5.0 (compatible; ByteSpider/1.0)")
+      assert Analytics.bot_user_agent?("Mozilla/5.0 (compatible; Google-InspectionTool/1.0)")
     end
 
     # Well-behaved bots advertise a contact URL; browsers never do. This is

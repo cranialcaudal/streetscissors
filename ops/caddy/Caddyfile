@@ -27,7 +27,7 @@ www.streetscissors.com {
 # one block listing every address, because the two differ in the one thing a
 # site block cannot vary by address: where the certificate comes from.
 (streetscissors) {
-    # Block Bad Bots. This is a `handle` rather than a bare `respond` because
+    # Block Bad Bots and Scraping Networks. This is a `handle` rather than a bare `respond` because
     # the media block below is one too: `handle` blocks are mutually exclusive
     # and run in the order written, whereas Caddy's own directive ordering puts
     # every `handle` ahead of every `respond` — which would let a blocked bot
@@ -41,8 +41,25 @@ www.streetscissors.com {
         header User-Agent *GPTBot*
         header User-Agent *ClaudeBot*
         header User-Agent *Bytespider*
+        header User-Agent *ByteDance*
+        header User-Agent *Meta-ExternalAgent*
+        header User-Agent *Meta-ExternalFetcher*
+        header User-Agent *facebookcatalog*
+        header User-Agent *Baiduspider*
+        header User-Agent *YandexBot*
+        header User-Agent *Amazonbot*
+        header User-Agent *Applebot*
+        header User-Agent *Sogou*
+        header User-Agent *Google-InspectionTool*
     }
     handle @bad_bots {
+        respond "Access Denied" 403
+    }
+
+    @scraper_subnets {
+        client_ip 57.141.0.0/16 47.79.0.0/16 47.80.0.0/15 47.82.0.0/16 59.48.0.0/15
+    }
+    handle @scraper_subnets {
         respond "Access Denied" 403
     }
 
