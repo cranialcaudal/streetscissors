@@ -50,11 +50,15 @@ defmodule WebWeb.VisitorTest do
     end
 
     test "an address named in EXCLUDED_IPS does not" do
-      System.put_env("EXCLUDED_IPS", "198.51.100.7, 198.51.100.8")
+      System.put_env("EXCLUDED_IPS", "198.51.100.7, 198.51.100.8, 192.0.2.0/24, 203.0.*")
       on_exit(fn -> System.delete_env("EXCLUDED_IPS") end)
 
       refute Visitor.counted?("198.51.100.8", "Mozilla/5.0 Safari/605", false)
       assert Visitor.counted?("198.51.100.9", "Mozilla/5.0 Safari/605", false)
+      refute Visitor.counted?("192.0.2.19", "Mozilla/5.0 Safari/605", false)
+      assert Visitor.counted?("192.0.3.1", "Mozilla/5.0 Safari/605", false)
+      refute Visitor.counted?("203.0.113.32", "Mozilla/5.0 Safari/605", false)
+      assert Visitor.counted?("203.1.1.1", "Mozilla/5.0 Safari/605", false)
     end
   end
 end

@@ -67,15 +67,69 @@ defmodule WebWeb.Visitor do
     not admin? and not Web.Analytics.bot_user_agent?(user_agent) and not excluded?(ip)
   end
 
-  @doc "Whether an address is the machine itself or one named in `EXCLUDED_IPS`."
-  def excluded?(ip) do
-    excluded =
-      (System.get_env("EXCLUDED_IPS") || "")
-      |> String.split(",")
-      |> Enum.map(&String.trim/1)
+  import Bitwise
 
-    ip in @loopback or ip in excluded
+  @doc "Whether an address is the machine itself or one named in `EXCLUDED_IPS`."
+  def excluded?(nil), do: false
+
+  def excluded?(ip) when is_binary(ip) do
+    if ip in @loopback do
+      true
+    else
+      excluded_list =
+        (System.get_env("EXCLUDED_IPS") || "")
+        |> String.split(",")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+
+      Enum.any?(excluded_list, &matches_excluded?(&1, ip))
+    end
   end
+
+  def excluded?(_), do: false
+
+  defp matches_excluded?(pattern, ip) do
+    cond do
+      pattern == ip ->
+        true
+
+      String.ends_with?(pattern, "*") ->
+        String.starts_with?(ip, String.trim_trailing(pattern, "*"))
+
+      String.contains?(pattern, "/") ->
+        match_cidr?(pattern, ip)
+
+      true ->
+        false
+    end
+  end
+
+  defp match_cidr?(cidr, ip) do
+    with [net, bits_str] <- String.split(cidr, "/", parts: 2),
+         {bits, ""} <- Integer.parse(bits_str),
+         {:ok, net_ip} <- parse_ip(net),
+         {:ok, client_ip} <- parse_ip(ip) do
+      cidr_matches?(net_ip, client_ip, bits)
+    else
+      _ -> false
+    end
+  end
+
+  defp parse_ip(str) do
+    case :inet.parse_address(String.to_charlist(str)) do
+      {:ok, ip} -> {:ok, ip}
+      _ -> :error
+    end
+  end
+
+  defp cidr_matches?({a, b, c, d}, {w, x, y, z}, bits) when bits in 0..32 do
+    <<n::32>> = <<a, b, c, d>>
+    <<cl::32>> = <<w, x, y, z>>
+    shift = 32 - bits
+    bsr(n, shift) == bsr(cl, shift)
+  end
+
+  defp cidr_matches?(_, _, _), do: false
 
   defp forwarded_from_socket(socket) do
     case Phoenix.LiveView.get_connect_info(socket, :x_headers) do
