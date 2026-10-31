@@ -89,7 +89,11 @@ config :web, :cuts_async, false
 # A visit's hit is inserted in a supervised task on the site; inline here, so a
 # test can count it as soon as the request returns, and no task outlives its
 # test's database connection.
+# The visit analytics run inline in tests; reader GeoIP cache uses a test tmp file.
 config :web, :analytics_async, false
+config :web, :reader_geo_cache_path, Path.expand("../tmp/test_reader_geo_cache.json", __DIR__)
+config :web, :caddy_log_dir, nil
+config :web, :geo_lookup_enabled, false
 
 # The print editor's repairs (Web.Darkroom.Repair): a stub stands in for the
 # Python that runs LaMa.

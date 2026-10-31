@@ -149,6 +149,7 @@ defmodule Web.Analytics do
       String.contains?(ua, "iPhone") -> "iPhone"
       String.contains?(ua, "iPad") -> "iPad"
       String.contains?(ua, "Android") -> "Android"
+      String.contains?(ua, "CrOS") -> "Chromebook"
       String.contains?(ua, "Macintosh") or String.contains?(ua, "Mac OS") -> "Mac"
       String.contains?(ua, "Windows") -> "Windows"
       String.contains?(ua, "Linux") -> "Linux"
@@ -171,6 +172,366 @@ defmodule Web.Analytics do
       String.contains?(host, "github") -> "GitHub"
       true -> host
     end
+  end
+
+  @doc """
+  Aggregates the top visitors from `analytics_hits` and resolves or guesses
+  each visitor's geographic location and reading profile.
+
+  Locations come from two sources:
+    * `:geo` — matched against recent Caddy access logs (by hashing `client_ip`
+      in memory) and resolved to city, region, country, and ISP in
+      `reader_geo_cache.json` without storing raw IPs in the database;
+    * `:inferred` — when a visitor predates the current access log window,
+      estimated from their UTC active-hour timezone pattern and whether they
+      read the author's local pages (training days and rides).
+  """
+  def top_readers(opts \\ []) do
+    min_hits = Keyword.get(opts, :min_hits, 2)
+    limit = Keyword.get(opts, :limit, 60)
+    filter = Keyword.get(opts, :filter, :readers)
+    geo_cache = Keyword.get_lazy(opts, :geo_cache, &load_geo_cache/0)
+
+    from(h in Hit,
+      where: not is_nil(h.ip_hash),
+      select: {h.ip_hash, h.path, h.user_agent, h.referrer, h.inserted_at}
+    )
+    |> Repo.all()
+    |> Enum.group_by(&elem(&1, 0))
+    |> Enum.reduce([], fn {ip_hash, rows}, acc ->
+      total_hits = length(rows)
+
+      if total_hits >= min_hits do
+        [build_reader_profile(ip_hash, rows, total_hits, geo_cache) | acc]
+      else
+        acc
+      end
+    end)
+    |> Enum.filter(fn r ->
+      case filter do
+        :readers -> not r.bot_burst?
+        :bots -> r.bot_burst?
+        _ -> true
+      end
+    end)
+    |> Enum.sort_by(fn r -> {-r.total_hits, -r.active_days, r.ip_hash} end)
+    |> Enum.take(limit)
+  end
+
+  @doc "Removes all hits for a given `ip_hash` (e.g. an author IP or bot burst)."
+  def forget_reader(ip_hash) when is_binary(ip_hash) do
+    from(h in Hit, where: h.ip_hash == ^ip_hash)
+    |> Repo.delete_all()
+  end
+
+  @doc "Loads the cached `ip_hash => geo_map` resolved from access logs."
+  def load_geo_cache do
+    path = geo_cache_path()
+
+    with true <- is_binary(path) and File.regular?(path),
+         {:ok, body} <- File.read(path),
+         {:ok, map} when is_map(map) <- Jason.decode(body) do
+      map
+    else
+      _ -> %{}
+    end
+  end
+
+  @doc """
+  Scans Caddy access logs in memory, matches `client_ip` hashes against top
+  database visitors, resolves missing locations via ip-api batch lookup, and
+  updates `reader_geo_cache.json`.
+  """
+  def refresh_geo_cache do
+    cache = load_geo_cache()
+    hash_to_ip = scan_caddy_logs_for_ips()
+
+    top_hashes =
+      from(h in Hit,
+        where: not is_nil(h.ip_hash),
+        group_by: h.ip_hash,
+        order_by: [desc: count(h.id)],
+        limit: 500,
+        select: h.ip_hash
+      )
+      |> Repo.all()
+
+    missing =
+      for h <- top_hashes,
+          not Map.has_key?(cache, h),
+          ip = Map.get(hash_to_ip, h),
+          not is_nil(ip),
+          into: %{},
+          do: {h, ip}
+
+    if map_size(missing) == 0 or not Application.get_env(:web, :geo_lookup_enabled, true) do
+      {:ok, 0}
+    else
+      unique_ips = missing |> Map.values() |> Enum.uniq() |> Enum.take(100)
+
+      payload =
+        Enum.map(unique_ips, fn ip ->
+          %{
+            query: ip,
+            fields: "status,query,country,regionName,city,isp,org,hosting,mobile"
+          }
+        end)
+
+      case Req.post("http://ip-api.com/batch", json: payload, receive_timeout: 8_000) do
+        {:ok, %Req.Response{status: 200, body: results}} when is_list(results) ->
+          ip_geo =
+            for %{"status" => "success", "query" => ip} = item <- results, into: %{} do
+              {ip,
+               %{
+                 "city" => item["city"] || "",
+                 "region" => item["regionName"] || "",
+                 "country" => item["country"] || "",
+                 "isp" => item["isp"] || "",
+                 "org" => item["org"] || "",
+                 "hosting" => item["hosting"] == true,
+                 "mobile" => item["mobile"] == true
+               }}
+            end
+
+          added =
+            for {h, ip} <- missing, geo = Map.get(ip_geo, ip), not is_nil(geo), into: %{} do
+              {h, geo}
+            end
+
+          merged = Map.merge(cache, added)
+          save_geo_cache(merged)
+          {:ok, map_size(added)}
+
+        _ ->
+          {:error, :lookup_failed}
+      end
+    end
+  end
+
+  defp geo_cache_path do
+    Application.get_env(
+      :web,
+      :reader_geo_cache_path,
+      Path.expand("~/streetscissors-data/logs/reader_geo_cache.json")
+    )
+  end
+
+  defp save_geo_cache(map) do
+    case geo_cache_path() do
+      path when is_binary(path) ->
+        File.mkdir_p(Path.dirname(path))
+        File.write(path, Jason.encode!(map, pretty: true))
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp scan_caddy_logs_for_ips do
+    case Application.get_env(:web, :caddy_log_dir, Path.expand("~/streetscissors-data/logs")) do
+      dir when is_binary(dir) ->
+        if File.dir?(dir) do
+          dir
+          |> Path.join("caddy_access*.log")
+          |> Path.wildcard()
+          |> Enum.reduce(%{}, fn file, acc ->
+            extract_ips_from_log(file, acc)
+          end)
+        else
+          %{}
+        end
+
+      _ ->
+        %{}
+    end
+  end
+
+  defp extract_ips_from_log(file, acc) do
+    file
+    |> File.stream!([], :line)
+    |> Enum.reduce(acc, fn line, map ->
+      case Regex.run(~r/"client_ip"\s*:\s*"([^"]+)"/, line) do
+        [_, ip] when ip not in ["127.0.0.1", "::1"] ->
+          Map.put_new(map, hash_ip(ip), ip)
+
+        _ ->
+          map
+      end
+    end)
+  rescue
+    _ -> acc
+  end
+
+  defp build_reader_profile(ip_hash, rows, total_hits, geo_cache) do
+    timestamps = Enum.map(rows, &elem(&1, 4))
+    first_seen = Enum.min(timestamps, NaiveDateTime)
+    last_seen = Enum.max(timestamps, NaiveDateTime)
+
+    active_days =
+      timestamps
+      |> Enum.map(fn ts ->
+        ts |> DateTime.from_naive!("Etc/UTC") |> Web.Clock.local_today()
+      end)
+      |> MapSet.new()
+      |> MapSet.size()
+
+    page_counts = Enum.frequencies_by(rows, fn {_, path, _, _, _} -> page(path) end)
+    distinct_pages = map_size(page_counts)
+
+    top_pages =
+      page_counts
+      |> Enum.sort_by(fn {p, c} -> {-c, p} end)
+      |> Enum.take(5)
+
+    devices =
+      rows
+      |> Enum.map(&elem(&1, 2))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&friendly_device/1)
+      |> Enum.uniq()
+
+    sources =
+      rows
+      |> Enum.map(&elem(&1, 3))
+      |> Enum.map(&friendly_source/1)
+      |> Enum.uniq()
+
+    location = resolve_or_guess_location(ip_hash, geo_cache, timestamps, page_counts)
+    span_seconds = NaiveDateTime.diff(last_seen, first_seen, :second)
+
+    bot_burst? =
+      (active_days == 1 and total_hits >= 25 and span_seconds <= 600) or
+        (active_days == 1 and total_hits >= 30 and distinct_pages <= 2) or
+        (location.hosting? and active_days == 1)
+
+    %{
+      ip_hash: ip_hash,
+      badge: String.slice(ip_hash, 0, 6),
+      total_hits: total_hits,
+      active_days: active_days,
+      distinct_pages: distinct_pages,
+      first_seen: first_seen,
+      last_seen: last_seen,
+      devices: if(devices == [], do: ["Browser"], else: devices),
+      sources: if(sources == [], do: ["Direct"], else: sources),
+      top_pages: top_pages,
+      location: location,
+      bot_burst?: bot_burst?
+    }
+  end
+
+  defp resolve_or_guess_location(ip_hash, geo_cache, timestamps, page_counts) do
+    case Map.get(geo_cache, ip_hash) do
+      %{} = geo ->
+        city = geo["city"] || ""
+        region = geo["region"] || ""
+        country = geo["country"] || ""
+
+        label =
+          [city, region, country]
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.join(", ")
+
+        isp = geo["isp"] || ""
+        org = geo["org"] || ""
+
+        detail =
+          cond do
+            isp != "" and org != "" and isp != org -> "#{isp} (#{org})"
+            isp != "" -> isp
+            org != "" -> org
+            true -> "Matched in access log"
+          end
+
+        hosting? = geo["hosting"] == true or datacenter_isp?(detail)
+
+        %{
+          kind: :geo,
+          label: if(label == "", do: "Unknown location", else: label),
+          detail: detail,
+          hosting?: hosting?,
+          mobile?: geo["mobile"] == true
+        }
+
+      nil ->
+        guess_location_from_behavior(timestamps, page_counts)
+    end
+  end
+
+  @datacenter_pattern ~r/ovh|alibaba|amazon|aws|digitalocean|hetzner|fastly|linode|choopa|vultr|microsoft|google cloud|ws telecom|limited network|censys|scaleway|contabo/i
+
+  defp datacenter_isp?(detail) when is_binary(detail),
+    do: Regex.match?(@datacenter_pattern, detail)
+
+  defp guess_location_from_behavior(timestamps, page_counts) do
+    mean_utc_hour = circular_mean_utc_hour(timestamps)
+    local_affinity? = has_local_affinity?(page_counts)
+    pt_hour_label = format_pt_hour(mean_utc_hour)
+
+    region =
+      cond do
+        local_affinity? and (mean_utc_hour in 15..23 or mean_utc_hour in 0..3) ->
+          "Near the author (guessed)"
+
+        mean_utc_hour in 19..23 or mean_utc_hour in 0..2 ->
+          "US West / Pacific–Mountain (guessed)"
+
+        mean_utc_hour in 15..18 ->
+          "US East / Americas (guessed)"
+
+        mean_utc_hour in 9..14 ->
+          "Europe / UK (guessed)"
+
+        true ->
+          "Asia / Pacific (guessed)"
+      end
+
+    detail =
+      if local_affinity? do
+        "Active ~#{pt_hour_label} PT · reads the local training & ride pages"
+      else
+        "Active ~#{pt_hour_label} PT · estimated from visit timestamps"
+      end
+
+    %{
+      kind: :inferred,
+      label: region,
+      detail: detail,
+      hosting?: false,
+      mobile?: false
+    }
+  end
+
+  defp circular_mean_utc_hour([]), do: 21
+
+  defp circular_mean_utc_hour(timestamps) do
+    angles =
+      Enum.map(timestamps, fn ts ->
+        (ts.hour + ts.minute / 60.0) * 2.0 * :math.pi() / 24.0
+      end)
+
+    sin_sum = Enum.sum(Enum.map(angles, &:math.sin/1))
+    cos_sum = Enum.sum(Enum.map(angles, &:math.cos/1))
+    mean_angle = :math.atan2(sin_sum, cos_sum)
+    rem(round(mean_angle * 24.0 / (2.0 * :math.pi())) + 24, 24)
+  end
+
+  defp format_pt_hour(utc_hour) do
+    pt_hour = rem(utc_hour - 7 + 24, 24)
+
+    cond do
+      pt_hour == 0 -> "12am"
+      pt_hour < 12 -> "#{pt_hour}am"
+      pt_hour == 12 -> "12pm"
+      true -> "#{pt_hour - 12}pm"
+    end
+  end
+
+  defp has_local_affinity?(page_counts) do
+    Enum.any?(Map.keys(page_counts), fn path ->
+      String.starts_with?(path, ["/fitness/rides", "/food", "/fitness/day", "/day/"]) or
+        path == "/fitness"
+    end)
   end
 
   # Hits for today (resets at local midnight, DST included — see Web.Clock)

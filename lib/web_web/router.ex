@@ -193,6 +193,7 @@ defmodule WebWeb.Router do
       on_mount: [{WebWeb.AdminAuth, :ensure_admin}, {WebWeb.AdminNav, :default}] do
       # Admin
       live "/admin/dashboard", AdminLive.Dashboard
+      live "/admin/readers", AdminLive.Readers
       # A set, a check-in or a note in a few taps (also the phone's shortcuts).
       live "/admin/quick", AdminLive.QuickAdd
       # The old single "content" hub routed uploads by file extension; blog and

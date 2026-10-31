@@ -262,7 +262,12 @@ defmodule WebWeb.AdminLive.Dashboard do
         </ol>
 
         <div :if={traffic.recent_readers != []} style="margin-top: 1.5rem;">
-          <p class="ov-quiet" style="margin-bottom: 0.5rem;">Recent readers.</p>
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.5rem;">
+            <p class="ov-quiet" style="margin: 0;">Recent readers.</p>
+            <.link navigate={~p"/admin/readers"} class="adm-link">
+              Top readers &amp; locations →
+            </.link>
+          </div>
           <div class="adm-table-wrap">
             <table class="adm-table">
               <thead>

@@ -37,7 +37,8 @@ defmodule WebWeb.AdminNav do
         program: :studio,
         heading: nil,
         links: [
-          %{label: "Studio", path: ~p"/admin/dashboard", icon: "hero-home"}
+          %{label: "Studio", path: ~p"/admin/dashboard", icon: "hero-home"},
+          %{label: "Readers", path: ~p"/admin/readers", icon: "hero-globe-americas"}
         ]
       },
       %{
