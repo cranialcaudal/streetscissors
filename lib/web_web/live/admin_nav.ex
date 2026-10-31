@@ -57,7 +57,7 @@ defmodule WebWeb.AdminNav do
         links: [
           %{label: "Cutting room", path: ~p"/admin/cuts", icon: "hero-scissors"},
           %{
-            label: "Captain's Logs",
+            label: "Videostream",
             path: ~p"/admin/logs",
             icon: "hero-microphone",
             count: :logs
@@ -84,6 +84,11 @@ defmodule WebWeb.AdminNav do
         heading: "Training",
         links: [
           %{label: "Fitness", path: ~p"/admin/fitness", icon: "hero-heart"},
+          %{
+            label: "Fueling",
+            path: ~p"/admin/fitness/fueling",
+            icon: "hero-clipboard-document-check"
+          },
           %{label: "Activities", path: ~p"/admin/rides", icon: "hero-map-pin"}
         ]
       },

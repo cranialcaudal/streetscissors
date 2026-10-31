@@ -16,6 +16,15 @@ defmodule WebWeb.FitnessLive.Index do
   sets one tap gives the RPE. On today's page, ticking a lift's box logs its
   planned sets. Visitors see only the plan.
 
+  **The admin's day is also a session** (`WebWeb.FitnessLive.SessionView`,
+  from `Web.Fitness.Session`): `?view=focus` shows one station at a time
+  (an exercise, a superset, a circuit) with Back and Next and a swipe,
+  `?view=list` all of them with the finished ones folded, `?view=page` the
+  plan as visitors see it. A logged set hands its rest to the rest bar (kept
+  in the browser), a set that beats every earlier one says so
+  (`Web.Fitness.Records`), and Finish sums the session up. The day strip is
+  coloured by the block week's done against planned (`Web.Fitness.Compliance`).
+
   The days link to each other with `navigate`, never `patch` (the comment
   above `mount/3` explains why).
 
@@ -38,9 +47,27 @@ defmodule WebWeb.FitnessLive.Index do
   use WebWeb, :live_view
 
   alias Web.Fitness
-  alias Web.Fitness.{Block, Checks, Coach, Entry, Guardrails, Prescription, Progression, Vault}
+
+  alias Web.Fitness.{
+    Block,
+    Checks,
+    Coach,
+    Compliance,
+    Entry,
+    Guardrails,
+    Plates,
+    Prescription,
+    Progression,
+    Records,
+    Session,
+    Vault
+  }
+
+  alias WebWeb.FitnessLive.SessionView
 
   @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
+  # The fuelling plan is the admin's alone (`/admin/fitness/fueling`): it is
+  # never drawn here, and never offered among the extra modules.
   @fuelling "nutrition-module"
   # The circuit timer is drawn inside the plan's raw HTML, where HEEx does not
   # expand a colocated hook's short name, so it is named in full.
@@ -88,7 +115,6 @@ defmodule WebWeb.FitnessLive.Index do
       |> with_html()
     )
     |> assign(:blocks, blocks(week, slug))
-    |> assign(:fuelling, with_html(Enum.find(listed, &(&1.slug == @fuelling))))
     |> assign(
       :extra_modules,
       listed |> Enum.reject(&(&1.slug in [@fuelling | @weekdays])) |> Enum.map(&with_html/1)
@@ -98,8 +124,12 @@ defmodule WebWeb.FitnessLive.Index do
     |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
     |> assign(:logging, nil)
     |> assign(:open_set, nil)
-    |> assign(:rest, nil)
     |> assign(:log_today, Web.Clock.local_today())
+    |> assign(view: "page", focus: 0, summary: nil, figure: nil, draft: %{})
+    |> assign(
+      :gym,
+      if(is_admin, do: Plates.settings(), else: %{plates: [], bars: %{}, lifts: %{}})
+    )
     |> assign_coach()
     |> assign_logged_today()
     |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
@@ -142,10 +172,28 @@ defmodule WebWeb.FitnessLive.Index do
   defp day_path(slug, today) when slug == today, do: ~p"/fitness"
   defp day_path(slug, _today), do: ~p"/fitness/day/#{slug}"
 
+  # The admin's day is a session (`?view=focus`, one station at a time, or
+  # `?view=list`); `?view=page` is the plan as visitors see it, with the
+  # logging stitched in. With no view asked for, today opens in focus and any
+  # other day as the list. A visitor always gets the page.
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, socket}
+  def handle_params(params, _uri, %{assigns: %{is_admin: true}} = socket) do
+    view =
+      case params["view"] do
+        v when v in ~w(focus list page) -> v
+        _ -> if socket.assigns.day.slug == socket.assigns.today_slug, do: "focus", else: "list"
+      end
+
+    focus =
+      case Integer.parse(to_string(params["at"])) do
+        {i, ""} when i >= 0 -> i
+        _ -> Session.current(socket.assigns.session)
+      end
+
+    {:noreply, assign(socket, view: view, focus: focus)}
   end
+
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   # ── Logging: the form's buttons ───────────────────────────────────────────
 
@@ -185,11 +233,15 @@ defmodule WebWeb.FitnessLive.Index do
     {:noreply, socket}
   end
 
-  def handle_event("save_log", %{"log" => params}, %{assigns: %{logging: %{slug: slug}}} = socket) do
+  def handle_event(
+        "save_log",
+        %{"log" => params},
+        %{assigns: %{logging: %{slug: slug} = logging}} = socket
+      ) do
     save(
       socket,
       slug,
-      Entry.metrics(params),
+      params |> counted(logging.plan) |> Entry.metrics(),
       blank_to_nil(params["note"]),
       Entry.date(params["date"])
     )
@@ -235,18 +287,87 @@ defmodule WebWeb.FitnessLive.Index do
   # it) and starts the rest timer; a tap on a logged chip opens its stepper;
   # once the planned sets are in, one tap gives the last set's RPE.
   def handle_event(event, _params, %{assigns: %{is_admin: false}} = socket)
-      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe circuit_done),
+      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe circuit_done
+                       set_view focus_step focus_to finish_session close_summary show_figure close_figure
+                       draft_adjust),
       do: {:noreply, socket}
 
+  # The set logged is the one the card's Next set line shows: what the
+  # admin dialled in, else today's last set again, else the target.
   def handle_event("set_done", %{"slug" => slug}, socket) do
     with_plan(socket, slug, fn exercise, plan ->
       done = todays_sets(socket, slug)
+      set = Map.get(socket.assigns.draft, slug) || next_set(plan, done)
 
       socket
-      |> assign(open_set: nil, rest: rest(plan))
-      |> save_sets(exercise, done ++ [next_set(plan, done)])
+      |> assign(open_set: nil, draft: Map.delete(socket.assigns.draft, slug))
+      |> start_rest(slug, plan, exercise.name)
+      |> save_sets(exercise, done ++ [Map.put(set, "rpe", nil)])
     end)
   end
+
+  # The Next set line's steppers: the weight and reps the next tap logs.
+  def handle_event("draft_adjust", %{"slug" => slug, "field" => field, "by" => by}, socket)
+      when field in ["w", "r"] do
+    with plan when not is_nil(plan) <- socket.assigns.coach[slug],
+         {by, ""} <- Float.parse(to_string(by)) do
+      base = Map.get(socket.assigns.draft, slug) || next_set(plan, todays_sets(socket, slug))
+
+      {:noreply,
+       assign(socket, :draft, Map.put(socket.assigns.draft, slug, adjust(base, field, by)))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # ── The session: its view, the station in focus, its end ──────────────────
+
+  def handle_event("set_view", %{"view" => view}, socket) when view in ~w(focus list page) do
+    {:noreply, push_patch(socket, to: view_path(socket, view))}
+  end
+
+  def handle_event("focus_step", %{"by" => by}, socket) do
+    last = max(length(socket.assigns.session.stations) - 1, 0)
+
+    focus =
+      case Integer.parse(to_string(by)) do
+        {by, ""} -> (socket.assigns.focus + by) |> max(0) |> min(last)
+        _ -> socket.assigns.focus
+      end
+
+    {:noreply, assign(socket, focus: focus, open_set: nil)}
+  end
+
+  def handle_event("focus_to", %{"i" => i}, socket) do
+    case index(i) do
+      nil -> {:noreply, socket}
+      i -> {:noreply, push_patch(socket, to: view_path(socket, "focus", i))}
+    end
+  end
+
+  def handle_event("finish_session", _params, socket),
+    do: {:noreply, assign(socket, :summary, summary(socket))}
+
+  def handle_event("close_summary", _params, socket),
+    do: {:noreply, assign(socket, :summary, nil)}
+
+  def handle_event("show_figure", %{"slug" => slug}, socket) do
+    case Vault.get_exercise_by_slug(slug) do
+      {:ok, exercise} ->
+        {:noreply,
+         assign(socket, :figure, %{
+           slug: slug,
+           name: exercise.name,
+           description: exercise.short_description,
+           clip: Web.Fitness.Clip.find(slug, exercise.anatomy)
+         })}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_figure", _params, socket), do: {:noreply, assign(socket, :figure, nil)}
 
   def handle_event("set_open", %{"slug" => slug, "i" => i}, socket) do
     open = {slug, index(i)}
@@ -425,7 +546,8 @@ defmodule WebWeb.FitnessLive.Index do
            |> put_flash(:info, "#{saved_words(exercise.name, log)}: #{Fitness.entry_line(log)}.")
            |> close_log()
            |> assign_coach()
-           |> assign_logged_today()}
+           |> assign_logged_today()
+           |> best_flash(log, exercise)}
 
         {:error, _changeset} ->
           {:noreply, put_flash(socket, :error, "Couldn't save that — try again.")}
@@ -436,6 +558,39 @@ defmodule WebWeb.FitnessLive.Index do
   end
 
   defp close_log(socket), do: assign(socket, :logging, nil)
+
+  # A logged entry that beats everything before its day says so.
+  defp best_flash(socket, nil, _exercise), do: socket
+
+  defp best_flash(socket, log, exercise) do
+    earlier =
+      exercise.slug
+      |> Fitness.exercise_logs_for()
+      |> Enum.filter(&(Date.compare(&1.date, log.date) == :lt))
+
+    case Records.new_best(log, earlier) do
+      {:best, score, previous} ->
+        put_flash(
+          socket,
+          :info,
+          "New best on #{exercise.name}: #{Records.describe(score)} (was #{Records.describe(previous)})."
+        )
+
+      nil ->
+        socket
+    end
+  end
+
+  # A lap count typed as a bare number is saved as "24 laps", so the entry
+  # reads as what it is.
+  defp counted(%{"result" => result} = params, %{prescription: %{kind: :laps}}) do
+    case Integer.parse(String.trim(result || "")) do
+      {n, ""} -> Map.put(params, "result", "#{n} laps")
+      _ -> params
+    end
+  end
+
+  defp counted(params, _plan), do: params
 
   # The chips' sets, saved as today's entry for the exercise: made by the
   # first, updated by every one after, removed when the last set goes. What
@@ -466,7 +621,7 @@ defmodule WebWeb.FitnessLive.Index do
 
     case result do
       {:ok, saved} ->
-        socket = socket |> assign_coach() |> assign_logged_today()
+        socket = socket |> assign_coach() |> assign_logged_today() |> best_flash(saved, exercise)
 
         if opts[:flash] && saved,
           do:
@@ -503,39 +658,124 @@ defmodule WebWeb.FitnessLive.Index do
     end
   end
 
-  # A lift gets chips: sets of reps, loaded or not, and not held today.
-  defp chips?(plan) do
-    plan.prescription.kind in [:weight, :reps] and is_integer(plan.defaults.reps) and
-      elem(plan.verdict, 0) != :stop
-  end
+  defp chips?(plan), do: Session.chips?(plan)
 
-  # How many sets the day asks for: its own line, else the block's target.
-  # Not the form's defaults, which take today's entry as "last time" the
-  # moment a first set is logged.
-  defp planned_sets(plan),
-    do: plan.prescription.sets || (plan.target && plan.target.sets) || 3
+  defp planned_sets(plan), do: Session.planned_sets(plan)
 
-  # The next set repeats the last one logged today, else it is the target
-  # (the plan's numbers when there is none). Once today is logged, Coach's
-  # target is already the next session's, which is why the logged sets lead.
-  defp next_set(plan, done) do
-    case List.last(done) do
-      nil -> %{"w" => plan.defaults.weight, "r" => plan.defaults.reps, "rpe" => nil}
-      last -> %{"w" => last["w"], "r" => last["r"], "rpe" => nil}
-    end
-  end
+  defp next_set(plan, done), do: Session.next_set(plan, done)
 
   defp adjust(set, "w", by),
     do: Map.put(set, "w", max(Float.round((set["w"] || 0) + by, 1), 0.0))
 
   defp adjust(set, "r", by), do: Map.put(set, "r", max((set["r"] || 0) + trunc(by), 1))
 
-  # Rest after a set: 2.5 minutes on a block lift worked heavy (a range
-  # topping out at 10 or under), 1.5 on the rest (the block's Design). The id
-  # is new for every set, so the timer starts over.
-  defp rest(plan) do
-    seconds = if plan.rule && plan.rule.high <= 10, do: 150, else: 90
-    %{id: System.unique_integer([:positive]), seconds: seconds}
+  # The rest after a set, handed to the page's rest bar (its hook keeps the
+  # end time in the browser, so it survives a locked phone or another page).
+  # Inside a superset the rest comes after the last exercise of the pair.
+  defp start_rest(socket, slug, plan, name) do
+    if superset_waits?(socket, slug) do
+      socket
+    else
+      push_event(socket, "rest:start", %{seconds: Session.rest_seconds(plan), label: name})
+    end
+  end
+
+  defp superset_waits?(%{assigns: %{session: %{stations: stations}}}, slug) do
+    Enum.any?(stations, fn
+      %{type: :superset, items: items} ->
+        slugs = Enum.map(items, & &1.slug)
+        slug in slugs and slug != List.last(slugs)
+
+      _ ->
+        false
+    end)
+  end
+
+  defp superset_waits?(_socket, _slug), do: false
+
+  defp view_path(socket, view, at \\ nil) do
+    base = day_path(socket.assigns.day.slug, socket.assigns.today_slug)
+    query = if at, do: %{view: view, at: at}, else: %{view: view}
+    base <> "?" <> URI.encode_query(query)
+  end
+
+  # The end of a session: today's entries for the day, their time, their
+  # sets and what they moved, which were bests, and what the plan asked that
+  # was not logged.
+  defp summary(socket) do
+    logged = socket.assigns.logged_today
+    session = socket.assigns.session
+    slugs = session.stations |> Enum.flat_map(&Session.slugs/1)
+    mine = Enum.filter(logged, &(&1.exercise.slug in slugs))
+    today = Web.Clock.local_today()
+
+    rows =
+      for log <- mine do
+        earlier =
+          log.exercise.slug
+          |> Fitness.exercise_logs_for()
+          |> Enum.filter(&(Date.compare(&1.date, today) == :lt))
+
+        best =
+          case Records.new_best(log, earlier) do
+            {:best, score, _} -> Records.describe(score)
+            nil -> nil
+          end
+
+        %{name: log.exercise.name, line: Fitness.entry_line(log), best: best}
+      end
+
+    rows =
+      rows ++
+        for a <- activities_on(today), a.kind in [:ride, :run] do
+          watts =
+            cond do
+              a.watts && a[:peak_watts] -> " · ≈#{a.watts} W (≈#{a.peak_watts} W peak)"
+              a.watts -> " · ≈#{a.watts} W"
+              true -> ""
+            end
+
+          %{
+            name: if(a.kind == :run, do: "Run (Komoot)", else: "Ride (Komoot)"),
+            line: "#{a.km} km · #{a.minutes} min#{watts}",
+            best: nil
+          }
+        end
+
+    sets = mine |> Enum.map(&length(Entry.set_list(&1.metrics))) |> Enum.sum()
+
+    volume =
+      for log <- mine,
+          %{"w" => w, "r" => r} <- Entry.set_list(log.metrics),
+          is_number(w),
+          is_integer(r),
+          reduce: 0.0 do
+        acc -> acc + w * r
+      end
+
+    times = Enum.map(mine, & &1.inserted_at)
+
+    minutes =
+      if times != [] do
+        first = Enum.min(times, NaiveDateTime)
+        div(max(NaiveDateTime.diff(NaiveDateTime.utc_now(), first), 0), 60)
+      end
+
+    missed = for s <- session.stations, s.type != :brief, not s.done?, do: SessionView.label(s)
+
+    checkin =
+      for {id, answer} <- socket.assigns.checkin_answers,
+          answer not in [nil, ""],
+          do: "#{id}: #{answer}"
+
+    %{
+      rows: rows,
+      sets: sets,
+      volume: Float.round(volume, 0),
+      minutes: minutes,
+      missed: missed,
+      checkin: checkin
+    }
   end
 
   defp rest_clock(seconds),
@@ -658,7 +898,8 @@ defmodule WebWeb.FitnessLive.Index do
     end)
   end
 
-  defp circuit_bar(slug, c, log) do
+  @doc false
+  def circuit_bar(slug, c, log) do
     how =
       cond do
         c.every > 0 -> "a round every #{div(c.every, 60)} min"
@@ -694,30 +935,47 @@ defmodule WebWeb.FitnessLive.Index do
       ~s(</div></div>) <> logged
   end
 
+  # Only the first line naming an exercise carries its notes and chips: that
+  # line is its plan, and a second set of chips would repeat their ids.
   defp annotate_lifts(html, coach, logged, open) do
-    Regex.replace(
-      ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)},
-      html,
-      fn whole, _button, slug ->
-        case coach[slug] do
-          nil ->
-            whole
+    ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)}
+    |> Regex.split(html, include_captures: true)
+    |> Enum.map_reduce(MapSet.new(), fn part, seen ->
+      case Regex.run(
+             ~r{\A<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>\z},
+             part
+           ) do
+        [whole, slug] ->
+          if MapSet.member?(seen, slug),
+            do: {whole, seen},
+            else: {annotate_lift(whole, slug, coach, logged, open), MapSet.put(seen, slug)}
 
-          plan ->
-            if chips?(plan) do
-              sets =
-                case logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last() do
-                  nil -> []
-                  log -> Entry.set_list(log.metrics)
-                end
-
-              whole <> notes(plan, false) <> chips(plan, sets, open)
-            else
-              whole <> notes(plan, true)
-            end
-        end
+        nil ->
+          {part, seen}
       end
-    )
+    end)
+    |> elem(0)
+    |> Enum.join()
+  end
+
+  defp annotate_lift(whole, slug, coach, logged, open) do
+    case coach[slug] do
+      nil ->
+        whole
+
+      plan ->
+        if chips?(plan) do
+          sets =
+            case logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last() do
+              nil -> []
+              log -> Entry.set_list(log.metrics)
+            end
+
+          whole <> notes(plan, false) <> chips(plan, sets, open)
+        else
+          whole <> notes(plan, true)
+        end
+    end
   end
 
   # The chips for a lift's sets: the logged ones (a tap opens the stepper),
@@ -760,8 +1018,7 @@ defmodule WebWeb.FitnessLive.Index do
       stepper <> rpe
   end
 
-  defp set_label(%{"w" => w, "r" => r}) when is_number(w) and w > 0, do: "#{num(w * 1.0)}×#{r}"
-  defp set_label(%{"r" => r}), do: "#{r} reps"
+  defp set_label(set), do: Session.set_label(set)
 
   defp stepper(plan, set, i) do
     w = set["w"] || 0
@@ -852,7 +1109,10 @@ defmodule WebWeb.FitnessLive.Index do
     |> put_number("sets", d.sets)
     |> put_number("reps", d.reps && p.kind in [:weight, :reps, :jump] && d.reps)
     |> put_number("time", d.seconds && p.kind == :hold && "#{d.seconds} sec")
+    |> put_number("time", d.seconds && p.kind == :timed && "#{div(d.seconds, 60)} min")
     |> put_number("distance", d.metres && p.kind == :carry && "#{d.metres} m")
+    |> put_number("distance", d[:yards] && p.kind == :swim && "#{d.yards} yd")
+    |> then(fn m -> if p.kind in [:trial, :laps], do: %{}, else: m end)
   end
 
   defp put_number(map, _key, v) when v in [nil, false, ""], do: map
@@ -863,15 +1123,94 @@ defmodule WebWeb.FitnessLive.Index do
 
   # What has been logged today, for the admin only: the proof an entry went
   # in, and the place to take a wrong one back out.
-  defp assign_logged_today(%{assigns: %{is_admin: true}} = socket),
-    do: assign(socket, :logged_today, Fitness.exercise_logs_on(Web.Clock.local_today()))
+  # With today's entries, the admin's session (what is done, what is next)
+  # and the week's colours are drawn again.
+  defp assign_logged_today(%{assigns: %{is_admin: true}} = socket) do
+    logged = Fitness.exercise_logs_on(Web.Clock.local_today())
+    today = Web.Clock.local_today()
 
-  defp assign_logged_today(socket), do: assign(socket, :logged_today, [])
+    activities =
+      if socket.assigns.day.slug == socket.assigns.today_slug, do: activities_on(today), else: []
+
+    session = Session.build(socket.assigns.day.slug, socket.assigns.coach, logged, activities)
+
+    socket
+    |> advance(socket.assigns[:session], session, logged)
+    |> assign(:logged_today, logged)
+    |> assign(:session, session)
+    |> assign(:compliance, Compliance.week(socket.assigns.block, today))
+  end
+
+  defp assign_logged_today(socket),
+    do: assign(socket, logged_today: [], session: %{modules: [], stations: []}, compliance: nil)
+
+  # Today's Komoot tours (rides and runs), as the session shows them.
+  defp activities_on(date) do
+    Web.Rides.list_rides()
+    |> Enum.filter(&(Web.Clock.local_today(&1.started_at) == date))
+    |> Enum.map(&Session.activity(&1, Web.Rides.Power.for_ride(&1)))
+  end
+
+  # In focus, the station just finished hands over to the next one not yet
+  # done. A lift is finished once its planned sets are in and its last set
+  # has its RPE, so the RPE row is not taken away before it is tapped; a
+  # hold, a swim or a circuit is finished when it is logged.
+  defp advance(
+         %{assigns: %{view: "focus", focus: i, logged_today: earlier}} = socket,
+         %{stations: before},
+         after_,
+         logged
+       ) do
+    was = Enum.at(before, i)
+    now = Enum.at(after_.stations, i)
+
+    if was && now && not finished?(was, earlier) && finished?(now, logged) do
+      next =
+        Enum.find(after_.stations, &(&1.index > i and not &1.done?)) ||
+          Enum.find(after_.stations, &(not &1.done?))
+
+      assign(socket, focus: (next && next.index) || i, open_set: nil)
+    else
+      socket
+    end
+  end
+
+  defp advance(socket, _before, _after, _logged), do: socket
+
+  defp finished?(%{done?: false}, _logged), do: false
+  defp finished?(%{type: :brief, komoot: [_ | _]}, _logged), do: true
+  defp finished?(%{type: :brief}, _logged), do: false
+
+  defp finished?(%{type: :exercise, plan: plan, slug: slug}, logged) do
+    if Session.chips?(plan),
+      do: logged |> Session.sets(slug) |> List.last() |> then(&(&1 && is_number(&1["rpe"]))),
+      else: true
+  end
+
+  defp finished?(%{type: :superset, items: items}, logged),
+    do: Enum.all?(items, &finished?(Map.put(&1, :done?, Session.done?(&1, logged)), logged))
+
+  defp finished?(_station, _logged), do: true
 
   # ── What a logged entry says ──────────────────────────────────────────────
 
   @doc "A log entry's values in a line (`Web.Fitness.entry_line/1`)."
   def log_line(log), do: Fitness.entry_line(log)
+
+  # The week's sessions done of planned, by discipline, for those planned.
+  defp week_totals(%{totals: totals}) do
+    for {kind, label} <- [strength: "Lift", bike: "Bike", run: "Run", swim: "Swim"],
+        {done, planned} = totals[kind],
+        planned > 0,
+        do: {label, {done, planned}}
+  end
+
+  defp today_progress(%{stations: []}), do: "nothing to log"
+
+  defp today_progress(%{stations: stations}) do
+    done = Enum.count(stations, & &1.done?)
+    "#{done} of #{length(stations)} done"
+  end
 
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
@@ -912,7 +1251,7 @@ defmodule WebWeb.FitnessLive.Index do
           <option :for={w <- @weights} value={num(w)} selected={@d.weight == w}>{num(w)} lb</option>
         </select>
       </label>
-      <label>
+      <label :if={@kind not in [:trial, :laps, :timed]}>
         Sets
         <select name="log[sets]">
           <option :for={n <- 1..8} value={n} selected={(@d.sets || 3) == n}>{n}</option>
@@ -942,6 +1281,33 @@ defmodule WebWeb.FitnessLive.Index do
           <option value="">—</option>
           <option :for={n <- @heights} value={n} selected={@d.height == n}>{n}</option>
         </select>
+      </label>
+      <label :if={@kind == :swim}>
+        Distance
+        <input
+          type="text"
+          name="log[distance]"
+          value={@d[:yards] && "#{@d.yards} yd"}
+          placeholder="e.g. 200 yd"
+        />
+      </label>
+      <label :if={@kind in [:swim, :trial, :laps, :timed]}>
+        {if @kind in [:laps, :timed], do: "Minutes", else: "Time"}
+        <input
+          type="text"
+          name="log[time]"
+          value={@kind in [:laps, :timed] && @d.seconds && "#{div(@d.seconds, 60)} min"}
+          placeholder={if @kind == :laps, do: "e.g. 15 min", else: "e.g. 5:30"}
+        />
+      </label>
+      <label :if={@kind in [:trial, :laps]}>
+        {if @kind == :laps, do: "Laps", else: "Strokes per length"}
+        <input
+          type="text"
+          name="log[result]"
+          inputmode="numeric"
+          placeholder={if @kind == :laps, do: "e.g. 24 laps", else: "e.g. 18"}
+        />
       </label>
       <label :if={@kind in [:weight, :reps, :jump]}>
         RPE
@@ -1019,7 +1385,12 @@ defmodule WebWeb.FitnessLive.Index do
         <.link
           :for={day <- @weekdays}
           navigate={day_path(day.slug, @today_slug)}
-          class={["day-strip-link", day.slug == @today_slug && "is-today"]}
+          class={[
+            "day-strip-link",
+            day.slug == @today_slug && "is-today",
+            @compliance && @compliance.days[day.slug] &&
+              "is-#{@compliance.days[day.slug].status}"
+          ]}
           aria-current={day.slug == @day.slug && "page"}
           title={day.name}
         >
@@ -1027,6 +1398,13 @@ defmodule WebWeb.FitnessLive.Index do
           <span :if={day.theme} class="day-strip-theme">{day.theme}</span>
         </.link>
       </nav>
+      <%!-- The admin's block week, done against planned, by discipline. --%>
+      <p :if={@compliance} class="week-totals" id="week-totals">
+        This week:
+        <span :for={{kind, {done, planned}} <- week_totals(@compliance)} class="week-total">
+          {kind} {done}/{planned}
+        </span>
+      </p>
 
       <div
         class={"blog-bento-card" <> if(@is_admin, do: " is-admin", else: "")}
@@ -1117,7 +1495,7 @@ defmodule WebWeb.FitnessLive.Index do
                     </button>
                   </form>
                 </details>
-                <ul :if={@blocks != []} class="week-chips day-page-blocks">
+                <ul :if={@blocks != [] and @is_admin} class="week-chips day-page-blocks">
                   <li
                     :for={block <- @blocks}
                     class={"week-chip week-chip--#{block.kind}"}
@@ -1130,7 +1508,52 @@ defmodule WebWeb.FitnessLive.Index do
                 </ul>
               </header>
 
-              <div class="day-content vault-day markdown-body">
+              <%!-- The admin's session: today's card, then one station at a
+                    time or the list. "Page" is the plan as visitors see it. --%>
+              <div :if={@is_admin} class="session-bar" id="session-bar">
+                <div :if={@day.slug == @today_slug} class="today-card" id="today-card">
+                  <p class="today-card-line">
+                    <strong>Today</strong>
+                    · {today_progress(@session)} · {if @checkin_answers == %{},
+                      do: "check-in needed",
+                      else: "checked in"}
+                  </p>
+                  <button
+                    :if={@view != "focus" and @session.stations != []}
+                    type="button"
+                    class="session-nav-btn session-nav-btn--next"
+                    phx-click="focus_to"
+                    phx-value-i={Session.current(@session)}
+                  >
+                    {if Enum.any?(@session.stations, & &1.done?), do: "Resume", else: "Start"}
+                  </button>
+                </div>
+                <div class="view-toggle" role="group" aria-label="How the day is shown">
+                  <button
+                    :for={{v, label} <- [{"focus", "Focus"}, {"list", "List"}, {"page", "Page"}]}
+                    type="button"
+                    class="view-toggle-btn"
+                    aria-pressed={to_string(@view == v)}
+                    phx-click="set_view"
+                    phx-value-view={v}
+                  >
+                    {label}
+                  </button>
+                </div>
+              </div>
+
+              <SessionView.session
+                :if={@is_admin and @view in ["focus", "list"]}
+                session={@session}
+                view={@view}
+                focus={@focus}
+                logged={@logged_today}
+                open_set={@open_set}
+                draft={@draft}
+                gym={@gym}
+              />
+
+              <div :if={!@is_admin or @view == "page"} class="day-content vault-day markdown-body">
                 {raw(
                   @day.html
                   |> annotate(@coach, @logged_today, @open_set)
@@ -1194,91 +1617,124 @@ defmodule WebWeb.FitnessLive.Index do
             </p>
 
             <%= if @extra_modules != [] do %>
-              <h2 class="day-page-section">Additional Modules</h2>
-              <div class="regimen-list">
-                <%= for day <- @extra_modules do %>
-                  <details class="day-details" data-day={day.slug}>
-                    <summary class="day-summary">
-                      <span class="day-title">{day.title}</span>
-                      <.icon name="hero-chevron-down" class="summary-icon" />
-                    </summary>
-                    <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
-                      {raw(day.html)}
-                    </div>
-                  </details>
-                <% end %>
-              </div>
+              <details class="day-addons" id="day-addons">
+                <summary class="day-page-section">Optional add-ons</summary>
+                <div class="regimen-list">
+                  <%= for day <- @extra_modules do %>
+                    <details class="day-details" data-day={day.slug}>
+                      <summary class="day-summary">
+                        <span class="day-title">{day.title}</span>
+                        <.icon name="hero-chevron-down" class="summary-icon" />
+                      </summary>
+                      <div class="day-content vault-day markdown-body" style="padding: 1rem 0;">
+                        {raw(day.html)}
+                      </div>
+                    </details>
+                  <% end %>
+                </div>
+              </details>
             <% end %>
           </div>
-
-          <%!-- Fuelling is a daily reference, not the day's work, so it rides
-                beside the day in a sticky rail (the /negatives roll rail's
-                shape) and folds below it on narrow screens — it comes after the
-                workout in the markup for exactly that reason. It stays inside
-                #weekly-routine and keeps its .day-details class and data-day,
-                because GymRoutine keys saved ticks on
-                `vault_gym_<data-day>_<index>` scoped to this element — move it
-                out or rename the scope and every saved tick silently detaches. --%>
-          <aside :if={@fuelling} class="fuelling-rail" aria-label="Daily fuelling">
-            <details class="day-details" data-day={@fuelling.slug} open>
-              <summary class="day-summary">
-                <span class="day-title">{@fuelling.title}</span>
-                <.icon name="hero-chevron-down" class="summary-icon" />
-              </summary>
-              <div class="day-content vault-day markdown-body">
-                {raw(@fuelling.html)}
-              </div>
-            </details>
-          </aside>
         </div>
       </div>
 
-      <%!-- The big picture, under the day. Visitors get untimed chips; the
-            clock times render for the admin only. --%>
-      <WebWeb.FitnessWeek.week :if={@week} week={@week} today_slug={@today_slug} timed={@is_admin} />
+      <%!-- The big picture, under the day: where the author works, plays and
+            rides, and when. The admin's alone; a visitor is shown the day's
+            plan and not the shape of the week around it. --%>
+      <WebWeb.FitnessWeek.week
+        :if={@week && @is_admin}
+        week={@week}
+        today_slug={@today_slug}
+        timed={@is_admin}
+      />
 
-      <%!-- The rest after a logged set. A new id for every set, so the hook
-            mounts afresh and the count starts over. --%>
+      <%!-- The rest after a logged set, for the admin. The server says when a
+            rest starts; the hook keeps its end time in this browser, so the
+            count is right after a locked screen, a reload or another day's
+            page. At zero it beeps (and buzzes where the phone can). --%>
       <div
-        :if={@rest}
-        id={"rest-timer-#{@rest.id}"}
+        :if={@is_admin}
+        id="rest-bar"
         class="rest-timer"
-        phx-hook=".RestTimer"
+        phx-hook=".RestBar"
         phx-update="ignore"
-        data-seconds={@rest.seconds}
         role="timer"
+        hidden
       >
-        <span class="rest-timer-label">Rest</span>
-        <span class="rest-timer-left" data-left>{rest_clock(@rest.seconds)}</span>
+        <span class="rest-timer-label" data-label>Rest</span>
+        <span class="rest-timer-left" data-left>0:00</span>
+        <button type="button" class="rest-timer-skip" data-more>+30 s</button>
         <button type="button" class="rest-timer-skip" data-skip>Skip</button>
       </div>
-      <script :type={Phoenix.LiveView.ColocatedHook} name=".RestTimer">
-        // Counts the rest down from the moment the set was logged; at zero the
-        // timer says so and, where the phone can, buzzes. Skip hides it.
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".RestBar">
+        const KEY = "fitness:rest"
         export default {
           mounted() {
-            const until = Date.now() + Number(this.el.dataset.seconds) * 1000
-            const left = this.el.querySelector("[data-left]")
-            const tick = () => {
-              window.dispatchEvent(new Event("fitness:active"))
-              const s = Math.max(0, Math.round((until - Date.now()) / 1000))
-              left.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
-              if (s === 0) {
-                clearInterval(this.timer)
-                this.el.classList.add("is-up")
-                left.textContent = "Go"
-                try { navigator.vibrate && navigator.vibrate([200, 100, 200]) } catch (_) {}
-              }
-            }
-            tick()
-            this.timer = setInterval(tick, 1000)
-            this.el.querySelector("[data-skip]").addEventListener("click", () => {
-              clearInterval(this.timer)
-              this.el.hidden = true
+            this.left = this.el.querySelector("[data-left]")
+            this.label = this.el.querySelector("[data-label]")
+            this.el.querySelector("[data-skip]").addEventListener("click", () => this.stop())
+            this.el.querySelector("[data-more]").addEventListener("click", () => {
+              const s = this.load()
+              if (s) { s.ends = Math.max(s.ends, Date.now()) + 30000; s.rang = false; this.save(s); this.tick() }
             })
+            // Any tap may start the sound, so the beep at zero is allowed.
+            this.unlock = () => {
+              try {
+                const AC = window.AudioContext || window.webkitAudioContext
+                if (AC && !this.audio) this.audio = new AC()
+                if (this.audio && this.audio.state === "suspended") this.audio.resume()
+              } catch (_) {}
+            }
+            document.addEventListener("pointerdown", this.unlock, { passive: true })
+            this.handleEvent("rest:start", ({ seconds, label }) => {
+              this.save({ ends: Date.now() + seconds * 1000, label, rang: false })
+              this.tick()
+            })
+            this.onShow = () => this.tick()
+            document.addEventListener("visibilitychange", this.onShow)
+            this.timer = setInterval(() => this.tick(), 250)
+            this.tick()
+          },
+          load() { try { return JSON.parse(localStorage.getItem(KEY) || "null") } catch (_) { return null } },
+          save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)) } catch (_) {} },
+          stop() { try { localStorage.removeItem(KEY) } catch (_) {} ; this.el.hidden = true },
+          tick() {
+            const s = this.load()
+            if (!s) { this.el.hidden = true; return }
+            const left = Math.ceil((s.ends - Date.now()) / 1000)
+            if (left < -30) return this.stop()
+            this.el.hidden = false
+            this.label.textContent = s.label ? `Rest · ${s.label}` : "Rest"
+            if (left > 0) {
+              this.el.classList.remove("is-up")
+              this.left.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`
+              window.dispatchEvent(new Event("fitness:active"))
+            } else {
+              this.el.classList.add("is-up")
+              this.left.textContent = "Go"
+              if (!s.rang) { s.rang = true; this.save(s); this.ring() }
+            }
+          },
+          ring() {
+            try { navigator.vibrate && navigator.vibrate([200, 100, 200]) } catch (_) {}
+            try {
+              if (!this.audio) return
+              const now = this.audio.currentTime
+              for (const at of [0, 0.25]) {
+                const o = this.audio.createOscillator(), g = this.audio.createGain()
+                o.frequency.value = 880
+                g.gain.setValueAtTime(0.0001, now + at)
+                g.gain.exponentialRampToValueAtTime(0.4, now + at + 0.02)
+                g.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.18)
+                o.connect(g).connect(this.audio.destination)
+                o.start(now + at); o.stop(now + at + 0.2)
+              }
+            } catch (_) {}
           },
           destroyed() {
             clearInterval(this.timer)
+            document.removeEventListener("pointerdown", this.unlock)
+            document.removeEventListener("visibilitychange", this.onShow)
           }
         }
       </script>
@@ -1421,15 +1877,16 @@ defmodule WebWeb.FitnessLive.Index do
         }
       </script>
 
+      <SessionView.figure_sheet :if={@figure} figure={@figure} />
+      <SessionView.summary :if={@summary} summary={@summary} />
+
       <%= if @logging do %>
-        <%!-- No phx-click on the backdrop: LiveView hands a click to the
-              nearest ancestor that has one, so every click *inside* the form,
-              on a field included, closed it. Clicking outside the form is
-              phx-click-away's job, and Escape closes it too. --%>
+        <%!-- The form closes on Cancel, Save or Escape only: a stray tap
+              outside it (easy on a phone mid-set) must not lose what was
+              typed. --%>
         <div class="log-modal-backdrop" phx-window-keydown="log_key">
           <div
             class="log-modal"
-            phx-click-away="close_log"
             role="dialog"
             aria-label={"Log #{@logging.name}"}
           >
@@ -1460,6 +1917,7 @@ defmodule WebWeb.FitnessLive.Index do
             <form phx-submit="save_log" id="log-form">
               <.log_fields plan={@logging.plan} editing={@logging[:editing]} />
               <details
+                :if={@logging.plan.prescription.kind not in [:swim, :trial, :laps, :timed]}
                 class="log-modal-more"
                 open={Enum.any?(~w(distance time result), &written(@logging[:editing], &1))}
               >

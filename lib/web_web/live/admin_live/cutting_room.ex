@@ -304,7 +304,7 @@ defmodule WebWeb.AdminLive.CuttingRoom do
      |> assign(progress: nil)
      |> put_flash(
        :info,
-       "Rendered into the log of #{Log.title(cut.audio_log)}, which is transcoding now. Publish it from Captain's Logs."
+       "Rendered into the log of #{Log.title(cut.audio_log)}, which is transcoding now. Publish it from Videostream."
      )}
   end
 

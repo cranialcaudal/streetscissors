@@ -18,7 +18,7 @@ defmodule Web.DaybookTest do
     assert Enum.map(day.entries, & &1.title) == [
              "Fixture Post With Keywords",
              "Under way",
-             "Levee loop"
+             "Road cycling · 24.9 mi"
            ]
   end
 
@@ -27,7 +27,7 @@ defmodule Web.DaybookTest do
     ride_fixture(%{name: "Late loop", started_at: ~U[2026-07-16 02:00:00Z]})
 
     assert {:ok, day} = Daybook.day(~D[2026-07-15])
-    assert "Late loop" in Enum.map(day.entries, & &1.title)
+    assert "Road cycling · 24.9 mi" in Enum.map(day.entries, & &1.title)
   end
 
   test "a roll lands on the day it was scanned" do
@@ -76,7 +76,8 @@ defmodule Web.DaybookTest do
 
       by_date = Map.new(week.days, &{&1.date, Enum.map(&1.entries, fn e -> e.title end)})
       assert by_date[~D[2026-07-15]] == ["Fixture Post With Keywords", "Under way"]
-      assert by_date[~D[2026-07-18]] == ["Levee loop"]
+      # A ride is named by its sport and distance, never by Komoot's name for it.
+      assert by_date[~D[2026-07-18]] == ["Road cycling · 24.9 mi"]
       assert by_date[~D[2026-07-13]] == []
 
       # The nearest weeks with work either side, not the adjacent ones: the

@@ -41,8 +41,18 @@ defmodule WebWeb.Activity do
 
   # ── The plate: title, sport pills and figures ─────────────────────────────
 
-  @doc "An activity's name, or its sport when Komoot has none."
-  def title(ride), do: ride.name || Units.sport(ride.sport)
+  @doc """
+  What an activity is called. A visitor is told only its sport and distance
+  (`Bike touring · 17.6 mi`): Komoot names are written for the author and
+  often name a road, a creek or a neighbourhood. The admin (`admin?`) sees
+  the name, or the sport when Komoot has none.
+  """
+  def title(ride, admin? \\ false)
+
+  def title(ride, true), do: ride.name || Units.sport(ride.sport)
+
+  def title(ride, _admin?),
+    do: Units.sport(ride.sport) <> " · " <> Units.distance(ride.distance_m)
 
   attr :shelves, :list, required: true, doc: "`[{sport, rides}]` from `Web.Rides.shelves/1`"
   attr :total, :integer, required: true
@@ -98,14 +108,17 @@ defmodule WebWeb.Activity do
   attr :link, :boolean, default: false, doc: "link the fallback map to the ride's page"
   attr :downhill, :boolean, default: false
   attr :loading, :string, default: "lazy", values: ~w(lazy eager)
+  attr :admin, :boolean, default: false, doc: "only the admin is given Komoot's live embed"
 
   @doc """
-  The activity itself: Komoot's embed when Komoot will show the tour and the
-  tripwire allows it, else the cached route image — or a blank plate — with
-  our own figures beneath it.
+  The activity itself: Komoot's embed when Komoot will show the tour, the
+  tripwire allows it and the reader is the admin, else the cached route
+  image — or a blank plate — with our own figures beneath it. A visitor is
+  never handed the embed: its address carries the tour's id (and, for a
+  private tour, its share token), which opens the author's Komoot page.
   """
   def plate(assigns) do
-    assigns = assign(assigns, :src, Rides.embed_url(assigns.ride))
+    assigns = assign(assigns, :src, assigns.admin && Rides.embed_url(assigns.ride))
 
     ~H"""
     <iframe
@@ -113,7 +126,7 @@ defmodule WebWeb.Activity do
       id={"komoot-embed-#{@ride.id}"}
       src={@src}
       class="activity-embed"
-      title={"#{title(@ride)} on Komoot"}
+      title={"#{title(@ride, @admin)} on Komoot"}
       loading={@loading}
       allow="fullscreen"
     ></iframe>
@@ -122,9 +135,9 @@ defmodule WebWeb.Activity do
       navigate={~p"/fitness/rides/#{@ride.id}"}
       class="activity-map-link"
     >
-      <.route_map ride={@ride} />
+      <.route_map ride={@ride} admin={@admin} />
     </.link>
-    <.route_map :if={!@src && !@link} ride={@ride} />
+    <.route_map :if={!@src && !@link} ride={@ride} admin={@admin} />
     <.figures :if={!@src} ride={@ride} downhill={@downhill} />
     """
   end
@@ -238,6 +251,7 @@ defmodule WebWeb.Activity do
           for(
             {label, value, format} <- [
               {"Avg power", estimate["avg_w"], &Units.watts/1},
+              {"Peak power", estimate["peak_w"], &Units.watts/1},
               {"Work", estimate["work_kj"], &Units.kilojoules/1}
             ],
             is_number(value),
@@ -274,9 +288,6 @@ defmodule WebWeb.Activity do
           <dd class="activity-figure-value">{value}</dd>
         </div>
       </dl>
-      <p class="activity-power-note">
-        On a calm ride alone it should be within about a tenth to a fifth. It cannot see wind or riding in someone's slipstream, so a windy ride or a group ride can be further off.
-      </p>
     </section>
     """
   end
@@ -550,6 +561,7 @@ defmodule WebWeb.Activity do
   end
 
   attr :ride, :map, required: true
+  attr :admin, :boolean, default: false
 
   @doc """
   Komoot's own picture of the route, as it draws it for a stranger, or a
@@ -562,7 +574,7 @@ defmodule WebWeb.Activity do
     <img
       :if={@thumb}
       src={@thumb}
-      alt={"Route map of #{title(@ride)}"}
+      alt={"Route map of #{title(@ride, @admin)}"}
       class="activity-map"
     />
     <div :if={!@thumb} class="activity-map activity-map--blank">{Units.sport(@ride.sport)}</div>
@@ -572,6 +584,7 @@ defmodule WebWeb.Activity do
   attr :sport, :string, required: true
   attr :rides, :list, required: true
   attr :layout, :atom, default: :strip, values: [:strip, :grid]
+  attr :admin, :boolean, default: false
 
   # ── Shelves and cards ─────────────────────────────────────────────────────
 
@@ -623,7 +636,7 @@ defmodule WebWeb.Activity do
       </header>
 
       <div id={"#{@id}-strip"} class="activity-shelf-strip">
-        <.card :for={ride <- @rides} ride={ride} />
+        <.card :for={ride <- @rides} ride={ride} admin={@admin} />
       </div>
     </section>
 
@@ -682,6 +695,7 @@ defmodule WebWeb.Activity do
   end
 
   attr :ride, :map, required: true
+  attr :admin, :boolean, default: false
 
   @doc """
   One activity on a shelf, set the way Komoot sets a tour card: its route map
@@ -698,9 +712,12 @@ defmodule WebWeb.Activity do
         <span :if={!@thumb} class="activity-card-blank">{Units.sport(@ride.sport)}</span>
       </span>
       <span class="activity-card-body">
-        <span class="activity-card-name">{title(@ride)}</span>
+        <span class="activity-card-name">{title(@ride, @admin)}</span>
         <span class="activity-card-day">{Units.day(@ride.started_at)}</span>
         <span class="activity-card-stats">{card_stats(@ride)}</span>
+        <span :if={card_power(@ride)} class="activity-card-power">
+          <span class="activity-power-mark" aria-hidden="true">≈</span> {card_power(@ride)}
+        </span>
         <span :if={card_health(@ride)} class="activity-card-health">
           <span class="activity-health-mark" aria-hidden="true">♥</span> {card_health(@ride)}
         </span>
@@ -718,6 +735,19 @@ defmodule WebWeb.Activity do
       ],
       " · "
     )
+  end
+
+  defp card_power(ride) do
+    case Web.Rides.Power.for_ride(ride) do
+      %{"avg_w" => avg, "peak_w" => peak} when is_number(avg) and is_number(peak) ->
+        "#{Units.count(round(avg / 5) * 5)} W avg · #{Units.count(round(peak / 5) * 5)} W peak"
+
+      %{"avg_w" => avg} when is_number(avg) ->
+        "#{Units.count(round(avg / 5) * 5)} W avg"
+
+      _ ->
+        nil
+    end
   end
 
   # "142 bpm · 612 kcal", whichever of the two the workout carries.

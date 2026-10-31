@@ -31,8 +31,8 @@ defmodule Web.Search do
   **Every page is in here, always.** A page with no content of its own to
   list goes in `pages/0`, and `test/web/search_test.exs` walks the router and
   fails when a public address is in neither that list nor a section above,
-  so a new page cannot be added without being made findable. The two
-  deliberately unlisted pages (`/food`, `/england2026`) are the only ones
+  so a new page cannot be added without being made findable. The one
+  deliberately unlisted page (`/food`, admin only) is the only one
   held back, named in `unlisted/0`.
 
   Drafts and unpublished logs are never read: every source here is the
@@ -54,7 +54,7 @@ defmodule Web.Search do
   # Where the rest of a section is, for when it found more than it shows.
   @section_pages %{
     "Blog" => "/blog",
-    "Captain's logs" => "/logs",
+    "Videostream" => "/logs",
     "Exercise wiki" => "/fitness/wiki",
     "Activities" => "/fitness/rides",
     "Photographs" => "/negatives",
@@ -143,7 +143,7 @@ defmodule Web.Search do
     [
       {"Pages", &pages/3},
       {"Blog", &posts/3},
-      {"Captain's logs", &logs/3},
+      {"Videostream", &logs/3},
       {"Exercise wiki", &exercises/3},
       {"Activities", &rides/3},
       {"Photographs", &rolls/3},
@@ -159,7 +159,7 @@ defmodule Web.Search do
   @fixed [
     {"Home", "/", "The front door", "homepage start streetscissors"},
     {"Blog", "/blog", "Essays and written work", "writing posts essays manuscripts"},
-    {"Captain's Logs", "/logs", "Recordings, video and audio", "audio video recordings spoken"},
+    {"Videostream", "/logs", "Recordings, video and audio", "audio video recordings spoken captain log videostream"},
     {"Contact Sheets / Photos", "/negatives", "Every roll of film",
      "negatives photographs film archive rolls darkroom pictures"},
     {"Fitness & Sport", "/fitness", "Today's training", "regimen workout gym training today"},
@@ -192,7 +192,7 @@ defmodule Web.Search do
     {"The Bible", "/Christ/bible", "Every book", "scripture books testament"}
   ]
 
-  @unlisted ["/food", "/england2026", "/england2026/call"]
+  @unlisted ["/food"]
 
   @doc """
   The pages that are deliberately off every list on the site, and so off this
@@ -325,7 +325,9 @@ defmodule Web.Search do
   # called "Ride" apart: the sport, the distance and the day.
   defp rides(q, words, _deep) do
     for {ride, order} <- Enum.with_index(Rides.list_rides()),
-        title = ride.name || "Activity",
+        # Never the name: a visitor is not shown it, so it must not be
+        # searchable either.
+        title = WebWeb.Activity.title(ride),
         day = ride.started_at && Web.Clock.local_today(ride.started_at),
         sport = Rides.Units.sport(ride.sport),
         fields = [

@@ -102,7 +102,15 @@ defmodule Web.Scanner.Bed do
         timer = Process.send_after(self(), {:timeout, port}, state.scan_timeout)
 
         job =
-          Map.merge(job, %{port: port, partial: partial, timer: timer, percent: 0, output: ""})
+          Map.merge(job, %{
+            port: port,
+            partial: partial,
+            timer: timer,
+            percent: 0,
+            output: "",
+            asked: Driver.describe(args),
+            started: System.monotonic_time(:millisecond)
+          })
 
         broadcast({:scanner, :started, public(job)})
         {:reply, :ok, %{state | job: job}}
@@ -177,6 +185,7 @@ defmodule Web.Scanner.Bed do
         case resample(job) do
           :ok ->
             File.rename!(job.partial, job.target)
+            log_time(job)
             broadcast({:scanner, :done, public(job)})
 
           {:error, reason} ->
@@ -251,7 +260,22 @@ defmodule Web.Scanner.Bed do
     if Port.info(port), do: Port.close(port)
   end
 
-  defp public(job), do: Map.drop(job, [:port, :partial, :timer, :output, :percent])
+  # One line per finished scan, so how long the scanner takes per mm of glass
+  # (and what a scan costs before it moves at all) is read off the journal,
+  # not guessed from file times: `journalctl --user -u streetscissors | grep
+  # "scanner] took"`.
+  defp log_time(%{asked: asked, started: started} = job) do
+    seconds = (System.monotonic_time(:millisecond) - started) / 1000
+    length = if asked.mm, do: "#{asked.mm} mm", else: "whole area"
+
+    Logger.info(
+      "[scanner] took #{:erlang.float_to_binary(seconds, decimals: 1)} s: #{job.kind}, " <>
+        "#{asked.dpi} dpi #{asked.mode} #{asked.depth}-bit, #{length}"
+    )
+  end
+
+  defp public(job),
+    do: Map.drop(job, [:port, :partial, :timer, :output, :percent, :asked, :started])
 
   defp keep_tail(output) when byte_size(output) > 4_000,
     do: binary_part(output, byte_size(output) - 4_000, 4_000)

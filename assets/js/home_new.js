@@ -12,13 +12,18 @@ export const initHomeNew = () => {
   if (!card) return
   const shows = card.dataset.new || ""
 
+  // On mobile (<= 550px), use sessionStorage so the card shows up consistently
+  // on every new visit, while still staying dismissed during the current session.
+  const isMobile = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 550px)").matches
+  const storage = isMobile ? window.sessionStorage : window.localStorage
+
   let closed = null
-  try { closed = localStorage.getItem(KEY) } catch (_) {}
+  try { closed = storage ? storage.getItem(KEY) : null } catch (_) {}
   if (closed !== null && closed === shows) return
 
   const close = () => {
     card.classList.remove("is-open")
-    try { localStorage.setItem(KEY, shows) } catch (_) {}
+    try { if (storage) storage.setItem(KEY, shows) } catch (_) {}
     // After the slide out; at once when there is no transition to wait for.
     const done = () => { card.hidden = true }
     if (getComputedStyle(card).transitionDuration === "0s") done()

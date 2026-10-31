@@ -3,7 +3,7 @@ defmodule WebWeb.PageController do
   The site's single pages: the homepage, `/about`, the manual (`/how-to`) and
   the roadmap (`/roadmap`), both rendered from markdown in `docs/` by
   `Web.Docs`, search and its suggestions (`/search`, `/search/suggest`), the
-  unlisted kitchen page (`/food`), and the admin's training calendar. Each
+  admin-only kitchen page (`/food`), and the admin's training calendar. Each
   function is one page and says what it gathers.
   """
 
@@ -52,6 +52,7 @@ defmodule WebWeb.PageController do
       site_description: site_description(),
       happening: happening,
       lately: happening.lately,
+      latest_type: Web.Happening.latest_piece(happening.lately),
       new_key: new_key(happening.lately)
     )
   end
@@ -264,7 +265,18 @@ defmodule WebWeb.PageController do
     )
   end
 
-  def food(conn, _params) do
+  # Admin only, like the calendar: it holds the author's body figures, his
+  # household's schedule and his diet. A plain `get` is not covered by the
+  # session's on_mount hooks, so the check is made here.
+  def food(conn, params) do
+    if get_session(conn, "admin_user") do
+      render_food(conn, params)
+    else
+      WebWeb.NotFound.render(conn)
+    end
+  end
+
+  defp render_food(conn, _params) do
     # `content/`, not `docs/`: the kitchen is the author's own diet, so both its
     # plan (meals.md) and its week strip and description (meals-week.json) live
     # in the fitness vault rather than in code. They sit at the vault's *root*,

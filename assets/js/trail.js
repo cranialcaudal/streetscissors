@@ -129,6 +129,7 @@ for (const moved of ["wheel", "touchstart", "keydown", "mousedown"]) {
 
 // Called whenever a page is shown, however it was reached.
 const arrive = () => {
+  syncActiveSection()
   // not the admin, and not a page that was not there: nobody goes back to a 404
   if (location.pathname.startsWith("/admin") || document.querySelector("main.lost")) return
   const here = { thing: thing(location.pathname), url: location.pathname + location.search, title: title() }
@@ -168,7 +169,7 @@ const leave = (link) => {
 // page belongs to, read off its path.
 const SECTIONS = [
   [/^\/(blog)(\/|$)/, "Blog"],
-  [/^\/logs(\/|$)/, "Captain's logs"],
+  [/^\/logs(\/|$)/, "Videostream"],
   [/^\/(negatives|archive)(\/|$)/, "Photographs"],
   [/^\/fitness(\/|$)/, "Fitness"],
   [/^\/(daybook|day)(\/|$)/, "Daybook"],
@@ -178,6 +179,30 @@ const SECTIONS = [
   [/^\/how-to\/?$/, "Manual"],
   [/^\/search\/?$/, "Search"],
 ]
+
+// Keep the active section highlighted in the universal section bar.
+const syncActiveSection = () => {
+  const nav = document.querySelector(".site-sections")
+  if (!nav) return
+  const path = window.location.pathname
+  const links = nav.querySelectorAll("a[href]")
+  for (const a of links) {
+    const href = a.getAttribute("href")
+    const isActive =
+      href === path ||
+      (href !== "/" && path.startsWith(href + "/")) ||
+      (href === "/negatives" && path.startsWith("/archive")) ||
+      (href === "/fitness" && (path.startsWith("/rides") || path.startsWith("/regimen")))
+
+    if (isActive) {
+      a.classList.add("is-active")
+      a.setAttribute("aria-current", "page")
+    } else {
+      a.classList.remove("is-active")
+      a.removeAttribute("aria-current")
+    }
+  }
+}
 
 const section = (url) => {
   const path = (url || "").split(/[?#]/)[0]

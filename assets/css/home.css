@@ -937,9 +937,14 @@
     right: 0.75rem;
     bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     width: calc(100vw - 1.5rem);
+    padding: 0.45rem 0.65rem 0.65rem;
+  }
+  /* On mobile, only the single latest uploaded piece is shown so the card stays compact */
+  .home-new .new-item:not(.new-item--latest) {
+    display: none !important;
   }
   .new-plate {
-    width: 5rem;
+    width: 4.5rem;
   }
 }
 
@@ -948,4 +953,24 @@
     transform: none;
     transition: none;
   }
+}
+
+.home-footer-symbol {
+  display: inline-block;
+  margin-left: 0.6rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.4;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.home-footer-symbol:hover,
+.home-footer-symbol:focus-visible {
+  opacity: 1;
+  color: var(--accent-ink);
+}
+
+.bento-card:active {
+  transform: scale(0.99);
 }

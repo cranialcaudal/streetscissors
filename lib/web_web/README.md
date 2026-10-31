@@ -45,7 +45,7 @@ The public site:
 | `/pc` | `PcLive` | A terminal that reaches anything by its filename |
 | `/how-to`, `/roadmap`, `/about` | `PageController` | The manual, the roadmap, about the site |
 | `/feed`, `/sitemap.xml` | `FeedController`, `SitemapController` | For feed readers and search engines |
-| `/food`, `/england2026` | `PageController.food`, `EnglandController` | Unlisted pages |
+| `/food` | `PageController.food` | Admin-only kitchen page |
 | `/share/…` | `ShareController` | The pictures a shared link shows |
 | `/health` | `HealthController` | "Is the site up?" for the uptime check |
 | `/webmention`, `/seen`, `/api/health/ingest`, `/unsubscribe/…` | `WebmentionController`, `SeenController`, `HealthWebhookController`, `UnsubscribeController` | Things other programs post to |

@@ -47,7 +47,8 @@ defmodule Web.Scanner.Detect do
   are each `@clear_gaps` times as bright as the pictures' median, the film is
   a negative and its colour is read as any other's. On looks rebuilt from the
   archive's strips (the looks themselves are not kept), roll 071's two strips
-  read 3.5 and 4.5, and no strip of the six rolls of slides came past 1.9.
+  read 3.5 and 4.5 and roll 080's 2.1 and 2.2, and no strip of the six rolls
+  of slides came past 1.9.
   """
 
   alias Web.Negatives
@@ -70,9 +71,9 @@ defmodule Web.Scanner.Detect do
   # Film this dark overall is reversal film,
   @slide_dark 0.5
   # unless its gaps between frames are this many times as bright as its
-  # pictures' median (about 0.7 in density): then it is a dense negative.
+  # pictures' median (about 0.54 in density): then it is a dense negative.
   # The frame is 36 mm and the gap 2, give or take the scanner's travel.
-  @clear_gaps 2.5
+  @clear_gaps 2.0
   @pitch_mm 38.0
   @gap_mm 2.0
 

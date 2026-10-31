@@ -54,7 +54,7 @@ function handGap(track) {
   const held = track.props.find((p) => p.hold === "hands")
   // a barbell is gripped a little wider than the shoulders (a bench press's
   // hands are 70–80 cm apart), a hex bar's handles beside the thighs
-  if (held) return { kettlebell: 2.3, ball: 4.6, bar: 14, hexbar: 11.5, dumbbell: 3.0 }[held.kind] ?? 3
+  if (held) return { kettlebell: 2.3, ball: 4.6, bar: 14, hexbar: 14.5, dumbbell: 3.0 }[held.kind] ?? 3
   if (track.props.some((p) => p.kind === "line" && p.ends.includes("hands"))) return 2.4
   return 9.4
 }
@@ -742,22 +742,35 @@ export function gear(track, i, J) {
           disc(on(33.8 * s), on(34.6 * s), 1.9, GEAR)
         }
       } else if (p.kind === "hexbar") {
-        // A hex (trap) bar: a frame round the lifter, its handles at the
-        // hands either side of the thighs, and a sleeve out of each side
-        // with a 20 kg plate on it, so the bar sits where a plate's middle
-        // holds it, 22 cm up
+        // A hex (trap) bar: the gym's is a Rogue TB-2 (60 lb, 88.5 in long,
+        // 28.5 in front to back, handles 25 in apart centre to centre, 16 in of
+        // sleeve a side), at about 2.2 cm a unit. A hexagon of round tube the
+        // lifter stands inside, long side points carrying the sleeves; two
+        // handles running front to back beside the thighs, welded into the
+        // angled sides; a 45 cm plate and a collar on each sleeve. The flat-side
+        // (low) handles sit level with the frame and the sleeves, a plate's
+        // radius off the floor.
         const fwd = m === "side" ? [1, 0, 0] : [0, 0, -1]
         const P = (x, z) => v.add(grip, v.add(v.mul(fwd, x), v.mul(across, z)))
-        const H = 12.5
+        const H = handGap(track)          // a handle at each hand
+        const F = 16.4, W1 = 12, W2 = 29.5  // 28.5 in front to back; the rails' and the points' half widths
+        const tube = 0.9
+        // the frame: front rail, back rail, and the four angled sides
+        capsule(P(F, -W1), P(F, W1), tube)
+        capsule(P(-F, -W1), P(-F, W1), tube)
         for (const s of [-1, 1]) {
-          capsule(P(-5.5, H * s), P(5.5, H * s), 0.85)
-          capsule(P(5.5, H * s), P(15, 6 * s), 0.85)
-          capsule(P(-5.5, H * s), P(-15, 6 * s), 0.85)
-          capsule(P(0, H * s), P(0, (H + 17) * s), 1.15)
-          disc(P(0, (H + 4) * s), P(0, (H + 5.8) * s), 10.2)
+          capsule(P(F, W1 * s), P(0, W2 * s), tube)
+          capsule(P(-F, W1 * s), P(0, W2 * s), tube)
+          // the handle, from one angled side to the other at the hand's
+          // width, knurled steel a little thicker than the tube
+          const reach = (F * (W2 - H)) / (W2 - W1)
+          capsule(P(-reach, H * s), P(reach, H * s), 1.0)
+          // the sleeve out of the side point, its plate, a collar
+          capsule(P(0, W2 * s), P(0, (W2 + 18.5) * s), 1.15)
+          disc(P(0, (W2 + 0.4) * s), P(0, (W2 + 1.0) * s), 2.2, GEAR)
+          disc(P(0, (W2 + 1.0) * s), P(0, (W2 + 2.8) * s), 10.2)
+          disc(P(0, (W2 + 2.8) * s), P(0, (W2 + 3.6) * s), 1.9, GEAR)
         }
-        capsule(P(15, -6), P(15, 6), 0.85)
-        capsule(P(-15, -6), P(-15, 6), 0.85)
       } else if (p.kind === "ball") {
         sphere(weight, 4.8)
       }

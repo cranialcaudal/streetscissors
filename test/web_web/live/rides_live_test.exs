@@ -8,9 +8,37 @@ defmodule WebWeb.RidesLiveTest do
 
   @map "https://cdn.example/maps/route.jpg"
 
-  setup do
+  # The suite reads the pages as the admin, who is shown Komoot's names, its
+  # live embed and its link. What a visitor is shown is under "a visitor".
+  setup %{conn: conn} do
     File.rm_rf!(Thumbs.dir())
-    :ok
+    %{conn: init_test_session(conn, %{"admin_user" => true})}
+  end
+
+  describe "a visitor" do
+    test "is told an activity's sport and distance, never its name, and is given no Komoot",
+         %{conn: _admin} do
+      ride =
+        ride_fixture(%{
+          name: "Putah Creek out and back",
+          komoot_id: "987654321",
+          stranger_view: "clear",
+          visibility: "public"
+        })
+
+      conn = build_conn()
+
+      {:ok, index, html} = live(conn, ~p"/fitness/rides")
+      refute html =~ "Putah"
+      refute has_element?(index, "iframe")
+
+      {:ok, show, html} = live(conn, ~p"/fitness/rides/#{ride.id}")
+      refute html =~ "Putah"
+      refute html =~ "komoot.com"
+      refute html =~ "987654321"
+      refute has_element?(show, "iframe")
+      refute has_element?(show, "a.activity-komoot")
+    end
   end
 
   # The figures in one panel, as `%{"Avg heart rate" => "142 bpm", …}`.

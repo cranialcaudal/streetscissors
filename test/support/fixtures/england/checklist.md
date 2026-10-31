@@ -1,4 +1,0 @@
-**Bag**
-
-- [ ] Passport
-- [x] Charger

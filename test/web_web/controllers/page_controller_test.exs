@@ -10,12 +10,19 @@ defmodule WebWeb.PageControllerTest do
     # The manual is only reachable from here and /about — if this link goes, it
     # becomes a page nobody can find.
     assert html =~ ~s(href="/how-to?from=home")
-    # The prayer pages took the manual's card; the manual dropped to the foot.
+    # The skinny row holds Videostream and About Me; Christ is linked quietly via Chi-Rho in the footer.
     [cards] = Regex.run(~r{<div class="bento-fitness-sub-row.*?</div>}s, html)
-    assert cards =~ ~s(href="/Christ")
+    refute cards =~ ~s(href="/Christ")
+    assert cards =~ ~s(href="/logs?from=home")
+    assert cards =~ "Videostream"
+    assert cards =~ ~s(href="/about?from=home")
     refute cards =~ "/how-to"
     [footer] = Regex.run(~r{<footer class="home-footer">.*?</footer>}s, html)
     assert footer =~ ~s(href="/how-to?from=home")
+    assert footer =~ ~s(href="/Christ")
+    assert footer =~ "☧"
+    assert footer =~ ~s(href="/admin/login")
+    assert footer =~ "Ω"
     # The hero is the first screen's largest picture: sized, and never lazy.
     if html =~ "bento-hero-image" do
       [hero] = Regex.run(~r{<img[^>]*class="bento-hero-image"[^>]*>}s, html)
@@ -74,7 +81,7 @@ defmodule WebWeb.PageControllerTest do
       html = conn |> get(path) |> html_response(200)
       assert html =~ ~s(class="site-sections"), path
       [_, bar] = Regex.run(~r|<nav class="site-sections".*?</nav>|s, html) |> then(&[nil | &1])
-      for hidden <- ["/Christ", "/food", "/england2026"], do: refute(bar =~ hidden)
+      for hidden <- ["/Christ", "/food"], do: refute(bar =~ hidden)
     end
   end
 
@@ -201,8 +208,13 @@ defmodule WebWeb.PageControllerTest do
   # Against the fixture vault (config/test.exs); the real meals.md is checked
   # in the gitignored test/private/.
   describe "GET /food" do
+    test "a visitor is told there is no such page", %{conn: conn} do
+      assert conn |> get(~p"/food") |> html_response(404)
+    end
+
     test "renders the kitchen from the fitness vault's meals.md", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       assert html =~ "The Kitchen"
       # Markdown actually went through Earmark rather than reaching the page raw.
@@ -213,7 +225,8 @@ defmodule WebWeb.PageControllerTest do
     # The strip and its description come from meals-week.json, and every day
     # has to land on a heading meals.md actually has.
     test "the week strip comes from meals-week.json and jumps to real headings", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       assert html =~ "A fixture kitchen for the test suite."
       assert html =~ "Batch Cook"
@@ -230,7 +243,8 @@ defmodule WebWeb.PageControllerTest do
     # The macro tables are the point of the page; if they arrive as raw pipes
     # the plan is unreadable.
     test "renders the macro tables as real tables", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       assert html =~ "<table>"
       refute html =~ "|---|"
@@ -240,14 +254,16 @@ defmodule WebWeb.PageControllerTest do
     # Earmark has no GFM task lists, so without Web.Docs' substitution the
     # shopping list renders as prose beginning with a literal "[ ]".
     test "renders the shopping list as real checkboxes", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       assert html =~ ~s(<li class="task"><input type="checkbox" />)
       refute html =~ "[ ]"
     end
 
     test "every link in the contents rail points at a heading that exists", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       [_, rail] = Regex.run(~r{<ol class="meals-contents-list">(.*?)</ol>}s, html)
 
@@ -262,7 +278,8 @@ defmodule WebWeb.PageControllerTest do
     # this template: the tab row must lead out without any route leading back,
     # and a crawler that guesses the path must be told not to index it.
     test "is unlisted — noindex, and nothing links back to it", %{conn: conn} do
-      html = conn |> get(~p"/food") |> html_response(200)
+      html =
+        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
 
       assert html =~ ~s(<meta name="robots" content="noindex, nofollow")
 
@@ -303,24 +320,12 @@ defmodule WebWeb.PageControllerTest do
   end
 
   describe "Happening" do
-    test "sits after the skinny cards and before the about line, with no clock time", %{
-      conn: conn
-    } do
+    test "the homepage does not render the bottom happening section", %{conn: conn} do
       Web.RidesFixtures.ride_fixture(%{stranger_view: "clear"})
       html = conn |> get(~p"/") |> html_response(200)
 
-      [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)
-      assert section =~ "Test Block · Week"
-      assert section =~ ~s(href="/fitness")
-      refute section =~ ~r/\d{1,2}:\d{2}/
-
-      {sub, _} = :binary.match(html, "bento-fitness-sub-row--three")
-      {hap, _} = :binary.match(html, ~s(class="home-happening"))
-      {foot, _} = :binary.match(html, ~s(class="home-footer"))
-      assert sub < hap and hap < foot
-
-      # The ride is named by sport and distance, never by its name or place.
-      refute section =~ "Evening loop"
+      refute html =~ "home-happening"
+      refute html =~ "Witnessed this week"
     end
 
     test "the corner card holds the newest post, video and roll, hidden until the page opens it",
@@ -341,14 +346,6 @@ defmodule WebWeb.PageControllerTest do
       refute card =~ "<video"
       # What it shows, as the key a closed card is remembered by.
       assert card =~ ~s(data-new="/blog/#{newest.slug} /logs/#{log.slug} /negatives/roll/001")
-    end
-
-    test "fresh names the newest post, never a draft", %{conn: conn} do
-      html = conn |> get(~p"/") |> html_response(200)
-      [section] = Regex.run(~r{<section[^>]*class="home-happening".*?</section>}s, html)
-
-      assert section =~ "home-happening-fresh"
-      refute section =~ "draft-post"
     end
   end
 end

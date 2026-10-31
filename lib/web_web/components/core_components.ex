@@ -533,15 +533,37 @@ defmodule WebWeb.CoreComponents do
   page that said what the site held. The unlisted pages are not in it, and the
   prayer pages are the author's to link.
   """
+  attr :active, :any, default: nil
+  attr :conn, :any, default: nil
+  attr :socket, :any, default: nil
+
   def site_sections(assigns) do
+    active =
+      cond do
+        assigns[:active] ->
+          to_string(assigns[:active])
+
+        conn = assigns[:conn] ->
+          path = (conn && Map.get(conn, :request_path)) || ""
+          section_from_path(path)
+
+        socket = assigns[:socket] ->
+          section_from_view(socket && Map.get(socket, :view))
+
+        true ->
+          nil
+      end
+
+    assigns = assign(assigns, :current_section, active)
+
     ~H"""
     <nav class="site-sections" aria-label="Sections">
-      <a href="/blog">Blog</a>
-      <a href="/logs">Captain's logs</a>
-      <a href="/negatives">Photographs</a>
-      <a href="/fitness">Fitness</a>
-      <a href="/daybook">Daybook</a>
-      <a href="/about">About</a>
+      <a href="/blog" class={["site-section-link", @current_section == "blog" && "is-active"]} aria-current={@current_section == "blog" && "page"}>Blog</a>
+      <a href="/logs" class={["site-section-link", @current_section == "logs" && "is-active"]} aria-current={@current_section == "logs" && "page"}>Videostream</a>
+      <a href="/negatives" class={["site-section-link", @current_section == "negatives" && "is-active"]} aria-current={@current_section == "negatives" && "page"}>Photographs</a>
+      <a href="/fitness" class={["site-section-link", @current_section == "fitness" && "is-active"]} aria-current={@current_section == "fitness" && "page"}>Fitness</a>
+      <a href="/daybook" class={["site-section-link", @current_section == "daybook" && "is-active"]} aria-current={@current_section == "daybook" && "page"}>Daybook</a>
+      <a href="/about" class={["site-section-link", @current_section == "about" && "is-active"]} aria-current={@current_section == "about" && "page"}>About</a>
     </nav>
     """
   end
@@ -555,6 +577,9 @@ defmodule WebWeb.CoreComponents do
   """
   attr :return_to, :string, default: "/"
   attr :return_label, :string, default: "return to homepage"
+  attr :active, :any, default: nil
+  attr :conn, :any, default: nil
+  attr :socket, :any, default: nil
 
   def blog_header(assigns) do
     assigns = assign(assigns, :destination, back_destination(assigns.return_label))
@@ -597,12 +622,46 @@ defmodule WebWeb.CoreComponents do
         </button>
       </div>
     </header>
-    <.site_sections />
+    <.site_sections active={@active} conn={@conn} socket={@socket} />
     """
   end
 
+  defp section_from_path(path) when is_binary(path) do
+    cond do
+      path == "/blog" or String.starts_with?(path, "/blog/") -> "blog"
+      path == "/logs" or String.starts_with?(path, "/logs/") -> "logs"
+      path == "/negatives" or String.starts_with?(path, "/negatives/") or String.starts_with?(path, "/archive") -> "negatives"
+      path == "/fitness" or String.starts_with?(path, "/fitness/") or String.starts_with?(path, "/rides") or String.starts_with?(path, "/regimen") -> "fitness"
+      path == "/daybook" or String.starts_with?(path, "/daybook/") or String.starts_with?(path, "/day/") -> "daybook"
+      path == "/about" or String.starts_with?(path, "/about/") -> "about"
+      true -> nil
+    end
+  end
+  defp section_from_path(_), do: nil
+
+  defp section_from_view(view) when not is_nil(view) do
+    view_str = to_string(view)
+    cond do
+      String.contains?(view_str, "Blog") -> "blog"
+      String.contains?(view_str, "Logs") -> "logs"
+      String.contains?(view_str, "Negatives") -> "negatives"
+      String.contains?(view_str, "Fitness") or String.contains?(view_str, "Rides") -> "fitness"
+      String.contains?(view_str, "Daybook") -> "daybook"
+      String.contains?(view_str, "About") -> "about"
+      true -> nil
+    end
+  end
+  defp section_from_view(_), do: nil
+
   # The arrow already says "back", so the label only has to say where to:
-  # "return to captain's logs" reads as "Captain's logs".
+  # "return to videostream" reads as "Videostream".
+  # Fallback to homepage defaults to "Home".
+  defp back_destination("return to homepage"), do: "Home"
+  defp back_destination("homepage"), do: "Home"
+  defp back_destination("return to Home"), do: "Home"
+  defp back_destination("Home"), do: "Home"
+  defp back_destination("return to videostream"), do: "Videostream"
+  defp back_destination("return to captain's logs"), do: "Videostream"
   defp back_destination(label) do
     String.replace(label, ~r/^(return|back) to /i, "")
   end

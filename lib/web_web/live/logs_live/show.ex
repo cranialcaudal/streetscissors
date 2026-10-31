@@ -25,7 +25,7 @@ defmodule WebWeb.LogsLive.Show do
 
     crumbs = [
       {"Home", ~p"/"},
-      {"Captain's Log", ~p"/logs"},
+      {"Videostream", ~p"/logs"},
       {Log.title(log), ~p"/logs/#{log.slug}"}
     ]
 
@@ -70,7 +70,7 @@ defmodule WebWeb.LogsLive.Show do
 
   defp og_description(log) do
     presence(Web.Markdown.to_text(log.description)) || presence(log.caption) ||
-      "A captain's log recording."
+      "A videostream recording."
   end
 
   # The id in the payload is attacker-controlled and this page has exactly one

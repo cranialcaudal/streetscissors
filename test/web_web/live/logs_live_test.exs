@@ -372,7 +372,7 @@ defmodule WebWeb.LogsLiveTest do
 
       assert html =~ ~s("@type":"AudioObject")
       assert html =~ ~s("@type":"BreadcrumbList")
-      assert html =~ ~s("name":"Captain's Log")
+      assert html =~ ~s("name":"Videostream")
     end
 
     test "a play is counted against the mounted log whatever the client claims", %{conn: conn} do

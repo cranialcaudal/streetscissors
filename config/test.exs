@@ -36,7 +36,6 @@ config :web, :blog_path, Path.expand("../test/support/fixtures/blog", __DIR__)
 config :web, :fitness_path, Path.expand("../test/support/fixtures/fitness", __DIR__)
 # Quick-add notes are appended to a scratch folder, never the committed fixtures.
 config :web, :notes_path, Path.join(System.tmp_dir!(), "streetscissors_test_notes")
-config :web, :england_path, Path.expand("../test/support/fixtures/england", __DIR__)
 config :web, :emails_path, Path.expand("../test/support/fixtures/emails", __DIR__)
 
 # The negatives archive too: a miniature one of synthetic scans. Tests that need

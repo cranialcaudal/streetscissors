@@ -100,6 +100,13 @@ defmodule Web.Scanner.DetectTest do
 
       assert {:ok, %{slide: false, color: "bw", format: "35mm"}} =
                Detect.classify(scan, 300, 0.1, 1.0)
+
+      # Roll 080: veiled black and white whose pictures sit near 13 of 255
+      # and whose clear gaps sit near 28 (a ratio just over 2.0).
+      dense = look(strip_of(List.duplicate({14, 12, 13}, 5), {30, 26, 28}))
+
+      assert {:ok, %{slide: false, color: "bw", format: "35mm"}} =
+               Detect.classify(dense, 300, 0.1, 1.0)
     end
 
     test "a slide's gaps are its blackest, so it stays a slide" do

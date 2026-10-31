@@ -21,7 +21,7 @@ defmodule WebWeb.DaybookHTML do
 
   @doc "What a section of a day is called."
   def kind_heading(:post), do: "Writing"
-  def kind_heading(:log), do: "Captain's logs"
+  def kind_heading(:log), do: "Videostream"
   def kind_heading(:roll), do: "Film"
   def kind_heading(:ride), do: "Activities"
 

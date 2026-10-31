@@ -84,7 +84,7 @@ defmodule WebWeb.AdminLive.Cuts do
     <.page_head title="Cutting room">
       <:lede>
         Put a captain's log together from several takes, prints from the archive, titles and
-        music. A cut is rendered into a log, which is published from Captain's Logs like any
+        music. A cut is rendered into a log, which is published from Videostream like any
         other, and can be cut again: its takes are kept.
       </:lede>
       <:actions>

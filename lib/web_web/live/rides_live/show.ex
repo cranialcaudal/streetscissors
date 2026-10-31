@@ -10,15 +10,20 @@ defmodule WebWeb.RidesLive.Show do
   alias Web.Rides
   alias WebWeb.Activity
 
-  def mount(%{"id" => id}, _session, socket) do
+  def mount(%{"id" => id}, session, socket) do
     ride = Rides.get_ride(id) || raise Ecto.NoResultsError, queryable: Web.Rides.Ride
+
+    # Komoot's embed and its link carry the tour's id (and a private tour's
+    # share token), which open the author's page there: only the admin gets them.
+    admin? = session["admin_user"] == true
 
     {:ok,
      assign(socket,
+       is_admin: admin?,
        ride: ride,
        ceiling: Rides.heart_rate_ceiling(),
-       komoot_url: Rides.tour_url(ride),
-       page_title: Activity.title(ride)
+       komoot_url: admin? && Rides.tour_url(ride),
+       page_title: Activity.title(ride, admin?)
      )}
   end
 
@@ -29,14 +34,14 @@ defmodule WebWeb.RidesLive.Show do
 
       <article class="activity-feature">
         <Activity.meta ride={@ride} />
-        <h1 class="activity-title">{Activity.title(@ride)}</h1>
+        <h1 class="activity-title">{Activity.title(@ride, @is_admin)}</h1>
 
         <Activity.health ride={@ride} detail ceiling={@ceiling} />
         <Activity.power ride={@ride} />
 
         <%!-- Komoot's embed for every tour it will show — a private one through
               its share token — else the static map cached at sync time. --%>
-        <Activity.plate ride={@ride} downhill loading="eager" />
+        <Activity.plate ride={@ride} downhill loading="eager" admin={@is_admin} />
 
         <a
           :if={@komoot_url}

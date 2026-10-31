@@ -57,8 +57,10 @@ TOO_FAST <- 20 # m/s (72 km/h): faster is a car, a train or a GPS jump, not ridi
 FLAT_OUT <- 16 # m/s (58 km/h): faster than this anywhere but downhill is not pedalled
 CARRIED <- 0.05 # a ride carried this share of its moving time is a mixed trip: no estimate
 GRADE_SPAN <- 60 # m of road the slope is measured over
-SHORTEST <- 2000 # m: a shorter "ride" is a recording left running, not a ride
+SHORTEST <- 321.87 # m (0.2 mi, matching Web.Rides): every listed bike ride is estimated
+MIN_RIDING_S <- 60 # s of moving time required
 SLOWEST <- 2.5 # m/s (9 km/h) moving average: slower is a bike pushed, not ridden
+PEAK_WINDOW_S <- 30 # s of riding over which peak power is measured
 
 # The settings when the private file is missing, for a fresh clone: an
 # average man on an average road bike. The real ones live in content/.
@@ -67,7 +69,10 @@ DEFAULTS <- list(
   sports = list(
     racebike = list(bike_kg = 8.5, cda = 0.32, crr = 0.0045),
     touringbicycle = list(bike_kg = 13, cda = 0.40, crr = 0.006),
-    mtb = list(bike_kg = 13.5, cda = 0.45, crr = 0.012)
+    mtb = list(bike_kg = 13.5, cda = 0.45, crr = 0.012),
+    mtb_easy = list(bike_kg = 13.5, cda = 0.45, crr = 0.012),
+    mtb_advanced = list(bike_kg = 14.0, cda = 0.46, crr = 0.012),
+    downhillbike = list(bike_kg = 15.0, cda = 0.48, crr = 0.014)
   )
 )
 
@@ -102,6 +107,23 @@ smooth_over <- function(d, y, span) {
   vapply(seq_along(d), function(i) mean(y[abs(d - d[i]) <= span / 2]), numeric(1))
 }
 
+# Peak sustained power over PEAK_WINDOW_S of riding time.
+peak_from_riding <- function(w, dt, riding) {
+  wr <- w[riding]; dtr <- dt[riding]
+  if (length(wr) == 0) return(0)
+  total_s <- sum(dtr)
+  if (total_s <= PEAK_WINDOW_S) return(sum(wr * dtr) / total_s)
+  t_end <- cumsum(dtr)
+  t_mid <- t_end - dtr / 2
+  half <- PEAK_WINDOW_S / 2
+  pw <- vapply(seq_along(wr), function(i) {
+    in_win <- abs(t_mid - t_mid[i]) <= half
+    if (sum(dtr[in_win]) < PEAK_WINDOW_S * 0.6) return(0)
+    sum(wr[in_win] * dtr[in_win]) / sum(dtr[in_win])
+  }, numeric(1))
+  max(pw)
+}
+
 # From a profile: stretch by stretch.
 from_profile <- function(p, m, cda, crr, temp_c) {
   t <- as.numeric(p$t); d <- as.numeric(p$d); alt <- as.numeric(p$alt)
@@ -119,22 +141,38 @@ from_profile <- function(p, m, cda, crr, temp_c) {
   # level road. One trip on record was partly driven, at 114-128 km/h.
   carried <- keep & (v > TOO_FAST | (v > FLAT_OUT & slope > -0.02))
   moving_all <- sum(dt[keep & v >= STOPPED])
-  if (moving_all > 0 && sum(dt[carried]) / moving_all > CARRIED) return(list(carried = TRUE))
+  if (moving_all > 0 && sum(dt[carried]) / moving_all > CARRIED) {
+    if (sum(dt[carried]) / moving_all <= 0.35) {
+      first_c <- which(carried)[1]
+      cut_t <- t[first_c] - 60
+      keep <- keep & (head(t, -1) < cut_t)
+      carried <- carried & keep
+    } else {
+      return(list(carried = TRUE))
+    }
+  }
   riding <- keep & v >= STOPPED & !carried
-  if (sum(dt[riding]) < 300) return(NULL)
+  moving <- sum(dt[riding])
+  if (moving < MIN_RIDING_S || sum(road[riding]) / moving < SLOWEST) return(NULL)
   # the speed at each point: the mean of the stretches either side of it
-  at <- c(v[1], (head(v, -1) + tail(v, -1)) / 2, v[length(v)])
+  v_clean <- ifelse(riding, v, 0)
+  at <- c(v_clean[1], (head(v_clean, -1) + tail(v_clean, -1)) / 2, v_clean[length(v_clean)])
   v0 <- head(at, -1); v1 <- tail(at, -1)
   rho <- air_density(mean(alt), temp_c)
-  w <- pedal_power(v, slope, v0, v1, pmax(dt, 1), m, cda, crr, rho)
+  w <- pedal_power(v_clean, slope, v0, v1, pmax(dt, 1), m, cda, crr, rho)
   w <- ifelse(riding, pmax(0, w), 0)
-  moving <- sum(dt[riding])
+  slope_peak <- pmax(-0.15, pmin(0.15, slope))
+  w_steady <- pedal_power(v_clean, slope_peak, v_clean, v_clean, 1, m, cda, crr, rho)
+  w_steady <- ifelse(riding, pmax(0, w_steady), 0)
+  avg_w <- sum(w * dt) / moving
+  peak_w <- max(avg_w, peak_from_riding(w_steady, dt, riding))
   list(
     basis = "profile",
-    avg_w = sum(w * dt) / moving,
+    avg_w = avg_w,
+    peak_w = peak_w,
     work_kj = sum(w * dt) / 1000,
     moving_s = moving,
-    climb_share = sum((m * G * slope * v / CHAIN * dt)[riding & slope > 0 & w > 0]) / max(sum(w * dt), 1),
+    climb_share = sum((m * G * slope * v_clean / CHAIN * dt)[riding & slope > 0 & w > 0]) / max(sum(w * dt), 1),
     rho = rho
   )
 }
@@ -146,13 +184,18 @@ from_profile <- function(p, m, cda, crr, temp_c) {
 from_totals <- function(r, m, cda, crr, temp_c) {
   moving <- r$time_in_motion_s
   if (is.na(moving) || moving <= 0) moving <- r$duration_s
-  if (is.na(moving) || moving < 300 || is.na(r$distance_m)) return(NULL)
+  if (is.na(moving) || moving < MIN_RIDING_S || is.na(r$distance_m)) return(NULL)
   v <- r$distance_m / moving
+  if (v < SLOWEST) return(NULL)
   rho <- air_density(0, temp_c)
   flat <- pedal_power(v, 0, v, v, 1, m, cda, crr, rho)
   climb <- m * G * max(0, ifelse(is.na(r$ascent_m), 0, r$ascent_m)) / moving / CHAIN
   w <- flat + climb
-  list(basis = "totals", avg_w = w, work_kj = w * moving / 1000, moving_s = moving,
+  v_peak <- max(v * 1.35, v + 2.0)
+  grade_peak <- min(0.08, max(0.02, ifelse(is.na(r$ascent_m) || r$distance_m <= 0, 0.02, (r$ascent_m / r$distance_m) * 3)))
+  slope_peak <- grade_peak / sqrt(1 + grade_peak^2)
+  peak_w <- max(w * 1.5, pedal_power(v_peak, slope_peak, v_peak, v_peak, 1, m, cda, crr, rho))
+  list(basis = "totals", avg_w = w, peak_w = peak_w, work_kj = w * moving / 1000, moving_s = moving,
        climb_share = climb / w, rho = rho)
 }
 
@@ -181,7 +224,11 @@ estimate_all <- function(db, settings) {
   rides <- dbGetQuery(con, paste(
     "SELECT id, sport, started_at, distance_m, duration_s, time_in_motion_s, ascent_m,",
     if (has_profile) "profile" else "NULL AS profile", "FROM rides"))
-  checkins <- dbGetQuery(con, "SELECT date, answers FROM fitness_checkins")
+  checkins <- if ("fitness_checkins" %in% dbListTables(con)) {
+    dbGetQuery(con, "SELECT date, answers FROM fitness_checkins")
+  } else {
+    data.frame(date = character(), answers = character())
+  }
   weights <- data.frame(date = as.Date(character()), kg = numeric())
   for (i in seq_len(nrow(checkins))) {
     lb <- suppressWarnings(as.numeric(fromJSON(checkins$answers[[i]])$bodyweight))
@@ -193,8 +240,7 @@ estimate_all <- function(db, settings) {
     r <- rides[i, ]
     bike <- settings$sports[[r$sport]]
     if (is.null(bike)) next # walking, running, e-bikes: no pedal power to estimate
-    moving <- if (!is.na(r$time_in_motion_s) && r$time_in_motion_s > 0) r$time_in_motion_s else r$duration_s
-    if (is.na(r$distance_m) || r$distance_m < SHORTEST || is.na(moving) || r$distance_m / moving < SLOWEST) next
+    if (is.na(r$distance_m) || r$distance_m < SHORTEST) next
     day <- as.Date(substr(r$started_at, 1, 10))
     rider <- rider_mass(day, weights, settings$rider_kg)
     m <- rider$kg + bike$bike_kg + settings$kit_kg
@@ -204,10 +250,10 @@ estimate_all <- function(db, settings) {
     if (is.null(e)) e <- from_totals(r, m, bike$cda, bike$crr, settings$temp_c)
     if (is.null(e)) next
     out[[length(out) + 1]] <- list(
-      id = r$id, basis = e$basis, avg_w = round(e$avg_w, 1), work_kj = round(e$work_kj, 1),
-      moving_s = round(e$moving_s), climb_share = round(e$climb_share, 3),
-      mass_kg = round(m, 1), weight_from = rider$from, cda = bike$cda, crr = bike$crr,
-      rho = round(e$rho, 4)
+      id = r$id, basis = e$basis, avg_w = round(e$avg_w, 1), peak_w = round(e$peak_w, 1),
+      work_kj = round(e$work_kj, 1), moving_s = round(e$moving_s),
+      climb_share = round(e$climb_share, 3), mass_kg = round(m, 1),
+      weight_from = rider$from, cda = bike$cda, crr = bike$crr, rho = round(e$rho, 4)
     )
   }
   out

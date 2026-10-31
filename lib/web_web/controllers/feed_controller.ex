@@ -52,7 +52,7 @@ defmodule WebWeb.FeedController do
 
     feed(conn, items,
       title: "streetscissors",
-      description: "streetscissors — essays, captain's logs and film",
+      description: "streetscissors — essays, videostream and film",
       self_path: "/feed"
     )
   end
@@ -91,7 +91,7 @@ defmodule WebWeb.FeedController do
   defp log_items(logs) do
     for log <- logs do
       %{
-        title: "Captain's log · " <> Log.title(log),
+        title: "Videostream · " <> Log.title(log),
         description:
           log.caption || nonblank(Web.Markdown.to_text(log.description)) || "A #{log.kind} log.",
         path: "/logs/#{log.slug}",

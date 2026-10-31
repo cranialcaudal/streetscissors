@@ -17,7 +17,7 @@ defmodule WebWeb.FitnessLandingTest do
 
       assert html =~ "weekly-routine"
       assert html =~ ~s(class="day-details day-page" data-day="#{today}")
-      assert html =~ "Additional Modules"
+      assert html =~ "Optional add-ons"
 
       for other <- @weekdays -- [today] do
         refute html =~ ~s(data-day="#{other}")
@@ -61,7 +61,8 @@ defmodule WebWeb.FitnessLandingTest do
     end
 
     test "the section's tabs lead, then the workout, then the week", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness/day/sunday")
+      {:ok, _view, html} =
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/sunday")
 
       {wiki, _} = :binary.match(html, ~s(href="/fitness/wiki"))
       {activities, _} = :binary.match(html, ~s(href="/fitness/rides"))
@@ -89,10 +90,12 @@ defmodule WebWeb.FitnessLandingTest do
       assert html =~ "Band rows"
       assert html =~ "/fitness/wiki/push-ups"
       assert option_count(html, "tuesday") == 0
-      # Its line of week.md leads the page, with no clock times for a visitor.
+      # Its line of week.md is the admin's: a visitor is not shown where the
+      # week's work, rides and games happen, nor the shape of the week.
       [head] = Regex.run(~r{<header class="day-page-head">.*?</header>}s, html)
-      assert head =~ "Morning Spin"
+      refute head =~ "Morning Spin"
       refute head =~ ~r/\d{1,2}:\d{2}/
+      refute html =~ ~s(id="the-week")
     end
 
     test "a rotating day renders each option as a dropdown, one marked this week",
@@ -106,54 +109,25 @@ defmodule WebWeb.FitnessLandingTest do
     end
   end
 
+  # The fuelling plan (calories, macros, supplements) is the admin's own, at
+  # /admin/fitness/fueling. No one is shown it on /fitness, the admin included.
   describe "fuelling" do
-    test "the fuelling module renders its targets", %{conn: conn} do
+    test "is nowhere on the public page", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")
 
-      assert html =~ ~s(data-day="nutrition-module")
-      assert html =~ "Fuelling"
-      assert html =~ "Daily Targets"
-      assert html =~ "100 g protein"
-    end
-
-    # The day's workout comes first. Fuelling is a daily reference, so it
-    # rides open in a side rail — after the workout in the markup, which is
-    # where it lands when the rail folds on a narrow screen.
-    test "fuelling sits open in a side rail after the workout", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
-
-      assert html =~ ~s(class="fuelling-rail")
-      assert html =~ ~s(data-day="nutrition-module" open)
-
-      {weekly, _} = :binary.match(html, ~s(class="day-details day-page"))
-      {additional, _} = :binary.match(html, "Additional Modules")
-      {rail, _} = :binary.match(html, ~s(class="fuelling-rail"))
-      {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
-
-      assert weekly < rail
-      assert additional < rail
-      assert rail < fuelling
-    end
-
-    # GymRoutine keys saved ticks on `vault_gym_<data-day>_<index>` scoped to
-    # #weekly-routine. Pinning it outside that element would detach every one.
-    test "fuelling stays inside the checkbox-persistence scope", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
-
-      {hook, _} = :binary.match(html, ~s(id="weekly-routine"))
-      {fuelling, _} = :binary.match(html, ~s(data-day="nutrition-module"))
-
-      assert hook < fuelling
-      assert html =~ ~s(class="day-details" data-day="nutrition-module")
-    end
-
-    # The page is public and checklist_only/1 is the only thing keeping it that
-    # way. The derivation in the day body must never reach the HTML.
-    test "the fuelling derivation stays out of the public page", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
-
+      refute html =~ ~s(data-day="nutrition-module")
+      refute html =~ "fuelling-rail"
+      refute html =~ "Daily Targets"
+      refute html =~ "100 g protein"
       refute html =~ "Maintenance estimate"
       refute html =~ "fixture bodyweight"
+    end
+
+    test "is not on a day page either", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/fitness/day/tuesday")
+
+      refute html =~ ~s(data-day="nutrition-module")
+      refute html =~ "fuelling-rail"
     end
   end
 
@@ -187,7 +161,8 @@ defmodule WebWeb.FitnessLandingTest do
       # LiveView gives a click to the nearest ancestor with phx-click, so one
       # on the backdrop closed the form whenever a field was clicked.
       refute has_element?(view, ".log-modal-backdrop[phx-click]")
-      assert has_element?(view, ".log-modal[phx-click-away=close_log]")
+      # Nor does a tap outside it: on a phone mid-set that lost what was typed.
+      refute has_element?(view, ".log-modal[phx-click-away]")
 
       render_keydown(view, "log_key", %{"key" => "2"})
       assert has_element?(view, "form[phx-submit=save_log]")
@@ -399,14 +374,17 @@ defmodule WebWeb.FitnessLandingTest do
 
     test "the planned sets show as chips, and a tap logs one and starts the rest", %{view: view} do
       assert view |> element("#sets-push-ups") |> render() |> count_chips("log-set\"") == 3
-      refute has_element?(view, ".rest-timer")
+      assert has_element?(view, "#rest-bar[hidden]")
 
       render_click(view, "set_done", %{"slug" => "push-ups"})
 
       assert [%{metrics: metrics}] = Web.Fitness.list_exercise_logs()
       assert %{"sets" => "1", "reps" => "12", "set_list" => [%{"r" => 12}]} = metrics
       assert has_element?(view, "#sets-push-ups .log-set.is-done", "12 reps")
-      assert has_element?(view, ".rest-timer[phx-hook]")
+      # The rest bar keeps the count in the browser, so the server only says
+      # when it starts and for how long.
+      assert_push_event(view, "rest:start", %{seconds: seconds})
+      assert seconds > 0
       refute has_element?(view, "#rpe-push-ups"), "the RPE waits for the last planned set"
     end
 
@@ -592,22 +570,22 @@ defmodule WebWeb.FitnessLandingTest do
 
   describe "The Week" do
     test "renders every day, each a link to its page, with today marked", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
+      {:ok, _view, html} =
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
 
       assert Regex.scan(~r/data-week-day="/, html) |> length() == 7
       assert html =~ ~s(data-week-day="#{Web.Clock.today_slug()}" class="week-row is-today")
       assert week_section(html) =~ ~s(href="/fitness/day/thursday")
     end
 
-    # /fitness is public: visitors get the shape of each day, never when.
-    test "visitors see no clock times", %{conn: conn} do
+    # /fitness is public: visitors get neither the shape of the week nor when.
+    test "visitors are not shown the week at all", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/fitness")
-      section = week_section(html)
 
-      assert section =~ "Morning Spin"
-      refute section =~ ~r/\d{1,2}:\d{2}/
-      refute section =~ "week-track"
-      refute section =~ "week-axis"
+      refute html =~ ~s(id="the-week")
+      refute html =~ "Morning Spin"
+      refute html =~ "week-track"
+      refute html =~ "week-chips"
     end
 
     test "the admin sees the timed view", %{conn: conn} do

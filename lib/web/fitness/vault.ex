@@ -182,10 +182,52 @@ defmodule Web.Fitness.Vault do
               body <> "\n\n" <> modules_body
           end
 
-        {:ok, meta, body}
+        {:ok, meta, this_week(body, block_week(Web.Clock.local_today()))}
 
       {:error, _} ->
         :error
+    end
+  end
+
+  @doc """
+  A module's week-by-week lines, cut to the week that is running: a
+  checklist line that opens "Week 3:" or "Weeks 6–7:" stays only in those
+  weeks, and reads "Week 3 of 8:", so a day shows what it asks this week and
+  not the whole block. `week` is `{week, weeks}` from the running block, or
+  nil outside one, when every line stays as written. Week 0, the practice
+  week before the block, shows week 1's lines, labelled as practice.
+  """
+  def this_week(md, nil), do: md
+
+  def this_week(md, {week, weeks}) do
+    {use, label} =
+      if week == 0, do: {1, "Practice week (as week 1)"}, else: {week, "Week #{week} of #{weeks}"}
+
+    md
+    |> String.split("\n")
+    |> Enum.flat_map(fn line ->
+      case Regex.run(
+             ~r/^([-*]\s+\[[ xX]\]\s*(?:\*\*)?)Weeks?\s+(\d+)(?:\s*[–-]\s*(\d+))?(\*\*)?:\s*(.*)$/u,
+             line
+           ) do
+        [_, lead, from, to, _bold, rest] ->
+          {from, to} =
+            {String.to_integer(from),
+             if(to == "", do: String.to_integer(from), else: String.to_integer(to))}
+
+          if use in from..to//1, do: ["#{lead}#{label}: #{rest}"], else: []
+
+        nil ->
+          [line]
+      end
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp block_week(date) do
+    case Web.Fitness.Block.current(date) do
+      %{week: week, weeks: weeks} when week >= 0 -> {week, weeks}
+      _ -> nil
     end
   end
 
@@ -328,14 +370,67 @@ defmodule Web.Fitness.Vault do
     end
   end
 
-  @doc "Returns list of exercises in a muscle group folder."
+  @beginner_exercises ~w(
+    push-ups
+    bench-press
+    dumbbell-bench-press
+    pull-ups
+    pull-up-negatives
+    scapular-pull-ups
+    inverted-rows
+    seated-cable-row
+    chin-tucks
+    band-pull-aparts
+    bulgarian-split-squat
+    reverse-lunges
+    dumbbell-rdl
+    glute-bridges
+    hip-thrusts
+    back-extensions
+  )
+
+  @doc "Slugs of exercises actively used in the current regimen or kept as foundational beginner movements."
+  def visible_exercise_slugs do
+    day_paths =
+      for day <- @day_order,
+          path = find_day_path(day),
+          File.exists?(path),
+          do: path
+
+    module_paths =
+      for path <- day_paths,
+          {key, value} <- parse_frontmatter(path),
+          key == "modules" or Regex.match?(~r/^option_\d+$/, key),
+          slug <- value |> String.split("|") |> hd() |> String.split(","),
+          slug = String.trim(slug),
+          slug != "",
+          m_path = Path.join([base_path(), "modules", slug <> ".md"]),
+          File.exists?(m_path),
+          do: m_path
+
+    active_slugs =
+      for path <- Enum.uniq(day_paths ++ module_paths),
+          {:ok, content} = File.read(path),
+          [_, slug] <- Regex.scan(~r/\[\[([a-z0-9][a-z0-9-]*)(?:\|[^\]]+)?\]\]/u, content),
+          into: MapSet.new(),
+          do: slug
+
+    MapSet.union(active_slugs, MapSet.new(@beginner_exercises))
+  end
+
+  @doc "Returns list of exercises in a muscle group folder (filtered to active + beginner exercises)."
   def list_exercises(group) do
     dir = Path.join([base_path(), "exercise-wiki", group])
+    visible = visible_exercise_slugs()
 
     case File.ls(dir) do
       {:ok, files} ->
         files
         |> Enum.filter(&String.ends_with?(&1, ".md"))
+        |> Enum.filter(fn filename ->
+          slug = String.replace(filename, ".md", "")
+          MapSet.member?(visible, slug)
+        end)
         |> Enum.map(fn filename ->
           slug = String.replace(filename, ".md", "")
           path = Path.join(dir, filename)
@@ -444,6 +539,7 @@ defmodule Web.Fitness.Vault do
     |> Enum.map(fn group ->
       {group, list_exercises(group)}
     end)
+    |> Enum.reject(fn {_group, list} -> list == [] end)
   end
 
   @doc "Finds an exercise by slug across all muscle groups."
@@ -464,10 +560,17 @@ defmodule Web.Fitness.Vault do
            thumbnail_url: meta["thumbnail_url"],
            short_description: meta["short_description"],
            references: resolve_references(meta["references"]),
-           html: strip_frontmatter(File.read!(path)) |> render_markdown()
+           html: strip_frontmatter(File.read!(path)) |> trim_wiki_body() |> render_markdown()
          }}
       end
     end)
+  end
+
+  defp trim_wiki_body(markdown) do
+    markdown
+    |> String.replace(~r/\n*###\s+Why it works.*$/ms, "")
+    |> String.replace(~r/\n*###\s+Programming notes.*$/ms, "")
+    |> String.trim()
   end
 
   @doc """

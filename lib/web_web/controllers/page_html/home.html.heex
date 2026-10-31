@@ -144,64 +144,15 @@
       />
     </a>
 
-    <%!-- Fitness Sub-row: Three skinny boxes --%>
-    <div class="bento-fitness-sub-row bento-fitness-sub-row--three">
+    <%!-- Sub-row: Two skinny boxes --%>
+    <div class="bento-fitness-sub-row">
       <a href={~p"/logs?from=home"} class="bento-card bento-card-skinny">
-        <span class="bento-label-small">Captain's Logs</span>
+        <span class="bento-label-small">Videostream</span>
       </a>
       <a href={~p"/about?from=home"} class="bento-card bento-card-skinny">
         <span class="bento-label-small">About Me</span>
       </a>
-      <a href={~p"/Christ"} class="bento-card bento-card-skinny">
-        <span class="bento-label-small">Christ</span>
-      </a>
     </div>
-    <%!-- Happening (Web.Happening): what is going on, what is new, and what
-          people looked at this week. Dates only, never a clock time; on the
-          locked phone layout only the Now line shows (home.css). --%>
-    <section
-      :if={@happening.now.block || @happening.now.ride || @happening.fresh != []}
-      class="home-happening"
-      aria-label="Happening"
-    >
-      <div class="home-happening-col home-happening-now">
-        <h2 class="home-happening-head">Now</h2>
-        <p :if={@happening.now.block} class="home-happening-line">
-          <a href={~p"/fitness"}>{@happening.now.block}</a>
-        </p>
-        <p :if={@happening.now.ride} class="home-happening-line">
-          <a href={@happening.now.ride.path}>
-            {@happening.now.ride.sport}, {@happening.now.ride.distance}
-          </a>
-          <span class="home-happening-date">
-            {Calendar.strftime(@happening.now.ride.date, "%-d %b")}
-          </span>
-        </p>
-        <p :if={@happening.now.reading} class="home-happening-line">
-          Reading {@happening.now.reading}
-        </p>
-      </div>
-      <div :if={@happening.fresh != []} class="home-happening-col home-happening-fresh">
-        <h2 class="home-happening-head">Fresh</h2>
-        <p :for={item <- @happening.fresh} class="home-happening-line">
-          <span class="home-happening-kind">{item.kind}</span>
-          <a href={item.path}>{item.title}</a>
-          <span :if={item.date} class="home-happening-date">
-            {Calendar.strftime(item.date, "%-d %b")}
-          </span>
-        </p>
-      </div>
-      <div :if={@happening.witnessed != []} class="home-happening-col home-happening-witnessed">
-        <h2 class="home-happening-head">Witnessed this week</h2>
-        <p :for={item <- @happening.witnessed} class="home-happening-line">
-          <span class="home-happening-kind">{item.kind}</span>
-          <a href={item.path}>{item.title}</a>
-          <span class="home-happening-date">
-            {item.people} {if item.people == 1, do: "person", else: "people"}
-          </span>
-        </p>
-      </div>
-    </section>
     <%!-- One sentence saying what the site is, when the author has written
           one (Settings: "Homepage sentence"). Nothing when he has not. --%>
     <p :if={@site_description} class="home-about">{@site_description}</p>
@@ -229,7 +180,7 @@
       <a
         :if={@lately.log}
         href={@lately.log.path}
-        class="new-item"
+        class={["new-item", @latest_type == :log && "new-item--latest"]}
         data-preview={@lately.log.video}
       >
         <span class="new-plate new-plate--video">
@@ -246,7 +197,7 @@
           </svg>
         </span>
         <span class="new-text">
-          <span class="new-kind">Captain's log</span>
+          <span class="new-kind">Videostream</span>
           <span class="new-name">{@lately.log.title}</span>
           <span :if={@lately.log.duration} class="new-meta">
             {WebWeb.LogsLive.Format.format_duration(@lately.log.duration)}
@@ -254,7 +205,7 @@
         </span>
       </a>
 
-      <a :for={post <- Enum.take(@lately.posts, 1)} href={post.path} class="new-item">
+      <a :for={post <- Enum.take(@lately.posts, 1)} href={post.path} class={["new-item", @latest_type == :post && "new-item--latest"]}>
         <span class={["new-plate", !post.cover && "new-plate--type"]}>
           <img
             :if={post.cover}
@@ -276,7 +227,7 @@
         </span>
       </a>
 
-      <a :if={@lately.roll} href={@lately.roll.path} class="new-item">
+      <a :if={@lately.roll} href={@lately.roll.path} class={["new-item", @latest_type == :roll && "new-item--latest"]}>
         <span class="new-plate">
           <img
             src={Web.Negatives.sized_url(@lately.roll.preview_url, 480)}
@@ -301,13 +252,20 @@
       <a href={~p"/how-to?from=home"} class="home-footer-link">How this is made</a>
       <WebWeb.Microformats.representative_card />
       <a
-        href={~p"/admin/login"}
-        title="Admin Dashboard"
-        style="opacity: 0.4; margin-left: 0.5rem; font-size: 1.2rem; text-decoration: none; transition: opacity 0.2s;"
-        onmouseover="this.style.opacity='1'"
-        onmouseout="this.style.opacity='0.4'"
+        href={~p"/Christ"}
+        title="Christ · Prayer &amp; Scripture"
+        class="home-footer-symbol"
+        aria-label="Christ: Prayer and Scripture"
       >
         ☧
+      </a>
+      <a
+        href={~p"/admin/login"}
+        title="Admin Dashboard"
+        class="home-footer-symbol"
+        aria-label="Admin Dashboard"
+      >
+        Ω
       </a>
     </footer>
   </section>

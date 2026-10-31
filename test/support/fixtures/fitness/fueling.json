@@ -1,0 +1,170 @@
+{
+  "lede": "An invented plan for the tests.",
+  "totals_note": "Totals for the fixture.",
+  "morning_title": "Morning supplements",
+  "evening_title": "Evening supplements",
+  "days": {
+    "monday": {
+      "slug": "monday",
+      "short": "Mon",
+      "name": "Monday",
+      "sessions": "Easy spin",
+      "kcal": 2200,
+      "protein": "120 g",
+      "carbs": "280 g",
+      "fat": "60 g",
+      "fiber": "35 g",
+      "water": "90 oz",
+      "sodium": "3,000 mg",
+      "ph_tabs": "1 tab with the long session",
+      "slots": [
+        {
+          "slot": "Meal 1 · Breakfast",
+          "window": "Before training",
+          "food": "Oatmeal with berries",
+          "kcal": "600",
+          "protein": "35 g",
+          "carbs": "80 g",
+          "fat": "15 g",
+          "fiber": "8 g"
+        },
+        {
+          "slot": "Snack 1",
+          "window": "Mid-morning",
+          "food": "An apple and almonds",
+          "kcal": "250",
+          "protein": "6 g",
+          "carbs": "25 g",
+          "fat": "14 g",
+          "fiber": "6 g"
+        }
+      ],
+      "totals": {
+        "kcal": "850",
+        "protein": "41 g",
+        "carbs": "105 g",
+        "fat": "29 g",
+        "fiber": "14 g"
+      }
+    },
+    "tuesday": {
+      "slug": "tuesday",
+      "short": "Tue",
+      "name": "Tuesday",
+      "sessions": "Intervals",
+      "kcal": 2600,
+      "protein": "120 g",
+      "carbs": "340 g",
+      "fat": "60 g",
+      "fiber": "35 g",
+      "water": "90 oz",
+      "sodium": "3,000 mg",
+      "ph_tabs": "1 tab with the long session",
+      "slots": [
+        {
+          "slot": "Meal 1 · Breakfast",
+          "window": "Before training",
+          "food": "Rice bowl with eggs",
+          "kcal": "600",
+          "protein": "35 g",
+          "carbs": "80 g",
+          "fat": "15 g",
+          "fiber": "8 g"
+        },
+        {
+          "slot": "Snack 1",
+          "window": "Mid-morning",
+          "food": "An apple and almonds",
+          "kcal": "250",
+          "protein": "6 g",
+          "carbs": "25 g",
+          "fat": "14 g",
+          "fiber": "6 g"
+        }
+      ],
+      "totals": {
+        "kcal": "850",
+        "protein": "41 g",
+        "carbs": "105 g",
+        "fat": "29 g",
+        "fiber": "14 g"
+      }
+    },
+    "saturday": {
+      "slug": "saturday",
+      "short": "Sat",
+      "name": "Saturday",
+      "sessions": "Long ride",
+      "kcal": 3100,
+      "protein": "120 g",
+      "carbs": "420 g",
+      "fat": "60 g",
+      "fiber": "35 g",
+      "water": "90 oz",
+      "sodium": "3,000 mg",
+      "ph_tabs": "1 tab with the long session",
+      "slots": [
+        {
+          "slot": "Meal 1 · Breakfast",
+          "window": "Before training",
+          "food": "Pancakes and fruit",
+          "kcal": "600",
+          "protein": "35 g",
+          "carbs": "80 g",
+          "fat": "15 g",
+          "fiber": "8 g"
+        },
+        {
+          "slot": "Snack 1",
+          "window": "Mid-morning",
+          "food": "An apple and almonds",
+          "kcal": "250",
+          "protein": "6 g",
+          "carbs": "25 g",
+          "fat": "14 g",
+          "fiber": "6 g"
+        }
+      ],
+      "totals": {
+        "kcal": "850",
+        "protein": "41 g",
+        "carbs": "105 g",
+        "fat": "29 g",
+        "fiber": "14 g"
+      }
+    }
+  },
+  "morning_supplements": [
+    {
+      "name": "Vitamin D",
+      "dose": "1,000 IU",
+      "how": "With breakfast",
+      "url": "https://example.com/vitamin-d"
+    },
+    {
+      "name": "Electrolyte tab",
+      "dose": "1 tab",
+      "how": "In the bottle",
+      "url": null
+    }
+  ],
+  "evening_supplements": [
+    {
+      "name": "Magnesium",
+      "dose": "200 mg",
+      "how": "With dinner",
+      "url": null
+    }
+  ],
+  "staples": [
+    {
+      "item": "Oatmeal",
+      "serving": "1 cup cooked",
+      "kcal": "160",
+      "protein": "6 g",
+      "carbs": "27 g",
+      "fat": "3 g",
+      "fiber": "4 g"
+    }
+  ]
+}

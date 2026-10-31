@@ -47,11 +47,12 @@ defmodule WebWeb.Plugs.Analytics do
     if not filtered?(path) do
       ip = Visitor.ip(conn)
       ua = Visitor.user_agent(conn) || "unknown"
+      ref = clean_referrer(get_req_header(conn, "referer") |> List.first())
 
       if Visitor.counted?(ip, ua, get_session(conn, "admin_user") == true) do
         hash = Analytics.hash_ip(ip)
 
-        insert = fn -> Analytics.record_hit(path, ua, hash) end
+        insert = fn -> Analytics.record_hit(path, ua, hash, ref) end
 
         # Inline in the suite (`:analytics_async` false), where a test counts
         # the hit the moment its request returns.
@@ -62,6 +63,29 @@ defmodule WebWeb.Plugs.Analytics do
     end
 
     :ok
+  end
+
+  @doc "Strips internal self-referrals and normalizes external referrer hostnames."
+  def clean_referrer(nil), do: nil
+  def clean_referrer(""), do: nil
+
+  def clean_referrer(ref) when is_binary(ref) do
+    case URI.parse(ref) do
+      %URI{host: host} when is_binary(host) ->
+        down = String.downcase(host)
+
+        if String.contains?(down, "streetscissors.com") or
+             down in ["localhost", "127.0.0.1", "::1"] do
+          nil
+        else
+          String.replace(down, ~r/^www\./, "")
+        end
+
+      _ ->
+        nil
+    end
+  rescue
+    _ -> nil
   end
 
   defp filtered?(path) do

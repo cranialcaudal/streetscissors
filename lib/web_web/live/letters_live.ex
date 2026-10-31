@@ -139,9 +139,6 @@ defmodule WebWeb.LettersLive do
         </div>
 
         <.form :if={!@sent} for={@form} phx-change="validate" phx-submit="send" class="letters-form">
-          <p class="letters-hint">
-            A letter, not a comment: it comes to me, not to a thread. Your email is never shown.
-          </p>
           <div class="letters-row">
             <.input field={@form[:name]} type="text" label="Your name" class="letters-input" required />
             <.input

@@ -28,7 +28,7 @@ defmodule WebWeb.LogsLive.Index do
 
     {:ok,
      socket
-     |> assign(:page_title, "Captain's Logs")
+     |> assign(:page_title, "Videostream")
      |> assign(:return_to, return_to)
      |> assign(:return_label, return_label)
      |> assign_viewer(session)
@@ -169,7 +169,7 @@ defmodule WebWeb.LogsLive.Index do
         </div>
 
         <header class="console-head">
-          <h1 class="logs-title">Captain's Logs</h1>
+          <h1 class="logs-title">Videostream</h1>
           <p class="logs-bio" title="Recorded as things happen, not afterwards">Recorded under way</p>
         </header>
 

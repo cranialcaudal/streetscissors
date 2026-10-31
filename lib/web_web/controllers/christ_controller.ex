@@ -24,7 +24,7 @@ defmodule WebWeb.ChristController do
   alias Web.Liturgy.{Calendar, Fast, Hours, Lectionary, Prayers, Rosary, Saints, Sanctoral}
   alias WebWeb.SEO
 
-  @description "The day's prayer in the manner of Carmel: the saints of the day, the Hours, the readings at Mass, the Rosary and the fast of the Rule of Saint Albert, read from a Bible hosted here."
+  @description "The day's prayer in the manner of Carmel: the saints of the day, the Hours, the readings at Mass, the Rosary and the Catholic calendar's discipline, read from a Bible hosted here."
 
   plug :unlisted
 

@@ -89,10 +89,88 @@ defmodule Web.Analytics do
       String.ends_with?(path, "/thumb")
   end
 
-  def record_hit(path, user_agent, ip_hash) do
+  def record_hit(path, user_agent, ip_hash, referrer \\ nil) do
     %Hit{}
-    |> Hit.changeset(%{path: path, user_agent: user_agent, ip_hash: ip_hash})
+    |> Hit.changeset(%{
+      path: path,
+      user_agent: user_agent,
+      ip_hash: ip_hash,
+      referrer: referrer
+    })
     |> Repo.insert()
+  end
+
+  @doc "Distinct human readers per post slug, combining /blog and legacy /manuscripts paths."
+  def post_readers do
+    Map.merge(
+      visitors_by_prefix("/manuscripts/latent-sensus/%"),
+      visitors_by_prefix("/blog/%"),
+      fn _slug, old, new -> MapSet.union(old, new) end
+    )
+    |> Enum.reduce(%{}, fn {slug, visitors}, acc ->
+      clean = Web.Keywords.slugify(slug)
+      Map.update(acc, clean, visitors, &MapSet.union(&1, visitors))
+    end)
+    |> Map.new(fn {slug, visitors} -> {slug, MapSet.size(visitors)} end)
+  end
+
+  @doc "The most recent distinct reader hits with parsed device and referrer."
+  def recent_readers(limit \\ 15) do
+    from(h in Hit,
+      where: not is_nil(h.ip_hash),
+      order_by: [desc: h.id],
+      limit: ^limit,
+      select: %{
+        id: h.id,
+        path: h.path,
+        user_agent: h.user_agent,
+        ip_hash: h.ip_hash,
+        referrer: h.referrer,
+        at: h.inserted_at
+      }
+    )
+    |> Repo.all()
+    |> Enum.map(fn hit ->
+      %{
+        id: hit.id,
+        path: page(hit.path),
+        badge: String.slice(hit.ip_hash, 0, 6),
+        device: friendly_device(hit.user_agent),
+        source: friendly_source(hit.referrer),
+        at: hit.at
+      }
+    end)
+  end
+
+  @doc "Parses a user-agent string into a concise device/browser name."
+  def friendly_device(nil), do: "Browser"
+  def friendly_device(ua) when is_binary(ua) do
+    cond do
+      String.contains?(ua, "iPhone") -> "iPhone"
+      String.contains?(ua, "iPad") -> "iPad"
+      String.contains?(ua, "Android") -> "Android"
+      String.contains?(ua, "Macintosh") or String.contains?(ua, "Mac OS") -> "Mac"
+      String.contains?(ua, "Windows") -> "Windows"
+      String.contains?(ua, "Linux") -> "Linux"
+      true -> "Browser"
+    end
+  end
+
+  @doc "Parses a referrer host/domain into a friendly source name."
+  def friendly_source(nil), do: "Direct"
+  def friendly_source(""), do: "Direct"
+  def friendly_source(host) when is_binary(host) do
+    cond do
+      String.contains?(host, "google") -> "Google"
+      String.contains?(host, "duckduckgo") -> "DuckDuckGo"
+      String.contains?(host, "bing") -> "Bing"
+      String.contains?(host, "ycombinator") -> "Hacker News"
+      String.contains?(host, "reddit") -> "Reddit"
+      String.contains?(host, "t.co") or String.contains?(host, "twitter") or String.contains?(host, "x.com") -> "X / Twitter"
+      String.contains?(host, "substack") -> "Substack"
+      String.contains?(host, "github") -> "GitHub"
+      true -> host
+    end
   end
 
   # Hits for today (resets at local midnight, DST included — see Web.Clock)

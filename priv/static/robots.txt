@@ -12,7 +12,6 @@ Disallow: /food
 Disallow: /Christ
 
 # A finished trip's planning pages, kept but unlisted.
-Disallow: /england2026
 
 Sitemap: https://streetscissors.com/sitemap.xml
 

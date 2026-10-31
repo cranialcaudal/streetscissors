@@ -379,7 +379,10 @@ defmodule WebWeb.AdminLive.FitnessManager do
             href={~p"/fitness"}
             target="_blank"
             class="adm-link"
-          >/fitness</.link>. The week as calendar events is <.link
+          >/fitness</.link>. Daily fueling & recomp is <.link
+            navigate={~p"/admin/fitness/fueling"}
+            class="adm-link"
+          >here</.link>, and the week as calendar events is <.link
             href={~p"/admin/fitness/calendar"}
             class="adm-link"
           >here</.link>.

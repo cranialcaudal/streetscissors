@@ -422,3 +422,343 @@
 .circuit-btn[hidden] { display: none; }
 .circuit-btn--go { color: var(--paper); background: var(--color-jade); border-color: var(--color-jade); }
 .circuit-logged { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--color-jade); }
+
+/* ── The admin's session (FitnessLive.SessionView) ─────────────────────────
+   Built for a phone in the gym: one station to a screen in focus, big
+   targets, nothing under the thumb that is not the next thing to do. */
+
+.session-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+.today-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  flex: 1 1 100%;
+  padding: 0.75rem 0.9rem;
+  background: color-mix(in srgb, var(--theme-color) 12%, var(--paper-raised));
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+}
+.today-card-line { margin: 0; flex: 1 1 12rem; font-size: 0.95rem; color: var(--ink-2); }
+.today-card-line strong { color: var(--ink); }
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.view-toggle-btn {
+  min-height: 44px;
+  min-width: 4.5rem;
+  padding: 0 0.9rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  background: var(--paper-raised);
+  border: 0;
+  cursor: pointer;
+}
+.view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--rule-strong); }
+.view-toggle-btn[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
+
+.session { display: flex; flex-direction: column; gap: 0.75rem; }
+.session-empty { color: var(--ink-3); }
+
+.session-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.session-module { text-align: right; }
+.session-notes { margin: 0 0 0.75rem; padding: 0; list-style: none; }
+.session-notes li,
+.session-note {
+  margin: 0 0 0.35rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-left: 3px solid var(--theme-color);
+  border-radius: 0 4px 4px 0;
+}
+.session-module-title {
+  margin: 1.25rem 0 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  color: var(--theme-color);
+}
+.session-heading { margin: 0.75rem 0 0.35rem; font-size: 0.95rem; color: var(--ink-2); }
+
+.session-card,
+.session-superset,
+.session-circuit {
+  padding: 0.9rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+.session-focus-card .session-card,
+.session-focus-card .session-superset,
+.session-focus-card .session-circuit { padding: 1.1rem 1rem; }
+.session-superset .session-card { margin-top: 0.6rem; border-style: dashed; }
+.session-superset-title { margin: 0; font-size: 1.05rem; }
+.session-superset-how { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
+
+.session-station.is-current > .session-card,
+.session-station.is-current > .session-superset,
+.session-station.is-current > .session-circuit {
+  border-color: var(--theme-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-color) 35%, transparent);
+}
+
+.session-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.session-card-name {
+  min-height: 44px;
+  padding: 0;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  text-decoration: underline dotted color-mix(in srgb, var(--ink) 40%, transparent);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.session-card-log { flex: none; }
+.session-card-plan { margin: 0.35rem 0; font-size: 0.95rem; color: var(--ink-2); }
+.session-card-last,
+.session-card-hint,
+.session-card-plates,
+.session-card-logged { margin: 0.25rem 0; font-family: var(--font-data); font-size: 0.85rem; color: var(--ink-2); }
+.session-card-last { color: var(--ink); }
+.session-card-plates { color: var(--color-dodger); }
+.session-card-logged { color: var(--color-jade); }
+.session-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0; }
+.session-card-actions .log-quick { min-height: 44px; padding: 0 1rem; }
+.session-sets .log-set { min-height: 52px; min-width: 64px; font-size: 1rem; }
+
+.session-done {
+  background: color-mix(in srgb, var(--color-jade) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-jade) 40%, transparent);
+  border-radius: 8px;
+}
+.session-done > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  min-height: 44px;
+  padding: 0.6rem 0.8rem;
+  list-style: none;
+  cursor: pointer;
+}
+.session-done > summary::-webkit-details-marker { display: none; }
+.session-done[open] > summary { border-bottom: 1px solid var(--rule); }
+.session-done > .session-card,
+.session-done > .session-superset,
+.session-done > .session-circuit { border: 0; background: none; }
+.session-done-mark { color: var(--color-jade); font-weight: 700; }
+.session-done-line { font-family: var(--font-data); font-size: 0.8rem; color: var(--ink-3); }
+
+/* Back and Next sit at the bottom of the screen, under the thumb, clear of
+   the iPhone's home bar; the rest bar floats above them. */
+.session-nav,
+.session-next-up {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0 calc(0.6rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--paper) 75%, transparent);
+}
+.session-nav-btn {
+  min-height: 52px;
+  padding: 0 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.session-nav-btn:disabled { opacity: 0.4; cursor: default; }
+.session-nav-btn--next {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.session-next-up a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 1rem;
+  color: var(--paper);
+  background: var(--ink);
+  border-radius: 8px;
+  text-decoration: none;
+}
+.session-next-finish {
+  min-height: 52px;
+  padding: 0 1rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+}
+.session-finish-row { margin: 1rem 0 0; display: flex; }
+
+/* The rest bar clears the iPhone's home bar and the session's own buttons. */
+.rest-timer { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+/* The figure sheet and the session's summary rise from the bottom. */
+.figure-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, #000 45%, transparent);
+}
+.figure-sheet {
+  width: min(100%, 34rem);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-radius: 14px 14px 0 0;
+}
+.figure-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.figure-sheet-head h3 { margin: 0; }
+.figure-sheet-desc,
+.figure-sheet-none { color: var(--ink-2); }
+.figure-sheet-wiki { display: inline-block; min-height: 44px; line-height: 44px; }
+
+.session-summary-head { display: flex; flex-wrap: wrap; gap: 0.75rem; font-family: var(--font-data); color: var(--ink); }
+.session-summary-list { margin: 0.5rem 0; padding: 0; list-style: none; }
+.session-summary-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.session-summary-name { font-weight: 600; }
+.session-summary-line { font-family: var(--font-data); font-size: 0.85rem; color: var(--ink-2); }
+.session-summary-best { flex-basis: 100%; color: var(--color-jade); font-weight: 600; }
+.session-summary-missed { color: var(--color-orange); }
+.session-summary-checkin { color: var(--ink-3); font-size: 0.85rem; }
+
+/* Optional add-ons fold into one line at the end of the day. */
+.day-addons > summary { cursor: pointer; min-height: 44px; }
+
+/* The block week's colours on the day strip, for the admin. */
+.week-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0.4rem 0 0.8rem;
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.week-total { color: var(--ink-2); }
+
+/* steel.css styles every button as a quiet, uppercase outline (!important).
+   In the session the buttons are the work itself, so they speak plainly:
+   the name reads as a name, Next and the set buttons are solid, big targets. */
+.steel .session-card-name {
+  padding: 0 !important;
+  font-family: var(--font-heading) !important;
+  font-size: 1.2rem !important;
+  letter-spacing: 0 !important;
+  text-transform: none;
+  color: var(--ink) !important;
+  border: 0 !important;
+}
+.steel .session-nav-btn,
+.steel .session-next-finish,
+.steel .view-toggle-btn {
+  font-size: 0.85rem !important;
+  letter-spacing: 0.04em !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule-strong) !important;
+  padding: 0 1rem !important;
+}
+.steel .view-toggle-btn { border: 0 !important; }
+.steel .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--rule-strong) !important; }
+.steel .view-toggle-btn[aria-pressed="true"],
+.steel .session-nav-btn--next {
+  color: var(--paper) !important;
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+}
+.steel .session-nav-btn:disabled { opacity: 0.35; }
+.steel .session-sets .log-set {
+  font-family: var(--font-data) !important;
+  font-size: 1rem !important;
+  letter-spacing: 0 !important;
+  text-transform: none;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule-strong) !important;
+  padding: 0 0.9rem !important;
+}
+.steel .session-sets .log-set.is-done {
+  color: var(--paper) !important;
+  background: var(--color-jade) !important;
+  border-color: var(--color-jade) !important;
+}
+.steel .session-sets .log-set--more { border-style: dashed !important; color: var(--ink-3) !important; }
+.steel .session .log-rpe-btn,
+.steel .session .log-step-btn {
+  font-family: var(--font-data) !important;
+  font-size: 0.95rem !important;
+  letter-spacing: 0 !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule-strong) !important;
+  padding: 0 0.75rem !important;
+}
+.steel .session .log-rpe-btn[aria-pressed="true"] { color: var(--paper) !important; background: var(--ink) !important; }
+.steel .session-card-actions .log-quick {
+  font-size: 0.85rem !important;
+  letter-spacing: 0.04em !important;
+  color: var(--paper) !important;
+  background: var(--color-jade) !important;
+  border-color: var(--color-jade) !important;
+  padding: 0 1.1rem !important;
+}
+.steel .session-nav-btn--next {
+  white-space: normal;
+  text-align: left;
+  text-transform: none;
+  line-height: 1.25;
+  padding: 0.5rem 1rem !important;
+}
+.session-brief-title { margin: 0 0 0.5rem; font-family: var(--font-heading); font-size: 1.15rem; color: var(--theme-color); }
+.session-next {
+  margin: 0.5rem 0 0.25rem;
+  padding: 0.4rem 0.5rem;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-radius: 6px;
+}

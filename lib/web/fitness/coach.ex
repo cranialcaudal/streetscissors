@@ -58,18 +58,43 @@ defmodule Web.Fitness.Coach do
       verdict: verdict,
       guard: Guardrails.line(verdict),
       instead: if(stopped?, do: Guardrails.substitute(block, slug)),
-      hint: if(stopped?, do: nil, else: hint(rule, last_log, last, target, block)),
-      defaults: defaults(prescription, last, target)
+      hint: if(stopped?, do: nil, else: hint(rule, last_log, last, target, block, prescription)),
+      defaults: defaults(prescription, last, target),
+      last_line: last_line(logs, date)
     }
   end
 
-  # The block's own line for a tracked lift; for anything else, the last time.
-  defp hint(nil, nil, _last, _target, _block), do: nil
+  # The session before today's, as the card shows it: "26 Oct: 3 x 3 @ 135 lbs".
+  defp last_line(logs, date) do
+    case Enum.find(logs, &(Date.compare(&1.date, date) == :lt)) do
+      nil -> nil
+      log -> "#{Calendar.strftime(log.date, "%-d %b")}: #{Fitness.entry_line(log)}"
+    end
+  end
 
-  defp hint(nil, log, _last, _target, _block),
+  # The block's own line for a tracked lift; for anything else, the last time.
+  # A lift done at bodyweight has no weight to find in the first weeks: its
+  # start is the clean reps there are.
+  defp hint(nil, nil, _last, _target, _block, _p), do: nil
+
+  defp hint(nil, log, _last, _target, _block, _p),
     do: "Last, #{Calendar.strftime(log.date, "%-d %b")}: #{Fitness.entry_line(log)}"
 
-  defp hint(rule, _log, last, target, block), do: Progression.hint(rule, last, target, block)
+  defp hint(rule, _log, last, target, block, %{kind: :reps}) do
+    case Progression.hint(rule, last, target, block) do
+      nil ->
+        nil
+
+      text ->
+        String.replace(
+          text,
+          "find a weight that leaves 3 in reserve (RPE 7)",
+          "log the clean reps there are; they are the start"
+        )
+    end
+  end
+
+  defp hint(rule, _log, last, target, block, _p), do: Progression.hint(rule, last, target, block)
 
   @doc """
   What the form starts from: the target, else the last entry, else the plan.
@@ -81,7 +106,8 @@ defmodule Web.Fitness.Coach do
       reps: plan_reps(p.reps),
       weight: p.weight,
       seconds: p.seconds,
-      metres: p.metres
+      metres: p.metres,
+      yards: Map.get(p, :yards)
     }
 
     from_last =

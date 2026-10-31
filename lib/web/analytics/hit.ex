@@ -13,12 +13,13 @@ defmodule Web.Analytics.Hit do
     field :path, :string
     field :user_agent, :string
     field :ip_hash, :string
+    field :referrer, :string
     timestamps(updated_at: false)
   end
 
   def changeset(hit, attrs) do
     hit
-    |> cast(attrs, [:path, :user_agent, :ip_hash])
+    |> cast(attrs, [:path, :user_agent, :ip_hash, :referrer])
     |> validate_required([:path])
   end
 end

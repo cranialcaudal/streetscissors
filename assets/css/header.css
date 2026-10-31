@@ -211,14 +211,25 @@
   padding: 0.35rem 0;
   color: var(--accent-ink);
   text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 .site-sections a:hover,
 .site-sections a:focus-visible {
-  text-decoration: underline;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom-color: var(--accent-ink);
+}
+.site-sections a.is-active {
+  color: var(--ink);
+  font-weight: 700;
+  border-bottom-color: var(--accent-ink);
 }
 @media (max-width: 700px) {
   .site-sections {
     justify-content: flex-start;
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent 100%);
   }
 }
 @media print {

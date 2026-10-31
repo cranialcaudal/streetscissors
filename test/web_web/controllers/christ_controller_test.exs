@@ -12,8 +12,18 @@ defmodule WebWeb.ChristControllerTest do
     refute html =~ "Carthusians"
     refute html =~ "CC BY-SA 4.0"
 
-    assert html =~ "The fast of the Rule"
-    assert html =~ "A fast day under the Rule of Saint Albert"
+    # Tuesday in Ordinary Time carries no required Catholic fasting
+    refute html =~ "The fast of the Rule"
+    refute html =~ "A fast day under the Rule of Saint Albert"
+    refute html =~ "christ-discipline"
+
+    # Days required in the Catholic calendar show fast/abstinence/penance
+    friday_html = conn |> get(~p"/Christ?date=2026-10-09") |> html_response(200)
+    assert friday_html =~ "Friday penance"
+
+    ash_html = conn |> get(~p"/Christ?date=2027-02-10") |> html_response(200)
+    assert ash_html =~ "Fast and abstinence"
+    assert ash_html =~ "Ash Wednesday"
 
     # Each prayer is written out on the page, behind its own <details>.
     for id <- ~w(lauds midday readings vespers rosary compline) do
@@ -64,7 +74,7 @@ defmodule WebWeb.ChristControllerTest do
     html = conn |> get(~p"/Christ?date=2026-10-15") |> html_response(200)
 
     assert html =~ ~s(href="/Christ/saints/teresa_avila")
-    assert html =~ "which these pages count as free of the fast"
+    refute html =~ "The fast of the Rule"
   end
 
   test "a saint has a page, and an unknown one does not", %{conn: conn} do
@@ -86,7 +96,8 @@ defmodule WebWeb.ChristControllerTest do
     assert html =~ "October 2026"
     assert html =~ ~s(href="/Christ?date=2026-10-15")
     assert html =~ "Saint Teresa of Jesus, our Mother"
-    assert html =~ "fast of the Rule"
+    assert html =~ "friday penance"
+    refute html =~ "fast of the Rule"
     assert html =~ ~s(href="/Christ/calendar?month=2026-09" rel="prev")
     assert html =~ ~s(href="/Christ/calendar?month=2026-11" rel="next")
 

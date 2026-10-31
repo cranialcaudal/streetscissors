@@ -24,7 +24,10 @@ defmodule Web.Rides.PowerTest do
     System.put_env("STUB_RSCRIPT_RIDE", to_string(ride.id))
 
     assert {:ok, 1} = Power.run()
-    assert %{"avg_w" => 182.4, "work_kj" => 1243.6, "basis" => "profile"} = Power.for_ride(ride)
+
+    assert %{"avg_w" => 182.4, "peak_w" => 318.2, "work_kj" => 1243.6, "basis" => "profile"} =
+             Power.for_ride(ride)
+
     assert Power.for_ride(other) == nil
     assert Power.model()["not_counted"] == ["wind", "drafting"]
   end
@@ -44,7 +47,7 @@ defmodule Web.Rides.PowerTest do
     assert Power.for_ride(ride_fixture()) == nil
   end
 
-  test "a ride's page shows its estimated power, marked as an estimate", %{conn: conn} do
+  test "a ride's page and archive show average and peak estimated power", %{conn: conn} do
     ride = ride_fixture(%{name: "River loop"})
     {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
     refute has_element?(view, ".activity-power")
@@ -55,8 +58,14 @@ defmodule Web.Rides.PowerTest do
 
     assert has_element?(view, ".activity-power", "Power, estimated")
     assert has_element?(view, ".activity-power .activity-figure-value", "≈ 180 W")
+    assert has_element?(view, ".activity-power .activity-figure-value", "≈ 320 W")
     assert has_element?(view, ".activity-power .activity-figure-value", "≈ 1,240 kJ")
     assert has_element?(view, ".activity-power", "No power meter")
+
+    {:ok, index_view, _html} = live(conn, ~p"/fitness/rides")
+    assert has_element?(index_view, ".activity-feature .activity-power", "≈ 180 W")
+    assert has_element?(index_view, ".activity-feature .activity-power", "≈ 320 W")
+    assert has_element?(index_view, ".activity-card-power", "180 W avg · 320 W peak")
   end
 
   # The R script's own check of its arithmetic, when R is here to run it.

@@ -18,7 +18,7 @@ done
 cat > "$out" <<JSON
 {"generated_at": "2026-10-25T12:00:00Z",
  "model": {"name": "Martin et al. 1998", "not_counted": ["wind", "drafting"]},
- "rides": [{"id": ${STUB_RSCRIPT_RIDE:-1}, "basis": "profile", "avg_w": 182.4, "work_kj": 1243.6,
+ "rides": [{"id": ${STUB_RSCRIPT_RIDE:-1}, "basis": "profile", "avg_w": 182.4, "peak_w": 318.2, "work_kj": 1243.6,
             "moving_s": 6800, "climb_share": 0.21, "mass_kg": 75.0}]}
 JSON
 echo "1 rides estimated"

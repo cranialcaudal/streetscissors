@@ -129,6 +129,8 @@ defmodule Web.Fitness.Prescription do
       reps: nil,
       seconds: nil,
       metres: nil,
+      yards: nil,
+      rest: nil,
       weight: c.weight,
       kind: :circuit,
       section: section
@@ -147,6 +149,7 @@ defmodule Web.Fitness.Prescription do
 
     seconds = seconds(text)
     metres = metres(text)
+    yards = yards(text)
 
     %{
       slug: slug,
@@ -156,8 +159,10 @@ defmodule Web.Fitness.Prescription do
       reps: reps,
       seconds: seconds,
       metres: metres,
+      yards: yards,
+      rest: rest(text),
       weight: weight(text),
-      kind: kind(slug, text, seconds, metres)
+      kind: kind(slug, text, seconds, metres, yards)
     }
   end
 
@@ -198,8 +203,18 @@ defmodule Web.Fitness.Prescription do
     end
   end
 
-  # "30–40 sec", "20-30 sec", "2 min/side": the low end, in seconds.
+  # "30–40 sec", "20-30 sec", "2 min/side": the low end, in seconds. The rest
+  # between sets ("90 sec between sets", "45 sec rest", "rest 2 min") is not
+  # how long the exercise lasts, so it is taken out first.
   defp seconds(text) do
+    text =
+      text
+      |> String.replace(
+        ~r/\d+(?:\s*[–-]\s*\d+)?\s*(?:sec|s|min)\b\s*(?:of\s+)?(?:rest|between)/u,
+        ""
+      )
+      |> String.replace(~r/\brest(?:ing)?\s+\d+(?:\s*[–-]\s*\d+)?\s*(?:sec|s|min)\b/u, "")
+
     cond do
       m = Regex.run(~r/(\d+)(?:\s*[–-]\s*\d+)?\s*(?:sec|s\b)/u, text) ->
         String.to_integer(Enum.at(m, 1))
@@ -209,6 +224,40 @@ defmodule Web.Fitness.Prescription do
 
       true ->
         nil
+    end
+  end
+
+  # The rest between sets, when the line says it: "90 sec between sets",
+  # "45 sec rest", "rest 2 min", "2–3 min rest" (the low end), "a full minute
+  # between sets". In seconds, or nil.
+  defp rest(text) do
+    cond do
+      m =
+          Regex.run(
+            ~r/(\d+)(?:\s*[–-]\s*\d+)?\s*(sec|s|min)\b\s*(?:of\s+)?(?:rest|between)/u,
+            text
+          ) ->
+        to_seconds(m)
+
+      m = Regex.run(~r/\brest(?:ing)?\s+(\d+)(?:\s*[–-]\s*\d+)?\s*(sec|s|min)\b/u, text) ->
+        to_seconds(m)
+
+      text =~ ~r/\ba (?:full )?minute between/u ->
+        60
+
+      true ->
+        nil
+    end
+  end
+
+  defp to_seconds([_, n, "min"]), do: String.to_integer(n) * 60
+  defp to_seconds([_, n, _sec]), do: String.to_integer(n)
+
+  # A swim's distance: "200 yd", "6 x 50 yd" (the first one named).
+  defp yards(text) do
+    case Regex.run(~r/(\d+)\s*yd\b/u, text) do
+      [_, n] -> String.to_integer(n)
+      _ -> nil
     end
   end
 
@@ -231,13 +280,28 @@ defmodule Web.Fitness.Prescription do
     end
   end
 
-  defp kind(slug, text, seconds, metres) do
+  defp kind(slug, text, seconds, metres, yards) do
     cond do
+      # A test against the clock: its result is a time, not sets.
+      String.contains?(slug, "time-trial") ->
+        :trial
+
+      # Swum for a set time with the laps counted: its result is the count.
+      text =~ ~r/\blaps\b/i ->
+        :laps
+
+      is_integer(yards) ->
+        :swim
+
       String.contains?(slug, "jump") and not String.contains?(slug, "rope") ->
         :jump
 
       is_integer(metres) ->
         :carry
+
+      # Done for minutes, not seconds: a run, a walk, a ride, by the clock.
+      text =~ ~r/\bby time\b/i or (is_integer(seconds) and seconds >= 300) ->
+        :timed
 
       is_integer(seconds) ->
         :hold

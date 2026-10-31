@@ -63,11 +63,6 @@ defmodule WebWeb.Router do
 
       # Main pages
       get "/", PageController, :home
-      # A finished trip, kept as it was. Deliberately unlisted, like /food
-      # below: nothing links to either page, both are out of the sitemap and
-      # robots.txt, and both send `noindex, nofollow`.
-      get "/england2026", EnglandController, :show
-      get "/england2026/call", EnglandController, :call_times
       get "/about", PageController, :about
       # The prayer pages (WebWeb.ChristController): the liturgical day, the
       # Hours, the readings at Mass, the Rosary and the Bible they are read
@@ -116,9 +111,9 @@ defmodule WebWeb.Router do
       # and it sends `noindex, nofollow`. It used to live at /fitness/meals and
       # in the fitness tab row; that route is gone, so the old path now falls
       # through the /fitness/:slug catch-all and 301s to the blog like any other
-      # retired fitness URL. Unlisted is not private — anyone who types /food
-      # still gets it. Put it behind `live_session :admin` if that stops being
-      # good enough.
+      # retired fitness URL. Admin only: the action answers 404 to anyone
+      # without the admin session (it holds body figures and the household's
+      # schedule), and it still sends `noindex, nofollow`.
       get "/food", PageController, :food
       live "/contact", NewsletterLive, :contact
       live "/newsletter", NewsletterLive, :newsletter
@@ -213,6 +208,7 @@ defmodule WebWeb.Router do
       live "/admin/cuts/:id", AdminLive.CuttingRoom
       get "/admin/cuts/:id/media/:file", CutMediaController, :show
       live "/admin/fitness", AdminLive.FitnessManager
+      live "/admin/fitness/fueling", AdminLive.Fueling
       # The week as calendar events, from content/notes/calendar.md. It names
       # venues and times, so it is the author's own reference rather than a
       # page: the action 404s without the admin session.

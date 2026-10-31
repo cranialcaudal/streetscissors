@@ -111,6 +111,7 @@ defmodule Web.Media.FFmpeg do
       if(audio?, do: ["-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000"], else: []) ++
       ["-movflags", "+faststart"] ++
       progress_args() ++
+      strip_args() ++
       [Path.join(dir, Web.Media.video_rendition())]
   end
 
@@ -146,6 +147,7 @@ defmodule Web.Media.FFmpeg do
         "+faststart"
       ] ++
       progress_args() ++
+      strip_args() ++
       [Path.join(dir, Web.Media.audio_rendition())]
   end
 
@@ -159,7 +161,7 @@ defmodule Web.Media.FFmpeg do
   """
   def poster_args(input, output, at) do
     ["-i", input, "-ss", format_seconds(at), "-frames:v", "1"] ++
-      ["-vf", "scale=w='min(960,iw)':h=-2", "-q:v", "4", output]
+      ["-vf", "scale=w='min(960,iw)':h=-2", "-q:v", "4"] ++ strip_args() ++ [output]
   end
 
   @doc "A waveform plate, which is what an audio entry has instead of a still."
@@ -184,6 +186,11 @@ defmodule Web.Media.FFmpeg do
     if(start && start > 0, do: ["-ss", format_seconds(start)], else: []) ++
       if duration && duration > 0, do: ["-t", format_seconds(duration)], else: []
   end
+
+  # What an upload carries besides its picture and sound: an iPhone clip's
+  # container holds the GPS fix it was shot at (`com.apple.quicktime.location`),
+  # the device and the exact time. None of it is published.
+  defp strip_args, do: ["-map_metadata", "-1", "-map_chapters", "-1"]
 
   defp progress_args, do: ["-progress", "pipe:1", "-nostats"]
 

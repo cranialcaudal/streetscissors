@@ -984,13 +984,17 @@ defmodule Web.Scanner.Pipeline do
   # roll does, under the roll's name and the moment: the scan of a negative is
   # not something to destroy because a button was pressed. (A strip deleted to
   # be scanned again took its only scan with it, 2026-10-09.)
-  defp set_aside(path, roll_dir) do
+  # A single's files go the same way, to `<roll>_singles` under the name
+  # they had (2026-10-29: the singles of two strips deleted from roll 079
+  # were wanted afterwards, and were gone).
+  defp set_aside(path, roll_dir, kind \\ "strips", name \\ nil) do
     if File.exists?(path) do
       stamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%dT%H%M%S")
-      trash = Path.join([Negatives.base_path(), ".trash", "#{Path.basename(roll_dir)}_strips"])
+      trash = Path.join([Negatives.base_path(), ".trash", "#{Path.basename(roll_dir)}_#{kind}"])
+      name = name || Path.basename(path)
 
       with :ok <- File.mkdir_p(trash),
-           :ok <- File.rename(path, Path.join(trash, "#{stamp}_#{Path.basename(path)}")) do
+           :ok <- File.rename(path, Path.join(trash, "#{stamp}_#{name}")) do
         :ok
       else
         _ -> File.rm(path)
@@ -1161,7 +1165,7 @@ defmodule Web.Scanner.Pipeline do
             :ok
 
           new == nil ->
-            File.rm(aside)
+            set_aside(aside, roll_dir, "singles", "#{dir}_#{name}")
 
           true ->
             target = Path.join([roll_dir, dir, new_name])
@@ -1575,22 +1579,14 @@ defmodule Web.Scanner.Pipeline do
 
   @doc """
   Takes a single back out of the collection: its print, the previews made
-  from it and its raw scan. The frame stays on its strip and on the sheet,
+  from it and its raw scan (set aside in the archive's `.trash`, with any
+  edit of it). The frame stays on its strip and on the sheet,
   and `selects.json` records that it was not kept after all.
   """
   def remove_print(roll_dir, frame) do
-    name = pad2(frame)
-    File.rm(Path.join([roll_dir, "frames", "#{name}.png"]))
-    File.rm(keeper_raw_path(roll_dir, frame))
-
-    for path <- [
-          Darkroom.base_path(roll_dir, frame),
-          Darkroom.edits_path(roll_dir, frame),
-          Darkroom.mask_path(roll_dir, frame),
-          Darkroom.repaired_path(roll_dir, frame),
-          Darkroom.candidate_path(roll_dir, frame)
-        ],
-        do: File.rm(path)
+    for {dir, name} <- single_files(frame) do
+      set_aside(Path.join([roll_dir, dir, name]), roll_dir, "singles", "#{dir}_#{name}")
+    end
 
     clear_previews(roll_dir, frame)
 

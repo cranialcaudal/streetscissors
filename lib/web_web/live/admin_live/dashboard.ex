@@ -79,7 +79,8 @@ defmodule WebWeb.AdminLive.Dashboard do
            window: views_window,
            trend: trend,
            trend_max: trend |> Enum.map(fn {_, _, count} -> count end) |> Enum.max(fn -> 0 end),
-           top_pages: Analytics.top_pages(10)
+           top_pages: Analytics.top_pages(10),
+           recent_readers: Analytics.recent_readers(15)
          }
        }}
     end)
@@ -259,6 +260,32 @@ defmodule WebWeb.AdminLive.Dashboard do
             <span class="ov-ranked-count" title={"#{count} visitors"}>{count}</span>
           </li>
         </ol>
+
+        <div :if={traffic.recent_readers != []} style="margin-top: 1.5rem;">
+          <p class="ov-quiet" style="margin-bottom: 0.5rem;">Recent readers.</p>
+          <div class="adm-table-wrap">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Reader</th>
+                  <th>Page</th>
+                  <th>Device</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={r <- traffic.recent_readers}>
+                  <td>{ago(r.at)}</td>
+                  <td><code>#{r.badge}</code></td>
+                  <td><a href={r.path} class="adm-link">{r.path}</a></td>
+                  <td>{r.device}</td>
+                  <td>{r.source}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </.async_result>
     </details>
     """
@@ -490,6 +517,7 @@ defmodule WebWeb.AdminLive.Dashboard do
       <:state :if={!@quiet?} tone={sync_tone(@t.sync)}>{sync_line(@t.sync)}</:state>
       <:actions>
         <.link navigate={~p"/admin/fitness"} class="adm-btn adm-btn--primary">Fitness</.link>
+        <.link navigate={~p"/admin/fitness/fueling"} class="adm-btn">Fueling</.link>
         <.link navigate={~p"/admin/rides"} class="adm-btn">Activities</.link>
       </:actions>
     </.program_card>
@@ -595,7 +623,7 @@ defmodule WebWeb.AdminLive.Dashboard do
   defp file_items(on_file) do
     [
       %{label: "Posts", value: on_file.posts, href: ~p"/admin/blog"},
-      %{label: "Captain's logs", value: on_file.logs, href: ~p"/admin/logs"},
+      %{label: "Videostream", value: on_file.logs, href: ~p"/admin/logs"},
       %{label: "Subscribers", value: on_file.subscribers, href: ~p"/admin/newsletter"},
       %{label: "Activities", value: on_file.activities, href: ~p"/admin/rides"},
       %{label: "Signatures", value: on_file.signatures, href: ~p"/admin/guestbook"}

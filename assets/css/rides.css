@@ -679,7 +679,8 @@
   color: var(--ink-2);
 }
 
-.activity-card-health {
+.activity-card-health,
+.activity-card-power {
   font-family: var(--font-data);
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;

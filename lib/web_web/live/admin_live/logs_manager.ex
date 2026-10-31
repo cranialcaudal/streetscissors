@@ -60,7 +60,7 @@ defmodule WebWeb.AdminLive.LogsManager do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(:page_title, "Captain's Logs | Admin")
+      |> assign(:page_title, "Videostream | Admin")
       |> assign(:accept, @accept)
       |> assign(:editing, nil)
       |> assign(:progress, %{})
@@ -323,7 +323,7 @@ defmodule WebWeb.AdminLive.LogsManager do
 
   def render(assigns) do
     ~H"""
-    <.page_head slug="Cutting room" title="Captain's Logs">
+    <.page_head slug="Cutting room" title="Videostream">
       <:lede>
         Record here, or drop a file you already have. Trim and poster are numbers the server
         applies; nothing is re-encoded in the browser.

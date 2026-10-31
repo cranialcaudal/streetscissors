@@ -332,7 +332,7 @@ defmodule Web.Daybook do
       %{
         kind: :ride,
         date: Web.Clock.local_today(ride.started_at),
-        title: ride.name || Units.sport(ride.sport),
+        title: WebWeb.Activity.title(ride),
         path: "/fitness/rides/#{ride.id}",
         note: "#{Units.sport(ride.sport)} · #{Units.distance(ride.distance_m)}",
         image: nil

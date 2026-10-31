@@ -315,6 +315,23 @@ defmodule Web.Scanner.Driver do
   defp out(path), do: ["--output-file", path]
 
   @doc """
+  What a scan's arguments ask of the scanner, for its timing line: dpi,
+  mode, bits and the length of glass crossed in mm (nil for the whole
+  transparency area). Scan time goes with that length, so this is what a
+  scan's seconds are read against.
+  """
+  def describe(args) do
+    pairs = args |> Enum.chunk_every(2, 1, :discard) |> Map.new(fn [k, v] -> {k, v} end)
+
+    %{
+      dpi: pairs["--resolution"],
+      mode: pairs["--mode"] || "Gray",
+      depth: pairs["--depth"] || "8",
+      mm: pairs["-y"]
+    }
+  end
+
+  @doc """
   The percentage in a chunk of `scanimage --progress` output (`Progress:
   42.0%`, redrawn with carriage returns), or nil.
   """

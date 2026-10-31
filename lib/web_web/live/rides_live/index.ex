@@ -9,11 +9,12 @@ defmodule WebWeb.RidesLive.Index do
   alias Web.Rides.Units
   alias WebWeb.Activity
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     rides = Rides.list_rides()
 
     {:ok,
      assign(socket,
+       is_admin: session["admin_user"] == true,
        rides: rides,
        shelves: Rides.shelves(rides)
      )}
@@ -93,10 +94,11 @@ defmodule WebWeb.RidesLive.Index do
       <article :if={@featured} class="activity-feature">
         <Activity.meta ride={@featured} />
         <h2 class="activity-title">
-          <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured)}</.link>
+          <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured, @is_admin)}</.link>
         </h2>
         <Activity.health ride={@featured} />
-        <Activity.plate ride={@featured} link loading="eager" />
+        <Activity.power ride={@featured} />
+        <Activity.plate ride={@featured} link loading="eager" admin={@is_admin} />
       </article>
 
       <Activity.shelf
@@ -104,6 +106,7 @@ defmodule WebWeb.RidesLive.Index do
         sport={sport}
         rides={rides}
         layout={if @sport, do: :grid, else: :strip}
+        admin={@is_admin}
       />
 
       <footer :if={@years != []} class="activity-totals">

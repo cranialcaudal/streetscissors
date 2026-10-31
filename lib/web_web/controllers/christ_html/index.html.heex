@@ -45,12 +45,8 @@ showing today. Nothing else: a saint's life is on the saint's own page.
       <% end %>
     </p>
 
-    <section class="christ-discipline" aria-label="Fasting today">
-      <p class={@fast.carmelite.fast && "is-fast"}>
-        <span class="christ-label">The fast of the Rule</span>
-        {@fast.carmelite.text}
-      </p>
-      <p :if={@fast.church} class="is-fast">
+    <section :if={@fast.church} class="christ-discipline" aria-label="Fasting today">
+      <p class="is-fast">
         <span class="christ-label">{@fast.church.title}</span>
         {@fast.church.text}
       </p>

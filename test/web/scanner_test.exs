@@ -47,6 +47,15 @@ defmodule Web.ScannerTest do
       with_areas(%{"35mm" => "20.0,30.0,36.0,226.0", "120" => {80.0, 30.0, 62.0, 200.0}})
     end
 
+    test "a scan's timing line reads what it asked for off its own arguments" do
+      band = Driver.band_args("dev", "color", {10.0, 40.0, 60.0, 76.5}, "/tmp/b.tiff", deep: true)
+
+      assert Driver.describe(band) == %{dpi: "1600", mode: "Color", depth: "16", mm: "76.5"}
+
+      assert %{dpi: "400", mode: "Color", depth: "8", mm: nil} =
+               Driver.describe(Driver.pass_args("dev", "/tmp/p.tiff"))
+    end
+
     # "Negative Film" would have the backend correct the orange mask before
     # film-develop does.
     test "every scan goes through the transparency unit, unconverted" do
@@ -549,6 +558,12 @@ defmodule Web.ScannerTest do
         assert %{"chosen" => true, "strip" => "002.tiff", "rotate" => _} = selects["4"]
         assert selects["2"]["chosen"] == false
         refute Map.has_key?(selects, "6")
+
+        # Frame 2's print and raw scan were set aside, not destroyed.
+        trash = Path.join([Negatives.base_path(), ".trash", Path.basename(dir) <> "_singles"])
+        kept = File.ls!(trash)
+        assert Enum.any?(kept, &String.ends_with?(&1, "_frames_02.png"))
+        assert Enum.any?(kept, &String.ends_with?(&1, "_raw-frames_frame-02.tiff"))
       end
 
       test "an edited single's recipe moves with its print, and turns with it" do
@@ -835,6 +850,12 @@ defmodule Web.ScannerTest do
       assert Pipeline.printed_frames(dir) == [2]
       assert File.ls!(Path.join(dir, "frames/previews")) == []
       refute File.exists?(Path.join(dir, "raw-frames/frame-01.tiff"))
+
+      trash = Path.join([Negatives.base_path(), ".trash", Path.basename(dir) <> "_singles"])
+
+      assert File.ls!(trash) |> Enum.map(&String.replace(&1, ~r/^[^_]+_/, "")) |> Enum.sort() ==
+               ~w(developed_01.png edits_01.json frames_01.png raw-frames_frame-01.tiff)
+
       assert %{"1" => %{"chosen" => false, "removed" => true}} = Pipeline.read_selects(dir)
       assert [%{frame: 1, printed?: false} | _] = Pipeline.frames(dir)
     end

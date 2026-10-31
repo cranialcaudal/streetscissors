@@ -333,4 +333,27 @@ defmodule Web.Fitness.VaultTest do
     assert saved =~ "references: smith-2001, jones-2002"
     assert saved =~ "New body."
   end
+
+  test "a module's week lines are cut to the week that is running" do
+    md = """
+    ### Ride
+    - [ ] The target: steady
+    - [ ] Week 1: controlled
+    - [ ] Weeks 2–3: **tempo**
+    - [ ] Week 4: all-out
+    Some prose.
+    """
+
+    assert Vault.this_week(md, nil) == md
+
+    week2 = Vault.this_week(md, {2, 8})
+    assert week2 =~ "- [ ] Week 2 of 8: **tempo**"
+    assert week2 =~ "- [ ] The target: steady"
+    assert week2 =~ "Some prose."
+    refute week2 =~ "controlled"
+    refute week2 =~ "all-out"
+
+    assert Vault.this_week(md, {4, 8}) =~ "- [ ] Week 4 of 8: all-out"
+    assert Vault.this_week(md, {0, 8}) =~ "- [ ] Practice week (as week 1): controlled"
+  end
 end

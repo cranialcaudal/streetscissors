@@ -81,8 +81,8 @@ defmodule Web.SearchTest do
     log = log_fixture(recorded_on: ~D[2026-09-18], caption: "Leaving the slip")
     log_fixture(recorded_on: ~D[2026-09-19], caption: "Leaving, unpublished", published: false)
 
-    assert paths(section(Search.search("leaving"), "Captain's logs")) == ["/logs/#{log.slug}"]
-    assert paths(section(Search.search("nyc"), "Captain's logs")) == ["/logs/#{log.slug}"]
+    assert paths(section(Search.search("leaving"), "Videostream")) == ["/logs/#{log.slug}"]
+    assert paths(section(Search.search("nyc"), "Videostream")) == ["/logs/#{log.slug}"]
   end
 
   test "exercises, by name, muscle group, anatomy and text" do
@@ -92,10 +92,11 @@ defmodule Web.SearchTest do
     end
   end
 
-  test "activities, by name" do
-    ride = ride_fixture(%{name: "Putah Creek out and back"})
+  # A visitor is not shown a ride's name, so it cannot be searched for either.
+  test "activities are not found by name" do
+    ride_fixture(%{name: "Putah Creek out and back"})
 
-    assert paths(section(Search.search("putah"), "Activities")) == ["/fitness/rides/#{ride.id}"]
+    assert section(Search.search("putah"), "Activities") == nil
   end
 
   # Komoot calls most tours "Ride" or "Run" and a bicycle "touringbicycle".
@@ -120,8 +121,8 @@ defmodule Web.SearchTest do
     # "komoot" is all of them, newest first.
     assert found.("komoot") == [run_path, ride_path]
 
-    # Two rides called "Ride" are told apart by what is under the name.
-    assert [%{title: "Ride", context: "Bike touring · 24.9 mi · 8 July 2026"}] =
+    # Rides are told apart by the sport, the distance and the day.
+    assert [%{title: "Bike touring · 24.9 mi", context: "Bike touring · 24.9 mi · 8 July 2026"}] =
              section(Search.search("bike"), "Activities").results
 
     assert section(Search.search("komoot"), "Activities").all == "/fitness/rides"
@@ -224,7 +225,7 @@ defmodule Web.SearchTest do
                Search.suggest("the ferry")
 
       assert path == "/blog/the-ferry-at-bowling-green"
-      assert Enum.any?(rest, &(&1.section == "Captain's logs"))
+      assert Enum.any?(rest, &(&1.section == "Videostream"))
       assert length(Search.suggest("the")) <= 8
     end
 

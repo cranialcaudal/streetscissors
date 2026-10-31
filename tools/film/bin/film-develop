@@ -186,6 +186,11 @@ MIN_CELL = 0.85
 # across it (as a fraction of the strip's width).
 EDGE_CLEAR_MM = 0.3
 SIDE_INSET = 0.02
+# The most of a single's length or width glass_edges takes off one side:
+# past this it is a bright picture's edge, not the glass.
+GLASS_EDGE_MOST = 0.04
+# A line of a single this much brighter than the film's clear base is glass.
+GLASS_OVER_FILM = 1.25
 
 
 # Limits on what a frame may do to itself. The white point may bring a thin
@@ -210,18 +215,20 @@ SLIDE_STOCKS = re.compile(
 SLIDE_DARK = 10
 # A negative's gap is its clearest film. A strip dark enough to be taken for
 # a slide is a negative when frames laid on it as a negative's leave gaps this
-# many times as bright as its pictures' median, about 0.7 in density: roll
+# many times as bright as its pictures' median, about 0.54 in density: roll
 # 071's two strips (black and white, left with a veil by a short fix) read
-# 4.4 and 3.7; of the 34 strips of slides in the archive, such a grid could
-# be laid on only two, at 1.3 and 1.4 (clear_gaps).
-CLEAR_GAPS = 2.5
-# A dense negative's clear film is a colour negative's when its channels part
-# by this much in density: the mask, which a veil does not hide, since silver
-# adds the same density to every channel. Read in their gaps, the archive's
-# C-41 rolls part by 0.65 to 1.26, roll 071 by 0.20 and 0.22 (undissolved
-# halide is a little yellow). Roll 027, whose base is pink, parts by 0.19:
-# were it ever this dense it would be taken for black and white, and
-# "process": "negative" in roll.json is what keeps such a roll colour.
+# 4.4 and 3.7 and roll 080's 2.0 and 2.2; of the 34 strips of slides in the
+# archive, such a grid could be laid on only two, at 1.3 and 1.4 (clear_gaps).
+CLEAR_GAPS = 2.0
+# A dense negative's clear film is a colour negative's when its red and blue
+# part by this much in density: the orange mask, which a veil does not hide,
+# since silver adds the same density to every channel. Read in their gaps, the
+# archive's C-41 rolls part red over blue by 0.51 to 1.26, roll 071 by 0.20
+# and 0.22 and roll 080 by 0.20 (its scanner reads green lower at dark levels,
+# so max over min read 0.45 while red over blue stayed 0.20). Roll 027, whose
+# base is pink, parts by -0.02: were it ever this dense it would be taken for
+# black and white, and "process": "negative" in roll.json is what keeps such a
+# roll colour.
 MASK_DENSITY = 0.4
 # A frame of a slide roll may bring its own white down to this of the roll's
 # (a dark slide is lifted a little, not remade), and its black up to this.
@@ -250,7 +257,7 @@ SLIDE_GAMMA_LIMITS = (0.85, 2.2)
 # slide; its clearest, on a negative), or it is not a gap. A grid that puts
 # picture in a gap is charged this many times what a picture edge beside a
 # gap earns, so one frame cut through outweighs every edge found.
-TEMPLATE_TOL = 0.06
+TEMPLATE_TOL = 0.08
 TEMPLATE_CHARGE = 10.0
 TEMPLATE_EDGE_MOST = 8.0
 # The pitch may be this far off 38 mm, in steps of 0.2%: the scanner's travel
@@ -1244,9 +1251,9 @@ def film_look(scans):
     dense = [v for v in votes if isinstance(v, tuple)]
     if dense and len(dense) * 2 > len(votes):
         # silver, a veil included, is the same density in every channel; a
-        # colour negative's mask is not
+        # colour negative's orange mask is red over blue
         r, g, b = (sum(v[i] for v in dense) / len(dense) for i in range(3))
-        mask = SCAN_GAMMA * math.log10(max(r, g, b, 1.0) / max(min(r, g, b), 1.0))
+        mask = SCAN_GAMMA * math.log10(max(r, 1.0) / max(b, 1.0))
         return "color" if mask >= MASK_DENSITY else "bw"
     return "color"
 
@@ -2058,7 +2065,7 @@ def frames_by_runs(rows, start, end, pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
 
 
 def retry_frames(regions, rows, trace, start, end, w, h, vertical,
-                 pitch_mm=PITCH_35MM, gap_mm=GAP_35MM):
+                 pitch_mm=PITCH_35MM, gap_mm=GAP_35MM, room=None):
     """Look at where the frames were put, and lay them again another way if
     pictures were left out: (regions, how), `how` None when the first laying
     stands.
@@ -2069,6 +2076,15 @@ def retry_frames(regions, rows, trace, start, end, w, h, vertical,
     outside every frame, or of bare film taken inside them, means the layout
     is wrong, and every other way of laying the strip is tried and the one
     that leaves least out is kept, if it is better by a good margin.
+
+    `room` is (start, end, rows) of the film as the glass alone reads it,
+    when that reaches further than `start` and `end`. A sky as dense as the
+    holder's black is no film to the extent the strip was laid on (roll 079,
+    strip 3: its first frame was cut off, and the four after it were laid
+    as five). The camera's grid is laid over that room too, and kept only
+    if it leaves less of the strip's picture out. Picture is still judged
+    on the strip as first laid, so that holder taken for film (roll 044,
+    strip 2: the last frame pushed over the cut) earns nothing.
     """
     mm = STRIP_DPI / 25.4
     frame = (pitch_mm - gap_mm) * mm
@@ -2078,17 +2094,36 @@ def retry_frames(regions, rows, trace, start, end, w, h, vertical,
     if first < 12.0:
         return regions, None
     tries = {}
-    g_first, g_pitch, g_found = grid_35mm(rows, start, end, True, pitch_mm, gap_mm)
-    for name, (at, pitch, ok) in (("grid", (g_first, g_pitch, g_found)),
-                                  ("template", grid_by_template(trace, start, end, False, pitch_mm, gap_mm))):
-        if ok:
-            starts, x = [], at - pitch * math.ceil((at - start) / pitch + 1)
-            while x < end:
-                if min(x + pitch, end) - max(x, start) >= MIN_CELL * pitch:
-                    starts.append(x + gap_mm * mm / 2)
-                x += pitch
-            starts = snap_frames(trace, start, end, starts, False, pitch_mm - gap_mm)
-            tries[name] = [(int(round(max(x, start))), int(round(min(x + frame, end)))) for x in starts]
+
+    def grids(lo, hi, lines, suffix=""):
+        g_first, g_pitch, g_found = grid_35mm(lines, lo, hi, True, pitch_mm, gap_mm)
+        for name, (at, pitch, ok) in (("grid", (g_first, g_pitch, g_found)),
+                                      ("template", grid_by_template(trace, lo, hi, False, pitch_mm, gap_mm))):
+            if ok:
+                starts, x = [], at - pitch * math.ceil((at - lo) / pitch + 1)
+                while x < hi:
+                    if min(x + pitch, hi) - max(x, lo) >= MIN_CELL * pitch:
+                        starts.append(x + gap_mm * mm / 2)
+                    x += pitch
+                starts = snap_frames(trace, lo, hi, starts, False, pitch_mm - gap_mm)
+                tries[name + suffix] = [(int(round(max(x, lo))), int(round(min(x + frame, hi))))
+                                        for x in starts]
+
+    grids(start, end, rows)
+    if room:
+        # past an end only where the first laying left picture out against
+        # it: there the strip goes on as dense film; elsewhere it is holder
+        edge = 6.0 * mm
+        runs = list(picture_runs(rows, start, end))
+        lo = room[0] if (runs and runs[0][0] - start < mm and spans and
+                         spans[0][0] - runs[0][0] > edge) else start
+        hi = room[1] if (runs and end - runs[-1][1] < mm and spans and
+                         runs[-1][1] - spans[-1][1] > edge) else end
+        if lo < start or hi > end:
+            before = set(tries)
+            grids(lo, hi, room[2], " over the glass")
+            for name in set(tries) - before:
+                tries[name] = [(max(a, lo), min(b, hi)) for a, b in tries[name]]
     seen = frames_by_gaps(trace, start, end, pitch_mm - gap_mm)
     if seen:
         tries["gaps"] = [(int(a), int(b)) for a, b in seen]
@@ -2153,10 +2188,16 @@ def film_on_glass(path, vertical, start, end, glass, slide=False):
         # A stretch as black as the holder is the holder: the end of a wide
         # slot shows a good deal of it before the glass begins. (A slide is
         # that black itself, and has to keep such stretches.)
+        # But a negative can be that black too, from end to end (roll 071,
+        # rescanned on 2026-10-27): when nothing of film's length is left
+        # without the black stretches, they were the film, and dropping them
+        # left a sliver of the scan's edge to be laid out as a strip.
         black = middle_lines(path, vertical,
                              ["-negate", "-threshold", f"{(255 - BLACK - 4) * 100.0 / 255.0:.2f}%"])
-        runs = [r for r in runs
-                if sum(black[r[0]:r[1]]) / float(max(r[1] - r[0], 1)) < 200] or runs
+        lit = [r for r in runs
+               if sum(black[r[0]:r[1]]) / float(max(r[1] - r[0], 1)) < 200]
+        if any(r[1] - r[0] >= scrap for r in lit):
+            runs = lit
     kept = [r for r in runs if r[1] - r[0] >= scrap] or runs
     if not kept:
         return None
@@ -2645,7 +2686,7 @@ def cmd_analyze(args):
             scale = axis_len / float(len(profile))
             start, end = film_extent(profile, counts)
             if on_grid:
-                a, b, held = int(start * scale), int(end * scale), None
+                a, b, held, room = int(start * scale), int(end * scale), None, None
                 glass = glass_level(scan)
                 if slide:
                     # where a slide lies is read off the glass alone: its
@@ -2665,6 +2706,12 @@ def cmd_analyze(args):
                             held = wide
                         else:
                             film_on_glass.pieces = narrow
+                            # one piece of film, read further by the glass:
+                            # the retry may lay the grid over the rest of it
+                            further = SCRAP_MM / 25.4 * STRIP_DPI
+                            if wide and held and len(narrow) <= 1 and \
+                                    (wide[0] <= held[0] - further or wide[1] >= held[1] + further):
+                                room = wide
                 trace = None
                 if held:
                     a, b, rows = held
@@ -2684,7 +2731,7 @@ def cmd_analyze(args):
                                            bool(held), pitch_mm, gap_mm, trace, slide)
                     if held and trace is not None and not slide:
                         more, how = retry_frames(more, rows, trace, pa, pb, w, h, vertical,
-                                                 pitch_mm, gap_mm)
+                                                 pitch_mm, gap_mm, room)
                         if how:
                             again.append(how)
                             ok = True
@@ -2954,6 +3001,39 @@ def cmd_preview(args):
     return 0
 
 
+def glass_edges(raw, base):
+    """A single cut without the glass at its edges: (x, y, w, h), or None
+    when there is none. A frame against the film's cut end takes in the cut
+    and a glow of the glass's light spreading into the film (roll 079, frame
+    16: its first rows read 109, the film 11). Printed, that is a black bar,
+    and read, it is a white the picture never had. A line is glass while it
+    is brighter on average than all but the brightest of the frame's middle
+    and than the film's clear base (`base`, 0..255): nothing on film passes
+    its clear base, so a shadow at a frame's edge is never taken. No more
+    than GLASS_EDGE_MOST of the frame is taken from any side."""
+    w, h = dimensions(raw)
+    grey = ["-alpha", "off", "-grayscale", "Average"]
+    middle = sorted(_magick([raw] + grey + _crop_args((w // 4, h // 4, w // 2, h // 2)) +
+                            ["-scale", "25%", "-depth", "8", "gray:-"]))
+    if not middle:
+        return None
+    bright = max(middle[int(len(middle) * 0.995)], GLASS_OVER_FILM * base)
+    rows = _magick([raw] + grey + ["-scale", f"1x{h}!", "-depth", "8", "gray:-"])
+    cols = _magick([raw] + grey + ["-scale", f"{w}x1!", "-depth", "8", "gray:-"])
+
+    def lit(line, most):
+        n = 0
+        while n < most and line[n] > bright:
+            n += 1
+        return n
+
+    top, left = lit(rows, int(h * GLASS_EDGE_MOST)), lit(cols, int(w * GLASS_EDGE_MOST))
+    bottom, right = lit(rows[::-1], int(h * GLASS_EDGE_MOST)), lit(cols[::-1], int(w * GLASS_EDGE_MOST))
+    if not (top or left or bottom or right):
+        return None
+    return (left, top, w - left - right, h - top - bottom)
+
+
 def remove_dust(path):
     """Takes small white specks off a developed frame, in place.
 
@@ -3023,6 +3103,15 @@ def cmd_develop(args):
         inset = (int(w * 0.06), int(h * 0.06), int(w * 0.88), int(h * 0.88))
         slide = frame["settings"].get("mode") == "slide"
         hist, ghist, kept = histograms(args.raw, inset, black=-1 if slide else BLACK)
+        if not slide:
+            # BLACK leaves out the holder's shadow, and a single taken inside
+            # its frame has none. On a dense negative it is the picture: roll
+            # 079's frame 16 lost nearly all its highlights to it, was given
+            # a white read off what was left, and printed white. When it
+            # would leave out most of the frame, the whole frame is read.
+            every = histograms(args.raw, inset, black=-1)
+            if every[2] and kept < 0.5 * every[2]:
+                hist, ghist, kept = every
         # The colour is the frame's as analysed. Only the exposure is read
         # again, off this scan, which sees far more of the frame than the
         # strip did.
@@ -3039,7 +3128,10 @@ def cmd_develop(args):
     # the print is eight bits unless sixteen are asked for (--depth 16), which
     # the darkroom's edits want so a strong Temp or curve does not band
     depth = str(getattr(args, "depth", 8))
-    _magick([args.raw] + apply_args(settings) + ["-depth", depth, dst])
+    chans = settings.get("channels") or []
+    cut = glass_edges(args.raw, sum(c["base"] for c in chans) / float(len(chans))) \
+        if chans and settings.get("mode") != "slide" else None
+    _magick([args.raw] + _crop_args(cut) + apply_args(settings) + ["-depth", depth, dst])
     finish(dst, settings.get("mode"), roll_dir, args.frame, args,
            getattr(args, "stage", None))
     print(f"Developed frame {args.frame} at weight {args.weight:.2f} -> {dst}")

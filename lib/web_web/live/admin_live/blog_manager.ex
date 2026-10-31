@@ -152,7 +152,11 @@ defmodule WebWeb.AdminLive.BlogManager do
     end
   end
 
-  defp load_posts(socket), do: assign(socket, :posts, Blog.list_all_posts())
+  defp load_posts(socket) do
+    socket
+    |> assign(:posts, Blog.list_all_posts())
+    |> assign(:readers, Web.Analytics.post_readers())
+  end
 
   defp upload_error_message(:too_large), do: "File is too large."
   defp upload_error_message(:not_accepted), do: "That file type is not accepted."
@@ -176,7 +180,7 @@ defmodule WebWeb.AdminLive.BlogManager do
     <.page_head slug="Writing / Blog" title="Blog">
       <:lede>
         Typed work, as markdown files in the vault; this page writes the same files. Spoken pieces
-        live in <.link navigate={~p"/admin/logs"} class="adm-link">Captain's Logs</.link>.
+        live in <.link navigate={~p"/admin/logs"} class="adm-link">Videostream</.link>.
       </:lede>
       <:actions>
         <.link href={~p"/blog"} target="_blank" class="adm-btn adm-btn--quiet">
@@ -260,6 +264,9 @@ defmodule WebWeb.AdminLive.BlogManager do
               <.pill :if={post.keywords == [] and not post.draft} tone="held">no keywords</.pill>
               <span class="adm-figure">{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
               <span><span class="adm-figure">{post.word_count}</span> words</span>
+              <span>
+                <span class="adm-figure">{readers = Map.get(@readers, post.slug, 0)}</span> {if readers == 1, do: "reader", else: "readers"}
+              </span>
               <span class="adm-figure">/blog/{post.slug}</span>
             </div>
 

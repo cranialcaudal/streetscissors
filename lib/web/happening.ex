@@ -2,18 +2,16 @@ defmodule Web.Happening do
   @moduledoc """
   The homepage's "Happening" section, in three parts:
 
-    * **Now**: the training block's week and phase, the newest activity
-      that is clear of every private place (its day, sport and distance:
-      never a time, a place or a route), and what is being read, from
-      `content/now.md` when there is one;
-    * **Fresh**: the newest post, captain's log, roll and change to the
-      regimen;
+    * **Now**: the newest activity that is clear of every private place (its
+      day, sport and distance: never a time, a place or a route), and what is
+      being read, from `content/now.md` when there is one;
+    * **Fresh**: the newest post, captain's log and roll;
     * **Witnessed**: the three public pieces the most people looked at in
       the last seven days (distinct `ip_hash` in `analytics_hits`).
 
   Everything comes from the public functions the pages themselves read, so
   a draft, an unpublished log or an unlisted page cannot turn up; the
-  witnessed list also refuses `/food`, `/england2026`, `/Christ` and
+  witnessed list also refuses `/food`, `/Christ` and
   `/admin` by name. Each part fails to nothing rather than taking the
   homepage down. The whole is kept for `:happening_ttl_ms` (ten minutes),
   since the homepage is the most visited page and the parts read files.
@@ -22,11 +20,11 @@ defmodule Web.Happening do
   use GenServer
 
   alias Web.{Analytics, Blog, Clock, Negatives, Pieces, Rides}
-  alias Web.Fitness.{Block, Changelog, Vault}
+  alias Web.Fitness.Vault
   alias Web.Rides.Units
 
   @table :happening
-  @never ~w(/food /england2026 /Christ /christ /faith /admin)
+  @never ~w(/food /Christ /christ /faith /admin)
 
   # ── The cache ──────────────────────────────────────────────────────
 
@@ -71,11 +69,10 @@ defmodule Web.Happening do
 
   # ── The parts ──────────────────────────────────────────────────────
 
-  @doc "Builds the section afresh: `%{now: map, fresh: list, witnessed: list}`."
+  @doc "Builds the section afresh: `%{now: map, fresh: list, witnessed: list, lately: map}`."
   def build(today \\ Clock.local_today()) do
     %{
       now: %{
-        block: safe(fn -> block_line(today) end, nil),
         ride: safe(fn -> ride() end, nil),
         reading: safe(fn -> reading() end, nil)
       },
@@ -163,19 +160,12 @@ defmodule Web.Happening do
           path: "/logs/#{l.slug}",
           poster: Web.Logs.Log.poster_url(l),
           duration: l.duration,
-          video: if(Web.Logs.Log.video?(l), do: Web.Logs.Log.media_url(l))
+          video: if(Web.Logs.Log.video?(l), do: Web.Logs.Log.media_url(l)),
+          date: l.recorded_on
         }
 
       [] ->
         nil
-    end
-  end
-
-  @doc "The block's week in a line: `Get Sharp · Week 1 of 8 — Baseline`."
-  def block_line(today) do
-    case Block.current(today) do
-      nil -> nil
-      b -> "#{b.title} · Week #{b.week} of #{b.weeks} — #{b.phase}"
     end
   end
 
@@ -216,12 +206,11 @@ defmodule Web.Happening do
     end
   end
 
-  defp fresh(today) do
+  defp fresh(_today) do
     [
       safe(fn -> post() end, nil),
       safe(fn -> log() end, nil),
-      safe(fn -> roll() end, nil),
-      safe(fn -> regimen(today) end, nil)
+      safe(fn -> roll() end, nil)
     ]
     |> Enum.reject(&is_nil/1)
   end
@@ -237,7 +226,7 @@ defmodule Web.Happening do
     case Web.Logs.list_ready_logs() do
       [l | _] ->
         %{
-          kind: "Captain's log",
+          kind: "Videostream",
           title: Web.Logs.Log.title(l),
           path: "/logs/#{l.slug}",
           date: l.recorded_on
@@ -267,13 +256,6 @@ defmodule Web.Happening do
       end
     end)
     |> Enum.max_by(&Date.to_gregorian_days(&1.date), fn -> nil end)
-  end
-
-  defp regimen(today) do
-    case Changelog.entries_until(today) do
-      [e | _] -> %{kind: "Training", title: e.title, path: "/fitness", date: e.date}
-      [] -> nil
-    end
   end
 
   @doc """
@@ -338,7 +320,7 @@ defmodule Web.Happening do
   defp pad(roll), do: Negatives.Roll.pad(roll)
 
   defp kind_word(:post), do: "Writing"
-  defp kind_word(:log), do: "Captain's log"
+  defp kind_word(:log), do: "Videostream"
   defp kind_word(:frame), do: "Photograph"
 
   defp safe(fun, fallback) do
@@ -348,5 +330,21 @@ defmodule Web.Happening do
       require Logger
       Logger.warning("happening: #{Exception.message(error)}")
       fallback
+  end
+
+  @doc "The kind of the single newest piece published in lately: :log, :post, or :roll."
+  def latest_piece(lately) do
+    candidates =
+      [
+        (post = List.first(lately.posts || [])) && %{kind: :post, date: post.date},
+        (log = lately.log) && %{kind: :log, date: log.date},
+        (roll = lately.roll) && %{kind: :roll, date: roll.date}
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    case Enum.max_by(candidates, &Date.to_gregorian_days(&1.date), fn -> nil end) do
+      nil -> nil
+      %{kind: kind} -> kind
+    end
   end
 end

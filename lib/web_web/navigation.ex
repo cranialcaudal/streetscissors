@@ -20,7 +20,7 @@ defmodule WebWeb.Navigation do
       # The blog is called "Blog" wherever a reader meets it (the homepage
       # tile, its heading, the section bar), so its back link says so too.
       "blog" -> {"/blog", "return to blog"}
-      "logs" -> {"/logs", "return to captain's logs"}
+      "logs" -> {"/logs", "return to videostream"}
       "latent-sensus" -> {"/blog", "return to blog"}
       "sensus" -> {"/blog", "return to blog"}
       "another-blog" -> {"/blog", "return to blog"}

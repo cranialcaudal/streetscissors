@@ -300,3 +300,28 @@ def test_a_sound_roll_is_named_nothing():
     fd = load_film_develop()
     film = roll_reading(fd, {170: 0.3, 90: 0.4, 20: 0.3})
     assert film["development"]["found"] == []
+
+
+def test_a_dense_negative_with_modest_gaps_is_not_taken_for_a_slide(env, tmp_path):
+    """Roll 080: black-and-white left with a veil, its pictures around 13 of
+    255 and its clear gaps around 27..30 (just over twice the pictures), with
+    the scanner's green channel reading lower than red and blue at dark levels."""
+    fd = load_film_develop()
+    out = tmp_path / "roll080_2026-10-29_35mm_color"
+    out.mkdir()
+    w, h = 296, 2671
+    arr = np.full((h, w, 3), 254 * 257, dtype=np.uint16)
+    # 5 frames of 425 px separated by 24 px gaps, starting at y=96
+    arr[81:2325, :] = [16 * 257, 10 * 257, 13 * 257]
+    for g in (96 - 12, 525, 974, 1419, 1864, 2305):
+        arr[max(81, g - 12):min(2325, g + 12), :] = [37 * 257, 21 * 257, 29 * 257]
+    # slight edge contrast beside each gap
+    for g in (525, 974, 1419, 1864):
+        arr[g - 36:g - 12, :] = [13 * 257, 8 * 257, 10 * 257]
+        arr[g + 12:g + 36, :] = [13 * 257, 8 * 257, 10 * 257]
+    scan = out / "001.tiff"
+    synth.write_tiff(scan, arr, synth.STUDIO_MARK)
+    assert fd.clear_gaps(str(scan)) is not None
+    assert fd.film_look([str(scan)]) == "bw"
+    assert fd.roll_mode(str(out), "color") == "bw"
+

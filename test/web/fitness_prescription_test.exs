@@ -41,6 +41,29 @@ defmodule Web.Fitness.PrescriptionTest do
     assert by["dumbbell-rdl"].section == %{title: "Lower: Hinge (75 Min)", minutes: 75}
   end
 
+  test "rest between sets is not a hold, a swim is in yards, and a count is laps" do
+    by =
+      Map.new(
+        Prescription.parse("""
+        ### Pull (40 Min)
+        - [ ] [[pull-ups|Pull-Ups]]; 4 x 1-3, from a dead hang, 90 sec between sets
+        - [ ] [[dumbbell-rows|Dumbbell Rows]]; 3 x 8, 60 sec rest
+        - [ ] [[plank|Plank]]; 2 x 45 sec, rest 30 sec
+        - [ ] [[kick-with-board|Kick]]; 4 x 25 yd
+        - [ ] [[freestyle|Freestyle]]; laps in 15 min, counted
+        - [ ] [[swim-time-trial|200 yd Time Trial]]; the baseline
+        """),
+        &{&1.slug, &1}
+      )
+
+    assert %{kind: :reps, sets: 4, reps: {1, 3}, seconds: nil} = by["pull-ups"]
+    assert %{kind: :weight, seconds: nil} = by["dumbbell-rows"]
+    assert %{kind: :hold, seconds: 45} = by["plank"]
+    assert %{kind: :swim, sets: 4, yards: 25} = by["kick-with-board"]
+    assert %{kind: :laps, seconds: 900} = by["freestyle"]
+    assert %{kind: :trial} = by["swim-time-trial"]
+  end
+
   test "the planned sets count a line with no count as one" do
     assert Prescription.planned_sets([%{sets: 3}, %{sets: nil}, %{sets: 4}]) == 8
   end

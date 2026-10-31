@@ -54,6 +54,9 @@ defmodule WebWeb.Layouts do
       <.blog_header
         return_to={Map.get(assigns, :return_to) || "/"}
         return_label={Map.get(assigns, :return_label) || "return to homepage"}
+        active={Map.get(assigns, :active_section)}
+        conn={Map.get(assigns, :conn)}
+        socket={Map.get(assigns, :socket)}
       />
     <% end %>
 

@@ -297,24 +297,6 @@ defmodule WebWeb.FitnessLive.Show do
           </li>
         </ol>
       </section>
-
-      <footer class="wiki-foot">
-        <span class="wiki-foot-label">Anatomical reference</span>
-        <a
-          href="https://www.nlm.nih.gov/research/visible/visible_human.html"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          The Visible Human Project, National Library of Medicine
-        </a>
-        <a
-          href="https://www.nlm.nih.gov/research/visible/visible_gallery.html"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Cross-section gallery
-        </a>
-      </footer>
     </div>
 
     <div :if={@tag_overlay} class="wiki-overlay steel">

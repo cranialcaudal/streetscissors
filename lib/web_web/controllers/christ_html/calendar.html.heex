@@ -24,7 +24,6 @@
             <span class="christ-month-meta">
               <span class="christ-swatch" aria-hidden="true"></span>
               {rank_name(day.celebration.rank)}
-              <span :if={fast.carmelite.fast}>· fast of the Rule</span>
               <span :if={fast.church}>· {String.downcase(fast.church.title)}</span>
               <span :if={day.optional != []}>
                 · also {Enum.map_join(day.optional, "; ", & &1.title)}
