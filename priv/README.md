@@ -7,14 +7,14 @@ built, so the live site carries its own copy.
 | Folder | What it holds | Read by |
 |---|---|---|
 | [`repo/migrations/`](repo/migrations/) | The database's history: each file is one change to the tables, run in order by date. Never edit one that has already run; add a new one with `mix ecto.gen.migration` | `mix ecto.migrate`, and the release at start-up |
-| `repo/seeds.exs`, `repo/seeds_recipes.exs` | Starting rows for a new database | `mix setup` |
+| `repo/seeds.exs` | Starting rows for a new database. (`repo/seeds_recipes.exs`, the kitchen's recipes, is content: not in git, kept by the content backup) | `mix setup` |
 | [`static/`](static/) | Files served exactly as they are: icons, `robots.txt`, the service worker (`sw.js`), the fonts, and the built `assets/` | The browser |
 | [`bible/`](bible/) | The Bible the prayer pages read: one folder per translation, one JSON file per book. Only public-domain texts are committed (the CPDV) | `Web.Bible` |
 | [`liturgy/`](liturgy/) | The Church calendars (general, US, Discalced Carmelite), the lectionary's citations and the saints' lives | `Web.Liturgy.*` |
 | [`figure/`](figure/) | The "camera" that films the exercise figures: a small Node.js program driving headless Chrome (`render.mjs`, `render.html`, `figure3d.js`) and the tape measure (`measure.mjs`) | `mix fitness.film` |
 | [`film/stocks.json`](film/stocks.json) | Figures from film makers' datasheets (colour balance, reciprocity), each with its source | `Web.Darkroom.Prior` |
 | [`repair/film_repair.py`](repair/film_repair.py) | The Python program behind the print editor's Repair tab. See `tools/repair/README.md` | `Web.Darkroom.Repair` |
-| [`fonts/`](fonts/) | Two typefaces for the share cards, drawn by ImageMagick (licences beside them) | `Web.ShareCard` |
+| [`fonts/`](fonts/) | Two typefaces ImageMagick sets text in, for share cards and the cutting room's titles (licences beside them) | `Web.ShareCard`, `Web.Cuts.Titles` |
 | [`faith/guide.md`](faith/guide.md) | An essay on the Carmelite fast. Kept, but no page shows it | — |
 | `gettext/` | Phoenix's translation files (the site is English only) | Phoenix |
 

@@ -1,7 +1,8 @@
 # test/
 
-**The automated checks.** `mix test` runs every one of them (about 1,600) and prints a dot for
-each that passes. They are the project's safety net: before any change counts as done,
+**The automated checks.** `mix test` runs every one of them (about 1,700) and prints a dot for
+each that passes. Log output is shown only beside a test that fails (`capture_log` in
+`test_helper.exs`), so a clean run is a page of dots. They are the project's safety net: before any change counts as done,
 `mix precommit` must pass, and that runs all of these.
 
 ## How it is laid out
@@ -23,6 +24,8 @@ This is the rule that makes the suite safe to run anywhere, including on the liv
 - **Content is invented.** `config/test.exs` points every content path at
   [`support/fixtures/`](support/fixtures/): sample blog posts, a sample training plan, a sample
   roll of film, sample emails. None of them is real, and none names a real person or place.
+  Addresses come only from the ranges kept for documentation (192.0.2.0/24, 198.51.100.0/24,
+  203.0.113.0/24), and body figures are made up.
 - **Outside programs are stand-ins.** `support/stub_ffmpeg`, `stub_magick`, `stub_lightcraft`,
   `stub_film_develop`, `stub_scanimage` and the rest are tiny scripts that answer the way the real
   program would, instantly. `config/test.exs` points the site at them instead of the real ones.
@@ -30,7 +33,8 @@ This is the rule that makes the suite safe to run anywhere, including on the liv
   `web/cuts_render_test.exs`, measuring the figure in `web/fitness_measure_test.exs`) skip
   themselves when it is not installed.
 - **The network is never used.** Komoot, webmentions and mail are faked (`Req.Test`,
-  `support/webmentions_test_resolver.ex`, Swoosh's test adapter).
+  `support/webmentions_test_resolver.ex`, Swoosh's test adapter), and the reader-location
+  lookup is switched off (`:geo_lookup_enabled`).
 - **The database is a separate file** (`tmp/db/web_test.db`), and each test's changes are undone
   when it ends (`support/data_case.ex`).
 

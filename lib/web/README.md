@@ -33,6 +33,12 @@ The site keeps its information in three kinds of place, and each context says wh
 | `Web.Keywords` | `keywords.ex`, `keywords/` | The one keyword vocabulary shared by posts and logs, so "New York" and `new-york` are the same word. Renaming one everywhere (`keywords/index.ex`) |
 | `Web.ContentHealth` | `content_health.ex` | Finds broken links, missing images and other faults in the writing, by asking the site itself |
 | `Web.Docs` | `docs.ex` | Renders a long markdown document as a page with a contents list (the manual, the roadmap) |
+| `Web.Markdown` | `markdown.ex` | Markdown to HTML with one set of options for every page, and to plain text where one line is wanted |
+| `Web.Frontmatter` | `frontmatter.ex` | Where a file's frontmatter ends and its body begins, for the blog and the fitness vault alike |
+| `Web.SourceFile` | `source_file.ex` | Saving a file Obsidian also edits: refuses to overwrite a newer version, keeps the file's line endings, writes beside and renames over |
+| `Web.Editor.Complete` | `editor/` | What the admin editor offers as you type (`[[`, `![[`, `related:`, `keywords:`) |
+| `Web.Notes` | `notes.ex` | Quick-add notes, appended to the private `content/notes/inbox.md` |
+| `Web.IndexNow` | `index_now.ex` | Tells search engines the moment a post, log or roll is published (off without `INDEXNOW_KEY`) |
 
 ### Recordings and the cutting room
 
@@ -95,7 +101,7 @@ The site keeps its information in three kinds of place, and each context says wh
 | `Web.SystemStatus` | `system_status.ex` | The machine's state as the admin overview shows it |
 | `Web.Scheduler` | `scheduler.ex` | Jobs that run on a clock (the times are in `config/config.exs`) |
 | `Web.Workers.*` | `workers/` | Jobs that run in the background, queued with Oban |
-| `Web.Analytics` | `analytics.ex`, `analytics/` | Counting visits, by a hash of the address, never the address itself |
+| `Web.Analytics` | `analytics.ex`, `analytics/` | Counting visits, by a hash of the address, never the address itself; leaving out the author's own reading (`analytics/owner.ex`); and, nightly, roughly where readers read from (the night's addresses are looked up at ip-api, and only the place is kept, by hash) |
 | `Web.RateLimit` | `rate_limit.ex` | Stopping one visitor from asking for too much too fast |
 | `Web.SiteSettings` | `site_settings.ex`, `site_settings/` | Settings changed from the admin without a deploy |
 | `Web.Notify` | `notify.ex` | The site writing to its author |
@@ -114,5 +120,5 @@ The site keeps its information in three kinds of place, and each context says wh
 - **A new database table**: `mix ecto.gen.migration name_in_snake_case`, then a schema module in
   the right context's folder.
 - **Anything near privacy** (rides, the guestbook's contact details, what is public): read the
-  context's `@moduledoc` and `CLAUDE.md` first. The rules there are tested, and the tests say
+  context's `@moduledoc`, `CLAUDE.md` and `docs/architecture.md` first. The rules there are tested, and the tests say
   why.

@@ -1,6 +1,6 @@
 # ops/
 
-**Everything for running the live site**, as opposed to developing it. On your own computer you
+**Everything for running the live site**, as opposed to developing it. On a computer that is not the live server you
 start the site with `mix phx.server` and never need this folder. On the server, these files are
 what keep it up.
 
@@ -50,9 +50,10 @@ The unit files use `%h` (your home folder) and `%u` (your user name), so no pers
 written into the repository. systemd fills them in.
 
 ```bash
-cp ops/systemd/*.service ~/.config/systemd/user/
+cp ops/systemd/*.service ops/systemd/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now caddy-streetscissors streetscissors
+systemctl --user enable --now wifi-watchdog.timer   # only on a machine on Wi-Fi
 loginctl enable-linger "$USER"          # keep them running when nobody is logged in
 ```
 

@@ -13,7 +13,7 @@ command uses this folder.
 |---|---|---|
 | [`blog-template.md`](blog-template.md) | A blog post: the frontmatter block (title, description, date, keywords, `draft: true`) and an empty body | `content/blog/<slug>.md`. The filename is the post's address |
 | [`fitness-module-template.md`](fitness-module-template.md) | A training module: a reusable block of exercises that days are assembled from | `content/fitness/modules/` |
-| [`fitness-weekly-template.md`](fitness-weekly-template.md) | One day of the week's plan, listing its modules and its one-word theme | `content/fitness/weekly/<day>.md` |
+| [`fitness-weekly-template.md`](fitness-weekly-template.md) | One day of a program's week, listing its modules and its one-word theme | `content/fitness/weeks/<program>/<day>.md` (the running program's week is the one shown) |
 
 The admin's "New post" button starts from the same blog template, so a post begun in the browser
 and one begun in Obsidian look the same.

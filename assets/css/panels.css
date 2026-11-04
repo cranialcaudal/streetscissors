@@ -1,5 +1,5 @@
-/* Flat panels and their inputs (.glass-*: the class names predate the
-   hairline restyle and are kept for the templates that use them). */
+/* Flat panels (.glass-panel: the name predates the hairline restyle and is
+   kept for the templates that use it). */
 
 .glass-panel {
     background: var(--paper-raised);

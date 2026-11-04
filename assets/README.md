@@ -23,22 +23,28 @@ classes turned off (`source(none)` in `css/app.css`). So a class like `blog-post
 template is defined in one of these files, by name, and nothing is generated.
 
 **Colours, type and spacing are variables ("tokens")**, defined once at the top of `css/app.css`
-(`--paper`, `--ink`, `--rule`, `--color-orange`…). Pages use the variables, never colour codes
-written out. That is how one page can look like printed paper and another like a darkroom:
+(`--paper`, `--ink`, `--rule`, `--accent-ink`…). Pages use the variables, never colour codes
+written out.
 
-| Theme | Where | File |
+**Every public page wears one shell** (`css/shell.css`: page head, buttons, plates, tabs, fields):
+paper, Sorts Mill Goudy to read, IBM Plex Mono for controls, and poppy (`--accent-ink`) on
+anything that can be pressed. A section changes only `--section-tint`, which colours decoration
+(the current tab, an eyebrow, a rule) and never anything pressable. The sections keep their own
+wrapper class and stylesheet:
+
+| Section | Wrapper | File |
 |---|---|---|
-| Paper (the default) | Most pages | `theme.css`, `app.css` |
-| Darkroom | `/negatives` | `negatives.css` |
-| Blueprint steel | Every `/fitness` page | `steel.css` |
-| NX-01 console | `/logs` | `logs.css` |
-| Brown scapular | `/Christ` | `christ.css` |
-| The studio | `/admin` | `css/admin/` |
+| Most pages | none | `theme.css`, `shell.css` |
+| `/fitness` | `.steel` | `steel.css`, `fitness_*.css` |
+| `/logs` | `.nx01` | `logs.css` |
+| `/Christ` | `.faith` | `christ.css` |
+| `/negatives` | `.darkroom` | `negatives.css` |
+| `/admin` | `.admin-layout` | `css/admin/` |
 
-Each theme re-defines the same variables inside its own class (`.darkroom`, `.steel`…), so a
-component written with tokens looks right in all of them. **Careful:** in the darkroom, NX-01 and
-scapular themes, `--ink` (normally the dark text colour) is *light*. Surfaces that must stay dark
-use the `--paper-*` variables.
+**`/negatives` is the one dark section**, for the photographs. Under `.darkroom`, `--ink`
+(normally the dark text colour) is *light*, so surfaces that must stay dark use the `--paper-*`
+variables. The admin has its own tokens (`--st-*`), dark by default and light under a light
+system theme.
 
 **Fonts are served from the site itself** (`css/fonts.css`, files in `priv/static/fonts/`); no
 page asks Google or anyone else for anything.
@@ -52,8 +58,11 @@ is done by the server through LiveView. What is here:
 |---|---|---|
 | `app.js` | Starts LiveView, registers the hooks below, the search box's suggestions, the service worker, the stale-tab reload, and small page helpers | Every page |
 | `trail.js` | Makes the header's Back button return to the last thing you were reading, and puts you back where you were on it | Every page |
+| `home_new.js` | Slides in the homepage's corner card of the newest work a moment after the page loads, and keeps it closed once closed until what it shows changes | `/` |
+| `home_previews.js` | Plays a few silent seconds of the newest log in that card, on hover or while on screen; never under reduced motion or Save-Data | `/` |
+| `christ.js` | Marks the prayer it is time for by the reader's own clock, and the pages' other small enhancements | `/Christ` |
 | `emissions_controls.js` | Redraws the commuting-emissions charts when a reader moves a slider (the same maths as `analysis/emissions.R`) | One blog post |
-| `gym_routine.js` | The training day's checklist | `/fitness` |
+| `gym_routine.js` | The training day's checklist, kept in the browser | `/fitness` |
 | `document_editor.js` | The admin's document editor hook (`WebWeb.DocumentEditor`): mounts the editor over a form's textarea and keeps the two in step. Fetches `editor/core.js` only when a page has an editor | `/admin` blog, fitness, newsletter and log notes |
 | `editor/core.js` | The editor itself: CodeMirror 6 over the file's own text. Live mode, the slash menu, `[[` completion, outline and Zen are all drawn over the text; nothing untyped is ever rewritten, so Obsidian and the editor agree | Loaded by `document_editor.js` as its own chunk |
 | `pc_terminal.js` | Keeps the typing cursor in the `/pc` terminal, and scrolls it as text arrives | `/pc` |
@@ -66,8 +75,9 @@ HTML it belongs to.
 ## If you want to change…
 
 - **A page's look**: find its outermost class in the template, then search `css/` for it.
-- **A colour everywhere**: the token in `css/app.css` (and check the themes that re-define it).
+- **A colour everywhere**: the token in `css/app.css` (and check `.darkroom` and the admin, which re-define tokens).
 - **Add an icon**: add its name to the `@source inline(...)` list in `css/app.css`. An icon not
   on the list shows as an empty square, with no error anywhere.
-- After changing anything here, `mix assets.build` (or a running `mix phx.server`, which rebuilds
-  by itself).
+- After changing anything here, run `mix assets.build`; the live site picks the change up at the
+  next deploy (`ops/redeploy.sh`). This machine is also the live server, so don't start a
+  `mix phx.server` to look: use `ops/preview.sh`.

@@ -1,8 +1,8 @@
 defmodule Web.Frontmatter do
   @moduledoc """
   Where a Markdown file's frontmatter ends and its body begins: the one
-  splitter the blog, the fitness vault (days, wiki, blocks), the week, the
-  changelog and the homepage share.
+  splitter the blog and the fitness vault (days, wiki, blocks and the
+  changelog) share.
 
   A file saved on Windows, or by a tool that writes `\\r\\n`, used to lose its
   frontmatter in every reader but the blog's, silently: each had its own

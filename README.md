@@ -10,7 +10,8 @@ Phoenix 1.8 / LiveView on SQLite. Live at [streetscissors.com](https://streetsci
 | `/blog` | Written work. Markdown read off disk at request time, authored in an Obsidian vault. |
 | `/logs` | Captain's logs — spoken pieces, each with its own address. |
 | `/negatives` | Contact sheets and individual frames, scanned from film. |
-| `/fitness` | The training regimen, plus GPS rides synced from Komoot. |
+| `/fitness` | The training regimen, one day to a page, the exercise wiki with its figures, and activities mirrored from Komoot (no route or position is stored). |
+| `/daybook` | The site read by date: a week to a page, and each year as a book. |
 | `/pc` | A terminal that navigates the site by the filenames things actually have on disk. Type `roll007`, press Enter. |
 | `/search` | One search across every section. Nothing is indexed: each query reads the content as it stands. |
 | `/how-to` | The manual. Rendered from [`docs/how-to.md`](docs/how-to.md), so it reads here and on the site. |
@@ -41,13 +42,14 @@ keywords normalise through one shared module so `"New York"` and `new-york` are 
 | [`docs/`](docs/README.md) | The manual, the setup guide, the roadmap, and the technical notes |
 
 [`CLAUDE.md`](CLAUDE.md) is the short list of rules and traps for anyone changing the code (it
-is written for AI coding agents, and it is just as useful for people).
+is written for AI coding agents, and it is just as useful for people), and
+[`docs/architecture.md`](docs/architecture.md) is how each part is wired, and why.
 
 ## Running it locally
 
 ```bash
 mix setup          # libraries, database, assets
-mix test           # the full suite: about 1,600 tests, all passing
+mix test           # the full suite: about 1,700 tests, all passing
 mix phx.server     # http://localhost:4000 (admin password: dev-admin)
 ```
 

@@ -16,7 +16,8 @@ afternoon, and the first eight chapters are enough to follow this code.
 |---|---|---|
 | [`web/`](web/) | **What the site knows and does**: reading blog posts off disk, storing a recording, working out the day's prayers, developing a roll of film, backing up the database. Nothing here knows about web pages, HTTP or browsers. | [`web/blog.ex`](web/blog.ex) |
 | [`web_web/`](web_web/) | **The website itself**: the address of every page (the router), the code that answers each request, the HTML templates, the components pages are built from, and the live pages that update without reloading. | [`web_web/router.ex`](web_web/router.ex) |
-| [`mix/tasks/`](mix/tasks/) | Two commands added to `mix` for jobs done at the terminal: `mix fitness.export` (the training log as CSV for R) and `mix fitness.film` (filming the exercise figures). | — |
+| [`mix/tasks/`](mix/tasks/) | Three commands added to `mix` for jobs done at the terminal: `mix fitness.export` (the training log as CSV for R), `mix fitness.film` (filming the exercise figures) and `mix darkroom.eval` (scoring the colour prior and the taste model against the author's own edits). | — |
+| `web.ex`, `web_web.ex` | The two halves' front doors: `web_web.ex` defines what `use WebWeb, :live_view` (and `:controller`, `:html`…) brings into a module. Phoenix generates both | — |
 
 The names are Phoenix's convention: the app is called `:web`, so its core is `Web` and its web
 layer is `WebWeb`. (`WebWeb` reads oddly, but every Phoenix app has the same pattern, such as
@@ -48,11 +49,12 @@ detail.
 
 ## Finding your way
 
-- Every module starts with a `@moduledoc`: a paragraph or more saying what it is for and what
-  is not obvious about it. Read that before the code.
+- Every module starts with a `@moduledoc`: a one-sentence summary first, then what is not
+  obvious about it. Read that before the code.
 - The longest modules open with a **"How this file is laid out"** list, and banner comments
   (`# ── Part name ───`) mark each part in the code.
 - [`web/README.md`](web/README.md) and [`web_web/README.md`](web_web/README.md) list every
   module group with a sentence each, so you can find anything from one page.
 - [`CLAUDE.md`](../CLAUDE.md) at the top of the repository lists the traps: the things that look
-  safe to change and are not.
+  safe to change and are not. [`docs/architecture.md`](../docs/architecture.md) explains how
+  each part is wired, and why.

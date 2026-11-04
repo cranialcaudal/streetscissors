@@ -16,7 +16,8 @@ itself (reading posts, developing film, counting visits) is done by the core in
 | [`components/`](components/) | **Components**: pieces of HTML used on many pages (buttons, the header, the wordmark, a ride card), written as functions | `core_components.ex` and `admin_components.ex` hold most of them |
 | `components/layouts/` | The **layouts**: the page frame every page sits inside (the `<head>`, the header, the flash messages) | `root.html.heex` is the outermost frame |
 | [`plugs/`](plugs/) | **Plugs**: small steps every request in a pipeline goes through (counting the visit, loading settings, checking the admin session) | — |
-| `captcha.ex`, `client_ip.ex`, `navigation.ex`, … | Helpers used by several pages | — |
+| `visitor.ex`, `owner_mark.ex`, `seo.ex`, `captcha.ex`, `navigation.ex`, `unsubscribe.ex`, … | Helpers used by several pages: who a visitor is and whether they count (`visitor.ex`, the author's browser mark in `owner_mark.ex`), the page's search-engine tags (`seo.ex`), the forms' puzzle, the unsubscribe tokens | — |
+| `telemetry.ex`, `gettext.ex` | Phoenix's standard measurements and translations, as generated | Rarely changed |
 
 **Controllers or LiveViews?** A controller page is sent once and is finished: fast and simple,
 and it works with JavaScript off. A LiveView keeps a connection (a WebSocket) open so the server
@@ -32,19 +33,20 @@ The public site:
 | `/` | `PageController.home` | The homepage |
 | `/blog`, `/blog/:slug` | `BlogController` | The writing |
 | `/logs`, `/logs/:slug` | `LogsLive.Index`, `LogsLive.Show` | The captain's logs (recordings) |
-| `/negatives`, `/negatives/roll/:roll`, `…/frame/:frame` | `NegativesLive` | The film archive: contact sheets and single photographs |
+| `/negatives`, `/negatives/roll/:roll`, `…/frame/:frame` | `NegativesLive` | The film archive: contact sheets and single photographs (`/archive` is an old alias) |
 | `/negatives/image/…`, `/negatives/frame/…` | `NegativesController` | The picture files themselves |
-| `/fitness`, `/fitness/day/:day` | `FitnessLive.Index` | The training plan, one day to a page |
+| `/fitness`, `/fitness/day/:day`, `/fitness/session/:slug` | `FitnessLive.Index` | The training plan, one day to a page (any session by name, for the admin) |
 | `/fitness/wiki`, `/fitness/wiki/:slug` | `FitnessLive.Wiki`, `FitnessLive.Show` | The exercise wiki, with its figures |
 | `/fitness/rides`, `/fitness/rides/:id` | `RidesLive.Index`, `RidesLive.Show` | Activities from Komoot |
 | `/daybook`, `/daybook/:year`, `…/week/:week`, `/day/:date` | `DaybookController` | The daybook: what was made each week and day |
+| `/daybook/:year/book.epub`, `…/book.pdf` | `DaybookController` | The year's posts as a book |
 | `/Christ` and below | `ChristController` | The prayer pages (unlisted) |
 | `/search`, `/search/suggest` | `PageController.search`, `.suggest` | Search |
 | `/guestbook` | `GuestbookLive` | The guestbook |
 | `/contact`, `/newsletter` | `NewsletterLive` | Writing to the author; signing up |
 | `/pc` | `PcLive` | A terminal that reaches anything by its filename |
 | `/how-to`, `/roadmap`, `/about` | `PageController` | The manual, the roadmap, about the site |
-| `/feed`, `/sitemap.xml` | `FeedController`, `SitemapController` | For feed readers and search engines |
+| `/feed`, `/sitemap.xml`, `/indexnow.txt` | `FeedController`, `SitemapController`, `IndexNowController` | For feed readers and search engines |
 | `/food` | `PageController.food` | Admin-only kitchen page |
 | `/share/…` | `ShareController` | The pictures a shared link shows |
 | `/health` | `HealthController` | "Is the site up?" for the uptime check |
@@ -63,8 +65,11 @@ The admin, all in `live/admin_live/` unless noted, and all behind the admin logi
 | `/admin/blog`, `/admin/blog/:slug/edit` | `AdminLive.BlogManager`, `.BlogEditor` | Posts and the editor |
 | `/admin/keywords`, `/admin/health` | `AdminLive.Keywords`, `.ContentHealth` | Tending the writing |
 | `/admin/fitness`, `/admin/fitness/block`, `/admin/fitness/report` | `AdminLive.FitnessManager`, `.BlockReport`, `FitnessReportController` | The training plan, a block's report, the weekly R report |
+| `/admin/fitness/fueling` | `AdminLive.Fueling` | The daily fueling plan, from `content/fitness/fueling.json` |
+| `/admin/quick` | `AdminLive.QuickAdd` | Quick add: a set or a note, from the "+" in the admin bar |
 | `/admin/rides` | `AdminLive.RidesManager` | Komoot sync and what strangers can see |
-| `/admin/inbox`, `/admin/guestbook`, `/admin/citations`, `/admin/newsletter` | `AdminLive.Inbox`, `.GuestbookManager`, `.Citations`, `.Newsletter` | Mail |
+| `/admin/inbox`, `/admin/guestbook`, `/admin/citations`, `/admin/newsletter` | `AdminLive.Inbox`, `.GuestbookManager`, `.Citations`, `.Newsletter` | Mail (`/admin/subscribers/export` is the subscriber CSV, `NewsletterController`) |
+| `/admin/readers` | `AdminLive.Readers` | Who reads the site, roughly where from, and which visits are the author's own |
 | `/admin/settings` | `AdminLive.Settings` | Settings that change without a deploy |
 
 ## How admin pages are protected

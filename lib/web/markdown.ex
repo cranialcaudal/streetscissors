@@ -1,7 +1,7 @@
 defmodule Web.Markdown do
   @moduledoc """
   Markdown to HTML, with one set of options for every page that renders it
-  (the blog, the vault, the manual, mail, the about page, the calendar).
+  (the blog, the vault, the manual, mail, the feed, log notes, the about page).
 
   Earmark's warnings about a malformed line are not failures: the HTML it
   made anyway is what the page shows, as it always did.

@@ -14,8 +14,8 @@ want to do:
 | [`colour/contracts.md`](colour/contracts.md) | See the promises each colour stage must keep, and how they are tested | Technical |
 
 The folder READMEs (`lib/README.md`, `tools/README.md` and the others) explain the code folder
-by folder, and [`CLAUDE.md`](../CLAUDE.md) at the top lists the rules and traps for anyone
-changing code.
+by folder, [`CLAUDE.md`](../CLAUDE.md) at the top lists the rules and traps for anyone
+changing code, and `architecture.md` above is the long account of how it is wired.
 
 ## Two documents are live pages
 

@@ -1,8 +1,8 @@
 # analysis/
 
-**Statistics written in R**, for two parts of the site. Until 2026-10-20 this folder was called
-`scripts/` and kept out of git. It is in the repository now, so anyone can read, run and check
-the numbers the site shows.
+**Statistics written in R**, for three parts of the site: the commuting post's charts, the
+weekly training report, and each ride's estimated power. It is in the repository so anyone can
+read, run and check the numbers the site shows.
 
 R is a programming language made for statistics. You do not need it to run the website: the site
 only *reads* what these scripts produce, and every page that uses them says so plainly when the
@@ -37,8 +37,9 @@ mode?" versus "what do people who use each mode actually emit?").
      (`Web.Blog.Embeds` reads it; `assets/js/emissions_controls.js` redraws the charts when a
      reader moves the sliders).
 
-R never runs on the live server. You run the script on your own machine when the assumptions
-change, and the site reads the JSON. Both outputs are ignored by git (`priv/static/figures/` is),
+This script never runs on the live server. You run it on your own machine when the assumptions
+change, and the site reads the JSON. (The report and the ride-power script are different: the
+site runs those itself.) Both outputs are ignored by git (`priv/static/figures/` is),
 so a fresh clone draws no chart until you have run the script once.
 
 The website also **shows this file's text** inside the post. It reads `analysis/emissions.R`
@@ -75,7 +76,8 @@ version, with references):
    and then the gap between what it predicted and what actually happened says how ready the body
    was that day.
 2. **Load ratio (acute:chronic, Gabbett 2016).** Compares the last 7 days' work with the average
-   week of the three weeks before them, separately for each kind of movement (hinge, squat, push, pull,
+   week of the three weeks before them (the "uncoupled" ratio: the week is not part of its own
+   baseline), separately for each kind of movement (hinge, squat, push, pull,
    jumping and running). A sudden rise is a known injury risk; the site's guardrails hold a lift
    back when the ratio passes 1.5. Bike rides count as endurance load.
 3. **Odd days.** Looks for sessions much better or worse than the model expected, using a
