@@ -8,7 +8,9 @@ defmodule WebWeb.Plugs.Analytics do
   counted here; the page says so itself when it is actually shown
   (`WebWeb.SeenController`, which calls `record/2` with the page's path).
 
-  Who counts is `WebWeb.Visitor.counted?/3`, the same rule log views use;
+  Who counts is `WebWeb.Visitor.counted?/3`, the same rule log views use,
+  asked of `WebWeb.OwnerMark` rather than of the admin session alone, so the
+  author's own reading is left out on every browser he has logged in from;
   which paths are pages is `Web.Analytics.sub_resource_path?/1` plus the
   prefixes below, so the historical purge applies the rules this plug does.
   """
@@ -16,6 +18,7 @@ defmodule WebWeb.Plugs.Analytics do
   import Plug.Conn
 
   alias Web.Analytics
+  alias WebWeb.OwnerMark
   alias WebWeb.Visitor
 
   def init(opts), do: opts
@@ -49,7 +52,11 @@ defmodule WebWeb.Plugs.Analytics do
       ua = Visitor.user_agent(conn) || "unknown"
       ref = clean_referrer(get_req_header(conn, "referer") |> List.first())
 
-      if Visitor.counted?(ip, ua, get_session(conn, "admin_user") == true) do
+      # WebWeb.Plugs.OwnerMark has usually answered this already. POST /seen
+      # arrives through the :beacon pipeline instead, which sets no cookie, so
+      # the question is asked again here rather than assumed: without it a
+      # prefetch the author's own logged-out browser confirmed would count.
+      if Visitor.counted?(ip, ua, conn.assigns[:mine?] || OwnerMark.mine?(conn)) do
         hash = Analytics.hash_ip(ip)
 
         insert = fn -> Analytics.record_hit(path, ua, hash, ref) end

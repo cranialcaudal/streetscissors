@@ -4,8 +4,9 @@ defmodule Web.Analytics do
   a hit (`WebWeb.Plugs.Analytics`): the path, the user agent and a **hash** of
   the IP address, keyed with a secret derived from `SECRET_KEY_BASE` (`hash_ip/1`), so it
   cannot be turned back into an address.
-  Bots, prefetches, the admin's own visits and the addresses in
-  `EXCLUDED_IPS` are not counted.
+  Bots, prefetches, the author's own reading (`Web.Analytics.Owner`, and
+  `WebWeb.OwnerMark` on the browser) and the addresses in `EXCLUDED_IPS` are
+  not counted.
 
   The rest of the module answers questions about those hits, with one
   vocabulary everywhere:
@@ -24,8 +25,11 @@ defmodule Web.Analytics do
   """
 
   import Ecto.Query, warn: false
+
+  require Logger
+
   alias Web.Repo
-  alias Web.Analytics.{Hit, PageWitness}
+  alias Web.Analytics.{AccessLog, Hit, Owner, PageWitness}
 
   @doc """
   Salted hash of a client IP, for counting a returning visitor as one visitor
@@ -100,6 +104,20 @@ defmodule Web.Analytics do
     |> Repo.insert()
   end
 
+  # Every figure the site reports leaves the author's own reading out, and it
+  # is left out here rather than at each caller so that a count added later
+  # cannot quietly start including him. His visits are not deleted: the rows
+  # stay, and `/admin/readers` shows them under "Mine".
+  #
+  # The set is a handful of hashes held in :persistent_term, so this costs a
+  # list of bound parameters and no query of its own.
+  defp countable(query) do
+    case Owner.hash_list() do
+      [] -> query
+      hashes -> from(r in query, where: r.ip_hash not in ^hashes)
+    end
+  end
+
   @doc "Distinct human readers per post slug, combining /blog and legacy /manuscripts paths."
   def post_readers do
     Map.merge(
@@ -129,6 +147,7 @@ defmodule Web.Analytics do
         at: h.inserted_at
       }
     )
+    |> countable()
     |> Repo.all()
     |> Enum.map(fn hit ->
       %{
@@ -144,6 +163,7 @@ defmodule Web.Analytics do
 
   @doc "Parses a user-agent string into a concise device/browser name."
   def friendly_device(nil), do: "Browser"
+
   def friendly_device(ua) when is_binary(ua) do
     cond do
       String.contains?(ua, "iPhone") -> "iPhone"
@@ -160,17 +180,36 @@ defmodule Web.Analytics do
   @doc "Parses a referrer host/domain into a friendly source name."
   def friendly_source(nil), do: "Direct"
   def friendly_source(""), do: "Direct"
+
   def friendly_source(host) when is_binary(host) do
     cond do
-      String.contains?(host, "google") -> "Google"
-      String.contains?(host, "duckduckgo") -> "DuckDuckGo"
-      String.contains?(host, "bing") -> "Bing"
-      String.contains?(host, "ycombinator") -> "Hacker News"
-      String.contains?(host, "reddit") -> "Reddit"
-      String.contains?(host, "t.co") or String.contains?(host, "twitter") or String.contains?(host, "x.com") -> "X / Twitter"
-      String.contains?(host, "substack") -> "Substack"
-      String.contains?(host, "github") -> "GitHub"
-      true -> host
+      String.contains?(host, "google") ->
+        "Google"
+
+      String.contains?(host, "duckduckgo") ->
+        "DuckDuckGo"
+
+      String.contains?(host, "bing") ->
+        "Bing"
+
+      String.contains?(host, "ycombinator") ->
+        "Hacker News"
+
+      String.contains?(host, "reddit") ->
+        "Reddit"
+
+      String.contains?(host, "t.co") or String.contains?(host, "twitter") or
+          String.contains?(host, "x.com") ->
+        "X / Twitter"
+
+      String.contains?(host, "substack") ->
+        "Substack"
+
+      String.contains?(host, "github") ->
+        "GitHub"
+
+      true ->
+        host
     end
   end
 
@@ -209,14 +248,23 @@ defmodule Web.Analytics do
     end)
     |> Enum.filter(fn r ->
       case filter do
-        :readers -> not r.bot_burst?
-        :bots -> r.bot_burst?
+        # The author is neither a reader nor a bot: he is his own view, and he
+        # is taken out before the others are counted or cut off.
+        :readers -> not r.mine? and not r.bot_burst?
+        :bots -> not r.mine? and r.bot_burst?
+        :mine -> r.mine?
         _ -> true
       end
     end)
     |> Enum.sort_by(fn r -> {-r.total_hits, -r.active_days, r.ip_hash} end)
-    |> Enum.take(limit)
+    |> cut(limit)
   end
+
+  # The cut comes after the filter, never before. Until 2026-10-31 the page
+  # asked for the top 150 of everything and sorted readers out afterwards, so
+  # one scraper on 276 addresses pushed every real reader off the list.
+  defp cut(profiles, nil), do: profiles
+  defp cut(profiles, limit), do: Enum.take(profiles, limit)
 
   @doc "Removes all hits for a given `ip_hash` (e.g. an author IP or bot burst)."
   def forget_reader(ip_hash) when is_binary(ip_hash) do
@@ -273,7 +321,7 @@ defmodule Web.Analytics do
         Enum.map(unique_ips, fn ip ->
           %{
             query: ip,
-            fields: "status,query,country,regionName,city,isp,org,hosting,mobile"
+            fields: "status,query,country,regionName,city,isp,org,as,asname,hosting,proxy,mobile"
           }
         end)
 
@@ -288,7 +336,10 @@ defmodule Web.Analytics do
                  "country" => item["country"] || "",
                  "isp" => item["isp"] || "",
                  "org" => item["org"] || "",
+                 "as" => item["as"] || "",
+                 "asname" => item["asname"] || "",
                  "hosting" => item["hosting"] == true,
+                 "proxy" => item["proxy"] == true,
                  "mobile" => item["mobile"] == true
                }}
             end
@@ -327,29 +378,13 @@ defmodule Web.Analytics do
     end
   end
 
+  # `Web.Analytics.AccessLog` reads the gzipped rotations as well as the live
+  # file. That is the difference between five days of resolvable locations and
+  # seventy-eight: the glob here used to end in `.log`, which matches the live
+  # file and none of the rotations, so almost every visitor older than a few
+  # days fell through to a guess.
   defp scan_caddy_logs_for_ips do
-    case Application.get_env(:web, :caddy_log_dir, Path.expand("~/streetscissors-data/logs")) do
-      dir when is_binary(dir) ->
-        if File.dir?(dir) do
-          dir
-          |> Path.join("caddy_access*.log")
-          |> Path.wildcard()
-          |> Enum.reduce(%{}, fn file, acc ->
-            extract_ips_from_log(file, acc)
-          end)
-        else
-          %{}
-        end
-
-      _ ->
-        %{}
-    end
-  end
-
-  defp extract_ips_from_log(file, acc) do
-    file
-    |> File.stream!([], :line)
-    |> Enum.reduce(acc, fn line, map ->
+    AccessLog.reduce_lines(%{}, fn line, map ->
       case Regex.run(~r/"client_ip"\s*:\s*"([^"]+)"/, line) do
         [_, ip] when ip not in ["127.0.0.1", "::1"] ->
           Map.put_new(map, hash_ip(ip), ip)
@@ -358,8 +393,6 @@ defmodule Web.Analytics do
           map
       end
     end)
-  rescue
-    _ -> acc
   end
 
   defp build_reader_profile(ip_hash, rows, total_hits, geo_cache) do
@@ -397,6 +430,7 @@ defmodule Web.Analytics do
       |> Enum.uniq()
 
     location = resolve_or_guess_location(ip_hash, geo_cache, timestamps, page_counts)
+    mine? = Owner.mine?(ip_hash)
     span_seconds = NaiveDateTime.diff(last_seen, first_seen, :second)
 
     bot_burst? =
@@ -407,6 +441,7 @@ defmodule Web.Analytics do
     %{
       ip_hash: ip_hash,
       badge: String.slice(ip_hash, 0, 6),
+      mine?: mine?,
       total_hits: total_hits,
       active_days: active_days,
       distinct_pages: distinct_pages,
@@ -529,7 +564,13 @@ defmodule Web.Analytics do
 
   defp has_local_affinity?(page_counts) do
     Enum.any?(Map.keys(page_counts), fn path ->
-      String.starts_with?(path, ["/fitness/rides", "/food", "/fitness/day", "/day/"]) or
+      String.starts_with?(path, [
+        "/fitness/rides",
+        "/food",
+        "/fitness/session",
+        "/fitness/day",
+        "/day/"
+      ]) or
         path == "/fitness"
     end)
   end
@@ -541,6 +582,7 @@ defmodule Web.Analytics do
     from(h in Hit,
       where: h.inserted_at >= ^today_start
     )
+    |> countable()
     |> Repo.aggregate(:count, :id)
   end
 
@@ -551,6 +593,7 @@ defmodule Web.Analytics do
       where: h.inserted_at >= ^today_start,
       select: count(h.ip_hash, :distinct)
     )
+    |> countable()
     |> Repo.one()
   end
 
@@ -582,6 +625,7 @@ defmodule Web.Analytics do
         where: h.inserted_at >= ^total_window_start_utc and h.inserted_at < ^current_bin_end_utc,
         select: h.inserted_at
       )
+      |> countable()
       |> Repo.all()
 
     # Initialize bins
@@ -680,6 +724,7 @@ defmodule Web.Analytics do
       end
 
     query
+    |> countable()
     |> Repo.all()
     |> Enum.reduce(%{}, fn {path, ip_hash}, acc ->
       Map.update(acc, page(path), MapSet.new([ip_hash]), &MapSet.put(&1, ip_hash))
@@ -734,10 +779,12 @@ defmodule Web.Analytics do
         distinct: true,
         select: {h.path, h.ip_hash}
       )
+      |> countable()
       |> Repo.all()
 
     kept =
       from(w in PageWitness, where: like(w.page, ^prefix), select: {w.page, w.ip_hash})
+      |> countable()
       |> Repo.all()
 
     Enum.reduce(hits ++ kept, %{}, fn {path, ip_hash}, acc ->
@@ -771,12 +818,16 @@ defmodule Web.Analytics do
     Repo.transaction(fn ->
       stamp = NaiveDateTime.truncate(now, :second)
 
+      # visitors_by_page/3 already leaves the author out, but a witness row is
+      # kept for all time and no later pass revisits it, so this is said twice
+      # on purpose: it is the one place where getting it wrong is permanent.
       witnesses =
         @witnessed
         |> visitors_by_page(nil, before: keep_cutoff)
         |> Enum.flat_map(fn {page, visitors} ->
           Enum.map(visitors, &%{page: page, ip_hash: &1, inserted_at: stamp})
         end)
+        |> Enum.reject(&Owner.mine?(&1.ip_hash))
 
       witnesses
       |> Enum.chunk_every(500)
@@ -785,6 +836,49 @@ defmodule Web.Analytics do
       {deleted, _} = Repo.delete_all(from(h in Hit, where: h.inserted_at < ^keep_cutoff))
       %{anonymised: anonymised, folded: length(witnesses), deleted: deleted}
     end)
+  end
+
+  @doc """
+  Reader locations, nightly (`Web.Scheduler`): resolve whoever the access log
+  still holds and the cache does not, then drop the cache's orphans.
+
+  Its own scheduler entry rather than part of `run_scheduled/0`, so a lookup
+  that cannot reach ip-api never stands between the site and its retention.
+  """
+  def geo_scheduled do
+    refresh_geo_cache()
+    prune_geo_cache()
+    :ok
+  rescue
+    error ->
+      Logger.warning("reader locations could not be refreshed: #{Exception.message(error)}")
+      :ok
+  end
+
+  @doc """
+  Forgets the location of a visitor the site has otherwise forgotten.
+
+  A hit loses its user agent after #{@agent_days} days and is deleted after
+  #{@keep_days}, but nothing aged the location cache out, so it became the one
+  record of a visitor that outlived every other. An entry is kept while its
+  hash is still a visit, or is the author's — not merely because it was once
+  looked up.
+  """
+  def prune_geo_cache do
+    cache = load_geo_cache()
+
+    live =
+      from(h in Hit, where: not is_nil(h.ip_hash), distinct: true, select: h.ip_hash)
+      |> Repo.all()
+      |> MapSet.new()
+      |> MapSet.union(MapSet.new(Owner.hash_list()))
+
+    kept = for {hash, geo} <- cache, MapSet.member?(live, hash), into: %{}, do: {hash, geo}
+    dropped = map_size(cache) - map_size(kept)
+
+    if dropped > 0, do: save_geo_cache(kept)
+
+    {:ok, dropped}
   end
 
   @doc false

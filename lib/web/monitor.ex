@@ -63,7 +63,30 @@ defmodule Web.Monitor do
 
     store(now, probed, failing)
     announce(events)
+    note_own_address()
     probed
+  end
+
+  # The house's address, kept in the author's own hashes so his reading is not
+  # counted even from a browser he has never logged in on. Gated on the DNS
+  # probe being configured, which is what makes the lookup in the first place:
+  # a preview and the suite run no probes and must reach no resolver. Nothing
+  # here may fail a pass.
+  defp note_own_address do
+    probes = Application.get_env(:web, :monitor_probes, @probes)
+
+    if :dns in probes do
+      case Probe.public_address() do
+        {:ok, address} -> Web.Analytics.Owner.note_wan(address)
+        _ -> :ok
+      end
+    end
+
+    :ok
+  rescue
+    error ->
+      Logger.warning("could not note this machine's address: #{Exception.message(error)}")
+      :ok
   end
 
   @doc """

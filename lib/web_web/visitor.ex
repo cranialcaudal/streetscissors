@@ -18,8 +18,9 @@ defmodule WebWeb.Visitor do
   cannot read it at all, so its host passes `"remote_ip"` in the session.
 
   **What counts** (`counted?/3`): not a bot by its user agent
-  (`Web.Analytics.bot_user_agent?/1`), not the admin's session, not an
-  address in `EXCLUDED_IPS` or loopback. Page hits add their own path rules
+  (`Web.Analytics.bot_user_agent?/1`), not the author's own reading
+  (`WebWeb.OwnerMark`, and his addresses by hash in `Web.Analytics.Owner`),
+  not an address in `EXCLUDED_IPS` or loopback. Page hits add their own path rules
   (`WebWeb.Plugs.Analytics`); log views use these as they are.
 
   Only `Web.Analytics.hash_ip/1` of an address is ever stored.
@@ -63,8 +64,8 @@ defmodule WebWeb.Visitor do
   Whether a visit by `ip` with `user_agent` counts: not a bot, not the admin
   (`admin?`), not an excluded or loopback address.
   """
-  def counted?(ip, user_agent, admin?) do
-    not admin? and not Web.Analytics.bot_user_agent?(user_agent) and not excluded?(ip)
+  def counted?(ip, user_agent, mine?) do
+    not mine? and not Web.Analytics.bot_user_agent?(user_agent) and not excluded?(ip)
   end
 
   import Bitwise
@@ -73,20 +74,29 @@ defmodule WebWeb.Visitor do
   def excluded?(nil), do: false
 
   def excluded?(ip) when is_binary(ip) do
-    if ip in @loopback do
-      true
-    else
-      excluded_list =
-        (System.get_env("EXCLUDED_IPS") || "")
-        |> String.split(",")
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
+    cond do
+      ip in @loopback ->
+        true
 
-      Enum.any?(excluded_list, &matches_excluded?(&1, ip))
+      # The author's own addresses, by hash, gathered from his marker cookie,
+      # the access log and the house's address (Web.Analytics.Owner). Checked
+      # here rather than in counted?/3 so log views and rate limits inherit it.
+      Web.Analytics.Owner.mine_ip?(ip) ->
+        true
+
+      true ->
+        Enum.any?(excluded_list(), &matches_excluded?(&1, ip))
     end
   end
 
   def excluded?(_), do: false
+
+  defp excluded_list do
+    (System.get_env("EXCLUDED_IPS") || "")
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
 
   defp matches_excluded?(pattern, ip) do
     cond do

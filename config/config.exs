@@ -109,6 +109,11 @@ config :web, Web.Scheduler,
     # Tell the sites a post links to that it does. Each link is announced
     # once, so most hours this renders the posts and finds nothing new.
     {"23 * * * *", {Web.Webmentions.Outgoing, :run_scheduled, []}},
+    # Where the night's readers read from, resolved while the access log still
+    # holds them (it keeps about eleven weeks), and the locations of visitors
+    # the site has since forgotten dropped. Its own entry, before retention:
+    # a lookup that cannot reach ip-api must not hold retention up.
+    {"29 3 * * *", {Web.Analytics, :geo_scheduled, []}},
     # Retention for page hits: user agents go after 30 days, hits after 400,
     # a blog post's readers kept as witnesses first (Web.Analytics.prune/0).
     {"37 3 * * *", {Web.Analytics, :run_scheduled, []}},

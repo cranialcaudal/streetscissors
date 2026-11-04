@@ -6,6 +6,11 @@ defmodule WebWeb.AdminSessionController do
   gets ten attempts per 15 minutes (so the password cannot be guessed by trying).
   A correct password sets `session["admin_user"] = true` in the signed session
   cookie; every admin page checks that flag (`WebWeb.AdminAuth`).
+
+  It also marks the browser as the author's (`WebWeb.OwnerMark`), so his
+  reading stops being counted on it for good — logging out deliberately does
+  not undo that, since logging out means "stop showing me the admin", not
+  "start counting me".
   """
 
   use WebWeb, :controller
@@ -31,6 +36,7 @@ defmodule WebWeb.AdminSessionController do
           conn
           |> put_session("admin_user", true)
           |> configure_session(renew: true)
+          |> WebWeb.OwnerMark.mark()
           |> redirect(to: "/admin/dashboard")
         else
           conn

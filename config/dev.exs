@@ -107,7 +107,6 @@ config :web, :komoot,
 
 # The places no activity may be shown near (`lat,lng`; see config/runtime.exs).
 config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
-config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
 
 # Second copy of each snapshot, on a different physical disk. Snapshots that
 # live beside the database only protect against a bad deploy or a mistaken
@@ -214,4 +213,14 @@ if System.get_env("PREVIEW") == "1" do
   # The scanner is the live site's: an invented scan would land in the real
   # archive, and a real one would fight the live site for the device.
   config :web, :scanner_simulation, false
+  # Reader locations: a preview must not touch the live cache or the network.
+  # A preview runs MIX_ENV=dev, whose secret_key_base differs from the live
+  # one, so Web.Analytics.hash_ip/1 yields different keys here; writing them
+  # into the real file would mix two salts in one cache, and the lookup would
+  # send real readers' addresses to ip-api for a cache nothing reads.
+  config :web,
+         :reader_geo_cache_path,
+         Path.expand("../tmp/preview_reader_geo_cache.json", __DIR__)
+
+  config :web, :geo_lookup_enabled, false
 end

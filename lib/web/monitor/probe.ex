@@ -181,7 +181,17 @@ defmodule Web.Monitor.Probe do
 
   defp resolve_a(host), do: lookup(String.to_charlist(host), @resolvers)
 
-  defp public_address do
+  @doc """
+  The address this machine is reached at, asked of a public resolver.
+
+  OpenDNS answers `myip.opendns.com` with the address the question came from,
+  which is the only way to learn it here: `/etc/hosts` maps the domain to
+  loopback on this machine. Used by `dns/1` above, and by `Web.Monitor` to
+  keep the house's address in the author's own hashes
+  (`Web.Analytics.Owner.note_wan/1`), since a lent address is exactly the
+  thing a list in `.env` cannot keep up with.
+  """
+  def public_address do
     case lookup(@whoami_name, @whoami_resolvers) do
       {:ok, [address | _]} -> {:ok, address}
       _ -> :error
