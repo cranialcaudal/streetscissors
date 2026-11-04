@@ -52,6 +52,29 @@ defmodule Web.Fitness.ProgressionTest do
     assert Progression.volume_load(%{weight: nil, sets: 3, reps: 8}) == nil
   end
 
+  test "volume_load/2 adds up the sets one by one when they were logged that way" do
+    # The summary is the heaviest weight and the fewest reps (135 x 3 x 6 =
+    # 2430); the sets themselves came to 135x8 + 135x8 + 130x6 = 2940.
+    metrics = %{
+      "weight" => "135 lbs",
+      "sets" => "3",
+      "reps" => "6",
+      "set_list" => [
+        %{"w" => 135, "r" => 8},
+        %{"w" => 135, "r" => 8},
+        %{"w" => 130, "r" => 6}
+      ]
+    }
+
+    parsed = Progression.parse_log_metrics(metrics)
+    assert Progression.volume_load(parsed) == 2430.0
+    assert Progression.volume_load(parsed, metrics) == 2940.0
+
+    # A set with no weight of its own takes the entry's.
+    bare = %{metrics | "set_list" => [%{"w" => nil, "r" => 10}, %{"w" => 140, "r" => 5}]}
+    assert Progression.volume_load(parsed, bare) == 2050.0
+  end
+
   describe "next_target/3" do
     test "nothing in the Setup and Baseline weeks, for a lift with no step, or with no reps" do
       top = [log(%{"weight" => "185", "sets" => "3", "reps" => "8"})]

@@ -36,7 +36,7 @@ defmodule Web.Fitness.Training do
         slug: log.exercise.slug,
         name: log.exercise.name,
         e1rm: Progression.e1rm(parsed.weight, parsed.reps),
-        volume: Progression.volume_load(parsed),
+        volume: Progression.volume_load(parsed, log.metrics),
         pattern: rule && rule.pattern
       })
     end)

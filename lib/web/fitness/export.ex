@@ -138,7 +138,7 @@ defmodule Web.Fitness.Export do
       na(parsed.reps),
       na(parsed.rpe),
       na(Progression.e1rm(parsed.weight, parsed.reps)),
-      na(Progression.volume_load(parsed))
+      na(Progression.volume_load(parsed, metrics))
     ]
   end
 

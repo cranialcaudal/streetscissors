@@ -41,13 +41,31 @@ defmodule Web.Fitness.Progression do
   def e1rm(_weight, _reps), do: nil
 
   @doc """
-  Sets × reps × weight for a parsed entry, or nil. The reps are the top
-  set's, so this is an upper bound when later sets fell short.
+  Volume load in lbs: the sum of weight × reps over the sets, or nil.
+
+  With the entry's `metrics` given and a `set_list` in them (the day page's
+  set chips), each set counts at its own weight and reps, a set with no
+  weight of its own taking the entry's. Otherwise it is the summary's sets ×
+  reps × weight, which is exact only when every set was alike.
   """
-  def volume_load(%{weight: w, reps: r} = parsed) when is_number(w) and is_integer(r),
+  def volume_load(parsed, metrics \\ %{})
+
+  def volume_load(%{weight: w} = parsed, %{"set_list" => [_ | _] = sets}) do
+    loads =
+      for set <- sets, is_integer(set["r"]) do
+        weight = if is_number(set["w"]) and set["w"] > 0, do: set["w"], else: w
+        is_number(weight) && weight * set["r"]
+      end
+
+    if loads != [] and Enum.all?(loads, &is_number/1),
+      do: Float.round(Enum.sum(loads) * 1.0, 1),
+      else: volume_load(parsed, %{})
+  end
+
+  def volume_load(%{weight: w, reps: r} = parsed, _metrics) when is_number(w) and is_integer(r),
     do: Float.round((parsed.sets || 1) * r * w * 1.0, 1)
 
-  def volume_load(_parsed), do: nil
+  def volume_load(_parsed, _metrics), do: nil
 
   @doc """
   The next session of a lift: `%{sets, reps, weight, reason}`, or nil when
