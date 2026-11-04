@@ -1136,3 +1136,36 @@
   gap: var(--st-space-3, 0.75rem) var(--st-space-4, 1rem);
   align-items: end;
 }
+
+/* Citations: a source's key and its Cite button, under the source. A key
+   no paragraph cites yet is drawn quieter, so the uncited stand out. */
+.admin-layout .adm-reading-cite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.25rem 1.25rem;
+}
+
+.admin-layout .adm-cite-key {
+  font-family: var(--st-font-data);
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-cite-key.is-uncited {
+  color: var(--st-ink-3);
+}
+
+.admin-layout .adm-zotero-error .adm-cite-key {
+  margin-left: 0.35rem;
+  color: inherit;
+}
+
+.admin-layout .adm-zotero-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}

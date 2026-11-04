@@ -232,4 +232,37 @@ defmodule Web.ZoteroTest do
     assert updated =~ "## Reading List\n\n- [x] **Boym, Svetlana.**"
     assert Outline.insert_reading_items(updated, [item]) == updated
   end
+
+  test "a source's own citation key comes through and keys its reading-list line" do
+    Req.Test.stub(Web.Zotero, fn conn ->
+      Req.Test.json(conn, [
+        %{
+          "key" => "KEYED1",
+          "data" => %{
+            "title" => "Ferries at Dusk",
+            "creators" => [
+              %{"creatorType" => "author", "lastName" => "Ortiz", "firstName" => "Ana"}
+            ],
+            "date" => "2019",
+            "extra" => "Original date: 2018\nCitation Key: ortiz2019ferries"
+          }
+        },
+        %{"key" => "PLAIN1", "data" => %{"title" => "Fog Signals", "citationKey" => "lund2015"}}
+      ])
+    end)
+
+    assert {:ok, [keyed, plain]} = Zotero.search_items()
+    assert keyed.citation_key == "ortiz2019ferries"
+    assert plain.citation_key == "lund2015"
+
+    text = Outline.insert_reading_items("## Reading List\n", [keyed])
+    assert text =~ "*Ferries at Dusk* (2019). ^ortiz2019ferries"
+
+    # Pushed back to Zotero, the key is not part of the title.
+    [item] = Outline.analyze(text).research.items
+    assert Zotero.parse_markdown_reading_item(item.text).title == "Ferries at Dusk"
+
+    assert Zotero.parse_markdown_reading_item("- [ ] *Ferries at Dusk* (2019). ^k").title ==
+             "Ferries at Dusk"
+  end
 end

@@ -412,7 +412,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       assert has_element?(view, "#post-zotero", "Harbor Ledger (1)")
       assert has_element?(view, "#zotero-item-ZITEM1", "Tide Tables of the Sound")
 
-      view |> element("#zotero-item-ZITEM1 button") |> render_click()
+      view |> element("#zotero-item-ZITEM1 button", "Add to reading list") |> render_click()
 
       assert has_element?(
                view,
@@ -425,6 +425,68 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
                "#post-zotero .adm-reading-thought",
                "Anchor the opening scene on those eleven minutes."
              )
+    end
+  end
+
+  describe "citations" do
+    setup %{path: path} do
+      File.write!(path, """
+      ---
+      title: "Harbor Essay"
+      draft: true
+      ---
+
+      ## Reading List
+
+      - [x] **Vance, Clara.** *Tide Tables of the Sound* (2021). ^vance2021
+      - [ ] **Ortiz, Ana.** *Ferries at Dusk* (2019).
+
+      ## I. Opening
+
+      Slack water holds [@vance2021, p. 19] and [@ghost1999].
+      """)
+
+      :ok
+    end
+
+    test "the preview renders citations and References; the panel names a key with no source",
+         %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+      assert has_element?(
+               view,
+               ~s(#post-preview .adm-prose a[href="#ref-vance2021"]),
+               "Vance 2021"
+             )
+
+      assert has_element?(view, "#post-preview .adm-prose #ref-vance2021", "Tide Tables")
+      assert has_element?(view, "#post-citations", "No source for")
+      assert has_element?(view, "#post-citations code", "@ghost1999")
+      assert has_element?(view, "#reading-0 .adm-cite-key", "@vance2021")
+    end
+
+    test "Cite on a source with no key gives it one and types [@key] at the cursor",
+         %{conn: conn, path: path} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+      view |> element("#reading-1 button", "Cite") |> render_click()
+
+      assert_push_event(view, "editor:set", %{id: "post-source", content: keyed})
+      assert keyed =~ "*Ferries at Dusk* (2019). ^ortiz2019\n"
+      assert_push_event(view, "editor:insert", %{id: "post-source", text: "[@ortiz2019]"})
+
+      # Changed in the editor, not on disk, until it is saved.
+      assert has_element?(view, "#post-editor[data-dirty=true]")
+      refute File.read!(path) =~ "^ortiz2019"
+    end
+
+    test "Give sources a key keys every source without one", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+      view |> element("#key-reading-items") |> render_click()
+
+      assert has_element?(view, "#reading-1 .adm-cite-key", "@ortiz2019")
+      refute has_element?(view, "#key-reading-items")
     end
   end
 end

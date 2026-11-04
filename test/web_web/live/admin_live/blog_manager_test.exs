@@ -215,4 +215,73 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       assert text =~ "draft: true"
     end
   end
+
+  describe "the desk" do
+    setup :with_tmp_blog
+
+    setup %{tmp: tmp} do
+      File.write!(Path.join(tmp, "harbor.md"), """
+      ---
+      title: Harbor
+      draft: true
+      ---
+
+      ## Reading List
+
+      - [ ] **Vance, Clara.** *Tide Tables* (2021). ^vance2021
+
+      ## I. Opening (~100 words)
+
+      > [!beat] Fog
+      > Open on the horn.
+      """)
+
+      File.write!(Path.join(tmp, "other.md"), "---\ntitle: Other\n---\n\nPublished.\n")
+      :ok
+    end
+
+    test "opens the outlined draft in the workbench, with the editor over it", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      assert has_element?(view, "#wb-pick-harbor.is-active")
+      assert has_element?(view, "#post-source[phx-hook=DocumentEditor]")
+      assert has_element?(view, "#post-outline-progress", "Fog")
+    end
+
+    test "picking another post loads it into the editor", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      view |> element("#wb-pick-other") |> render_click()
+
+      assert_push_event(view, "editor:set", %{id: "post-source", content: content})
+      assert content =~ "Published."
+      assert has_element?(view, "#wb-pick-other.is-active")
+    end
+
+    test "a panel action changes the draft but writes nothing until Save", %{conn: conn, tmp: tmp} do
+      path = Path.join(tmp, "harbor.md")
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      view |> element("#reading-0 button[phx-click=toggle_reading_item]") |> render_click()
+      refute File.read!(path) =~ "- [x]"
+      assert has_element?(view, "#post-editor[data-dirty=true]")
+
+      # The editor was sent the new text; its field posts it, as in a browser.
+      assert_push_event(view, "editor:set", %{id: "post-source", content: toggled})
+      view |> form("#post-editor", content: toggled) |> render_submit()
+      assert File.read!(path) =~ "- [x] **Vance, Clara.**"
+      assert has_element?(view, "#flash-info", "Saved harbor.md.")
+    end
+
+    test "Save refuses to write over a file that changed on disk", %{conn: conn, tmp: tmp} do
+      path = Path.join(tmp, "harbor.md")
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      File.write!(path, "Edited in Obsidian.\n")
+      view |> form("#post-editor", content: "Edited on the desk.\n") |> render_submit()
+
+      assert File.read!(path) == "Edited in Obsidian.\n"
+      assert has_element?(view, "#post-conflict")
+    end
+  end
 end

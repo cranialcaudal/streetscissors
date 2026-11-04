@@ -110,6 +110,18 @@ title/description/date/keywords (`content/templates/blog-template.md`).
   (`ZOTERO_USER_ID` / `ZOTERO_API_KEY`) pulls collections, citations, child notes, and PDF
   highlight annotations from the Zotero Web API v3 into the top Reading List via
   `Outline.insert_reading_items/2`.
+- **Citations** (`Web.Writing.Citations`): a reading-list line ends in its key as an Obsidian
+  block id (`^vance2021`), and the prose cites it Pandoc-style (`[@vance2021, p. 19]`,
+  `[see @a; -@b]`). `build_post` renders citations author-date, linked to a `## References`
+  section appended after the prose (not counted as words), before `strip/1` takes the reading
+  list away; an unknown key stays as typed. Keys come from Zotero's `citationKey` (or Better
+  BibTeX's `Citation Key:` line in Extra), else surname + year. The module knows nothing of the
+  blog, so it can serve any writing.
+- **The workbench** (`AdminLive.Workbench`, a LiveComponent) is the one implementation of the
+  four panels, hosted by the desk (`AdminLive.BlogManager`, with a picker) and the editor
+  (`AdminLive.BlogEditor`, full page). Hosts call `Workbench.attach/1` (editor completions, and
+  the component's flash, which the layout renders). **Panel actions only change the text in
+  the editor**; nothing is written until Save, which goes through `write_source/4`.
 - **The editor** (`AdminLive.BlogEditor`) edits the whole file. `Blog.write_source/4` **refuses to
   save over a file whose revision (SHA-256) moved**, since Obsidian edits the vault too; saving
   over anyway puts the old text in the vault's `.trash/` first. Saves are written beside and

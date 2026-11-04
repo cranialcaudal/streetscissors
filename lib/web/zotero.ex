@@ -28,6 +28,7 @@ defmodule Web.Zotero do
           publication: String.t() | nil,
           call_number: String.t() | nil,
           url: String.t() | nil,
+          citation_key: String.t() | nil,
           notes: [String.t()]
         }
 
@@ -264,10 +265,11 @@ defmodule Web.Zotero do
   def parse_markdown_reading_item(%{text: raw_text} = entry) do
     thoughts = Map.get(entry, :thoughts, []) || []
 
-    line =
+    {line, _key} =
       raw_text
       |> String.trim()
       |> String.replace(~r/^[-*+]\s+\[[ xX]\]\s+/, "")
+      |> Web.Writing.Citations.split_key()
 
     # Extract trailing " — Verify..." inline note if present
     {citation_part, inline_note} =
@@ -424,7 +426,9 @@ defmodule Web.Zotero do
   reading-list entry with `> [!thought]` blocks.
 
   Items that already carry notes or annotations in Zotero are marked `- [x]`;
-  items without notes are marked `- [ ]`.
+  items without notes are marked `- [ ]`. An item with a `:cite_key` ends its line
+  with it as a block id (` ^boym2001`), the citation key `Web.Writing.Citations`
+  reads.
   """
   def format_reading_item(%{title: title} = item) do
     box = if item.notes != [], do: "[x]", else: "[ ]"
@@ -451,7 +455,13 @@ defmodule Web.Zotero do
         ""
       end
 
-    citation_line = "- #{box} #{author_part}#{title_part}#{pub_part}#{call_part}"
+    key_part =
+      case Map.get(item, :cite_key) do
+        key when is_binary(key) and key != "" -> " ^" <> key
+        _ -> ""
+      end
+
+    citation_line = "- #{box} #{author_part}#{title_part}#{pub_part}#{call_part}#{key_part}"
 
     thought_blocks =
       Enum.map(item.notes, fn note ->
@@ -862,6 +872,14 @@ defmodule Web.Zotero do
 
     call_number = presence(data["callNumber"])
 
+    # Zotero 7's own field, else the line Better BibTeX pins into Extra.
+    citation_key =
+      presence(data["citationKey"]) ||
+        case Regex.run(~r/^\s*Citation Key:\s*(\S+)/mi, to_string(data["extra"])) do
+          [_, key] -> key
+          nil -> nil
+        end
+
     url =
       presence(data["url"]) ||
         case presence(data["DOI"]) do
@@ -877,6 +895,7 @@ defmodule Web.Zotero do
       publication: publication,
       call_number: call_number,
       url: url,
+      citation_key: citation_key,
       notes: []
     }
   end

@@ -6,7 +6,10 @@ defmodule Web.Blog.Outline do
 
     1. **Reading list at the top** (`## Reading List` or `## ... Research Checklist`),
        where each `- [ ]` source can be followed by a `> [!thought]` block holding
-       what the author thought about that reading in their own phrasings.
+       what the author thought about that reading in their own phrasings. A
+       source's citation key is an Obsidian block id at the end of its line
+       (`^boym2001`), cited in the prose as `[@boym2001, p. 41]`
+       (`Web.Writing.Citations`).
     2. **Section headings with word goals** (`## I. Introduction (~250 words)`),
        each holding `> [!beat] Title` blocks alongside `> [!thought]` phrasings
        to weave into the draft paragraphs written beneath them.
@@ -20,6 +23,7 @@ defmodule Web.Blog.Outline do
   """
 
   alias Web.Keywords
+  alias Web.Writing.Citations
 
   @heading_re ~r/^(?:\#{1,6})\s+(.+?)\s*\#*\s*$/
   @heading_parts_re ~r/^(\#{1,6})\s+(.+?)\s*\#*\s*$/
@@ -65,7 +69,7 @@ defmodule Web.Blog.Outline do
           total: non_neg_integer(),
           checked: non_neg_integer(),
           with_thoughts: non_neg_integer(),
-          items: [%{done?: boolean(), text: String.t(), thoughts: [String.t()]}]
+          items: [%{done?: boolean(), text: String.t(), key: String.t() | nil, thoughts: [String.t()]}]
         }
       }
   """
@@ -260,7 +264,8 @@ defmodule Web.Blog.Outline do
   end
 
   @doc """
-  Inserts formatted reading-list entries (e.g. from `Web.Zotero.format_reading_item/1`)
+  Inserts formatted reading-list entries (e.g. from `Web.Zotero.format_reading_item/1`),
+  each given a citation key not already in the list (`Web.Writing.Citations.new_key/2`),
   into the top `## Reading List` / `## ... Research Checklist` section of `text`.
 
   If `text` has no reading list section yet, creates `## Reading List` right
@@ -268,13 +273,18 @@ defmodule Web.Blog.Outline do
   reading list are skipped.
   """
   def insert_reading_items(text, items) when is_binary(text) and is_list(items) do
-    new_blocks =
+    taken = reading_keys(text)
+
+    {new_blocks, _taken} =
       items
       |> Enum.reject(fn item ->
         title = Map.get(item, :title, "")
         title != "" and String.contains?(String.downcase(text), String.downcase(title))
       end)
-      |> Enum.map(&Web.Zotero.format_reading_item/1)
+      |> Enum.map_reduce(taken, fn item, taken ->
+        key = Citations.new_key(item, taken)
+        {Web.Zotero.format_reading_item(Map.put(item, :cite_key, key)), [key | taken]}
+      end)
 
     if new_blocks == [] do
       text
@@ -282,6 +292,73 @@ defmodule Web.Blog.Outline do
       block_str = Enum.join(new_blocks, "\n")
       insert_into_reading_section(text, block_str)
     end
+  end
+
+  @doc """
+  The citation key of the `index`-th (0-based) reading-list item, giving it one
+  (` ^key` at the end of its line, from `Web.Writing.Citations.new_key/2`) if
+  it has none. Returns `{text, key}`, or `{text, nil}` when there is no such item.
+  """
+  def ensure_reading_key(text, index) when is_binary(text) and is_integer(index) do
+    case Enum.at(analyze(text).research.items, index) do
+      nil ->
+        {text, nil}
+
+      %{key: key} when is_binary(key) ->
+        {text, key}
+
+      item ->
+        key =
+          Citations.new_key(Web.Zotero.parse_markdown_reading_item(item.text), reading_keys(text))
+
+        {append_task_key(text, index, key), key}
+    end
+  end
+
+  @doc "Gives every reading-list item without a citation key one (see `ensure_reading_key/2`)."
+  def key_reading_items(text) when is_binary(text) do
+    analyze(text).research.items
+    |> Enum.with_index()
+    |> Enum.reduce(text, fn
+      {%{key: nil}, index}, acc -> acc |> ensure_reading_key(index) |> elem(0)
+      _, acc -> acc
+    end)
+  end
+
+  @doc """
+  The key of the reading-list item whose title is `title` (case-insensitive,
+  matched within the item's text), giving it one if it has none; `nil` when no
+  item names it. Returns `{text, key}`.
+  """
+  def reading_key_for_title(text, title) when is_binary(text) and is_binary(title) do
+    wanted = String.downcase(String.trim(title))
+
+    index =
+      wanted != "" &&
+        Enum.find_index(analyze(text).research.items, fn item ->
+          String.contains?(String.downcase(item.text), wanted)
+        end)
+
+    if is_integer(index), do: ensure_reading_key(text, index), else: {text, nil}
+  end
+
+  defp reading_keys(text) do
+    analyze(text).research.items |> Enum.map(& &1.key) |> Enum.reject(&is_nil/1)
+  end
+
+  # The task lines are counted as toggle_reading_item/2 counts them.
+  defp append_task_key(text, index, key) do
+    text
+    |> String.split(~r/\r?\n/)
+    |> Enum.map_reduce(0, fn line, n ->
+      if Regex.match?(@task_item_re, line) do
+        {if(n == index, do: String.trim_trailing(line) <> " ^" <> key, else: line), n + 1}
+      else
+        {line, n}
+      end
+    end)
+    |> elem(0)
+    |> Enum.join("\n")
   end
 
   @doc """
@@ -718,9 +795,12 @@ defmodule Web.Blog.Outline do
         [_, mark, text] = match
         acc = if current, do: [finalize_research_item(current) | acc], else: acc
 
+        {text, key} = text |> String.trim() |> Citations.split_key()
+
         item = %{
           done?: String.downcase(mark) == "x",
-          text: String.trim(text),
+          text: text,
+          key: key,
           thoughts: []
         }
 
@@ -774,6 +854,7 @@ defmodule Web.Blog.Outline do
     %{
       done?: item.done?,
       text: item.text,
+      key: item.key,
       thoughts: item.thoughts
     }
   end

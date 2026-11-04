@@ -234,4 +234,81 @@ defmodule Web.BlogOutlineTest do
       assert reading_pos < sec1_pos
     end
   end
+
+  describe "citation keys and citations" do
+    @keyed """
+    ---
+    title: Harbor
+    draft: true
+    ---
+
+    ## Reading List
+
+    - [x] **Vance, Clara.** *Tide Tables of the Sound* (Harbor Press, 2021). ^vance2021
+    > [!thought]
+    > Slack water holds for eleven minutes.
+    - [ ] **Ortiz, Ana.** *Ferries at Dusk* (2019).
+
+    ## I. Opening (~100 words)
+
+    Slack water holds [@vance2021, p. 19], and the gulls wait with it.
+    """
+
+    test "reading-list items carry their key apart from their text" do
+      %{research: %{items: [vance, ortiz]}} = Outline.analyze(@keyed)
+
+      assert vance.key == "vance2021"
+      refute vance.text =~ "^vance2021"
+      assert ortiz.key == nil
+    end
+
+    test "ensure_reading_key/2 gives a source a key once, at the end of its line" do
+      {text, key} = Outline.ensure_reading_key(@keyed, 1)
+      assert key == "ortiz2019"
+      assert text =~ "- [ ] **Ortiz, Ana.** *Ferries at Dusk* (2019). ^ortiz2019\n"
+      assert Outline.ensure_reading_key(text, 1) == {text, "ortiz2019"}
+      assert Outline.ensure_reading_key(@keyed, 0) == {@keyed, "vance2021"}
+      assert Outline.ensure_reading_key(@keyed, 9) == {@keyed, nil}
+    end
+
+    test "key_reading_items/1 keys every source that has none" do
+      text = Outline.key_reading_items(@keyed)
+
+      assert Enum.map(Outline.analyze(text).research.items, & &1.key) == [
+               "vance2021",
+               "ortiz2019"
+             ]
+    end
+
+    test "insert_reading_items/2 keys new sources apart from the ones there" do
+      item = %{
+        key: "ZOTERO1",
+        title: "Tide Tables, Second Edition",
+        authors: "Vance, Clara",
+        year: "2021",
+        publication: nil,
+        call_number: nil,
+        url: nil,
+        notes: []
+      }
+
+      text = Outline.insert_reading_items(@keyed, [item])
+      assert text =~ "*Tide Tables, Second Edition* (2021). ^vance2021a\n"
+    end
+
+    test "the post renders citations author-date with References, and keeps keys off the page" do
+      post = Blog.preview("harbor", @keyed)
+
+      assert post.body =~ "([Vance 2021](#ref-vance2021), p. 19)"
+      assert post.body =~ "## References"
+      assert post.body =~ "Vance, Clara. *Tide Tables of the Sound* (Harbor Press, 2021)."
+      refute post.body =~ "^vance2021"
+      refute post.body =~ "Ferries at Dusk"
+
+      html = Blog.to_html(post.body)
+      assert html =~ ~s(<a href="#ref-vance2021">Vance 2021</a>)
+      # The References are not the post's words: the heading and the line are.
+      assert post.word_count == 16
+    end
+  end
 end

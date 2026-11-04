@@ -545,6 +545,19 @@
   line-height: 1.2;
 }
 
+/* The References a post's citations make (Web.Writing.Citations): one
+   entry a paragraph, hanging, so each author's name leads its line. A
+   citation in the text links to its entry. */
+.writing .blog-post-content .ref-entry {
+  margin-bottom: 0.6rem;
+  padding-left: 1.5rem;
+  text-indent: -1.5rem;
+  overflow-wrap: anywhere;
+}
+.writing .blog-post-content .ref-entry:target {
+  background: var(--paper-sunk);
+}
+
 /* The post before and the post after, at the foot of a post. */
 .blog-post-neighbours {
   display: flex;

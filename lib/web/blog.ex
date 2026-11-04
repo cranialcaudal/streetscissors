@@ -25,6 +25,7 @@ defmodule Web.Blog do
 
   alias Web.{Keywords, SourceFile}
   alias Web.Blog.Outline
+  alias Web.Writing.Citations
 
   @default_base_path "content/blog"
 
@@ -324,10 +325,17 @@ defmodule Web.Blog do
 
   defp build_post(slug, text, mtime) do
     {meta, raw_body} = split_frontmatter(text)
-    body = Outline.strip(raw_body)
     outline = Outline.analyze(raw_body, meta)
 
-    words = body |> String.split(~r/\s+/, trim: true) |> length()
+    # Citations resolve against the reading list before strip/1 takes it out;
+    # the References they make are not counted as the post's words.
+    {prose, references} =
+      raw_body
+      |> Outline.strip()
+      |> Citations.render(Citations.sources(outline.research.items))
+
+    body = prose <> references
+    words = prose |> String.split(~r/\s+/, trim: true) |> length()
 
     %{
       slug: slug,

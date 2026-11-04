@@ -372,6 +372,25 @@ function readingSource(context) {
   return { from: at, options }
 }
 
+// Inside a citation bracket (`[@`, or after `;` in one), offers the keys the
+// reading list gives its sources (` ^key` at the end of a source's line;
+// Web.Writing.Citations), with the source to tell them apart.
+function citeSource(context) {
+  const m = context.matchBefore(/(?<!\[)\[(?:[^\[\]\n]*;\s*)?(?:[^\[\]\n@;]*\s)?-?@[\w-]*$/)
+  if (!m) return null
+  const from = m.from + m.text.lastIndexOf("@") + 1
+  const doc = context.state.doc
+  const options = []
+  for (let n = 1; n <= doc.lines; n++) {
+    const task = /^\s*[-*]\s+\[[ xX]\]\s+(.+?)\s+\^([A-Za-z0-9-]+)\s*$/.exec(doc.line(n).text)
+    if (task) {
+      options.push({ label: task[2], detail: task[1].replace(/\*\*|\*/g, "").slice(0, 60), apply: task[2] })
+    }
+  }
+  if (!options.length) return null
+  return { from, options, validFor: /^[\w-]*$/ }
+}
+
 function slashSource(context) {
   const m = context.matchBefore(/^\s*\/[\w ]*$/)
   if (!m) return null
@@ -473,7 +492,7 @@ export function createEditor({ parent, doc, scope, label, live, onChange, ask, o
         search({ top: true }),
         highlightSelectionMatches(),
         autocompletion({
-          override: [slashSource, readingSource, ...(ask && scope !== "none" ? [serverSource(ask, scope)] : [])],
+          override: [slashSource, citeSource, readingSource, ...(ask && scope !== "none" ? [serverSource(ask, scope)] : [])],
           icons: false,
         }),
         keymap.of([...keys, ...completionKeymap, ...searchKeymap, ...foldKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
@@ -491,9 +510,18 @@ export function createEditor({ parent, doc, scope, label, live, onChange, ask, o
   return {
     view,
     get live() { return isLive },
+    // Only the part that differs is replaced, so the cursor and the scroll
+    // stay where they were when the server changed something elsewhere (a
+    // key added to the reading list above the paragraph being written).
     setText(text) {
-      if (text === view.state.doc.toString()) return
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+      const old = view.state.doc.toString()
+      if (text === old) return
+      let start = 0
+      const max = Math.min(old.length, text.length)
+      while (start < max && old.charCodeAt(start) === text.charCodeAt(start)) start++
+      let end = 0
+      while (end < max - start && old.charCodeAt(old.length - 1 - end) === text.charCodeAt(text.length - 1 - end)) end++
+      view.dispatch({ changes: { from: start, to: old.length - end, insert: text.slice(start, text.length - end) } })
     },
     setLive(on) {
       isLive = on

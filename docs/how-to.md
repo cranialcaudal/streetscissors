@@ -545,6 +545,29 @@ and can show or hide the beats in the preview. On `/admin/blog`, **Or start
 from an outline** turns a pasted markdown blueprint into a draft file with
 these marks already in place.
 
+**Citing your sources.** Each source in the reading list can carry a key at the
+end of its line, like `^vance2021` (Obsidian reads it as a block id, so
+`[[#^vance2021]]` links to it there too). In the prose, cite it the way Pandoc
+does: `[@vance2021]`, `[@vance2021, p. 19]`, `[see @vance2021; @ortiz2019]`,
+or `[-@vance2021]` to leave the name out when the sentence already says it.
+Typing `[@` offers the keys. The published post shows each citation as
+(Vance 2021, p. 19), linked to a **References** list added after the last
+paragraph, alphabetical and written as the source is in your reading list; the
+References are not counted as words.
+
+In the workbench, **Cite** beside a source types its citation at the cursor,
+giving the source a key first if it has none; **Cite** beside a Zotero result
+adds it to the reading list and cites it at once. A source pulled from Zotero
+gets its key from Zotero (or Better BibTeX) when it has one, otherwise the
+first author's surname and the year. The panel counts what is cited, draws
+uncited keys quieter, and names any citation whose key is in no source; such
+a citation is left as typed on the page, so it is easy to spot.
+
+Every button in the workbench (a thought, a tick, a pull from Zotero, a key)
+changes the text in the editor only. Nothing is written to the file until you
+press Save, and Save refuses to write over a version that changed on disk (in
+Obsidian, say) and shows you both.
+
 The same editor writes the fitness wiki and days, the files under the Files
 tab, a newsletter, and a log's notes.
 
