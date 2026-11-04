@@ -2175,7 +2175,7 @@ defmodule WebWeb.AdminLive.Scanner do
         <h2 class="adm-scan-drawer-title">Roll settings</h2>
         <div class="adm-scan-drawer-cols">
           <div class="adm-scan-drawer-col">
-            <form phx-change="update_roll_config" class="adm-form-row">
+            <form id="roll-config-form" phx-change="update_roll_config" class="adm-form-row">
               <label class="adm-field">
                 <span class="adm-label">Roll number</span>
                 <input

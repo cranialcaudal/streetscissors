@@ -229,6 +229,7 @@ defmodule WebWeb.NewsletterOverlayLive do
               <p class="dispatch-lede">Subscribe for updates on new logs and photographs.</p>
 
               <.form
+                id="dispatch-subscribe-form"
                 for={@newsletter_form}
                 phx-change="validate_newsletter"
                 phx-submit="subscribe"
@@ -286,6 +287,7 @@ defmodule WebWeb.NewsletterOverlayLive do
 
             <.form
               :if={!@contact_sent}
+              id="dispatch-contact-form"
               for={@contact_form}
               phx-change="validate_contact"
               phx-submit="save_contact"

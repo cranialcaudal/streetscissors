@@ -138,7 +138,14 @@ defmodule WebWeb.LettersLive do
           <button type="button" phx-click="write_another" class="letters-link">Write another</button>
         </div>
 
-        <.form :if={!@sent} for={@form} phx-change="validate" phx-submit="send" class="letters-form">
+        <.form
+          :if={!@sent}
+          id="letters-form"
+          for={@form}
+          phx-change="validate"
+          phx-submit="send"
+          class="letters-form"
+        >
           <div class="letters-row">
             <.input field={@form[:name]} type="text" label="Your name" class="letters-input" required />
             <.input
