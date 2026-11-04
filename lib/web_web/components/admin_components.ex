@@ -1,11 +1,13 @@
 defmodule WebWeb.AdminComponents do
   @moduledoc """
-  The admin's vocabulary — "the studio". Every `/admin/*` page is built from
-  these, and every rule they lean on lives under `assets/css/admin/` (the
-  shared classes in `base.css`, each program's own in its file) under
-  `.admin-layout`, so a page carries no `<style>` block and no inline colour of
-  its own. Colour is the `--st-*` tokens, dark or light by the system's
-  setting, and the page's accent follows its program (`WebWeb.AdminNav.program/1`).
+  The admin's vocabulary — "the studio".
+
+  Every `/admin/*` page is built from these, and every rule they lean on lives
+  under `assets/css/admin/` (the shared classes in `base.css`, each program's
+  own in its file) under `.admin-layout`, so a page carries no `<style>` block
+  and no inline colour of its own. Colour is the `--st-*` tokens, dark or light
+  by the system's setting, and the page's accent follows its program
+  (`WebWeb.AdminNav.program/1`).
 
   The type: IBM Plex Sans for the interface, IBM Plex Mono for figures,
   timecodes, ids and file names, and Fraunces for page titles and for words

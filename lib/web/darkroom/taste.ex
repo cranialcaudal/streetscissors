@@ -1,25 +1,26 @@
 defmodule Web.Darkroom.Taste do
   @moduledoc """
-  The author's taste, learned from what he does: every edit he saves
-  (`edits/NN.json`) and every choice he makes between two grades of one
-  print (`/admin/darkroom/taste`, kept in `<archive>/.darkroom/choices.jsonl`,
-  a choice counting half an edit). Nothing is learned from anyone else.
+  Learns the author's taste in prints from saved edits (`edits/NN.json`) and
+  from choices between two grades of one print (`/admin/darkroom/taste`, kept
+  in `<archive>/.darkroom/choices.jsonl`, a choice counting half an edit).
+  Nothing is learned from anyone else.
 
-  **Colour** is where he likes a film's prints to sit. Each edit says it: the
-  print's cast as developed (`Stats`) moved by his Temp and Tint
+  **Colour** is where the author likes a film's prints to sit. Each edit says
+  it: the print's cast as developed (`Stats`) moved by the edit's Temp and Tint
   (`Film.cast_of/3`). For a film `s` with `n_s` such targets averaging
   `t̄_s`, the target is
 
       T_s = (n_s t̄_s + k (α m_s + o)) / (n_s + k),   k = 3
 
   shrunk toward one rule for every film, `α m_s + o` (how much of a film's
-  own average `m_s` he keeps, and a lean of his own), fitted across all his
-  edits by least squares; with no edits, `α = 1, o = 0`, which is
-  `Web.Darkroom.Prior`'s untaught attunement. A film he has edited three
-  times is a little his, thirty times nearly all his.
+  own average `m_s` is kept, and an overall lean), fitted across all edits by
+  least squares; with no edits, `α = 1, o = 0`, which is
+  `Web.Darkroom.Prior`'s untaught starting point. `k` counts the rule as three
+  pseudo-edits: a film edited three times sits halfway between the rule and its
+  own edits, one edited thirty times nearly at its edits.
 
-  **Every other slider** he moves is one small model, as the research for
-  this recommended for one person's tens to hundreds of edits:
+  **Every other slider** that has been moved is one small model, sized for one
+  person's tens to hundreds of edits:
 
       y = μ + W f + a_s + b_k
 
@@ -44,7 +45,7 @@ defmodule Web.Darkroom.Taste do
 
   defp choices_path, do: Path.join([Negatives.base_path(), ".darkroom", "choices.jsonl"])
 
-  # ── What he did ──────────────────────────────────────────────────────
+  # ── The examples ────────────────────────────────────────────────────
 
   @doc """
   Every example: `%{group, condition, stats, controls, weight}`, a saved
@@ -94,7 +95,7 @@ defmodule Web.Darkroom.Taste do
     end
   end
 
-  @doc "His choices so far, oldest first."
+  @doc "The choices made so far, oldest first."
   def choices do
     case File.read(choices_path()) do
       {:ok, body} ->
@@ -112,7 +113,7 @@ defmodule Web.Darkroom.Taste do
     end
   end
 
-  @doc "Keeps a choice: the grade he took and the one he left, for a print."
+  @doc "Keeps a choice for a print: the grade taken and the one left."
   def choose(roll, frame, chosen, other) do
     path = choices_path()
     File.mkdir_p!(Path.dirname(path))
@@ -132,7 +133,7 @@ defmodule Web.Darkroom.Taste do
   # ── The model ────────────────────────────────────────────────────────
 
   @doc """
-  The model fitted to everything he has done: `%{n, choices, colour, sliders}`.
+  The model fitted to every example: `%{n, choices, colour, sliders}`.
   `colour` gives each film's target (`target/2`), `sliders` the ridge fit per
   slider (`predict/4`).
   """
@@ -237,7 +238,7 @@ defmodule Web.Darkroom.Taste do
   end
 
   @doc """
-  Where his prints of `group` should sit, `{rg, bg}`, and how many edits say
+  Where prints of `group` should sit, `{rg, bg}`, and how many edits say
   so: `{target, n}`. The prior asks for `%{alpha, offset}`; this gives an
   offset that lands `α m_s + o` on `T_s`.
   """
@@ -287,8 +288,8 @@ defmodule Web.Darkroom.Taste do
   end
 
   @doc """
-  The sliders his taste would set for a print, as `%{id => value}`: only
-  sliders he has moved in enough edits.
+  The sliders the taste model would set for a print, as `%{id => value}`:
+  only sliders moved in enough edits.
   """
   def predict(%{sliders: %{design: design, fits: fits}}, stats, group, condition) do
     x = row(design, Stats.features(stats), group, condition)

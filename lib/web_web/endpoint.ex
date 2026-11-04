@@ -1,9 +1,11 @@
 defmodule WebWeb.Endpoint do
   @moduledoc """
-  The front door of the website. Every request passes through these steps, in
-  order, before the router sees it: static files from `priv/static`, uploaded
-  media (in development), the code reloader (in development), request
-  logging, reading the body, the session cookie, and the LiveView socket.
+  The front door of the website.
+
+  Every request passes through these steps, in order, before the router sees it:
+  static files from `priv/static`, uploaded media (in development), the code
+  reloader (in development), request logging, reading the body, the session
+  cookie, and the LiveView socket.
 
   The comments on each step record why it is the way it is. Two matter most:
   the session is a **signed cookie**, so it is only safe while

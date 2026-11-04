@@ -1,7 +1,7 @@
 defmodule Web.Daybook do
   @moduledoc """
-  The daybook (`/daybook`; "the almanac" until 2026-10-07, at `/almanac`,
-  which still redirects here). The site read by date, in the manner of an engagement calendar: a week to
+  The site read by date at `/daybook` (the old `/almanac` addresses
+  redirect here), in the manner of an engagement calendar: a week to
   an opening, a picture facing seven ruled days, with a day's page behind
   each date and the year at a glance at the front.
 
@@ -17,9 +17,9 @@ defmodule Web.Daybook do
       was scanned: the day it came out of the tank, not the day it was shot
     * activities — `Web.Rides`, the Pacific-local day it started
 
-  **Only dates, never times.** The public site does not say when he is out
-  of the house so an activity is a day and a
-  distance here, never an hour.
+  **Only dates, never times.** The public site does not say when the author
+  is away from home, so an activity is a day and a distance here, never an
+  hour.
   """
 
   alias Web.{Blog, Logs, Negatives, Rides}

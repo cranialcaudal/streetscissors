@@ -1,10 +1,11 @@
 defmodule Web.Blog do
   @moduledoc """
-  Context for the streetscissors blog: markdown posts read from disk at
-  request time so they can be authored directly from the Obsidian vault in
-  `content/`. Posts may carry a YAML frontmatter block (title, description,
-  date, keywords) — see `content/templates/blog-template.md`; every field
-  falls back to filename/mtime-derived values when absent.
+  Context for the streetscissors blog: markdown posts read from disk at request
+  time so they can be authored directly from the Obsidian vault in `content/`.
+
+  Posts may carry a YAML frontmatter block (title, description, date, keywords)
+  — see `content/templates/blog-template.md`; every field falls back to
+  filename/mtime-derived values when absent.
 
   The blog is strictly typed work. Spoken-word pieces are captain's logs
   (`Web.Logs`), which are DB-backed and live at `/logs` — a post no longer

@@ -8,9 +8,9 @@ defmodule WebWeb.Visitor do
   the proxy and the client is the first entry of `x-forwarded-for`. That
   header is believed only when the peer *is* loopback: were the port ever
   bound wider, a caller on the LAN could otherwise name any address it liked
-  and slip every per-address limit. Getting this wrong fails quietly: until
-  2026-09-22 log views recorded Caddy's `::1` for everyone, and per-address
-  limits become one global bucket.
+  and slip every per-address limit. Getting this wrong fails quietly: every
+  visitor reads as Caddy's `::1`, and per-address limits become one global
+  bucket.
 
   LiveView sockets carry the address only because `endpoint.ex` declares
   `:peer_data`, `:x_headers` and `:user_agent` in `connect_info`, which is
@@ -19,7 +19,7 @@ defmodule WebWeb.Visitor do
 
   **What counts** (`counted?/3`): not a bot by its user agent
   (`Web.Analytics.bot_user_agent?/1`), not the author's own reading
-  (`WebWeb.OwnerMark`, and his addresses by hash in `Web.Analytics.Owner`),
+  (`WebWeb.OwnerMark`, and the author's addresses by hash in `Web.Analytics.Owner`),
   not an address in `EXCLUDED_IPS` or loopback. Page hits add their own path rules
   (`WebWeb.Plugs.Analytics`); log views use these as they are.
 
@@ -78,8 +78,8 @@ defmodule WebWeb.Visitor do
       ip in @loopback ->
         true
 
-      # The author's own addresses, by hash, gathered from his marker cookie,
-      # the access log and the house's address (Web.Analytics.Owner). Checked
+      # The author's own addresses, by hash, gathered from the marker cookie,
+      # the access log and the home address (Web.Analytics.Owner). Checked
       # here rather than in counted?/3 so log views and rate limits inherit it.
       Web.Analytics.Owner.mine_ip?(ip) ->
         true

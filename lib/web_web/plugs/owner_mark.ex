@@ -5,8 +5,8 @@ defmodule WebWeb.Plugs.OwnerMark do
   Runs before `WebWeb.Plugs.Analytics`, so the hit it decides not to record is
   decided on what this found. It sets the mark whenever the request already
   belongs to the author — by an admin session, by the session mirror, or by the
-  cookie — which both marks a browser the first time he logs in on it and
-  slides the cookie forward every time he reads afterwards
+  cookie — which both marks a browser the first time the author logs in on it
+  and slides the cookie forward on every read afterwards
   (`WebWeb.OwnerMark`: browsers cap a cookie's life at about thirteen months
   however long it asks for).
 

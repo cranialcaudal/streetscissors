@@ -1,7 +1,9 @@
 defmodule Web.Newsletter do
   @moduledoc """
   The newsletter: subscribing and unsubscribing, the subscriber list, drafts,
-  and the record of each send. Sending itself is queued, one job per address
+  and the record of each send.
+
+  Sending itself is queued, one job per address
   (`Web.Workers.NewsletterSender`), and every email carries a one-click
   unsubscribe link (`Web.Email.with_unsubscribe/2`).
   """

@@ -1,11 +1,13 @@
 defmodule Web.Fitness.Photos do
   @moduledoc """
-  The training block's progress photographs: the most private files the
-  site holds. They live in `fitness-photos/<YYYY-MM-DD>/` **beside** the
-  uploads root, never under it (everything under it is served to anyone by
-  the proxy), in folders of mode 0700 and files of 0600, and are served to
-  the admin session alone (`WebWeb.FitnessPhotoController`). Nothing public
-  lists them: no search, feed, daybook, share card or sitemap.
+  The training block's progress photographs: the most private files the site
+  holds.
+
+  They live in `fitness-photos/<YYYY-MM-DD>/` **beside** the uploads root, never
+  under it (everything under it is served to anyone by the proxy), in folders of
+  mode 0700 and files of 0600, and are served to the admin session alone
+  (`WebWeb.FitnessPhotoController`). Nothing public lists them: no search, feed,
+  daybook, share card or sitemap.
 
   Their backup is `Web.Backup.FitnessPhotos`: a nightly copy beside the
   database's snapshots and a mirror on the drive.

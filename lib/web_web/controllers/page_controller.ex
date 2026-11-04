@@ -265,8 +265,7 @@ defmodule WebWeb.PageController do
     )
   end
 
-  # Admin only: it holds the author's body figures, his
-  # household's schedule and his diet. A plain `get` is not covered by the
+  # Admin only: it holds private planning. A plain `get` is not covered by the
   # session's on_mount hooks, so the check is made here.
   def food(conn, params) do
     if get_session(conn, "admin_user") do

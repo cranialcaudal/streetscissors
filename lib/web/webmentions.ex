@@ -1,9 +1,11 @@
 defmodule Web.Webmentions do
   @moduledoc """
-  Webmentions received: another site telling this one "my page links to
-  yours" (https://www.w3.org/TR/webmention/). It is how independent sites
-  cite each other without a platform in the middle — the conversation a
-  quote-post pretends to be, between two homes that each own their words.
+  Webmentions received: another site telling this one "my page links to yours"
+  (https://www.w3.org/TR/webmention/).
+
+  It is how independent sites cite each other without a platform in the middle —
+  the conversation a quote-post pretends to be, between two homes that each own
+  their words.
 
   ## The flow
 

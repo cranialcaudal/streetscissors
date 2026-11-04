@@ -1,12 +1,13 @@
 defmodule Web.Analytics do
   @moduledoc """
-  Counting visits without keeping who made them. Every browser request records
-  a hit (`WebWeb.Plugs.Analytics`): the path, the user agent and a **hash** of
-  the IP address, keyed with a secret derived from `SECRET_KEY_BASE` (`hash_ip/1`), so it
-  cannot be turned back into an address.
+  Counting visits without keeping who made them.
+
+  Every browser request records a hit (`WebWeb.Plugs.Analytics`): the path, the
+  user agent and a **hash** of the IP address, keyed with a secret derived from
+  `SECRET_KEY_BASE` (`hash_ip/1`), so it cannot be turned back into an address.
   Bots, prefetches, the author's own reading (`Web.Analytics.Owner`, and
-  `WebWeb.OwnerMark` on the browser) and the addresses in `EXCLUDED_IPS` are
-  not counted.
+  `WebWeb.OwnerMark` on the browser) and the addresses in `EXCLUDED_IPS` are not
+  counted.
 
   The rest of the module answers questions about those hits, with one
   vocabulary everywhere:
@@ -106,7 +107,7 @@ defmodule Web.Analytics do
 
   # Every figure the site reports leaves the author's own reading out, and it
   # is left out here rather than at each caller so that a count added later
-  # cannot quietly start including him. His visits are not deleted: the rows
+  # cannot quietly start including the author. Those visits are not deleted: the rows
   # stay, and `/admin/readers` shows them under "Mine".
   #
   # The set is a handful of hashes held in :persistent_term, so this costs a
@@ -248,8 +249,8 @@ defmodule Web.Analytics do
     end)
     |> Enum.filter(fn r ->
       case filter do
-        # The author is neither a reader nor a bot: he is his own view, and he
-        # is taken out before the others are counted or cut off.
+        # The author is neither a reader nor a bot: the author's rows are a view
+        # of their own, taken out before the others are counted or cut off.
         :readers -> not r.mine? and not r.bot_burst?
         :bots -> not r.mine? and r.bot_burst?
         :mine -> r.mine?
@@ -260,9 +261,8 @@ defmodule Web.Analytics do
     |> cut(limit)
   end
 
-  # The cut comes after the filter, never before. Until 2026-10-31 the page
-  # asked for the top 150 of everything and sorted readers out afterwards, so
-  # one scraper on 276 addresses pushed every real reader off the list.
+  # The cut comes after the filter, never before: cutting first lets one
+  # scraper spread over many addresses push every real reader off the list.
   defp cut(profiles, nil), do: profiles
   defp cut(profiles, limit), do: Enum.take(profiles, limit)
 

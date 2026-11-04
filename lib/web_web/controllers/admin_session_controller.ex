@@ -1,14 +1,16 @@
 defmodule WebWeb.AdminSessionController do
   @moduledoc """
-  Logging the admin in and out. There is one admin and one password
-  (`ADMIN_PASSWORD`, or `dev-admin` in development). The check is a
-  constant-time comparison (so its timing reveals nothing), and each address
-  gets ten attempts per 15 minutes (so the password cannot be guessed by trying).
-  A correct password sets `session["admin_user"] = true` in the signed session
-  cookie; every admin page checks that flag (`WebWeb.AdminAuth`).
+  Logging the admin in and out.
 
-  It also marks the browser as the author's (`WebWeb.OwnerMark`), so his
-  reading stops being counted on it for good — logging out deliberately does
+  There is one admin and one password (`ADMIN_PASSWORD`, or `dev-admin` in
+  development). The check is a constant-time comparison (so its timing reveals
+  nothing), and each address gets ten attempts per 15 minutes (so the password
+  cannot be guessed by trying). A correct password sets `session["admin_user"] =
+  true` in the signed session cookie; every admin page checks that flag
+  (`WebWeb.AdminAuth`).
+
+  It also marks the browser as the author's (`WebWeb.OwnerMark`), so its
+  reading stops being counted for good — logging out deliberately does
   not undo that, since logging out means "stop showing me the admin", not
   "start counting me".
   """

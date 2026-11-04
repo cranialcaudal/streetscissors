@@ -21,10 +21,9 @@ defmodule Web.Guestbook do
     Repo.all(GuestbookEntry)
   end
 
-  # Every approved signature, newest first. This used to stop at sixty days:
-  # a guestbook that forgot whoever signed it two months ago, and on
-  # 2026-10-07 the page went empty because the last signature turned 61 days
-  # old. A signature stays until the author takes it down.
+  # Every approved signature, newest first, with no age limit: a signature
+  # stays until the author takes it down (a window would empty the page
+  # whenever no one had signed lately).
   def list_approved_guestbook_entries do
     from(g in GuestbookEntry,
       where: g.approved == true,

@@ -1,9 +1,10 @@
 defmodule Web.Negatives.RollMeta do
   @moduledoc """
-  What the author knows about a roll that the film cannot say: when it was
-  shot, in what camera, on what stock, where, and a note. Kept as `roll.json`
-  in the roll's own folder, beside its strips, so it travels with the roll
-  and is mirrored with it.
+  What the author knows about a roll that the film cannot say: when it was shot,
+  in what camera, on what stock, where, and a note.
+
+  Kept as `roll.json` in the roll's own folder, beside its strips, so it travels
+  with the roll and is mirrored with it.
 
   **When it was shot is as precise as is known**: a year (`2023`), a month
   (`2023-06`) or a day (`2023-06-14`). A roll found in a drawer has a year at

@@ -1,9 +1,10 @@
 defmodule Web.Fitness.Block do
   @moduledoc """
-  A training block: so many weeks from a Monday, each week in a phase, and
-  the lifts that progress through it. A block is a file in the vault's
-  `blocks/` folder (`blocks/get-sharp.md`), and the file is the only place
-  its dates and lifts are written:
+  A training block: so many weeks from a Monday, each week in a phase, and the
+  lifts that progress through it.
+
+  A block is a file in the vault's `blocks/` folder (`blocks/get-sharp.md`), and
+  the file is the only place its dates and lifts are written:
 
       title: Get Sharp
       start: 2026-10-26

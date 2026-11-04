@@ -1,9 +1,11 @@
 defmodule Web.Rides.Profile do
   @moduledoc """
-  A tour's speed and climb, without where it went: for each point of the
-  route Komoot gives a stranger, the seconds since the start, the metres
-  covered and the altitude. No latitude or longitude is kept, so the profile
-  cannot place the ride on a map; it only says how fast and how steep.
+  A tour's speed and climb, without where it went: for each point of the route
+  Komoot gives a stranger, the seconds since the start, the metres covered and
+  the altitude.
+
+  No latitude or longitude is kept, so the profile cannot place the ride on a
+  map; it only says how fast and how steep.
 
   It comes from the same stranger's read that decides whether a tour may be
   shown (`Web.Rides.Privacy`), so Komoot's privacy zones have already trimmed

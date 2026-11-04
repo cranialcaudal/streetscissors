@@ -2,8 +2,7 @@ defmodule Web.Cuts do
   @moduledoc """
   The cutting room: a captain's log assembled from several takes, prints from
   the archive, titles and sound (`/admin/cuts`), the Premiere half of the
-  admin's editing (`WebWeb.AdminLive.CuttingRoom`). His ask, 2026-10-17: logs
-  "from several takes", "photos from the archive", "titles and music".
+  admin's editing (`WebWeb.AdminLive.CuttingRoom`).
 
   **A cut renders into a captain's log, through the logs' own transcode.**
   `publish/2` has ffmpeg render the timeline (`Web.Cuts.Render`) to one MP4,

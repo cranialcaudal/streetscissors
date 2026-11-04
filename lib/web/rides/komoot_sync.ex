@@ -1,9 +1,10 @@
 defmodule Web.Rides.KomootSync do
   @moduledoc """
-  Mirrors the tours recorded on Komoot into the ride archive. Komoot is the
-  only input: a tour recorded in the app appears here, an edit there (name,
-  sport, stats, privacy, route) is copied over, and a tour deleted there is
-  deleted here. Nothing about a ride is entered on the site.
+  Mirrors the tours recorded on Komoot into the ride archive.
+
+  Komoot is the only input: a tour recorded in the app appears here, an edit
+  there (name, sport, stats, privacy, route) is copied over, and a tour deleted
+  there is deleted here. Nothing about a ride is entered on the site.
 
   A ride's figures come from the tour listing, read with the owner's login.
   Everything a visitor is *shown* of the route comes from a second read made

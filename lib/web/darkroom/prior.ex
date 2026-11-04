@@ -2,9 +2,7 @@ defmodule Web.Darkroom.Prior do
   @moduledoc """
   Where the print editor suggests a print's colour should start, before any
   hand moves a slider: the film's own physics and its average in the archive,
-  leaned toward the author's taste. His ask (2026-10-17): "an equation where
-  some attunement is approached over the average color balance of a film
-  given its expected reciprocity and exposure condition".
+  leaned toward the author's taste.
 
   All of it works in `{rg, bg}` (`Web.Darkroom.Film`). For a print `i` on a
   film `s` (a stock, or a process when the roll names none):
@@ -22,7 +20,7 @@ defmodule Web.Darkroom.Prior do
     print stands for itself.
   * `α_s` is how much of the film's own character to keep (1 keeps it, 0
     makes every print grey-neutral) and `o_s` a lean of the author's own; both
-    are learned from his edits (`Web.Darkroom.Taste`). Untaught, `α = 1` and
+    are learned from the author's edits (`Web.Darkroom.Taste`). Untaught, `α = 1` and
     `o = 0`: each print is brought to its film's average, which is the
     "attunement" with no taste in it yet.
   * `r_s(T)` is the datasheet's colour correction for an exposure of `T`

@@ -10,7 +10,7 @@ defmodule WebWeb.Plugs.Analytics do
 
   Who counts is `WebWeb.Visitor.counted?/3`, the same rule log views use,
   asked of `WebWeb.OwnerMark` rather than of the admin session alone, so the
-  author's own reading is left out on every browser he has logged in from;
+  author's own reading is left out on every browser that has logged in;
   which paths are pages is `Web.Analytics.sub_resource_path?/1` plus the
   prefixes below, so the historical purge applies the rules this plug does.
   """

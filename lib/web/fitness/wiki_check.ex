@@ -3,11 +3,10 @@ defmodule Web.Fitness.WikiCheck do
   What in the exercise wiki has drifted from the shape its pages share.
 
   The wiki is a folder of markdown files written over months, and nothing
-  holds one page to the conventions of the next. The 2026-10 cleanup found
-  twenty-four categories where thirteen were meant, sixteen of them used by a
-  single page; pages naming the weekday a lift fell on, which went stale the
-  moment the week was rearranged; and headings that said "(theory)" on pages
-  with citations and the reverse. `problems/0` finds those again as they
+  holds one page to the conventions of the next. The usual drift: categories
+  outside the thirteen, pages naming the weekday a lift falls on (stale as
+  soon as the week is rearranged), and "(theory)" headings on pages with
+  citations, or the reverse. `problems/0` finds those again as they
   appear, and `Web.ContentHealth` lists them on /admin/health:
 
     * a page missing one of the five frontmatter keys every page carries, or

@@ -1,12 +1,14 @@
 defmodule Web.Cuts.Titles do
   @moduledoc """
   A title as a transparent 1280x720 PNG, for `Web.Cuts.Render` to lay over the
-  picture. Set by ImageMagick in the site's own two faces (vendored in
-  `priv/fonts/`, as the share cards are): `title` is Goudy across the middle
-  with a soft shadow, wrapped to the frame; `lower` is the instrument voice
-  along the foot on a dark band, in capitals. The words reach ImageMagick
-  through a file (`caption:@`, `label:@`), never as an argument, so a title
-  beginning with `@` or `-` is only words.
+  picture.
+
+  Set by ImageMagick in the site's own two faces (vendored in `priv/fonts/`, as
+  the share cards are): `title` is Goudy across the middle with a soft shadow,
+  wrapped to the frame; `lower` is the instrument voice along the foot on a dark
+  band, in capitals. The words reach ImageMagick through a file (`caption:@`,
+  `label:@`), never as an argument, so a title beginning with `@` or `-` is only
+  words.
   """
 
   alias Web.Negatives

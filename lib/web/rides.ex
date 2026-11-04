@@ -1,9 +1,11 @@
 defmodule Web.Rides do
   @moduledoc """
   The ride archive: every tour recorded on Komoot, mirrored by
-  `Web.Rides.KomootSync`. Komoot is the only input and the only place a ride
-  is edited — recording, renaming, re-routing, or deleting a tour in the app
-  is what changes it here — and Komoot draws it: the pages show its embed.
+  `Web.Rides.KomootSync`.
+
+  Komoot is the only input and the only place a ride is edited — recording,
+  renaming, re-routing, or deleting a tour in the app is what changes it here —
+  and Komoot draws it: the pages show its embed.
   """
 
   import Ecto.Query, warn: false

@@ -1,11 +1,12 @@
 defmodule WebWeb.PcLive do
   @moduledoc """
   The `/pc` terminal: the whole site as a pretend computer you type into.
+
   Every piece has the name it has on disk (`roll007_2026-07-22_120_bw`,
-  `tides-out`), and typing a name and pressing Enter goes straight to it.
-  There are also a few real-looking commands (`ls`, `cd`, `cat`, `find`,
-  `grep`, `help`, `man`) over a made-up file system built from the site's real
-  content (`build_fs/1`).
+  `tides-out`), and typing a name and pressing Enter goes straight to it. There
+  are also a few real-looking commands (`ls`, `cd`, `cat`, `find`, `grep`,
+  `help`, `man`) over a made-up file system built from the site's real content
+  (`build_fs/1`).
 
   Anything typed that is not a command is treated as a place to jump to
   (`jump/3`), so typos never error: they look for something by that name.

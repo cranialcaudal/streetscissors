@@ -1,11 +1,13 @@
 defmodule Web.Rides.Power do
   @moduledoc """
   Each ride's estimated power, worked out in R (`analysis/ride_power.R`) and
-  only read here. There is no power meter on the bike: the script puts the
-  rider's speed and climb (`Web.Rides.Profile`, else the ride's totals)
-  through the physics of riding a bicycle (air, tyres, drivetrain, gravity)
-  and says how many watts that took. Wind and drafting are unknown to it, so
-  every figure it gives is shown as an estimate.
+  only read here.
+
+  There is no power meter on the bike: the script puts the rider's speed and
+  climb (`Web.Rides.Profile`, else the ride's totals) through the physics of
+  riding a bicycle (air, tyres, drivetrain, gravity) and says how many watts
+  that took. Wind and drafting are unknown to it, so every figure it gives is
+  shown as an estimate.
 
   The script reads the database read-only, the rider's bodyweight from the
   check-ins, and the bike's settings from `content/fitness/bike.json`

@@ -1,10 +1,12 @@
 defmodule Web.Fitness.SourceCheck do
   @moduledoc """
   The fitness vault's hand-written files that the admin edits whole
-  (`/admin/fitness?tab=files`): each block in `blocks/`, and `changelog.md`. Each is read by its own lenient parser, which skips what it
-  cannot read; `check/2` runs that parser on the editor's text *before* it is
-  saved and says what it found, or what it would have skipped, so a typo
-  cannot quietly drop a block or a training day.
+  (`/admin/fitness?tab=files`): each block in `blocks/`, and `changelog.md`.
+
+  Each is read by its own lenient parser, which skips what it cannot read;
+  `check/2` runs that parser on the editor's text *before* it is saved and says
+  what it found, or what it would have skipped, so a typo cannot quietly drop a
+  block or a training day.
   """
 
   alias Web.Fitness.{Block, Changelog, Vault}

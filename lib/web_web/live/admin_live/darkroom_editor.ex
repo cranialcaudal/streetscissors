@@ -142,7 +142,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
 
   defp picture(token, file), do: ~p"/admin/darkroom/picture/#{token}/#{file}"
 
-  # The film's suggestion (Web.Darkroom.Prior) and his taste's
+  # The film's suggestion (Web.Darkroom.Prior) and the learned taste's
   # (Web.Darkroom.Taste), worked out off the page: the first time, the
   # archive's prints are measured, which takes a minute or so.
   defp suggest(socket) do
@@ -246,7 +246,7 @@ defmodule WebWeb.AdminLive.DarkroomEditor do
   end
 
   # Temp and Tint are set where the suggestion puts them (absolute values,
-  # so a second press changes nothing); the sliders his taste predicts are set
+  # so a second press changes nothing); the sliders the taste model predicts are set
   # to its values.
   def handle_event("apply_prior", _params, %{assigns: %{prior: %{} = prior}} = socket) do
     controls = socket.assigns.recipe.controls

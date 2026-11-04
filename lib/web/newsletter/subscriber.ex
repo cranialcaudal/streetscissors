@@ -1,9 +1,10 @@
 defmodule Web.Newsletter.Subscriber do
   @moduledoc """
-  A newsletter subscriber: an email address, whether the subscription is
-  active, and the secret token in every unsubscribe link. The token is random
-  and never changes (see the comment on `generate_token/0`), so a link in a
-  years-old email still works.
+  A newsletter subscriber: an email address, whether the subscription is active,
+  and the secret token in every unsubscribe link.
+
+  The token is random and never changes (see the comment on `generate_token/0`),
+  so a link in a years-old email still works.
   """
 
   use Ecto.Schema

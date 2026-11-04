@@ -1,9 +1,10 @@
 defmodule Web.Cuts.Cut do
   @moduledoc """
   A cut: a captain's log assembled in the cutting room (`Web.Cuts`) from takes,
-  prints from the archive, titles and sound. `timeline` is the whole edit
-  (`Web.Cuts.Timeline`); `audio_log_id` is the log it was rendered into, once
-  it has been.
+  prints from the archive, titles and sound.
+
+  `timeline` is the whole edit (`Web.Cuts.Timeline`); `audio_log_id` is the log
+  it was rendered into, once it has been.
   """
 
   use Ecto.Schema

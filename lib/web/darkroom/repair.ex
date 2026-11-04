@@ -1,8 +1,8 @@
 defmodule Web.Darkroom.Repair do
   @moduledoc """
   Marks on a scan repaired before the print is graded: the scanner's lines,
-  scratches and hairs. His choice (2026-10-18): LaMa for these, and Stable
-  Diffusion for large damage, looked at before it is kept.
+  scratches and hairs. LaMa fills these; Stable Diffusion handles large
+  damage, as a candidate that is looked at before it is kept.
 
   **A repair is a mask and a picture made from it, never a change to the
   print.** The mask (white where a mark is) is `edits/NN.mask.png`, painted

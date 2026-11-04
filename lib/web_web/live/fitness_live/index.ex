@@ -1,12 +1,13 @@
 defmodule WebWeb.FitnessLive.Index do
   @moduledoc """
   The training plan, one day to a page (`/fitness` is today by the Pacific
-  clock; `/fitness/day/thursday` is Thursday, whatever day it is). The admin can
-  also open any other session at `/fitness/session/<slug>`. Exercises are read
-  from the vault (the day's file in `content/fitness/weeks/<program>/` and the
-  modules it lists) by `Web.Fitness.Vault`, and shown as a checklist whose
-  ticks the browser remembers (the `GymRoutine` hook,
-  `assets/js/gym_routine.js`).
+  clock; `/fitness/day/thursday` is Thursday, whatever day it is).
+
+  The admin can also open any other session at `/fitness/session/<slug>`.
+  Exercises are read from the vault (the day's file in
+  `content/fitness/weeks/<program>/` and the modules it lists) by
+  `Web.Fitness.Vault`, and shown as a checklist whose ticks the browser
+  remembers (the `GymRoutine` hook, `assets/js/gym_routine.js`).
 
   **For the admin, the page is also the training log.** Each exercise gets a
   Log button. During a training block the line under it says what today's

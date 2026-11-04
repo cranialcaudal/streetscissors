@@ -1,9 +1,10 @@
 defmodule Web.Scanner.Driver do
   @moduledoc """
-  What to say to `scanimage`, and how to read what it says back. Pure: every
-  function here builds an argument list or parses output, and `Web.Scanner.Bed`
-  is the only thing that runs one — the split `Web.Media.FFmpeg` and the
-  transcoder have.
+  What to say to `scanimage`, and how to read what it says back.
+
+  Pure: every function here builds an argument list or parses output, and
+  `Web.Scanner.Bed` is the only thing that runs one — the split
+  `Web.Media.FFmpeg` and the transcoder have.
 
   A film scan differs from a document scan in three ways, and leaving any of
   them out produces a file that looks like a scan and isn't one:

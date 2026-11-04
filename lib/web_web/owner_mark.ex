@@ -1,9 +1,9 @@
 defmodule WebWeb.OwnerMark do
   @moduledoc """
-  The mark that says a browser is the author's, so his reading is not counted.
+  Marks a browser as the author's, so its reading is not counted.
 
   `Web.Analytics.Owner` explains why an address cannot carry this. A browser
-  can: it is the one thing that stays the same when the house's address
+  can: it is the one thing that stays the same when the home address
   changes, when the provider changes, and when a phone leaves through iCloud
   Private Relay from a different Fastly address every day.
 
@@ -11,8 +11,8 @@ defmodule WebWeb.OwnerMark do
   on every request that already has it**, which is the part that is easy to
   get wrong: browsers cap a cookie's life at around thirteen months whatever
   `max_age` asks for, so the long window below is how long a mark is believed,
-  not how long one lasts untouched. Reading his own site at any point in a
-  year keeps it.
+  not how long one lasts untouched. Reading the site at any point in a year
+  keeps it.
 
   **Logging out does not clear it.** Logging out says "stop showing me the
   admin", not "start counting me". Only `forget/1` clears it, from the button

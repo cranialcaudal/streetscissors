@@ -9,13 +9,11 @@ defmodule Web.Analytics.AccessLog do
   the request got. Reader locations and the owner's own addresses are both
   recovered from it.
 
-  **The rotations are most of the log.** Until 2026-10-31 the scan globbed
-  `caddy_access*.log`, which matches the live file and none of the
-  `caddy_access-2026-10-07T21-15-21.111.log.gz` rotations, so the window was
-  the live file alone — five and a half days against seventy-eight. The glob
-  here ends in `.log*` for that reason, and a `.gz` is inflated as it is read:
-  the four files are ~250 MB unpacked, which is not something to hold in
-  memory.
+  **The rotations are most of the log.** Caddy rotates to names like
+  `caddy_access-<timestamp>.log.gz`, which `caddy_access*.log` would miss,
+  leaving only the live file's few days. The glob therefore ends in `.log*`,
+  and a `.gz` is inflated as it is streamed, since the rotations are hundreds
+  of megabytes unpacked.
 
   A rotation Caddy is still writing can end mid-object, and a line can be
   half-written. Neither is remarkable, so a file that fails part-way through

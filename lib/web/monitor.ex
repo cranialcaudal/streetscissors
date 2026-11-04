@@ -67,8 +67,8 @@ defmodule Web.Monitor do
     probed
   end
 
-  # The house's address, kept in the author's own hashes so his reading is not
-  # counted even from a browser he has never logged in on. Gated on the DNS
+  # The home address, kept in the author's own hashes so the author's reading
+  # is not counted even from a browser that has never logged in. Gated on the DNS
   # probe being configured, which is what makes the lookup in the first place:
   # a preview and the suite run no probes and must reach no resolver. Nothing
   # here may fail a pass.
