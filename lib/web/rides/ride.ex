@@ -33,8 +33,6 @@ defmodule Web.Rides.Ride do
   estimates the ride's power from it. `nil` until a stranger's read has given
   one, `%{}` when Komoot's points could not.
 
-  `health` is never stored: `Web.Rides.attach_health/1` fills it with the
-  Apple Health workout recorded alongside the tour, or leaves it nil.
   """
 
   use Ecto.Schema
@@ -59,7 +57,6 @@ defmodule Web.Rides.Ride do
     field :stranger_view, :string
     # hundreds of points a tour: read only by what asks for it
     field :profile, :map, load_in_query: false
-    field :health, :any, virtual: true
 
     timestamps()
   end

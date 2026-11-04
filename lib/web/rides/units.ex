@@ -75,19 +75,11 @@ defmodule Web.Rides.Units do
     |> String.reverse()
   end
 
-  @doc "`142 bpm` — heart rate, from the Apple Health workout."
-  def bpm(nil), do: "—"
-  def bpm(beats), do: "#{round(beats)} bpm"
-
   @doc "`≈ 182 W` — an estimated power, rounded to 5 W since it is no finer than that."
   def watts(watts) when is_number(watts), do: "≈ " <> grouped(round(watts / 5) * 5) <> " W"
 
   @doc "`≈ 1,240 kJ` — estimated work, rounded to 10 kJ."
   def kilojoules(kj) when is_number(kj), do: "≈ " <> grouped(round(kj / 10) * 10) <> " kJ"
-
-  @doc "`1,204 kcal` — active energy, from the Apple Health workout."
-  def kcal(nil), do: "—"
-  def kcal(kcal), do: grouped(round(kcal)) <> " kcal"
 
   @doc "`1,204` — a whole number with its thousands marked."
   def count(integer) when is_integer(integer), do: grouped(integer)

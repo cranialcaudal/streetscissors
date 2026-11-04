@@ -34,7 +34,7 @@ defmodule WebWeb.FitnessKomootSessionTest do
 
     today = Web.Clock.today_slug()
 
-    File.write!(Path.join([vault, "weekly", "#{today}.md"]), """
+    File.write!(Path.join([vault, "sessions", "#{today}.md"]), """
     ---
     title: Today — Ride and Run
     tab: #{String.capitalize(today)}
@@ -72,7 +72,9 @@ defmodule WebWeb.FitnessKomootSessionTest do
 
   test "today's Komoot ride and run fill the session, nothing typed", %{conn: conn} do
     {:ok, view, _} =
-      conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness?view=list")
+      conn
+      |> init_test_session(%{"admin_user" => true})
+      |> live(~p"/fitness/day/#{Web.Clock.today_slug()}?view=list")
 
     assert has_element?(view, ".session-brief", "Ride In")
     assert has_element?(view, "#card-outfield-jog button", "Log minutes")
@@ -81,7 +83,9 @@ defmodule WebWeb.FitnessKomootSessionTest do
     ride!("jogging", 25, 4.1)
 
     {:ok, view, _} =
-      build_conn() |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness?view=list")
+      build_conn()
+      |> init_test_session(%{"admin_user" => true})
+      |> live(~p"/fitness/day/#{Web.Clock.today_slug()}?view=list")
 
     assert has_element?(view, "details.session-done", "Ride In")
     assert has_element?(view, ".session-komoot", "27.0 km · 62 min moving")

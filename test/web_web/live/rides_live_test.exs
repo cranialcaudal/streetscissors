@@ -41,7 +41,7 @@ defmodule WebWeb.RidesLiveTest do
     end
   end
 
-  # The figures in one panel, as `%{"Avg heart rate" => "142 bpm", …}`.
+  # The figures in one panel, as `%{"Distance" => "24.9 mi", …}`.
   defp figures(view, selector) do
     panel = view |> element(selector) |> render() |> LazyHTML.from_fragment()
 
@@ -79,7 +79,7 @@ defmodule WebWeb.RidesLiveTest do
     })
 
     {:ok, view, html} = live(conn, ~p"/fitness/rides")
-    assert has_element?(view, "h1.blog-header-title", "Activities")
+    assert has_element?(view, "h1.page-title", "Activities")
     assert has_element?(view, ".activity-feature", "Home loop")
 
     # Road cycling has two, so its shelf leads even though the run is newer.
@@ -332,118 +332,12 @@ defmodule WebWeb.RidesLiveTest do
     end
   end
 
-  describe "what the watch measured" do
-    test "heart rate and energy lead the featured activity and mark its card", %{conn: conn} do
-      ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:00:20Z], avg_hr: 142, max_hr: 171})
-
-      {:ok, view, html} = live(conn, ~p"/fitness/rides")
-
-      assert has_element?(view, ".activity-feature .activity-health-title", "Heart & energy")
-      assert has_element?(view, ".activity-feature .activity-health-source", "Apple Health")
-
-      assert figures(view, ".activity-feature .activity-health") == %{
-               "Avg heart rate" => "142 bpm",
-               "Max heart rate" => "171 bpm",
-               "Active energy" => "612 kcal"
-             }
-
-      # What the body did comes before the map.
-      assert :binary.match(html, "activity-health") < :binary.match(html, "activity-embed")
-
-      assert has_element?(view, ".activity-card-health", "142 bpm · 612 kcal")
-      # The zones and the trace belong to the ride's own page.
-      refute has_element?(view, ".heart-trace")
-      refute has_element?(view, ".heart-zones")
-    end
-
-    test "a ride's own page adds the lowest, the time in each zone and the trace", %{conn: conn} do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-
-      # 0:00 at 96, 10:00 at 128, 20:00 at 150, 30:00 at 171, 40:00 at 140.
-      workout_fixture(%{
-        started_at: ~U[2026-07-08 18:00:20Z],
-        avg_hr: 142,
-        max_hr: 171,
-        min_hr: 88
-      })
-
-      {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-
-      assert figures(view, ".activity-health") == %{
-               "Avg heart rate" => "142 bpm",
-               "Max heart rate" => "171 bpm",
-               "Lowest" => "88 bpm",
-               "Active energy" => "612 kcal"
-             }
-
-      # Zones are shares of the highest heart rate on file, 171 here: they
-      # start at 86, 103, 120, 137 and 154. Ten minutes went to each of four.
-      assert has_element?(view, ".heart-zones .heart-trace-caption", "shares of 171 bpm")
-
-      zones =
-        view
-        |> element(".heart-zones-list")
-        |> render()
-        |> LazyHTML.from_fragment()
-        |> LazyHTML.query("li")
-        |> Enum.map(fn zone ->
-          zone |> LazyHTML.query("span") |> Enum.map_join(" ", &LazyHTML.text/1) |> String.trim()
-        end)
-
-      assert zones == [
-               "Easy 86+ bpm 10:00",
-               "Steady 103+ bpm 0:00",
-               "Tempo 120+ bpm 10:00",
-               "Hard 137+ bpm 10:00",
-               "All out 154+ bpm 10:00"
-             ]
-
-      # A zone no time was spent in takes no room on the bar.
-      assert view |> element(".heart-zones-bar") |> render() |> String.split("<span") |> length() ==
-               5
-
-      assert has_element?(view, "#heart-trace-#{ride.id}[phx-hook] svg path.heart-trace-line")
-      assert has_element?(view, "#heart-trace-#{ride.id} .heart-trace-caption", "96–171 bpm")
-    end
-
-    test "a workout with figures and no trace shows the figures alone", %{conn: conn} do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:00:20Z], hr_trace: []})
-
-      {:ok, view, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-      assert has_element?(view, ".activity-health .activity-figure-value", "142 bpm")
-      refute has_element?(view, ".heart-zones")
-      refute has_element?(view, ".heart-trace")
-    end
-
-    test "a ride with no paired workout shows no health panel", %{conn: conn} do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      # Half an hour later is another outing, not this one.
-      workout_fixture(%{started_at: ~U[2026-07-08 18:30:00Z]})
-
-      {:ok, index, _html} = live(conn, ~p"/fitness/rides")
-      refute has_element?(index, ".activity-health")
-      refute has_element?(index, ".activity-card-health")
-
-      {:ok, show, _html} = live(conn, ~p"/fitness/rides/#{ride.id}")
-      refute has_element?(show, ".activity-health")
-    end
-  end
-
   describe "recent training" do
     defp ago(days),
       do: DateTime.utc_now() |> DateTime.add(-days, :day) |> DateTime.truncate(:second)
 
-    test "the last 7 and the last 28 days, with the watch's share of them said", %{conn: conn} do
-      this_week = ago(1)
-      ride_fixture(%{started_at: this_week})
-
-      workout_fixture(%{
-        started_at: DateTime.add(this_week, 20),
-        ended_at: DateTime.add(this_week, 7200)
-      })
-
+    test "the last 7 and the last 28 days", %{conn: conn} do
+      ride_fixture(%{started_at: ago(1)})
       ride_fixture(%{started_at: ago(12)})
       ride_fixture(%{started_at: ~U[2025-06-01 16:00:00Z]})
 
@@ -454,44 +348,17 @@ defmodule WebWeb.RidesLiveTest do
       assert figures(view, "#recent-7") == %{
                "Activities" => "1",
                "Time moving" => "1h 40m",
-               "Distance" => "24.9 mi",
-               "Active energy" => "612 kcal",
-               "Avg heart rate" => "142 bpm"
+               "Distance" => "24.9 mi"
              }
-
-      # Every activity in the week was measured, so there is nothing to qualify.
-      refute has_element?(view, "#recent-7 .activity-recent-note")
 
       assert figures(view, "#recent-28") == %{
                "Activities" => "2",
                "Time moving" => "3h 20m",
-               "Distance" => "49.7 mi",
-               "Active energy" => "612 kcal",
-               "Avg heart rate" => "142 bpm"
+               "Distance" => "49.7 mi"
              }
-
-      assert has_element?(
-               view,
-               "#recent-28 .activity-recent-note",
-               "Heart rate and energy from 1 of 2 activities."
-             )
 
       # How training has gone comes before any one outing.
       assert :binary.match(html, "activity-recent") < :binary.match(html, "activity-feature")
-    end
-
-    test "with nothing from the watch it is Komoot's figures alone", %{conn: conn} do
-      ride_fixture(%{started_at: ago(2)})
-
-      {:ok, view, _html} = live(conn, ~p"/fitness/rides")
-
-      assert figures(view, "#recent-7") == %{
-               "Activities" => "1",
-               "Time moving" => "1h 40m",
-               "Distance" => "24.9 mi"
-             }
-
-      refute has_element?(view, ".activity-recent-note")
     end
 
     test "is left out after four weeks with nothing in them", %{conn: conn} do
@@ -525,15 +392,13 @@ defmodule WebWeb.RidesLiveTest do
   test "the year's totals are one quiet line per year, below everything", %{conn: conn} do
     ride_fixture(%{started_at: ~U[2026-06-01 16:00:00Z], distance_m: 16_093.44, ascent_m: 100.0})
     ride_fixture(%{started_at: ~U[2025-06-01 16:00:00Z], distance_m: 8046.72, ascent_m: 100.0})
-    workout_fixture(%{started_at: ~U[2026-06-01 16:00:10Z], ended_at: ~U[2026-06-01 17:40:00Z]})
 
     {:ok, view, html} = live(conn, ~p"/fitness/rides")
 
-    # The year the watch measured says so; the year it did not says nothing.
     assert has_element?(
              view,
              ".activity-totals p",
-             "2026 · 1 activity · 1h 40m moving · 10.0 mi · 328 ft up · 612 kcal · avg 142 bpm"
+             "2026 · 1 activity · 1h 40m moving · 10.0 mi · 328 ft up"
            )
 
     assert has_element?(
@@ -553,7 +418,7 @@ defmodule WebWeb.RidesLiveTest do
 
   test "index includes the fitness sub-nav", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/fitness/rides")
-    assert html =~ "bento-fitness-sub-row"
+    assert html =~ ~s(class="tabs")
     assert html =~ "/fitness/wiki"
   end
 

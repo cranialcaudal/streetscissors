@@ -159,10 +159,6 @@ if config_env() == :prod do
     config :web, :ride_thumbs_path, ride_thumbs_path
   end
 
-  # Optional: the bearer token for the Apple Health webhook, for a deploy that
-  # would rather keep it in the environment than make one in the admin.
-  config :web, :health_webhook_token, System.get_env("HEALTH_WEBHOOK_TOKEN")
-
   # Off-disk copy of each database snapshot (optional — skipped when unset or
   # when the target is not mounted).
   config :web, :backup_mirror_path, System.get_env("BACKUP_MIRROR_PATH")

@@ -200,69 +200,6 @@ defmodule Web.RidesTest do
     end
   end
 
-  describe "health" do
-    test "a ride carries the workout that started nearest to it" do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:04:00Z], avg_hr: 120})
-      nearest = workout_fixture(%{started_at: ~U[2026-07-08 17:59:30Z], avg_hr: 142})
-
-      assert [%{health: %{id: id}}] = Rides.list_rides()
-      assert id == nearest.id
-      assert Rides.get_ride(ride.id).health.avg_hr == 142
-    end
-
-    test "a workout more than ten minutes off is another outing" do
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 18:11:00Z]})
-
-      assert Rides.get_ride(ride.id).health == nil
-    end
-
-    test "each ride in a list is matched on its own" do
-      ride_fixture(%{started_at: ~U[2026-07-01 16:00:00Z]})
-      ride_fixture(%{started_at: ~U[2026-07-08 16:00:00Z]})
-      workout_fixture(%{started_at: ~U[2026-07-08 16:00:05Z], avg_hr: 150})
-
-      assert [%{health: %{avg_hr: 150}}, %{health: nil}] = Rides.list_rides()
-    end
-
-    test "a workout is stored once, however often it is sent" do
-      workout = %{
-        hk_id: "HK-1",
-        activity: "Outdoor Cycling",
-        started_at: ~U[2026-07-08 18:00:10Z],
-        ended_at: ~U[2026-07-08 20:00:00Z],
-        avg_hr: 142,
-        max_hr: 170,
-        active_kcal: 600
-      }
-
-      assert Rides.store_workouts([workout]) == 1
-      assert Rides.store_workouts([%{workout | active_kcal: 610}]) == 1
-      assert Rides.count_workouts() == 1
-
-      ride = ride_fixture(%{started_at: ~U[2026-07-08 18:00:00Z]})
-      assert %{avg_hr: 142, max_hr: 170, active_kcal: 610} = Rides.get_ride(ride.id).health
-    end
-
-    test "a workout that cannot be stored is skipped, not fatal" do
-      good = %{hk_id: "HK-2", started_at: ~U[2026-07-08 18:00:10Z]}
-
-      assert Rides.store_workouts([%{hk_id: "no start"}, good, %{}]) == 1
-      assert Rides.store_workouts([]) == 0
-    end
-
-    test "the ceiling is the highest heart rate any workout reached" do
-      assert Rides.heart_rate_ceiling() == nil
-
-      workout_fixture(%{max_hr: 171})
-      workout_fixture(%{max_hr: 188})
-      workout_fixture(%{max_hr: nil})
-
-      assert Rides.heart_rate_ceiling() == 188
-    end
-  end
-
   describe "totals/1" do
     test "Komoot's figures are summed over every ride" do
       rides = [
@@ -277,45 +214,6 @@ defmodule Web.RidesTest do
 
       assert %{rides: 2, distance_m: 30_000.0, moving_s: 4800, ascent_m: 100.0} =
                Rides.totals(rides)
-    end
-
-    test "the watch's figures come from the rides it measured, and say how many that was" do
-      ride_fixture(%{started_at: ~U[2026-07-01 16:00:00Z]})
-      ride_fixture(%{started_at: ~U[2026-07-08 16:00:00Z]})
-      ride_fixture(%{started_at: ~U[2026-07-15 16:00:00Z]})
-
-      # An hour at 150, and ten minutes at 100.
-      workout_fixture(%{
-        started_at: ~U[2026-07-08 16:00:05Z],
-        ended_at: ~U[2026-07-08 17:00:05Z],
-        avg_hr: 150,
-        max_hr: 181,
-        active_kcal: 700
-      })
-
-      workout_fixture(%{
-        started_at: ~U[2026-07-15 16:00:05Z],
-        ended_at: ~U[2026-07-15 16:10:05Z],
-        avg_hr: 100,
-        max_hr: 120,
-        active_kcal: 80
-      })
-
-      totals = Rides.totals(Rides.list_rides())
-
-      assert totals.rides == 3
-      assert totals.measured == 2
-      assert totals.active_kcal == 780
-      assert totals.max_hr == 181
-      # Weighted by how long each lasted: far nearer 150 than the 125 between.
-      assert totals.avg_hr == 143
-    end
-
-    test "with nothing measured the watch's figures are absent, not zero" do
-      assert %{measured: 0, active_kcal: nil, avg_hr: nil, max_hr: nil} =
-               Rides.totals([ride_fixture()])
-
-      assert %{rides: 0, distance_m: 0, moving_s: 0, measured: 0, avg_hr: nil} = Rides.totals([])
     end
   end
 
@@ -395,8 +293,6 @@ defmodule Web.RidesTest do
       # Moving time, falling back to elapsed time where Komoot sent none.
       assert y2026.moving_s == 1800 + 6000 + 3000
       assert y2026.ascent_m == 1100.0
-      # Nothing was measured that year, and the totals do not pretend otherwise.
-      assert %{measured: 0, active_kcal: nil, avg_hr: nil} = y2026
 
       assert %{year: 2025, rides: 1, distance_m: 5_000.0} = y2025
     end
@@ -424,14 +320,6 @@ defmodule Web.RidesTest do
       assert Units.sport_kind("hike") == "hike"
       assert Units.sport_kind("climbing") == "other"
       assert Units.sport_kind(nil) == "other"
-    end
-
-    test "heart rate and energy read the way the watch says them" do
-      assert Units.bpm(141.6) == "142 bpm"
-      assert Units.kcal(1204.4) == "1,204 kcal"
-      assert Units.kcal(87) == "87 kcal"
-      assert Units.bpm(nil) == "—"
-      assert Units.kcal(nil) == "—"
     end
 
     test "dates are the Pacific day an activity happened on" do

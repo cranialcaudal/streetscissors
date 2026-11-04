@@ -1,7 +1,6 @@
 defmodule WebWeb.AdminLive.RidesManager do
   @moduledoc """
-  Activities: the Komoot mirror's controls, what a stranger can see of it,
-  and the way heart rate gets in.
+  Activities: the Komoot mirror's controls and what a stranger can see of it.
 
   There is nothing to edit here — Komoot is the only input — so the page is:
 
@@ -11,12 +10,6 @@ defmodule WebWeb.AdminLive.RidesManager do
       the way a visitor's browser reads it, still shows a private place.
       "Sync now" forces every tour to be looked at again, so it is also the
       button for "check what strangers can see".
-    * **Heart & energy.** Komoot keeps none, so this is where Apple Health
-      comes in: drop the Health app's export and it is read in the
-      background (`Web.Rides.HealthImport`), or make a token for an app that
-      posts workouts as they happen (`WebWeb.HealthWebhookController`).
-    * **The archive**, with what each activity has: a share link, a map, a
-      heart rate.
   """
 
   use WebWeb, :live_view
@@ -24,33 +17,18 @@ defmodule WebWeb.AdminLive.RidesManager do
   import WebWeb.AdminComponents
 
   alias Web.Rides
-  alias Web.Rides.{AppleHealth, HealthImport, KomootSync, Privacy, Units, Workout}
-
-  # Apple's export of a few years on a watch runs to hundreds of megabytes.
-  @max_export_size 4_000_000_000
+  alias Web.Rides.{KomootSync, Privacy, Units}
 
   def mount(_params, _session, socket) do
-    if connected?(socket), do: HealthImport.subscribe()
-
     {:ok,
      socket
      |> assign(
        page_title: "Activities | Admin",
        komoot_enabled: KomootSync.enabled?(),
        zones: Privacy.zones(),
-       sync_running: false,
-       new_token: nil
+       sync_running: false
      )
-     |> load()
-     |> allow_upload(:health_export,
-       accept: ~w(.zip .xml),
-       max_entries: 1,
-       max_file_size: @max_export_size,
-       auto_upload: true,
-       progress: &handle_progress/3,
-       # Straight into the import's own inbox, never /tmp.
-       writer: fn _name, _entry, _socket -> {WebWeb.HealthExportWriter, []} end
-     )}
+     |> load()}
   end
 
   defp load(socket) do
@@ -59,10 +37,7 @@ defmodule WebWeb.AdminLive.RidesManager do
     assign(socket,
       rides: rides,
       last_run: KomootSync.last_run(),
-      views: Enum.frequencies_by(rides, & &1.stranger_view),
-      measured: Enum.count(rides, &match?(%Workout{}, &1.health)),
-      import: HealthImport.last(),
-      webhook_open: AppleHealth.webhook_open?()
+      views: Enum.frequencies_by(rides, & &1.stranger_view)
     )
   end
 
@@ -77,48 +52,6 @@ defmodule WebWeb.AdminLive.RidesManager do
      # re-reads every tour as a stranger rather than only the ones that moved.
      |> start_async(:komoot_sync, fn -> KomootSync.sync(force: true) end)}
   end
-
-  # --- Apple Health ----------------------------------------------------------
-
-  def handle_event("validate_export", _params, socket), do: {:noreply, socket}
-
-  def handle_event("create_token", _params, socket) do
-    {:noreply, socket |> assign(new_token: AppleHealth.create_webhook_token()) |> load()}
-  end
-
-  def handle_event("revoke_token", _params, socket) do
-    AppleHealth.revoke_webhook_token()
-
-    {:noreply,
-     socket
-     |> assign(new_token: nil)
-     |> load()
-     |> put_flash(:info, "The webhook's token is revoked.")}
-  end
-
-  defp handle_progress(:health_export, entry, socket) do
-    if entry.done? do
-      # The writer put it in the import's inbox; the import deletes it when
-      # it has been read.
-      [path] =
-        consume_uploaded_entries(socket, :health_export, fn %{path: path}, _entry ->
-          {:ok, path}
-        end)
-
-      case HealthImport.start(path) do
-        :ok ->
-          {:noreply,
-           socket |> load() |> put_flash(:info, "Reading the export. This takes a minute.")}
-
-        {:error, :running} ->
-          {:noreply, put_flash(socket, :error, "An import is already running.")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info(:health_import, socket), do: {:noreply, load(socket)}
 
   def handle_async(:komoot_sync, {:ok, result}, socket) do
     socket = assign(socket, sync_running: false)
@@ -214,97 +147,6 @@ defmodule WebWeb.AdminLive.RidesManager do
       </p>
     </.panel>
 
-    <.panel title="Heart & energy" id="health">
-      <ul class="adm-status">
-        <li id="health-coverage">
-          <span
-            class={["adm-status-dot", @measured > 0 && "adm-status-dot--ok"]}
-            aria-hidden="true"
-          ></span>
-          <span class="adm-status-name">On file</span>
-          <span class="adm-status-detail">
-            Heart rate and energy for {@measured} of {length(@rides)} activities.
-          </span>
-        </li>
-        <li :if={@import} id="health-import">
-          <span class={["adm-status-dot", import_class(@import.status)]} aria-hidden="true"></span>
-          <span class="adm-status-name">Last import</span>
-          <span class="adm-status-detail">{import_line(@import)}</span>
-        </li>
-        <li id="health-webhook">
-          <span class={["adm-status-dot", @webhook_open && "adm-status-dot--ok"]} aria-hidden="true"></span>
-          <span class="adm-status-name">Automatic</span>
-          <span class="adm-status-detail">
-            {if @webhook_open,
-              do: "Open: an app holding the token can post workouts as they are recorded.",
-              else: "Closed. No token has been made, so nothing can post here."}
-          </span>
-        </li>
-      </ul>
-
-      <p class="adm-help">
-        Komoot keeps no heart rate and no calories: the watch writes them to Apple Health. On the
-        phone, open Health, tap your picture, then <strong>Export All Health Data</strong>, and
-        drop the file it makes here. Only workouts that match an activity are kept, with the
-        heart rate during them; the rest of the file is never read, and the file is deleted as
-        soon as it has been.
-      </p>
-
-      <form id="health-export-form" phx-change="validate_export">
-        <.drop_zone
-          upload={@uploads.health_export}
-          title="Drop export.zip here"
-          hint="Apple Health's own export, as the zip it shares or the export.xml inside it."
-          error_message={&upload_error_message/1}
-          class="adm-drop--spaced"
-        />
-      </form>
-
-      <div class="adm-form-actions">
-        <button
-          :if={!@webhook_open}
-          type="button"
-          phx-click="create_token"
-          id="health-token-create"
-          class="adm-btn"
-        >
-          Make a token for automatic delivery
-        </button>
-        <button
-          :if={@webhook_open}
-          type="button"
-          phx-click="revoke_token"
-          id="health-token-revoke"
-          class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
-          data-confirm="Revoke the token? Whatever is posting workouts with it will be refused."
-        >
-          Revoke the token
-        </button>
-      </div>
-
-      <div :if={@new_token} id="health-token" class="adm-sheet">
-        <p class="adm-help">
-          Shown once. In the Health Auto Export app, add a REST API automation for
-          <strong>Workouts</strong>
-          (JSON, with heart-rate data) that posts to the address below, with the header
-          <code>Authorization: Bearer</code>
-          followed by this token.
-        </p>
-        <.copy_field
-          id="health-webhook-url"
-          value={WebWeb.Endpoint.url() <> "/api/health/ingest"}
-          label="Copy the address"
-          names="The webhook's address"
-        />
-        <.copy_field
-          id="health-webhook-token"
-          value={@new_token}
-          label="Copy the token"
-          names="The webhook's token"
-        />
-      </div>
-    </.panel>
-
     <.panel title="Archive" count={length(@rides)}>
       <.rows id="rides" class="adm-rows--grid" rows={@rides} row_id={&"ride-#{&1.id}"}>
         <:col :let={ride} label="Name" class="adm-cell-title">{ride.name || "Untitled"}</:col>
@@ -312,9 +154,6 @@ defmodule WebWeb.AdminLive.RidesManager do
         <:col :let={ride} label="Sport">{Units.sport(ride.sport)}</:col>
         <:col :let={ride} label="Distance" class="adm-cell-num">
           {Units.distance(ride.distance_m)}
-        </:col>
-        <:col :let={ride} label="Heart" class="adm-cell-num">
-          {heart(ride.health)}
         </:col>
         <:col :let={ride} label="On Komoot">
           <.pill :if={ride.visibility == "private"} tone="quiet" class="ride-private">Private</.pill>
@@ -337,9 +176,6 @@ defmodule WebWeb.AdminLive.RidesManager do
     </.panel>
     """
   end
-
-  defp heart(%Workout{avg_hr: avg}) when is_integer(avg), do: Units.bpm(avg)
-  defp heart(_health), do: "—"
 
   defp run_line(%{at: nil}), do: "No pass recorded yet."
   defp run_line(%{at: at, detail: detail}), do: "#{ago(at)} — #{detail}"
@@ -426,23 +262,4 @@ defmodule WebWeb.AdminLive.RidesManager do
   defp privacy_class({:ok, []}, _views), do: "adm-status-dot--warn"
   defp privacy_class({:ok, _zones}, %{"exposed" => _n}), do: "adm-status-dot--fail"
   defp privacy_class({:ok, _zones}, _views), do: "adm-status-dot--ok"
-
-  defp import_line(%{status: :running, at: at}), do: "Reading the export, started #{ago(at)}."
-
-  defp import_line(%{status: :ok, at: at} = result) do
-    "#{ago(at)} — #{result.in_export} workouts in the export, #{result.matched} matched to an " <>
-      "activity, #{result.heart_samples} heart-rate points kept."
-  end
-
-  defp import_line(%{status: :failed, at: at, reason: reason}),
-    do: "#{ago(at)} — it failed: #{reason}."
-
-  defp import_class(:ok), do: "adm-status-dot--ok"
-  defp import_class(:running), do: "adm-status-dot--warn"
-  defp import_class(:failed), do: "adm-status-dot--fail"
-
-  defp upload_error_message(:too_large), do: "That file is too large."
-  defp upload_error_message(:not_accepted), do: "That is not a .zip or .xml file."
-  defp upload_error_message(:too_many_files), do: "One export at a time."
-  defp upload_error_message(error), do: to_string(error)
 end

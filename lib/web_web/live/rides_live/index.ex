@@ -57,9 +57,7 @@ defmodule WebWeb.RidesLive.Index do
         Units.duration(year.moving_s) <> " moving",
         Units.distance(year.distance_m),
         Units.elevation(year.ascent_m) <> " up"
-      ] ++
-        if(year.active_kcal, do: [Units.kcal(year.active_kcal)], else: []) ++
-        if(year.avg_hr, do: ["avg " <> Units.bpm(year.avg_hr)], else: []),
+      ],
       " · "
     )
   end
@@ -67,9 +65,9 @@ defmodule WebWeb.RidesLive.Index do
   def render(assigns) do
     ~H"""
     <div class="blog-bento-wrapper steel activities">
-      <header class="blog-header-card">
-        <h1 class="blog-header-title">Activities</h1>
-        <div class="blog-header-subtitle">Recorded on Komoot · measured by the watch</div>
+      <header class="page-head">
+        <h1 class="page-title">Activities</h1>
+        <p class="page-eyebrow">Recorded on Komoot · measured by the watch</p>
       </header>
 
       <WebWeb.FitnessSubnav.subnav active={:rides} />
@@ -96,7 +94,6 @@ defmodule WebWeb.RidesLive.Index do
         <h2 class="activity-title">
           <.link navigate={~p"/fitness/rides/#{@featured.id}"}>{Activity.title(@featured, @is_admin)}</.link>
         </h2>
-        <Activity.health ride={@featured} />
         <Activity.power ride={@featured} />
         <Activity.plate ride={@featured} link loading="eager" admin={@is_admin} />
       </article>
