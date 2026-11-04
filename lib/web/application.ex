@@ -18,7 +18,7 @@ defmodule Web.Application do
       # Owns the ETS table guarding login attempts, subscribe/guestbook/contact
       # writes and the LanguageTool relay. Must start before the Endpoint.
       Web.RateLimit,
-      # The homepage's "Happening" section, kept ten minutes (Web.Happening).
+      # The homepage's newest work, kept ten minutes (Web.Happening).
       Web.Happening,
       # Each blog post as last parsed, until its file changes (Web.Blog.Cache).
       Web.Blog.Cache,

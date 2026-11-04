@@ -142,8 +142,8 @@ defmodule WebWeb.FitnessLandingTest do
       assert html =~ "Band rows"
       assert html =~ "/fitness/wiki/push-ups"
       assert option_count(html, "tuesday") == 0
-      # Its line of week.md is the admin's: a visitor is not shown where the
-      # week's work, rides and games happen, nor the shape of the week.
+      # The day's schedule line is the admin's: a visitor is not shown where
+      # the week's work, rides and games happen, nor the shape of the week.
       [head] = Regex.run(~r{<header class="day-page-head">.*?</header>}s, html)
       refute head =~ "Morning Spin"
       refute head =~ ~r/\d{1,2}:\d{2}/

@@ -14,8 +14,7 @@ defmodule WebWeb.Activity do
   figures.
 
   Everything reads in Komoot's vocabulary (`Web.Rides.Units`), and a sport
-  takes its family's pigment through an `activity--<kind>` class — the same
-  colors The Week gives bike and run blocks on /fitness.
+  takes its family's pigment through an `activity--<kind>` class.
 
   ## How this file is laid out
 

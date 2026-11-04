@@ -28,7 +28,7 @@ defmodule Web.Rides.Units do
     Map.get_lazy(@sports, key, fn -> key |> String.replace("_", " ") |> String.capitalize() end)
   end
 
-  @doc "The family a sport is colored by — the same split The Week uses on /fitness."
+  @doc "The family a sport is colored by: `\"bike\"`, `\"run\"`, `\"hike\"` or `\"other\"`."
   def sport_kind("e_" <> base), do: sport_kind(base)
   def sport_kind(key) when key in @bikes, do: "bike"
   def sport_kind("jogging"), do: "run"

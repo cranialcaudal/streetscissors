@@ -15,7 +15,7 @@ a, button, input, select, textarea {
   touch-action: manipulation;
 }
 
-/* Markdown/prose tables (England itinerary, wiki articles) scroll
+/* Markdown/prose tables (the manual, wiki articles) scroll
    horizontally instead of stretching the page. */
 .markdown-body table,
 .prose table {

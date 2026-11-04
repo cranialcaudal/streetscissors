@@ -313,7 +313,7 @@ defmodule Web.RidesTest do
       assert Units.sport(nil) == "Activity"
     end
 
-    test "sport_kind groups sports the way The Week colors them" do
+    test "sport_kind groups sports into the families the pages colour" do
       assert Units.sport_kind("racebike") == "bike"
       assert Units.sport_kind("e_mtb") == "bike"
       assert Units.sport_kind("jogging") == "run"

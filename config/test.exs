@@ -177,7 +177,7 @@ config :phoenix_live_view,
 config :phoenix,
   sort_verified_routes_query_params: true
 
-# The homepage's "Happening" is built afresh on every request in the suite.
+# The homepage's newest work (Web.Happening) is built afresh on every request in the suite.
 config :web, :happening_ttl_ms, 0
 
 # The weekly training report renders through a stub of Quarto in the suite.

@@ -19,8 +19,7 @@ harmless — the component omits the active tab, and there is none to omit.
     <%!-- The week at a glance, sized
     down to a single row since there's no month to page through, just seven
     repeating days. Plain anchors into the h3s "The week, Sunday to Sunday"
-    already carries, so no JS is needed the way England's tab-switch/scroll
-    dance was. --%>
+    already carries, so no JS is needed. --%>
     <nav class="week-strip" aria-label="This week's meals">
       <a :for={day <- @week_days} href={"#" <> day.id} class="week-cell">
         <span class="week-cell-day">{day.name}</span>

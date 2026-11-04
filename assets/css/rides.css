@@ -9,8 +9,8 @@
    draws for a visitor. The site draws none.
 
    Tokens only, so the section's .steel re-inking carries it. Sport
-   families take The Week's pigments (bike jade, run orange), so an
-   activity reads the same color here as its block does on /fitness.
+   families take the site's pigments (bike jade, run orange, hike dodger),
+   one colour per family wherever a sport is shown.
    ─────────────────────────────────────────────────────────────────── */
 
 .activities {
@@ -18,8 +18,7 @@
 
 .activity--bike { --sport-color: var(--color-jade); }
 .activity--run { --sport-color: var(--color-orange); }
-/* The Week spends valley dusk on swims, which Komoot never records — so on
-   this page it is free for hikes, which would otherwise read as disabled grey. */
+/* Hikes take dodger rather than reading as disabled grey. */
 .activity--hike { --sport-color: var(--color-dodger); }
 .activity--other { --sport-color: var(--ink-3); }
 

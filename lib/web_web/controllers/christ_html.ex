@@ -1,7 +1,7 @@
 defmodule WebWeb.ChristHTML do
   @moduledoc """
   The prayer pages rendered by `WebWeb.ChristController`, and the components
-  they share. Styled only by `assets/css/faith.css`.
+  they share. Styled only by `assets/css/christ.css`.
 
   Each prayer is a component (`office/1`, `masses/1`, `midday/1`,
   `rosary_text/1`) because it is shown twice: opened in place on the day's

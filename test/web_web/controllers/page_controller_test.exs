@@ -313,7 +313,7 @@ defmodule WebWeb.PageControllerTest do
     end
   end
 
-  describe "Happening" do
+  describe "The newest work (Web.Happening)" do
     test "the homepage does not render the bottom happening section", %{conn: conn} do
       Web.RidesFixtures.ride_fixture(%{stranger_view: "clear"})
       html = conn |> get(~p"/") |> html_response(200)
