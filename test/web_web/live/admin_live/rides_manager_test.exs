@@ -4,7 +4,6 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
   import Phoenix.LiveViewTest
   import Web.RidesFixtures
 
-  alias Web.Rides
   alias Web.Rides.KomootSync
 
   setup do

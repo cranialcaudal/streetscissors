@@ -29,6 +29,16 @@ defmodule WebWeb.AdminLive.ScannerTest do
     view
   end
 
+  # The test and the page both hear the scanner's `:done`. Waiting on
+  # render_async/2 straight after the test's copy can race the page's: if the
+  # page has not yet handled its own and started the work, nothing is pending
+  # and render_async returns at once. render/1 is a synchronous call, so the
+  # page handles the `:done` already in its mailbox before answering.
+  defp settle(view, timeout) do
+    render(view)
+    render_async(view, timeout)
+  end
+
   defp roll_dir(root), do: Path.join(root, "120 Film/roll001_#{today()}_120_bw")
   defp today, do: Date.to_iso8601(Web.Clock.local_today())
 
@@ -231,7 +241,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
       view |> element("button", "Preview") |> render_click()
       assert_receive {:scanner, :done, %{kind: :pass}}, 5_000
 
-      assert render_async(view, 5_000) =~ "No film could be read on the glass"
+      assert settle(view, 5_000) =~ "No film could be read on the glass"
       refute File.exists?(roll_dir(root))
 
       assert has_element?(
@@ -264,7 +274,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
       defp preview(view) do
         view |> element("button", "Preview") |> render_click()
         assert_receive {:scanner, :done, %{kind: :pass}}, 10_000
-        render_async(view, 20_000)
+        settle(view, 20_000)
       end
 
       # A load settled with no singles taken: whatever was proposed is
@@ -349,7 +359,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
         glass!([{32..423, @orange}])
         render_click(view, "preview")
         assert_receive {:scanner, :done, %{kind: :pass}}, 10_000
-        html = render_async(view, 20_000)
+        html = settle(view, 20_000)
         assert html =~ "Added 001.tiff. 2 frames found, 1 ticked."
 
         assert Enum.map(Web.Scanner.list_strips(dir), & &1.file) == ["001.tiff"]
@@ -370,7 +380,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
         assert [{1, _rect}] = band.frames
 
         assert_receive {:scanner, :done, %{kind: :band}}, 10_000
-        html = render_async(view, 20_000)
+        html = settle(view, 20_000)
         assert html =~ "Scanned frame 1. Load the next strips and press Preview."
 
         dir = roll_35(root)
@@ -427,7 +437,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
 
         assert_receive {:scanner, :started, %{kind: :band}}, 5_000
         assert_receive {:scanner, :done, %{kind: :band}}, 10_000
-        render_async(view, 20_000)
+        settle(view, 20_000)
 
         dir = roll_35(root)
         assert File.ls!(Path.join(dir, "frames")) == ["01.png"]

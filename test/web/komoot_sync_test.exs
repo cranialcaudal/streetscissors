@@ -653,8 +653,9 @@ defmodule Web.Rides.KomootSyncTest do
 
   # Only a tour that has been read as a stranger, and found clear, is shown
   # through Komoot. Until then it is its figures.
-  @tag :capture_log
   describe "a ride's profile" do
+    @describetag :capture_log
+
     # three points 100 m apart going north, climbing, ten seconds apart
     @climbing [
       %{"lat" => 10.01, "lng" => 20.01, "alt" => 20.0, "t" => 0},
