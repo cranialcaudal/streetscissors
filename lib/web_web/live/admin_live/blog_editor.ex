@@ -1,16 +1,15 @@
 defmodule WebWeb.AdminLive.BlogEditor do
   @moduledoc """
-  One post's file, edited in the admin across four panels:
+  One post's file, edited in the admin across a 1×4 row of collapsible panels:
 
-    1. **Articles & Zotero** (`#post-zotero`) — the post's top Reading List
-       (with read/to-read toggles and inline `> [!thought]` notes) alongside
-       the author's `streetscissors` Zotero folders, documents, and PDF
-       annotations.
+    1. **Articles & Zotero** (`#post-zotero`) — the author's `streetscissors`
+       Zotero folders, documents, and PDF annotations alongside the post's top
+       Reading List (with read/to-read toggles and inline `> [!thought]` notes).
     2. **Outline** (`#post-outline-progress`) — section word targets, beat
        prompts, paired phrasings (`> [!thought]`), and one-click seeding into
        the draft (`Use my phrasings`).
-    3. **Draft** (`#post-source`) — `WebWeb.DocumentEditor` (CodeMirror over
-       the whole markdown file, frontmatter included).
+    3. **Draft** (`#panel-draft` / `#post-source`) — `WebWeb.DocumentEditor`
+       (CodeMirror over the whole markdown file, frontmatter included).
     4. **Preview** (`#post-preview`) — the rendered post as the site reads it,
        with a toggle to show or hide inline beat cards.
   """
@@ -40,6 +39,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
               saved: content,
               conflict: nil,
               show_beats: false,
+              collapsed_panels: MapSet.new(),
               zotero_open: true,
               zotero_configured: configured?,
               zotero_root_target: Zotero.root_collection_target(),
@@ -66,6 +66,18 @@ defmodule WebWeb.AdminLive.BlogEditor do
     else
       {:ok, push_navigate(socket, to: "/")}
     end
+  end
+
+  def handle_event("toggle_panel", %{"panel" => panel}, socket)
+      when panel in ["articles", "outline", "draft", "preview"] do
+    collapsed = socket.assigns.collapsed_panels
+
+    next =
+      if MapSet.member?(collapsed, panel),
+        do: MapSet.delete(collapsed, panel),
+        else: MapSet.put(collapsed, panel)
+
+    {:noreply, assign(socket, :collapsed_panels, next)}
   end
 
   def handle_event("change", %{"content" => content}, socket) do
@@ -116,6 +128,7 @@ defmodule WebWeb.AdminLive.BlogEditor do
     socket =
       socket
       |> assign(
+        collapsed_panels: MapSet.delete(socket.assigns.collapsed_panels, "articles"),
         zotero_open: true,
         zotero_configured: configured?,
         zotero_root_target: Zotero.root_collection_target(),
@@ -408,8 +421,6 @@ defmodule WebWeb.AdminLive.BlogEditor do
   defp lf(text), do: String.replace(text, "\r\n", "\n")
 
   def render(assigns) do
-    # A browser sends \n where the file may have \r\n (Web.SourceFile puts
-    # them back on save), so line endings alone are not unsaved work.
     assigns =
       assigns
       |> assign(:dirty, lf(assigns.content) != lf(assigns.saved))
@@ -470,466 +481,642 @@ defmodule WebWeb.AdminLive.BlogEditor do
       </details>
     </section>
 
-    <div class="adm-pipeline-top">
-      <.panel
-        title="1. Articles & Zotero"
-        id="post-zotero"
-        count={@post.outline.research.total}
-      >
-        <:actions>
-          <button
-            type="button"
-            id="toggle-zotero"
-            phx-click="zotero_toggle"
-            class="adm-btn adm-btn--small adm-btn--quiet"
-          >
-            Sync Zotero
-          </button>
-          <button
-            :if={@active_zotero_col}
-            type="button"
-            id="zotero-import-folder"
-            phx-click="zotero_import_collection"
-            phx-value-key={@active_zotero_col.key}
-            class="adm-btn adm-btn--small adm-btn--quiet"
-          >
-            Pull folder (<span class="adm-figure">{@active_zotero_col.item_count}</span>)
-          </button>
-          <button
-            :if={@active_zotero_col && @post.outline.research.total > 0}
-            type="button"
-            id="zotero-push-reading-list"
-            phx-click="zotero_push_reading_list"
-            class="adm-btn adm-btn--small"
-          >
-            Push reading list (<span class="adm-figure">{@post.outline.research.total}</span>)
-          </button>
-        </:actions>
-
-        <div class="adm-zotero-body">
-          <div :if={@post.outline.research.total > 0} class="adm-reading-block">
-            <div class="adm-outline-head">
-              <span class="adm-outline-label">
-                Top Reading List (<span class="adm-figure">{@post.outline.research.checked}/{@post.outline.research.total}</span>
-                read · <span class="adm-figure">{@post.outline.research.with_thoughts}</span>
-                with thoughts)
-              </span>
-            </div>
-            <ul class="adm-outline-list adm-reading-list">
-              <li
-                :for={{item, idx} <- Enum.with_index(@post.outline.research.items)}
-                class={["adm-reading-item", item.done? && "is-done"]}
-              >
-                <div class="adm-reading-row">
-                  <button
-                    type="button"
-                    phx-click="toggle_reading_item"
-                    phx-value-index={idx}
-                    class="adm-btn adm-btn--small adm-btn--quiet adm-reading-toggle"
-                    title="Toggle read / to read"
-                  >
-                    <.pill tone={if(item.done?, do: "live", else: "quiet")}>
-                      {if item.done?, do: "✓ read", else: "to read"}
-                    </.pill>
-                  </button>
-                  <span class="adm-reading-source">{Web.Markdown.to_text(item.text)}</span>
-                </div>
-                <p :for={thought <- item.thoughts} class="adm-reading-thought">
-                  “{thought}”
-                </p>
-                <form
-                  phx-submit="add_reading_thought"
-                  class="adm-inline-form adm-thought-form"
-                >
-                  <input type="hidden" name="index" value={idx} />
-                  <input
-                    type="text"
-                    name="thought"
-                    value=""
-                    class="adm-input adm-input--small"
-                    placeholder="What did you think about this source? (adds > [!thought])…"
-                    aria-label={"Add thought for source #{idx + 1}"}
-                  />
-                  <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
-                    + Thought
-                  </button>
-                </form>
-              </li>
-            </ul>
-          </div>
-
-          <p :if={!@zotero_configured} class="adm-help">
-            Set <code>ZOTERO_USER_ID</code>
-            and <code>ZOTERO_API_KEY</code>
-            in <code>.env</code>
-            to connect your <code>{@zotero_root_target}</code>
-            folder in Zotero.
-          </p>
-
-          <div :if={@zotero_configured} class="adm-zotero-subpanel">
-            <p :if={@zotero_error} class="adm-zotero-error" role="alert">{@zotero_error}</p>
-
-            <div :if={@zotero_collections != []} class="adm-zotero-collections">
-              <span class="adm-zotero-label">Zotero folders:</span>
-              <button
-                type="button"
-                phx-click="zotero_select_collection"
-                phx-value-key=""
-                aria-pressed={to_string(is_nil(@zotero_selected_collection))}
-                class={[
-                  "adm-btn adm-btn--small adm-btn--quiet",
-                  is_nil(@zotero_selected_collection) && "is-active"
-                ]}
-              >
-                All library
-              </button>
-              <button
-                :for={
-                  col <-
-                    Enum.filter(@zotero_collections, & &1.in_root?)
-                    |> then(fn r -> if r != [], do: r, else: @zotero_collections end)
-                }
-                type="button"
-                id={"zotero-col-#{col.key}"}
-                phx-click="zotero_select_collection"
-                phx-value-key={col.key}
-                aria-pressed={to_string(@zotero_selected_collection == col.key)}
-                class={[
-                  "adm-btn adm-btn--small adm-btn--quiet",
-                  @zotero_selected_collection == col.key && "is-active"
-                ]}
-                title={"Open #{col.path}"}
-              >
-                {col.path} (<span class="adm-figure">{col.item_count}</span>)
-              </button>
-            </div>
-
-            <div class="adm-zotero-bars">
-              <form id="zotero-search-form" phx-submit="zotero_search" class="adm-inline-form">
-                <input
-                  type="search"
-                  name="q"
-                  value={@zotero_query}
-                  class="adm-input"
-                  placeholder="Search Zotero by author, title, year or note…"
-                  aria-label="Search Zotero library"
-                />
-                <button type="submit" class="adm-btn adm-btn--small">Search</button>
-              </form>
-
-              <form id="zotero-folder-form" phx-submit="zotero_create_folder" class="adm-inline-form">
-                <input
-                  type="text"
-                  name="name"
-                  value=""
-                  class="adm-input"
-                  placeholder={"New subfolder in #{if @active_zotero_col, do: @active_zotero_col.name, else: @zotero_root_target}…"}
-                  aria-label="New Zotero subfolder name"
-                />
-                <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
-                  + New folder
-                </button>
-                <button
-                  type="button"
-                  id="zotero-folder-for-post"
-                  phx-click="zotero_create_folder"
-                  phx-value-name={@slug}
-                  class="adm-btn adm-btn--small adm-btn--quiet"
-                >
-                  Folder for {@slug}
-                </button>
-              </form>
-            </div>
-
-            <details id="zotero-add-doc" class="adm-outline-sections">
-              <summary>
-                + Add a document to {if @active_zotero_col,
-                  do: @active_zotero_col.path,
-                  else: @zotero_root_target} &amp; reading list
-              </summary>
-              <form id="zotero-item-form" phx-submit="zotero_create_item" class="adm-zotero-doc-form">
-                <div class="adm-zotero-doc-grid">
-                  <label class="adm-field">
-                    <span>Type</span>
-                    <select name="item_type" class="adm-select">
-                      <option value="book">Book</option>
-                      <option value="journalArticle">Journal article</option>
-                      <option value="webpage">Webpage / article</option>
-                      <option value="newspaperArticle">Newspaper article</option>
-                      <option value="report">Report</option>
-                    </select>
-                  </label>
-                  <label class="adm-field">
-                    <span>Title</span>
-                    <input
-                      type="text"
-                      name="title"
-                      required
-                      class="adm-input"
-                      placeholder="The Future of Nostalgia"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span>Author(s)</span>
-                    <input
-                      type="text"
-                      name="authors"
-                      class="adm-input"
-                      placeholder="Boym, Svetlana"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span>Publisher / Journal</span>
-                    <input
-                      type="text"
-                      name="publication"
-                      class="adm-input"
-                      placeholder="Basic Books"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span>Year</span>
-                    <input type="text" name="year" class="adm-input" placeholder="2001" />
-                  </label>
-                  <label class="adm-field">
-                    <span>Call number</span>
-                    <input
-                      type="text"
-                      name="call_number"
-                      class="adm-input"
-                      placeholder="PN56.N6 B69 2001"
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span>URL / DOI</span>
-                    <input
-                      type="url"
-                      name="url"
-                      class="adm-input"
-                      placeholder="https://..."
-                    />
-                  </label>
-                  <label class="adm-field">
-                    <span>Your note / phrasing</span>
-                    <input
-                      type="text"
-                      name="note"
-                      class="adm-input"
-                      placeholder="What you thought about this source…"
-                    />
-                  </label>
-                </div>
-                <div class="adm-form-actions">
-                  <button type="submit" class="adm-btn adm-btn--small adm-btn--primary">
-                    Save to Zotero &amp; reading list
-                  </button>
-                </div>
-              </form>
-            </details>
-
-            <ul :if={@zotero_items != []} class="adm-zotero-items">
-              <li
-                :for={item <- @zotero_items}
-                id={"zotero-item-#{item.key}"}
-                class="adm-zotero-item"
-              >
-                <div class="adm-zotero-item-main">
-                  <strong class="adm-zotero-item-title">{item.title}</strong>
-                  <span class="adm-zotero-item-meta">
-                    {item.authors}{if item.year, do: " (#{item.year})"}
-                    <span :if={item.call_number} class="adm-figure"> · {item.call_number}</span>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  phx-click="zotero_import_item"
-                  phx-value-key={item.key}
-                  class="adm-btn adm-btn--small"
-                >
-                  Add to reading list
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </.panel>
-
-      <.panel
-        :if={@post.outline.has_outline?}
-        title="2. Outline & Phrasings"
-        id="post-outline-progress"
-        count={@post.outline.beats_total}
-      >
-        <:actions>
-          <div class="adm-outline-pills">
-            <.pill
-              :if={@post.outline.beats_total > 0}
-              tone={
-                if(@post.outline.beats_done == @post.outline.beats_total,
-                  do: "live",
-                  else: "draft"
-                )
-              }
-            >
-              <span class="adm-figure">
-                {@post.outline.beats_done}/{@post.outline.beats_total}
-              </span>
-              beats
-            </.pill>
-            <.pill
-              :if={@post.outline.research.total > 0}
-              tone={
-                if(@post.outline.research.checked == @post.outline.research.total,
-                  do: "live",
-                  else: "quiet"
-                )
-              }
-            >
-              <span class="adm-figure">
-                {@post.outline.research.checked}/{@post.outline.research.total}
-              </span>
-              sources
-              <span :if={@post.outline.research.with_thoughts > 0}>
-                · <span class="adm-figure">{@post.outline.research.with_thoughts}</span> notes
-              </span>
-            </.pill>
-          </div>
-        </:actions>
-
-        <ol :if={@post.outline.sections != []} class="adm-outline-list">
-          <li :for={section <- @post.outline.sections} class="adm-outline-section">
-            <div class="adm-outline-section-row">
-              <span class="adm-outline-section-title">{section.title}</span>
-              <span class="adm-figure adm-outline-section-words">
-                {section.drafted_words}{if section.target_words,
-                  do: " / #{section.target_words}"}w
-              </span>
-            </div>
-            <ul :if={section.beats != []} class="adm-outline-beats-cards">
-              <li
-                :for={beat <- section.beats}
-                class={["adm-outline-beat-card", beat.drafted? && "is-done"]}
-              >
-                <div class="adm-outline-beat-top">
-                  <.pill tone={if(beat.drafted?, do: "live", else: "quiet")}>
-                    {if beat.drafted?, do: "✓ #{beat.title}", else: beat.title}
-                  </.pill>
-                  <button
-                    :if={beat.thoughts != [] and not beat.drafted?}
-                    type="button"
-                    phx-click="seed_beat"
-                    phx-value-beat={beat.title}
-                    class="adm-btn adm-btn--small adm-btn--quiet adm-seed-btn"
-                    title="Drop this beat's thoughts beneath the beat as draft text"
-                  >
-                    Use my phrasings ({length(beat.thoughts)})
-                  </button>
-                </div>
-                <p :if={beat.prompt != ""} class="adm-outline-beat-prompt">
-                  {Web.Markdown.to_text(beat.prompt)}
-                </p>
-                <p :for={thought <- beat.thoughts} class="adm-reading-thought">
-                  “{thought}”
-                </p>
-                <form phx-submit="add_beat_thought" class="adm-inline-form adm-thought-form">
-                  <input type="hidden" name="beat" value={beat.title} />
-                  <input
-                    type="text"
-                    name="thought"
-                    value=""
-                    class="adm-input adm-input--small"
-                    placeholder="Put your phrasing / thought alongside this beat…"
-                    aria-label={"Add phrasing to #{beat.title}"}
-                  />
-                  <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
-                    + Phrasing
-                  </button>
-                </form>
-              </li>
-            </ul>
-          </li>
-        </ol>
-      </.panel>
+    <div class="adm-wb-bar">
+      <div class="adm-wb-bar-left">
+        <span class="adm-zotero-label">1×4 Panels (click to collapse/expand):</span>
+        <button
+          :for={
+            {key, label} <- [
+              {"articles", "1. Articles & Zotero"},
+              {"outline", "2. Outline"},
+              {"draft", "3. Draft"},
+              {"preview", "4. Preview"}
+            ]
+          }
+          type="button"
+          phx-click="toggle_panel"
+          phx-value-panel={key}
+          aria-pressed={to_string(!MapSet.member?(@collapsed_panels, key))}
+          class={[
+            "adm-btn adm-btn--small adm-btn--quiet",
+            !MapSet.member?(@collapsed_panels, key) && "is-active"
+          ]}
+        >
+          {label}
+        </button>
+      </div>
     </div>
 
-    <form
-      id="post-editor"
-      class="adm-editor adm-editor--post"
-      phx-change="change"
-      phx-submit="save"
-      data-dirty={to_string(@dirty)}
-    >
-      <div class="adm-editor-body">
-        <p class="adm-editor-bar">
-          <span>3. Draft (`{@slug}.md`)</span>
-          <.pill :if={@dirty} tone="held">unsaved</.pill>
-          <.pill :if={!@dirty} tone="quiet">saved</.pill>
-        </p>
-        <.document_editor
-          id="post-source"
-          name="content"
-          value={@content}
-          complete="blog"
-          media
-          debounce="300"
-          label={"Source of #{@slug}.md"}
-        />
-      </div>
-
-      <div class="adm-editor-body" id="post-preview">
-        <p class="adm-editor-bar">
-          <span>4. Preview (as the site reads it)</span>
-          <span class="adm-editor-bar-right">
-            <button
-              :if={@post.outline.has_outline?}
-              type="button"
-              id="toggle-beats"
-              phx-click="toggle_beats"
-              aria-pressed={to_string(@show_beats)}
-              class="adm-btn adm-btn--small adm-btn--quiet"
-            >
-              {if @show_beats, do: "Prose only", else: "Show beats"}
-            </button>
-            <.pill :if={@post.draft} tone="draft">draft</.pill>
-            <.pill :if={!@post.draft} tone="live">published</.pill>
+    <div class="adm-pipeline-1x4">
+      <%!-- Column 1: Articles & Zotero --%>
+      <section
+        id="post-zotero"
+        class="adm-panel adm-pipeline-col"
+        data-collapsed={to_string(MapSet.member?(@collapsed_panels, "articles"))}
+        aria-label="Zotero reading list"
+      >
+        <button
+          :if={MapSet.member?(@collapsed_panels, "articles")}
+          type="button"
+          phx-click="toggle_panel"
+          phx-value-panel="articles"
+          class="adm-pipeline-rail-btn"
+          title="Expand 1. Articles & Zotero"
+        >
+          <span>+</span>
+          <span class="adm-pipeline-rail-label">
+            1. Articles &amp; Zotero ({@post.outline.research.total})
           </span>
-        </p>
-        <h2 class="adm-preview-title">{@post.title}</h2>
-        <dl class="adm-facts">
-          <div>
-            <dt>Date</dt>
-            <dd class="adm-figure">{stamp(@post.date)}</dd>
-          </div>
-          <div>
-            <dt>Length</dt>
-            <dd>
-              <span class="adm-figure">{@post.word_count}</span>
-              <span :if={@post.outline.target_words}>
-                / <span class="adm-figure">{@post.outline.target_words}</span>
-              </span>
-              words, <span class="adm-figure">{@post.read_min}</span>
-              min
-            </dd>
-          </div>
-          <div>
-            <dt>Keywords</dt>
-            <dd>
-              <.keyword_chips keywords={@post.keywords} />
-              <.pill :if={@post.keywords == []} tone="held">none</.pill>
-            </dd>
-          </div>
-          <div>
-            <dt>Description</dt>
-            <dd>
-              <span :if={@post.described}>{@post.excerpt}</span>
-              <.pill :if={!@post.described} tone="held">none: the first paragraph stands in</.pill>
-            </dd>
-          </div>
-        </dl>
+        </button>
 
-        <div class="adm-prose">{raw(@html)}</div>
-      </div>
-    </form>
+        <%= if !MapSet.member?(@collapsed_panels, "articles") do %>
+          <div class="adm-panel-head">
+            <h2 class="adm-panel-title">
+              1. Articles &amp; Zotero<span class="adm-count">{@post.outline.research.total}</span>
+            </h2>
+            <div class="adm-panel-actions">
+              <button
+                type="button"
+                id="toggle-zotero"
+                phx-click="zotero_toggle"
+                class="adm-btn adm-btn--small adm-btn--quiet"
+              >
+                Sync Zotero
+              </button>
+              <button
+                :if={@active_zotero_col}
+                type="button"
+                id="zotero-import-folder"
+                phx-click="zotero_import_collection"
+                phx-value-key={@active_zotero_col.key}
+                class="adm-btn adm-btn--small adm-btn--quiet"
+              >
+                Pull (<span class="adm-figure">{@active_zotero_col.item_count}</span>)
+              </button>
+              <button
+                :if={@active_zotero_col && @post.outline.research.total > 0}
+                type="button"
+                id="zotero-push-reading-list"
+                phx-click="zotero_push_reading_list"
+                class="adm-btn adm-btn--small"
+              >
+                Push (<span class="adm-figure">{@post.outline.research.total}</span>)
+              </button>
+              <button
+                type="button"
+                phx-click="toggle_panel"
+                phx-value-panel="articles"
+                class="adm-btn adm-btn--small adm-btn--quiet"
+                title="Collapse panel"
+              >
+                −
+              </button>
+            </div>
+          </div>
+
+          <div class="adm-pipeline-col-body adm-zotero-body">
+            <p :if={!@zotero_configured} class="adm-help">
+              Set <code>ZOTERO_USER_ID</code>
+              and <code>ZOTERO_API_KEY</code>
+              in <code>.env</code>
+              to connect your <code>{@zotero_root_target}</code>
+              folder in Zotero.
+            </p>
+
+            <div :if={@zotero_configured} class="adm-zotero-subpanel">
+              <p :if={@zotero_error} class="adm-zotero-error" role="alert">{@zotero_error}</p>
+
+              <div :if={@zotero_collections != []} class="adm-zotero-collections">
+                <span class="adm-zotero-label">Zotero folders:</span>
+                <button
+                  type="button"
+                  phx-click="zotero_select_collection"
+                  phx-value-key=""
+                  aria-pressed={to_string(is_nil(@zotero_selected_collection))}
+                  class={[
+                    "adm-btn adm-btn--small adm-btn--quiet",
+                    is_nil(@zotero_selected_collection) && "is-active"
+                  ]}
+                >
+                  All library
+                </button>
+                <button
+                  :for={
+                    col <-
+                      Enum.filter(@zotero_collections, & &1.in_root?)
+                      |> then(fn r -> if r != [], do: r, else: @zotero_collections end)
+                  }
+                  type="button"
+                  id={"zotero-col-#{col.key}"}
+                  phx-click="zotero_select_collection"
+                  phx-value-key={col.key}
+                  aria-pressed={to_string(@zotero_selected_collection == col.key)}
+                  class={[
+                    "adm-btn adm-btn--small adm-btn--quiet",
+                    @zotero_selected_collection == col.key && "is-active"
+                  ]}
+                  title={"Open #{col.path}"}
+                >
+                  {col.path} (<span class="adm-figure">{col.item_count}</span>)
+                </button>
+              </div>
+
+              <div class="adm-zotero-bars">
+                <form id="zotero-search-form" phx-submit="zotero_search" class="adm-inline-form">
+                  <input
+                    type="search"
+                    name="q"
+                    value={@zotero_query}
+                    class="adm-input adm-input--small"
+                    placeholder="Search Zotero…"
+                    aria-label="Search Zotero library"
+                  />
+                  <button type="submit" class="adm-btn adm-btn--small">Search</button>
+                </form>
+
+                <form
+                  id="zotero-folder-form"
+                  phx-submit="zotero_create_folder"
+                  class="adm-inline-form"
+                >
+                  <input
+                    type="text"
+                    name="name"
+                    value=""
+                    class="adm-input adm-input--small"
+                    placeholder={"New folder in #{@zotero_root_target}…"}
+                    aria-label="New Zotero subfolder name"
+                  />
+                  <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
+                    + Folder
+                  </button>
+                  <button
+                    type="button"
+                    id="zotero-folder-for-post"
+                    phx-click="zotero_create_folder"
+                    phx-value-name={@slug}
+                    class="adm-btn adm-btn--small adm-btn--quiet"
+                  >
+                    Folder for {@slug}
+                  </button>
+                </form>
+              </div>
+
+              <details id="zotero-add-doc" class="adm-outline-sections">
+                <summary>
+                  + Add a document to {if @active_zotero_col,
+                    do: @active_zotero_col.path,
+                    else: @zotero_root_target} &amp; reading list
+                </summary>
+                <form
+                  id="zotero-item-form"
+                  phx-submit="zotero_create_item"
+                  class="adm-zotero-doc-form"
+                >
+                  <div class="adm-zotero-doc-grid">
+                    <label class="adm-field">
+                      <span>Type</span>
+                      <select name="item_type" class="adm-select">
+                        <option value="book">Book</option>
+                        <option value="journalArticle">Journal article</option>
+                        <option value="webpage">Webpage / article</option>
+                        <option value="newspaperArticle">Newspaper article</option>
+                        <option value="report">Report</option>
+                      </select>
+                    </label>
+                    <label class="adm-field">
+                      <span>Title</span>
+                      <input
+                        type="text"
+                        name="title"
+                        required
+                        class="adm-input adm-input--small"
+                        placeholder="The Future of Nostalgia"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>Author(s)</span>
+                      <input
+                        type="text"
+                        name="authors"
+                        class="adm-input adm-input--small"
+                        placeholder="Boym, Svetlana"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>Publisher / Journal</span>
+                      <input
+                        type="text"
+                        name="publication"
+                        class="adm-input adm-input--small"
+                        placeholder="Basic Books"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>Year</span>
+                      <input
+                        type="text"
+                        name="year"
+                        class="adm-input adm-input--small"
+                        placeholder="2001"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>Call number</span>
+                      <input
+                        type="text"
+                        name="call_number"
+                        class="adm-input adm-input--small"
+                        placeholder="PN56.N6 B69 2001"
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>URL / DOI</span>
+                      <input
+                        type="url"
+                        name="url"
+                        class="adm-input adm-input--small"
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <label class="adm-field">
+                      <span>Your note / phrasing</span>
+                      <input
+                        type="text"
+                        name="note"
+                        class="adm-input adm-input--small"
+                        placeholder="What you thought about this source…"
+                      />
+                    </label>
+                  </div>
+                  <div class="adm-form-actions">
+                    <button type="submit" class="adm-btn adm-btn--small adm-btn--primary">
+                      Save to Zotero &amp; reading list
+                    </button>
+                  </div>
+                </form>
+              </details>
+
+              <ul :if={@zotero_items != []} class="adm-zotero-items">
+                <li
+                  :for={item <- @zotero_items}
+                  id={"zotero-item-#{item.key}"}
+                  class="adm-zotero-item"
+                >
+                  <div class="adm-zotero-item-main">
+                    <strong class="adm-zotero-item-title">{item.title}</strong>
+                    <span class="adm-zotero-item-meta">
+                      {item.authors}{if item.year, do: " (#{item.year})"}
+                      <span :if={item.call_number} class="adm-figure"> · {item.call_number}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="zotero_import_item"
+                    phx-value-key={item.key}
+                    class="adm-btn adm-btn--small"
+                  >
+                    Add to reading list
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div :if={@post.outline.research.total > 0} class="adm-reading-block">
+              <div class="adm-outline-head">
+                <span class="adm-outline-label">
+                  Top Reading List (<span class="adm-figure">{@post.outline.research.checked}/{@post.outline.research.total}</span>
+                  read · <span class="adm-figure">{@post.outline.research.with_thoughts}</span>
+                  with thoughts)
+                </span>
+              </div>
+              <ul class="adm-outline-list adm-reading-list">
+                <li
+                  :for={{item, idx} <- Enum.with_index(@post.outline.research.items)}
+                  class={["adm-reading-item", item.done? && "is-done"]}
+                >
+                  <div class="adm-reading-row">
+                    <button
+                      type="button"
+                      phx-click="toggle_reading_item"
+                      phx-value-index={idx}
+                      class="adm-btn adm-btn--small adm-btn--quiet adm-reading-toggle"
+                      title="Toggle read / to read"
+                    >
+                      <.pill tone={if(item.done?, do: "live", else: "quiet")}>
+                        {if item.done?, do: "✓ read", else: "to read"}
+                      </.pill>
+                    </button>
+                    <span class="adm-reading-source">{Web.Markdown.to_text(item.text)}</span>
+                  </div>
+                  <p :for={thought <- item.thoughts} class="adm-reading-thought">
+                    “{thought}”
+                  </p>
+                  <form
+                    phx-submit="add_reading_thought"
+                    class="adm-inline-form adm-thought-form"
+                  >
+                    <input type="hidden" name="index" value={idx} />
+                    <input
+                      type="text"
+                      name="thought"
+                      value=""
+                      class="adm-input adm-input--small"
+                      placeholder="What did you think about this source? (adds > [!thought])…"
+                      aria-label={"Add thought for source #{idx + 1}"}
+                    />
+                    <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
+                      + Thought
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          </div>
+        <% end %>
+      </section>
+
+      <%!-- Column 2: Outline & Phrasings --%>
+      <section
+        id="post-outline-progress"
+        class="adm-panel adm-pipeline-col"
+        data-collapsed={to_string(MapSet.member?(@collapsed_panels, "outline"))}
+        aria-label="Outline progress"
+      >
+        <button
+          :if={MapSet.member?(@collapsed_panels, "outline")}
+          type="button"
+          phx-click="toggle_panel"
+          phx-value-panel="outline"
+          class="adm-pipeline-rail-btn"
+          title="Expand 2. Outline"
+        >
+          <span>+</span>
+          <span class="adm-pipeline-rail-label">
+            2. Outline ({@post.outline.beats_done}/{@post.outline.beats_total})
+          </span>
+        </button>
+
+        <%= if !MapSet.member?(@collapsed_panels, "outline") do %>
+          <div class="adm-panel-head">
+            <h2 class="adm-panel-title">
+              2. Outline<span class="adm-count">{@post.outline.beats_total}</span>
+            </h2>
+            <div class="adm-panel-actions">
+              <div class="adm-outline-pills">
+                <.pill
+                  :if={@post.outline.beats_total > 0}
+                  tone={
+                    if(@post.outline.beats_done == @post.outline.beats_total,
+                      do: "live",
+                      else: "draft"
+                    )
+                  }
+                >
+                  <span class="adm-figure">
+                    {@post.outline.beats_done}/{@post.outline.beats_total}
+                  </span>
+                  beats
+                </.pill>
+                <.pill
+                  :if={@post.outline.research.total > 0}
+                  tone={
+                    if(@post.outline.research.checked == @post.outline.research.total,
+                      do: "live",
+                      else: "quiet"
+                    )
+                  }
+                >
+                  <span class="adm-figure">
+                    {@post.outline.research.checked}/{@post.outline.research.total}
+                  </span>
+                  sources
+                  <span :if={@post.outline.research.with_thoughts > 0}>
+                    · <span class="adm-figure">{@post.outline.research.with_thoughts}</span> notes
+                  </span>
+                </.pill>
+              </div>
+              <button
+                type="button"
+                phx-click="toggle_panel"
+                phx-value-panel="outline"
+                class="adm-btn adm-btn--small adm-btn--quiet"
+                title="Collapse panel"
+              >
+                −
+              </button>
+            </div>
+          </div>
+
+          <div class="adm-pipeline-col-body">
+            <.empty :if={!@post.outline.has_outline?}>
+              Add <code>&gt; [!beat] Title</code>
+              blocks or section word targets <code>(~250 words)</code>
+              in the draft to track outline progress here.
+            </.empty>
+
+            <ol :if={@post.outline.sections != []} class="adm-outline-list">
+              <li :for={section <- @post.outline.sections} class="adm-outline-section">
+                <div class="adm-outline-section-row">
+                  <span class="adm-outline-section-title">{section.title}</span>
+                  <span class="adm-figure adm-outline-section-words">
+                    {section.drafted_words}{if section.target_words,
+                      do: " / #{section.target_words}"}w
+                  </span>
+                </div>
+                <ul :if={section.beats != []} class="adm-outline-beats-cards">
+                  <li
+                    :for={beat <- section.beats}
+                    class={["adm-outline-beat-card", beat.drafted? && "is-done"]}
+                  >
+                    <div class="adm-outline-beat-top">
+                      <.pill tone={if(beat.drafted?, do: "live", else: "quiet")}>
+                        {if beat.drafted?, do: "✓ #{beat.title}", else: beat.title}
+                      </.pill>
+                      <button
+                        :if={beat.thoughts != [] and not beat.drafted?}
+                        type="button"
+                        phx-click="seed_beat"
+                        phx-value-beat={beat.title}
+                        class="adm-btn adm-btn--small adm-btn--quiet adm-seed-btn"
+                        title="Drop this beat's thoughts beneath the beat as draft text"
+                      >
+                        Use my phrasings ({length(beat.thoughts)})
+                      </button>
+                    </div>
+                    <p :if={beat.prompt != ""} class="adm-outline-beat-prompt">
+                      {Web.Markdown.to_text(beat.prompt)}
+                    </p>
+                    <p :for={thought <- beat.thoughts} class="adm-reading-thought">
+                      “{thought}”
+                    </p>
+                    <form phx-submit="add_beat_thought" class="adm-inline-form adm-thought-form">
+                      <input type="hidden" name="beat" value={beat.title} />
+                      <input
+                        type="text"
+                        name="thought"
+                        value=""
+                        class="adm-input adm-input--small"
+                        placeholder="Put your phrasing / thought alongside this beat…"
+                        aria-label={"Add phrasing to #{beat.title}"}
+                      />
+                      <button type="submit" class="adm-btn adm-btn--small adm-btn--quiet">
+                        + Phrasing
+                      </button>
+                    </form>
+                  </li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        <% end %>
+      </section>
+
+      <%!-- Column 3: Draft (CodeMirror) --%>
+      <section
+        id="panel-draft"
+        class="adm-panel adm-pipeline-col"
+        data-collapsed={to_string(MapSet.member?(@collapsed_panels, "draft"))}
+      >
+        <button
+          :if={MapSet.member?(@collapsed_panels, "draft")}
+          type="button"
+          phx-click="toggle_panel"
+          phx-value-panel="draft"
+          class="adm-pipeline-rail-btn"
+          title="Expand 3. Draft"
+        >
+          <span>+</span>
+          <span class="adm-pipeline-rail-label">3. Draft ({@slug}.md)</span>
+        </button>
+
+        <div
+          class="adm-panel-head"
+          hidden={MapSet.member?(@collapsed_panels, "draft")}
+        >
+          <h2 class="adm-panel-title">3. Draft</h2>
+          <div class="adm-panel-actions">
+            <.pill :if={@dirty} tone="held">unsaved</.pill>
+            <.pill :if={!@dirty} tone="quiet">saved</.pill>
+            <button
+              type="button"
+              phx-click="toggle_panel"
+              phx-value-panel="draft"
+              class="adm-btn adm-btn--small adm-btn--quiet"
+              title="Collapse panel"
+            >
+              −
+            </button>
+          </div>
+        </div>
+
+        <form
+          id="post-editor"
+          class="adm-pipeline-col-body"
+          phx-change="change"
+          phx-submit="save"
+          data-dirty={to_string(@dirty)}
+          hidden={MapSet.member?(@collapsed_panels, "draft")}
+        >
+          <.document_editor
+            id="post-source"
+            name="content"
+            value={@content}
+            complete="blog"
+            media
+            debounce="300"
+            label={"Source of #{@slug}.md"}
+          />
+        </form>
+      </section>
+
+      <%!-- Column 4: Preview --%>
+      <section
+        id="post-preview"
+        class="adm-panel adm-pipeline-col"
+        data-collapsed={to_string(MapSet.member?(@collapsed_panels, "preview"))}
+      >
+        <button
+          :if={MapSet.member?(@collapsed_panels, "preview")}
+          type="button"
+          phx-click="toggle_panel"
+          phx-value-panel="preview"
+          class="adm-pipeline-rail-btn"
+          title="Expand 4. Preview"
+        >
+          <span>+</span>
+          <span class="adm-pipeline-rail-label">4. Preview ({@post.word_count}w)</span>
+        </button>
+
+        <%= if !MapSet.member?(@collapsed_panels, "preview") do %>
+          <div class="adm-panel-head">
+            <h2 class="adm-panel-title">4. Preview</h2>
+            <div class="adm-panel-actions">
+              <button
+                :if={@post.outline.has_outline?}
+                type="button"
+                id="toggle-beats"
+                phx-click="toggle_beats"
+                aria-pressed={to_string(@show_beats)}
+                class="adm-btn adm-btn--small adm-btn--quiet"
+              >
+                {if @show_beats, do: "Prose only", else: "Show beats"}
+              </button>
+              <.pill :if={@post.draft} tone="draft">draft</.pill>
+              <.pill :if={!@post.draft} tone="live">published</.pill>
+              <button
+                type="button"
+                phx-click="toggle_panel"
+                phx-value-panel="preview"
+                class="adm-btn adm-btn--small adm-btn--quiet"
+                title="Collapse panel"
+              >
+                −
+              </button>
+            </div>
+          </div>
+
+          <div class="adm-pipeline-col-body">
+            <h2 class="adm-preview-title">{@post.title}</h2>
+            <dl class="adm-facts">
+              <div>
+                <dt>Date</dt>
+                <dd class="adm-figure">{stamp(@post.date)}</dd>
+              </div>
+              <div>
+                <dt>Length</dt>
+                <dd>
+                  <span class="adm-figure">{@post.word_count}</span>
+                  <span :if={@post.outline.target_words}>
+                    / <span class="adm-figure">{@post.outline.target_words}</span>
+                  </span>
+                  words, <span class="adm-figure">{@post.read_min}</span>
+                  min
+                </dd>
+              </div>
+              <div>
+                <dt>Keywords</dt>
+                <dd>
+                  <.keyword_chips keywords={@post.keywords} />
+                  <.pill :if={@post.keywords == []} tone="held">none</.pill>
+                </dd>
+              </div>
+              <div>
+                <dt>Description</dt>
+                <dd>
+                  <span :if={@post.described}>{@post.excerpt}</span>
+                  <.pill :if={!@post.described} tone="held">
+                    none: the first paragraph stands in
+                  </.pill>
+                </dd>
+              </div>
+            </dl>
+
+            <div class="adm-prose">{raw(@html)}</div>
+          </div>
+        <% end %>
+      </section>
+    </div>
     """
   end
 end

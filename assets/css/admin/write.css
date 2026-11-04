@@ -341,14 +341,14 @@
   color: var(--st-accent);
 }
 
-/* Four-panel Essay Pipeline Workbench on /admin/blog and /admin/blog/:slug/edit */
+/* 1x4 Collapsible Essay Pipeline Workbench on /admin/blog and /admin/blog/:slug/edit */
 .admin-layout .adm-wb-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: 0 0 1.25rem;
+  margin: 0 0 1rem;
   padding: 0.65rem 1rem;
   background: var(--st-surface);
   border: 1px solid var(--st-line);
@@ -357,40 +357,117 @@
   font-size: var(--st-fs-sm);
 }
 
-.admin-layout .adm-wb-bar-left {
+.admin-layout .adm-wb-bar-left,
+.admin-layout .adm-wb-bar-right {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
 
-.admin-layout .adm-wb-bar-left .adm-btn.is-active {
+.admin-layout .adm-wb-bar .adm-btn.is-active {
   background: var(--st-raised);
   border-color: var(--st-accent);
   color: var(--st-accent);
 }
 
-.admin-layout .adm-pipeline-grid,
-.admin-layout .adm-pipeline-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
+.admin-layout .adm-pipeline-1x4 {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
   margin-bottom: 1.5rem;
 }
 
-@media (max-width: 1100px) {
-  .admin-layout .adm-pipeline-grid,
-  .admin-layout .adm-pipeline-top {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.admin-layout .adm-pipeline-col {
+  margin-bottom: 0;
+  transition: flex-basis 120ms ease;
 }
 
-.admin-layout .adm-pipeline-grid .adm-panel,
-.admin-layout .adm-pipeline-top .adm-panel {
-  margin-bottom: 0;
-  max-height: 75vh;
-  overflow: auto;
+.admin-layout .adm-pipeline-col[data-collapsed="false"] {
+  flex: 1 1 0%;
+  min-width: 0;
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+}
+
+.admin-layout .adm-pipeline-col[data-collapsed="false"] .adm-panel-head {
+  flex-shrink: 0;
+  margin-bottom: 0.65rem;
+}
+
+.admin-layout .adm-pipeline-col-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.admin-layout .adm-pipeline-col[data-collapsed="true"] {
+  flex: 0 0 2.6rem;
+  width: 2.6rem;
+  min-width: 2.6rem;
+  max-height: 78vh;
+  padding: 0.5rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  background: var(--st-raised);
+}
+
+.admin-layout .adm-pipeline-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--st-ink-2);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-layout .adm-pipeline-rail-btn:hover {
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-pipeline-rail-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 960px) {
+  .admin-layout .adm-pipeline-1x4 {
+    flex-direction: column;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="true"] {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: none;
+    padding: 0.45rem 0.85rem;
+  }
+
+  .admin-layout .adm-pipeline-rail-btn {
+    flex-direction: row;
+    height: auto;
+  }
+
+  .admin-layout .adm-pipeline-rail-label {
+    writing-mode: horizontal-tb;
+  }
 }
 
 .admin-layout .adm-wb-textarea {

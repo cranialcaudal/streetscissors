@@ -569,12 +569,23 @@ defmodule Web.Zotero do
           "book"
       end
 
+    collections =
+      cond do
+        is_list(collection_key) ->
+          collection_key |> Enum.map(&to_string/1) |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+
+        is_binary(collection_key) and collection_key != "" ->
+          [collection_key]
+
+        true ->
+          []
+      end
+
     base = %{
       "itemType" => item_type,
       "title" => title,
       "creators" => parse_creators_input(authors),
-      "collections" =>
-        if(is_binary(collection_key) and collection_key != "", do: [collection_key], else: [])
+      "collections" => collections
     }
 
     base
