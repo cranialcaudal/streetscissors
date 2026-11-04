@@ -2921,13 +2921,17 @@ def cmd_analyze(args):
         if "thin" in developed["found"]:
             # A thin picture spans a few steps of an 8-bit scan: roll 067's
             # red held four, and its prints were those four steps pushed
-            # apart. Its singles are scanned at sixteen bits.
-            report["deep"] = True
+            # apart. Its singles are scanned at sixteen bits, in grey only:
+            # no colour single has ever come off this scanner at sixteen, and
+            # roll 088 (thin colour, 2026-10-30) failed each band it asked
+            # for and left the scanner unable to open until switched off.
+            report["deep"] = report.get("deep", False) or mode != "color"
             lines.append(f"  THIN: {developed['on_base']:.0%} of the pictures lie on bare film: "
                          "underexposed, so their shadows are not on the negative. Contrast held "
                          f"at {THIN_POWER_MOST:g}" + (f" (the middle asked for {developed['held']:g})"
                                                        if developed.get("held") else "") +
-                         ", since more lifts grain, not picture. Singles are scanned at 16 bits.")
+                         ", since more lifts grain, not picture." +
+                         (" Singles are scanned at 16 bits." if mode != "color" else ""))
         else:
             lines.append(f"  FLAT: the densest highlights reach only D {SCAN_GAMMA * developed['top']:.2f}: "
                          "short development, or a roll of flat light.")
