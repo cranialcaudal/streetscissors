@@ -376,8 +376,8 @@ developed print with sliders, crop, straightening, dust and repair.
 - The weekly report renders `analysis/fitness_report.qmd` with Quarto (`Web.Fitness.Report`) to
   `fitness-reports/`, and progress photos live in `fitness-photos/`. Both sit **beside** the
   uploads root, are admin only, and are never in search, feeds or share cards.
-- `content/fitness/changelog.md` (`Web.Fitness.Changelog`): dated headings, never times. Titles are
-  public (the homepage's "fitness update").
+- `content/fitness/changelog.md` (`Web.Fitness.Changelog`): dated headings, never times. No page
+  renders it; it is edited on the Files tab and checked by `SourceCheck`.
 
 ## Activities: Komoot
 

@@ -7,8 +7,9 @@ defmodule Web.Fitness.Changelog do
 
       Eight weeks of double progression on the hinge and the press.
 
-  Entries carry a date and never a time. Their titles are public (the
-  homepage's "fitness update"); a missing file is no entries.
+  Entries carry a date and never a time; a missing file is no entries. No
+  page renders it: the admin edits it whole (`/admin/fitness?tab=files`) and
+  `Web.Fitness.SourceCheck` refuses a save this parser would misread.
   """
 
   alias Web.Fitness.Vault
@@ -24,10 +25,6 @@ defmodule Web.Fitness.Changelog do
       {:error, _} -> []
     end
   end
-
-  @doc "Entries dated on or before `date`: a change written ahead is not news yet."
-  def entries_until(%Date{} = date),
-    do: Enum.filter(entries(), &(Date.compare(&1.date, date) != :gt))
 
   @doc false
   def parse(text) do

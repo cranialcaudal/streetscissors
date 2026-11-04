@@ -268,6 +268,4 @@ defmodule Web.Fitness do
     |> Checkin.changeset(attrs, checks)
     |> Repo.insert_or_update()
   end
-
-  def change_checkin(checkin \\ %Checkin{}, attrs \\ %{}), do: Checkin.changeset(checkin, attrs)
 end
