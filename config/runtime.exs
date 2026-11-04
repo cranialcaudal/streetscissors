@@ -135,6 +135,13 @@ if config_env() == :prod do
     email: System.get_env("KOMOOT_EMAIL"),
     password: System.get_env("KOMOOT_PASSWORD")
 
+  # Optional — Zotero Web API credentials for pulling reading lists, citations,
+  # child notes and PDF highlight annotations into the blog editor.
+  config :web, :zotero,
+    user_id: System.get_env("ZOTERO_USER_ID"),
+    api_key: System.get_env("ZOTERO_API_KEY"),
+    collection: System.get_env("ZOTERO_COLLECTION") || "streetscissors"
+
   # The film scanner (admin → Scanner). SCANNER_DEVICE pins a SANE backend by
   # id prefix (e.g. "epkowa") when more than one scanner is attached; the
   # areas are where one strip sits in the film holder, as

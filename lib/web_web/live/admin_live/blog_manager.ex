@@ -70,6 +70,20 @@ defmodule WebWeb.AdminLive.BlogManager do
     end
   end
 
+  def handle_event("new_from_outline", %{"blueprint" => blueprint}, socket) do
+    case Blog.create_from_blueprint(blueprint) do
+      {:ok, slug} ->
+        {:noreply, push_navigate(socket, to: ~p"/admin/blog/#{slug}/edit")}
+
+      {:error, :exists} ->
+        {:noreply,
+         put_flash(socket, :error, "A post with that outline's title is already in the blog.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Paste a markdown outline with a title to start.")}
+    end
+  end
+
   def handle_event("set_draft", %{"slug" => slug, "draft" => draft}, socket) do
     draft? = draft == "true"
 
@@ -207,6 +221,25 @@ defmodule WebWeb.AdminLive.BlogManager do
       <p class="adm-help">
         Makes a file from the vault's blog template, dated today and marked <code>draft: true</code>, and opens it in the editor. It stays off the site until published.
       </p>
+
+      <details class="adm-outline-import">
+        <summary>Or start from an outline</summary>
+        <form id="new-outline-form" phx-submit="new_from_outline" class="adm-outline-form">
+          <textarea
+            name="blueprint"
+            class="adm-input adm-input--code"
+            rows="6"
+            placeholder="Paste a markdown essay blueprint (Working Title, section headers with (~250 words), bulleted beats, and Research Checklist)…"
+            aria-label="Markdown essay blueprint"
+            required
+          ></textarea>
+          <div>
+            <button type="submit" class="adm-btn adm-btn--primary">
+              <.icon name="hero-plus" class="size-4" /> Build draft from outline
+            </button>
+          </div>
+        </form>
+      </details>
     </.panel>
 
     <.panel title="Add posts">
@@ -263,7 +296,19 @@ defmodule WebWeb.AdminLive.BlogManager do
               <.pill :if={!post.draft} tone="live">published</.pill>
               <.pill :if={post.keywords == [] and not post.draft} tone="held">no keywords</.pill>
               <span class="adm-figure">{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
-              <span><span class="adm-figure">{post.word_count}</span> words</span>
+              <span>
+                <span class="adm-figure">{post.word_count}</span>
+                <span :if={post.draft and post.outline.target_words}>
+                  / <span class="adm-figure">{post.outline.target_words}</span>
+                </span>
+                words
+              </span>
+              <span :if={post.draft and post.outline.beats_total > 0}>
+                <span class="adm-figure">
+                  {post.outline.beats_done}/{post.outline.beats_total}
+                </span>
+                beats
+              </span>
               <span>
                 <span class="adm-figure">{readers = Map.get(@readers, post.slug, 0)}</span> {if readers ==
                                                                                                   1,

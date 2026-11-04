@@ -12,11 +12,18 @@ keywords: film, darkroom, valley
 # Optional: without it, the first frame or picture the post shows is used,
 # and without one of those, the title is set large instead.
 # image: 065/6
+# target_words sets the essay's word-count goal in the editor (or write
+# (~250 words) at the end of each section heading).
+# target_words: 1500
 ---
 
 Start writing your post here...
 
-## Section Header
+## Section Header (~250 words)
+> [!beat] Opening beat
+> Notes or beats in a `[!beat]` callout stay in the file and out of the
+> published post; write the prose that answers them underneath.
+
 Your markdown content goes here. You can use **bold**, *italics*, and [links](https://example.com).
 
 > Blockquotes work great for callouts.

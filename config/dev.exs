@@ -105,6 +105,12 @@ config :web, :komoot,
   email: System.get_env("KOMOOT_EMAIL"),
   password: System.get_env("KOMOOT_PASSWORD")
 
+# Optional — Zotero Web API credentials for the blog editor.
+config :web, :zotero,
+  user_id: System.get_env("ZOTERO_USER_ID"),
+  api_key: System.get_env("ZOTERO_API_KEY"),
+  collection: System.get_env("ZOTERO_COLLECTION") || "streetscissors"
+
 # The places no activity may be shown near (`lat,lng`; see config/runtime.exs).
 config :web, :ride_privacy_zones, System.get_env("RIDE_PRIVACY_ZONES")
 

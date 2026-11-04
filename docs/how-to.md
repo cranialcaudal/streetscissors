@@ -524,11 +524,26 @@ the text it draws a few helps, none of which change a character:
 - **`[[`** offers posts and logs to link to, and **`![[`** offers rolls, frames
   and rides to embed. Type `012/` for the frames of roll 12. On a `related:`
   line it offers pieces, and on a `keywords:` line the keywords in use.
-- **Outline** lists the headings, to jump between them. The words and minutes
-  to read are counted underneath.
+- **Outline** lists the headings and beats, to jump between them. The words and
+  minutes to read are counted underneath.
 - **Zen** gives the text the whole window. Escape leaves.
 - **Media** opens a drawer of uploaded images and film. Type the words that go
   with one, then press Insert.
+
+**An outline can live inside the draft.** A `## Reading List` (or
+`## Research Checklist`) at the top holds `- [ ]` sources to read and
+`> [!thought]` notes on what you made of them; a section heading ending in
+`(~250 words)` sets a word goal for that section; and a `> [!beat] Title` block
+(plus any `> [!thought]` phrasings in your own voice) sits right above the
+paragraphs that answer it. Typing `@` offers those reading notes and phrasings
+inline, **Use my phrasings** drops a beat's thoughts beneath it as draft prose,
+and **Zotero** pulls collections, citations, child notes, and PDF highlight
+annotations from your Zotero library straight into the top reading list. None of
+that scaffolding reaches the published post or its word count; the editor counts
+drafted words against each section's goal, marks each beat as it is answered,
+and can show or hide the beats in the preview. On `/admin/blog`, **Or start
+from an outline** turns a pasted markdown blueprint into a draft file with
+these marks already in place.
 
 The same editor writes the fitness wiki and days, the files under the Files
 tab, a newsletter, and a log's notes.

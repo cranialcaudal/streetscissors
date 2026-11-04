@@ -189,5 +189,30 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       assert has_element?(view, "#flash-error", "There is already a taken.md.")
       assert File.read!(Path.join(tmp, "taken.md")) == "Already here.\n"
     end
+
+    test "builds a draft from a pasted markdown outline and opens it in the editor", %{
+      conn: conn,
+      tmp: tmp
+    } do
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+
+      blueprint = """
+      ### Master Essay Blueprint (~500 Words)
+
+      **Working Title:** *Ferry Bells in Winter*
+
+      #### I. Introduction (~250 words)
+
+      * **The First Bell:** Open on the slip at dawn.
+      """
+
+      assert {:error, {:live_redirect, %{to: "/admin/blog/ferry-bells-in-winter/edit"}}} =
+               view |> form("#new-outline-form", blueprint: blueprint) |> render_submit()
+
+      text = File.read!(Path.join(tmp, "ferry-bells-in-winter.md"))
+      assert text =~ ~s(title: "Ferry Bells in Winter")
+      assert text =~ "> [!beat] The First Bell"
+      assert text =~ "draft: true"
+    end
   end
 end

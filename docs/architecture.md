@@ -100,6 +100,16 @@ title/description/date/keywords (`content/templates/blog-template.md`).
   on them does (index, feeds, sitemap, daybook, `/pc`, letters). Only the admin passes
   `drafts: true` or calls `list_all_posts/0`. The author can open a draft at its address
   (marked, `noindex`).
+- **Outlines** (`Web.Blog.Outline`, `Web.Zotero`): a post file can hold its own outline — a top
+  `## Reading List` (or `## Research Checklist`) of `- [ ]` / `- [x]` sources with `> [!thought]`
+  notes, section headings with `(~250 words)` targets, and `> [!beat]` callouts (plus `> [!thought]`
+  phrasings) above the paragraphs that answer them. `Outline.strip/1` removes the scaffolding
+  before a post is counted, excerpted or rendered; `Outline.analyze/2` feeds the editor's progress
+  strip; `Outline.seed_beat_thoughts/2` drops a beat's phrasings beneath it as draft prose;
+  `Outline.from_blueprint/2` turns a raw markdown blueprint into a draft file; and `Web.Zotero`
+  (`ZOTERO_USER_ID` / `ZOTERO_API_KEY`) pulls collections, citations, child notes, and PDF
+  highlight annotations from the Zotero Web API v3 into the top Reading List via
+  `Outline.insert_reading_items/2`.
 - **The editor** (`AdminLive.BlogEditor`) edits the whole file. `Blog.write_source/4` **refuses to
   save over a file whose revision (SHA-256) moved**, since Obsidian edits the vault too; saving
   over anyway puts the old text in the vault's `.trash/` first. Saves are written beside and

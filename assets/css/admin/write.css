@@ -141,6 +141,326 @@
   font-weight: 500;
 }
 
+.admin-layout .adm-editor-bar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Blueprint import in /admin/blog */
+.admin-layout .adm-outline-import {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--st-line);
+}
+
+.admin-layout .adm-outline-import summary {
+  cursor: pointer;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  font-weight: 500;
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-outline-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+/* Outline and beats strip in /admin/blog/:slug/edit */
+.admin-layout .adm-outline-strip {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+}
+
+.admin-layout .adm-outline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-layout .adm-outline-label {
+  font-weight: 600;
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-outline-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.admin-layout .adm-outline-sections {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--st-line);
+}
+
+.admin-layout .adm-outline-sections summary {
+  cursor: pointer;
+  font-size: var(--st-fs-xs);
+  font-weight: 500;
+  color: var(--st-ink-2);
+}
+
+.admin-layout .adm-outline-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-outline-section {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.admin-layout .adm-outline-section-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-layout .adm-outline-section-title {
+  font-weight: 500;
+  color: var(--st-ink);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-outline-section-words {
+  flex-shrink: 0;
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-3);
+}
+
+.admin-layout .adm-outline-beats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-outline-beat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-layout .adm-seed-btn {
+  min-height: 28px;
+  padding: 0 0.45rem;
+  font-size: var(--st-fs-xs);
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-reading-item {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-layout .adm-reading-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.admin-layout .adm-reading-source {
+  color: var(--st-ink);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-reading-thought {
+  margin: 0 0 0 1.25rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--st-accent);
+  font-family: var(--st-font-display);
+  font-style: italic;
+  color: var(--st-ink-2);
+}
+
+/* Inline beat cards when "Show beats" is toggled in the preview */
+.admin-layout .adm-prose .adm-beat-card {
+  margin: 0.85rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--st-surface);
+  border: 1px dashed var(--st-line-strong);
+  border-left: 3px solid var(--st-accent);
+  border-radius: var(--st-radius-sm);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-2);
+}
+
+.admin-layout .adm-prose .adm-beat-card[data-drafted="true"] {
+  opacity: 0.75;
+}
+
+.admin-layout .adm-prose .adm-beat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.admin-layout .adm-prose .adm-beat-title {
+  color: var(--st-ink);
+  font-weight: 600;
+}
+
+.admin-layout .adm-prose .adm-beat-body p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-layout .adm-prose .adm-beat-thoughts {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--st-line);
+  font-family: var(--st-font-display);
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-prose .adm-beat-thoughts-label {
+  margin: 0 0 0.25rem;
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-xs);
+  font-weight: 600;
+  color: var(--st-accent);
+}
+
+/* Zotero reading-list drawer in /admin/blog/:slug/edit */
+.admin-layout .adm-zotero {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1.15rem;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+  font-family: var(--st-font-ui);
+  font-size: var(--st-fs-sm);
+}
+
+.admin-layout .adm-zotero-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-layout .adm-zotero-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-layout .adm-zotero-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-zotero-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-layout .adm-zotero-error {
+  margin: 0;
+  color: var(--st-fail);
+  font-size: var(--st-fs-xs);
+}
+
+.admin-layout .adm-zotero-collections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-layout .adm-zotero-collections .adm-btn.is-active {
+  background: var(--st-raised);
+  border-color: var(--st-accent);
+  color: var(--st-accent);
+}
+
+.admin-layout .adm-zotero-bars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-layout .adm-zotero-doc-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.55rem;
+}
+
+.admin-layout .adm-zotero-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.admin-layout .adm-zotero-label {
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-3);
+}
+
+.admin-layout .adm-zotero-items {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-zotero-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--st-raised);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+}
+
+.admin-layout .adm-zotero-item-main {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.admin-layout .adm-zotero-item-title {
+  color: var(--st-ink);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-zotero-item-meta {
+  font-size: var(--st-fs-xs);
+  color: var(--st-ink-3);
+}
+
 /* The preview's title, in the face the site sets titles in. */
 .adm-preview-title {
   margin: 0 0 0.75rem;

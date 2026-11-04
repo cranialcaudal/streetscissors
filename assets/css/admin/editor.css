@@ -129,6 +129,10 @@
 .admin-layout .adm-ed-outline-h4,
 .admin-layout .adm-ed-outline-h5,
 .admin-layout .adm-ed-outline-h6 { padding-left: 1.5rem; }
+.admin-layout .adm-ed-outline-beat {
+  padding-left: 1.5rem;
+  font-size: var(--st-fs-xs);
+}
 
 /* ── The text's own marks ── */
 
@@ -143,13 +147,19 @@
 .admin-layout .adm-md-list { color: var(--st-ink-3); }
 .admin-layout .adm-md-front { color: var(--st-ink-3); background: var(--st-raised); }
 
-/* Obsidian's syntax reads as one token: an embed, a wiki link, a footnote. */
+/* Obsidian's syntax reads as one token: an embed, a wiki link, a footnote, or a beat callout. */
 .admin-layout .adm-md-embed,
 .admin-layout .adm-md-wiki,
-.admin-layout .adm-md-footnote {
+.admin-layout .adm-md-footnote,
+.admin-layout .adm-md-beat {
   border-radius: 4px;
   background: color-mix(in srgb, var(--st-accent) 12%, transparent);
   color: var(--st-ink);
+}
+.admin-layout .adm-md-beat {
+  font-weight: 600;
+  font-style: normal;
+  color: var(--st-accent);
 }
 
 /* Live: the page's shape over the same text. */

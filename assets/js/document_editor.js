@@ -210,7 +210,7 @@ export const DocumentEditor = {
       const list = document.createElement("ol")
       for (const h of items) {
         const li = document.createElement("li")
-        li.className = `adm-ed-outline-h${h.level}`
+        li.className = h.level === "beat" ? "adm-ed-outline-beat" : `adm-ed-outline-h${h.level}`
         const b = document.createElement("button")
         b.type = "button"
         b.textContent = h.text

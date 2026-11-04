@@ -36,7 +36,7 @@ export function frontmatterRange(doc) {
   return null
 }
 
-// The headings, outside fences and frontmatter, for the outline panel.
+// The headings and `> [!beat]` markers, outside fences and frontmatter, for the outline panel.
 export function outline(doc) {
   const front = frontmatterRange(doc)
   const out = []
@@ -45,17 +45,69 @@ export function outline(doc) {
     const line = doc.line(n)
     if (front && line.to <= front[1]) continue
     if (/^\s*(```|~~~)/.test(line.text)) { fenced = !fenced; continue }
-    const m = !fenced && /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line.text)
-    if (m) out.push({ level: m[1].length, text: m[2], pos: line.from })
+    if (fenced) continue
+    const m = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line.text)
+    if (m) {
+      out.push({ level: m[1].length, text: m[2], pos: line.from })
+      continue
+    }
+    const b = /^>\s*\[!beat\]-?\s*(.+?)\s*$/i.exec(line.text)
+    if (b) {
+      const label = b[1].replace(/^\[[ xX]\]\s*/, "").replace(/^\*\*|\*\*$/g, "")
+      out.push({ level: "beat", text: `↳ ${label}`, pos: line.from })
+    }
   }
   return out
 }
 
-// Words in the body (frontmatter left out) and minutes to read them.
+// Words in the drafted body (frontmatter, `> [!beat]` callouts, and `Research Checklist` left out).
 export function counts(doc) {
   const front = frontmatterRange(doc)
-  const text = doc.sliceString(front ? front[1] : 0)
-  const words = (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length
+  let fenced = false
+  let inCallout = false
+  let researchLevel = null
+  const kept = []
+
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n)
+    if (front && line.to <= front[1]) continue
+    const text = line.text
+    if (/^\s*(```|~~~)/.test(text)) {
+      fenced = !fenced
+      if (!researchLevel) kept.push(text)
+      continue
+    }
+    if (!fenced) {
+      const h = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(text)
+      if (h) {
+        inCallout = false
+        const level = h[1].length
+        const clean = h[2].replace(/\s*\(~?[\d,]+\s+words?(?:\s*\/[^)]*)?\)\s*$/i, "").trim()
+        if (/^(?:master\s+.*?\s+)?(?:research\s+checklist|reading\s+list)\b/i.test(clean)) {
+          researchLevel = level
+          continue
+        }
+        if (researchLevel !== null && level <= researchLevel) {
+          researchLevel = null
+        }
+        if (researchLevel === null) kept.push(clean)
+        continue
+      }
+      if (researchLevel !== null) continue
+      if (/^>\s*\[!(?:beat|thought|voice|research)\]-?/i.test(text)) {
+        inCallout = true
+        continue
+      }
+      if (inCallout) {
+        if (/^>/.test(text)) continue
+        inCallout = false
+      }
+    }
+    if (researchLevel === null) kept.push(text)
+  }
+
+  const prose = kept.join("\n")
+  const words = (prose.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length
   return { words, minutes: Math.max(1, Math.ceil(words / WORDS_PER_MINUTE)) }
 }
 
@@ -114,11 +166,21 @@ const frontmatterFold = foldService.of((state, lineStart) => {
 })
 
 // Obsidian's syntax, which Markdown itself doesn't know: an embed
-// (`![[roll012/3|Caption]]`), a wiki link (`[[slug|Name]]`), a footnote ref.
+// (`![[roll012/3|Caption]]`), a wiki link (`[[slug|Name]]`), a footnote ref,
+// or an outline callout tag (`[!beat]`, `[!thought]`, `[!voice]`, `[!research]`).
 const obsidian = new MatchDecorator({
-  regexp: /(!)?\[\[[^\]\n]+\]\]|\[\^[^\]\s]+\]/g,
-  decoration: (m) =>
-    Decoration.mark({ class: m[0].startsWith("[^") ? "adm-md-footnote" : m[1] ? "adm-md-embed" : "adm-md-wiki" }),
+  regexp: /(!)?\[\[[^\]\n]+\]\]|\[\^[^\]\s]+\]|\[!(?:beat|thought|voice|research)\]-?/gi,
+  decoration: (m) => {
+    const token = m[0]
+    const cls = token.startsWith("[!")
+      ? "adm-md-beat"
+      : token.startsWith("[^")
+        ? "adm-md-footnote"
+        : m[1]
+          ? "adm-md-embed"
+          : "adm-md-wiki"
+    return Decoration.mark({ class: cls })
+  },
 })
 
 const obsidianMarks = ViewPlugin.fromClass(class {
@@ -228,11 +290,87 @@ function insertText(view, text) {
 
 const SLASH = [
   ["Heading 1", "# "], ["Heading 2", "## "], ["Heading 3", "### "],
+  ["Beat", "> [!beat] \n> ", 10],
+  ["Thought / phrasing", "> [!thought] \n> ", 13],
   ["List", "- "], ["Numbered list", "1. "], ["Task", "- [ ] "], ["Quote", "> "],
   ["Code", "```\n\n```", 4], ["Table", "| Column | Column |\n|---|---|\n|  |  |\n"],
   ["Footnote", "[^1]\n\n[^1]: "], ["Rule", "---\n"],
   ["Frame or roll", "![[", null, true], ["Link to a piece", "[[", null, true],
 ]
+
+// Reads `- [ ]` sources and their `> [!thought]` notes from the document's
+// Reading List / Research Checklist so typing `@` in the outline or draft
+// offers the author's own reading notes and phrasings at the cursor.
+function readingSource(context) {
+  const m = context.matchBefore(/(?:^|[\s>])@[\w ]*$/)
+  if (!m) return null
+  const at = m.from + m.text.lastIndexOf("@")
+  const line = context.state.doc.lineAt(context.pos)
+  const atLineStart = /^\s*@\w*$/.test(line.text)
+
+  const doc = context.state.doc
+  const front = frontmatterRange(doc)
+  let researchLevel = null
+  let current = null
+  const items = []
+
+  for (let n = 1; n <= doc.lines; n++) {
+    const l = doc.line(n)
+    if (front && l.to <= front[1]) continue
+    const h = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(l.text)
+    if (h) {
+      const level = h[1].length
+      const clean = h[2].replace(/\s*\(~?[\d,]+\s+words?(?:\s*\/[^)]*)?\)\s*$/i, "").trim()
+      if (/^(?:master\s+.*?\s+)?(?:research\s+checklist|reading\s+list)\b/i.test(clean)) {
+        researchLevel = level
+        continue
+      }
+      if (researchLevel !== null && level <= researchLevel) break
+      continue
+    }
+    if (researchLevel === null) continue
+    const task = /^\s*[-*]\s+\[[ xX]\]\s+(.+)$/.exec(l.text)
+    if (task) {
+      if (current) items.push(current)
+      const label = task[1].replace(/\*\*|\*/g, "").slice(0, 72)
+      current = { label, raw: task[1].trim(), thoughts: [] }
+      continue
+    }
+    const q = /^\s*>\s?(.*)$/.exec(l.text)
+    if (q && current) {
+      const cleaned = q[1].replace(/^\[!(?:thought|voice)\]-?\s*/i, "").trim()
+      if (cleaned) current.thoughts.push(cleaned)
+    }
+  }
+  if (current) items.push(current)
+  if (!items.length) return null
+
+  const options = []
+  for (const item of items) {
+    if (item.thoughts.length) {
+      const joined = item.thoughts.join(" ")
+      const insert = atLineStart
+        ? `> [!thought]\n> ${item.thoughts.join("\n> ")}\n`
+        : joined
+      options.push({
+        label: item.label,
+        detail: `phrasing: “${joined.slice(0, 48)}”`,
+        apply: insert,
+      })
+    } else {
+      const insert = atLineStart
+        ? `> [!thought] ${item.label}\n> `
+        : item.label
+      options.push({
+        label: item.label,
+        detail: "reading list",
+        apply: insert,
+      })
+    }
+  }
+
+  return { from: at, options }
+}
 
 function slashSource(context) {
   const m = context.matchBefore(/^\s*\/[\w ]*$/)
@@ -335,7 +473,7 @@ export function createEditor({ parent, doc, scope, label, live, onChange, ask, o
         search({ top: true }),
         highlightSelectionMatches(),
         autocompletion({
-          override: [slashSource, ...(ask && scope !== "none" ? [serverSource(ask, scope)] : [])],
+          override: [slashSource, readingSource, ...(ask && scope !== "none" ? [serverSource(ask, scope)] : [])],
           icons: false,
         }),
         keymap.of([...keys, ...completionKeymap, ...searchKeymap, ...foldKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),

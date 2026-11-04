@@ -24,6 +24,7 @@ defmodule Web.Blog do
   """
 
   alias Web.{Keywords, SourceFile}
+  alias Web.Blog.Outline
 
   @default_base_path "content/blog"
 
@@ -70,7 +71,7 @@ defmodule Web.Blog do
 
         Path.join(path, filename)
         |> read_post(slug)
-        |> Map.delete(:body)
+        |> Map.drop([:body, :raw_body])
       end)
       |> Enum.sort_by(
         &{Date.to_iso8601(&1.date), NaiveDateTime.to_iso8601(&1.mtime)},
@@ -165,6 +166,29 @@ defmodule Web.Blog do
         with :ok <- File.write(path, join_frontmatter(yaml, body)) do
           {:ok, slug}
         end
+    end
+  end
+
+  @doc """
+  Starts a draft from a raw markdown essay blueprint (`Web.Blog.Outline`),
+  converting section word targets, bulleted beats (`> [!beat]`), and a
+  research checklist (`- [ ]`) into one file in `content/blog/`.
+
+  Returns `{:ok, slug}`, `{:error, :exists}`, or `{:error, :blank}`.
+  """
+  def create_from_blueprint(blueprint, today \\ Web.Clock.local_today()) do
+    with {:ok, %{slug: slug, content: content}} <- Outline.from_blueprint(blueprint, today) do
+      path = Path.join(base_path(), slug <> ".md")
+
+      if File.exists?(path) do
+        {:error, :exists}
+      else
+        File.mkdir_p!(base_path())
+
+        with :ok <- File.write(path, content) do
+          {:ok, slug}
+        end
+      end
     end
   end
 
@@ -299,7 +323,9 @@ defmodule Web.Blog do
   end
 
   defp build_post(slug, text, mtime) do
-    {meta, body} = split_frontmatter(text)
+    {meta, raw_body} = split_frontmatter(text)
+    body = Outline.strip(raw_body)
+    outline = Outline.analyze(raw_body, meta)
 
     words = body |> String.split(~r/\s+/, trim: true) |> length()
 
@@ -322,6 +348,8 @@ defmodule Web.Blog do
       described: presence(meta["description"]) != nil,
       word_count: words,
       read_min: max(1, div(words, 200)),
+      outline: outline,
+      raw_body: raw_body,
       body: body
     }
   end

@@ -181,4 +181,250 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       refute has_element?(view, "#post-conflict")
     end
   end
+
+  describe "outline -> draft -> preview pipeline" do
+    test "strips beats from the preview, tracks section and beat progress, and toggles beat cards",
+         %{conn: conn, path: path} do
+      File.write!(path, """
+      ---
+      title: "Harbor Essay"
+      description: "An essay from an outline."
+      date: 2030-03-02
+      keywords: ferry
+      target_words: 500
+      draft: true
+      ---
+
+      ## Research Checklist
+
+      - [ ] Harbor master's logbook.
+      - [x] Tide tables for March.
+      > [!thought]
+      > My note on the tide tables: high water never waits for the 6:15 commuter bell.
+
+      ## I. Opening (~200 words)
+
+      > [!beat] The Morning Slip
+      > Open on the fog horn before sunrise.
+
+      > [!beat] The Commuters
+      > Show the line at the turnstile.
+
+      > [!thought]
+      > Fifty wool coats steamed in the turnstile queue while the deckhands coiled wet hemp.
+      """)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+      # Outline progress strip shows beats, sources, and reading notes, while the preview prose is empty
+      assert has_element?(view, "#post-outline-progress", "0/2")
+      assert has_element?(view, "#post-outline-progress", "1/2")
+      assert has_element?(view, "#post-outline-progress", "1 notes")
+      assert has_element?(view, "#post-outline-progress", "high water never waits")
+      assert has_element?(view, "#post-outline-progress", "I. Opening")
+      assert has_element?(view, "#post-preview", "/ 500")
+      refute has_element?(view, "#post-preview .adm-prose", "Open on the fog horn")
+      refute has_element?(view, "#post-preview .adm-prose", "Harbor master")
+
+      # Toggle "Show beats" to inspect unwritten beat cards and paired thoughts inside the preview
+      view |> element("#toggle-beats") |> render_click()
+
+      assert has_element?(
+               view,
+               "#post-preview .adm-prose aside.adm-beat-card",
+               "The Morning Slip"
+             )
+
+      assert has_element?(
+               view,
+               "#post-preview .adm-prose aside.adm-beat-card",
+               "Open on the fog horn"
+             )
+
+      assert has_element?(
+               view,
+               "#post-preview .adm-prose .adm-beat-thoughts",
+               "Fifty wool coats steamed"
+             )
+
+      # Toggle back to prose-only and click "Use my phrasings" on The Commuters beat
+      view |> element("#toggle-beats") |> render_click()
+      refute has_element?(view, "#post-preview .adm-prose aside.adm-beat-card")
+
+      view
+      |> element(~s(button[phx-click=seed_beat][phx-value-beat="The Commuters"]))
+      |> render_click()
+
+      assert has_element?(view, "#post-outline-progress", "1/2")
+      assert has_element?(view, "#post-outline-progress", "✓ The Commuters")
+
+      assert has_element?(
+               view,
+               "#post-preview .adm-prose p",
+               "Fifty wool coats steamed in the turnstile queue while the deckhands coiled wet hemp."
+             )
+
+      drafted = """
+      ---
+      title: "Harbor Essay"
+      description: "An essay from an outline."
+      date: 2030-03-02
+      keywords: ferry
+      target_words: 500
+      draft: true
+      ---
+
+      ## I. Opening (~200 words)
+
+      > [!beat] The Morning Slip
+      > Open on the fog horn before sunrise.
+
+      The fog horn sounded twice before the gates lifted.
+
+      > [!beat] The Commuters
+      > Show the line at the turnstile.
+      """
+
+      view |> form("#post-editor", content: drafted) |> render_change()
+
+      assert has_element?(view, "#post-outline-progress", "1/2")
+      assert has_element?(view, "#post-outline-progress", "✓ The Morning Slip")
+      assert has_element?(view, "#post-preview .adm-prose h2", "I. Opening")
+      refute has_element?(view, "#post-preview .adm-prose h2", "(~200 words)")
+
+      assert has_element?(
+               view,
+               "#post-preview .adm-prose p",
+               "The fog horn sounded twice before the gates lifted."
+             )
+    end
+
+    test "imports a Zotero item and its PDF annotations into the top reading list", %{
+      conn: conn,
+      path: path
+    } do
+      prev = Application.get_env(:web, :zotero, [])
+
+      on_exit(fn ->
+        Application.put_env(:web, :zotero, prev)
+      end)
+
+      Application.put_env(:web, :zotero,
+        user_id: "99999",
+        api_key: "secret-key"
+      )
+
+      Req.Test.stub(Web.Zotero, fn http ->
+        case {http.method, http.request_path} do
+          {"GET", "/users/99999/collections"} ->
+            Req.Test.json(http, [
+              %{
+                "key" => "COL1",
+                "data" => %{"name" => "Harbor Ledger"},
+                "meta" => %{"numItems" => 1}
+              }
+            ])
+
+          {"GET", "/users/99999/items/top"} ->
+            Req.Test.json(http, [
+              %{
+                "key" => "ZITEM1",
+                "meta" => %{"numChildren" => 1},
+                "data" => %{
+                  "key" => "ZITEM1",
+                  "itemType" => "book",
+                  "title" => "Tide Tables of the Sound",
+                  "creators" => [
+                    %{"creatorType" => "author", "firstName" => "Clara", "lastName" => "Vance"}
+                  ],
+                  "date" => "2021",
+                  "url" => "https://example.org/tide-tables"
+                }
+              }
+            ])
+
+          {"GET", "/users/99999/items/ZITEM1"} ->
+            Req.Test.json(http, %{
+              "key" => "ZITEM1",
+              "meta" => %{"numChildren" => 1},
+              "data" => %{
+                "key" => "ZITEM1",
+                "itemType" => "book",
+                "title" => "Tide Tables of the Sound",
+                "creators" => [
+                  %{"creatorType" => "author", "firstName" => "Clara", "lastName" => "Vance"}
+                ],
+                "date" => "2021",
+                "url" => "https://example.org/tide-tables"
+              }
+            })
+
+          {"GET", "/users/99999/items/ZITEM1/children"} ->
+            Req.Test.json(http, [
+              %{
+                "key" => "PDF1",
+                "meta" => %{"numChildren" => 1},
+                "data" => %{
+                  "key" => "PDF1",
+                  "itemType" => "attachment",
+                  "contentType" => "application/pdf"
+                }
+              }
+            ])
+
+          {"GET", "/users/99999/items/PDF1/children"} ->
+            Req.Test.json(http, [
+              %{
+                "key" => "ANN1",
+                "data" => %{
+                  "key" => "ANN1",
+                  "itemType" => "annotation",
+                  "annotationText" => "Slack water holds for eleven minutes at the narrows.",
+                  "annotationComment" => "Anchor the opening scene on those eleven minutes.",
+                  "annotationPageLabel" => "19"
+                }
+              }
+            ])
+        end
+      end)
+
+      File.write!(path, """
+      ---
+      title: "Harbor Essay"
+      description: "An essay with Zotero."
+      date: 2030-03-03
+      keywords: ferry
+      target_words: 200
+      draft: true
+      ---
+
+      ## I. Opening (~200 words)
+
+      > [!beat] The Morning Slip
+      > Open on the fog horn before sunrise.
+      """)
+
+      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+
+      assert has_element?(view, "#toggle-zotero")
+      view |> element("#toggle-zotero") |> render_click()
+
+      assert has_element?(view, "#post-zotero", "Harbor Ledger (1)")
+      assert has_element?(view, "#zotero-item-ZITEM1", "Tide Tables of the Sound")
+
+      view |> element("#zotero-item-ZITEM1 button") |> render_click()
+
+      assert has_element?(
+               view,
+               "#post-outline-progress .adm-reading-list",
+               "Tide Tables of the Sound"
+             )
+
+      assert has_element?(
+               view,
+               "#post-outline-progress .adm-reading-thought",
+               "Anchor the opening scene on those eleven minutes."
+             )
+    end
+  end
 end
