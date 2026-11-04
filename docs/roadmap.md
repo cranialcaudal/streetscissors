@@ -72,7 +72,7 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
   - Done: the 404 page reads the address that missed and offers the nearest real work: the post with the closest name, the rolls nearest that number, the recordings nearest that day. It is also one whole styled page however the miss came about; an unknown address used to get a bare, unstyled block.
   - Done: print styles for the essays. A printed post is the words, their date and where they were published, with each link's address written out after it.
   - The year as a book: the year's essays and frames as an EPUB or PDF, beside the printable year page.
-- **Route audit:** done. Every live page is either linked from somewhere or deliberately unlisted. The kitchen and the finished England trip are unlisted, and the calendar reference moved behind the admin.
+- **Route audit:** done. Every live page is either linked from somewhere or deliberately unlisted. The kitchen is admin only, and the finished England trip and the calendar page are retired.
 
 ## 6. Discovery
 

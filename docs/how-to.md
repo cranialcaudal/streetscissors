@@ -949,7 +949,6 @@ to be safe without one.
 | `POST /unsubscribe/…/one-click` | A mail program's one-click unsubscribe | The signed token in the address. It can only ever remove consent |
 | `POST /webmention` | Another website, saying it linked here | Nothing is trusted until the source is fetched and the author approves it |
 | `POST /seen` | The browser, reporting that a prefetched page was actually shown | Nothing to protect: it counts a view |
-| `POST /api/health/ingest` | An app on the phone, posting a workout | A bearer token. With none made, everything is refused |
 | `GET /health` | The uptime check and the site's own monitor | Nothing to protect: it answers yes or no |
 | `GET /share/...` | Link unfurlers, asking for a preview picture | Nothing to protect |
 
@@ -1070,10 +1069,12 @@ site only starts answering once everything it depends on is standing.
 | 03:17 daily | Snapshot the database | `Web.Backup` |
 | 03:19 daily | Keep a version of the writing, if it changed | `Web.Backup.Content` |
 | 03:23 daily | Copy the training block's private photographs | `Web.Backup.FitnessPhotos` |
+| 03:29 daily | Look up roughly where the night's readers read from, and forget the places of readers the site has forgotten | `Web.Analytics` |
 | 03:37 daily | Forget old visits: browser details after 30 days, visits after 400 | `Web.Analytics` |
 | 03:47 daily | Rebuild a year's book (EPUB and PDF) if one of its essays changed | `Web.Daybook.Book` |
 | 03:53 daily | Estimate each bike ride's power, in R (also after a sync that brought a ride) | `Web.Rides.Power` |
 | 03:41 on Sundays | Rehearse a restore | `Web.Backup.Drill` |
+| 04:07 on Mondays | Render the weekly training report | `Web.Fitness.Report` |
 
 03:17 UTC is 8:17 in the evening, Pacific daylight time, and an hour earlier
 in winter.
@@ -1153,7 +1154,9 @@ Everything that is not in the database is a file, in one of three places.
 content/
 ├── blog/              one .md per post; the filename is the address
 ├── fitness/
-│   ├── weekly/        one file per day of the week
+│   ├── weeks/         one folder per program, one file per day of its week
+│   ├── sessions/      every session, opened by name (admin only)
+│   ├── blocks/        one file per training block: its dates, phases and lifts
 │   ├── additional/    sessions that belong to no day
 │   ├── modules/       reusable blocks a day is assembled from
 │   ├── exercise-wiki/ one folder per muscle group, one .md per exercise
@@ -1250,9 +1253,9 @@ The variables, and where each is set:
 | `UPLOADS_MIRROR_PATH` | unit | | The recordings' folder on the drive |
 | `MONITOR_UNITS` | unit | | Which systemd units the monitor expects to find running |
 | `NEGATIVES_PATH` | `.env` | | The photo archive |
+| `BIBLE_PATH` | `.env` | | A licensed Bible translation kept outside the checkout. Unset, the committed public-domain one is read |
 | `KOMOOT_EMAIL` | `.env` | | With `KOMOOT_PASSWORD`, the Komoot login. The hourly sync stays off without them |
 | `RIDE_PRIVACY_ZONES` | `.env` | | The places no ride may be shown near |
-| `HEALTH_WEBHOOK_TOKEN` | `.env` | | For the phone app that posts workouts. One can be made in the admin instead |
 | `SCANNER_AREA_35MM` | `.env` | | Where the 35mm film holder sits on the glass. `SCANNER_AREA_120` is the same for medium format |
 | `SCANNER_DEVICE` | `.env` | | Which scanner to use, when more than one is attached |
 | `NOTIFY_EMAIL` | `.env` | | Where the site writes to its owner, if no address is set in the admin |
@@ -1914,8 +1917,8 @@ clears the counts):
 | Contact messages | 5 an hour |
 | Grammar checks | 20 an hour |
 | Searches | 30 a minute |
+| Search suggestions | 240 a minute |
 | Webmentions received | 20 an hour |
-| Workouts posted by the phone | 60 an hour |
 
 The public write forms also sit behind a small hand-made puzzle rather than a
 third-party captcha.
