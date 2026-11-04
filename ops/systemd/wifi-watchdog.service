@@ -1,0 +1,13 @@
+# Runs ops/wifi-watchdog.sh once; wifi-watchdog.timer starts it every two
+# minutes. Installed copy: ~/.config/systemd/user/wifi-watchdog.service.
+#
+# To install (with the timer):
+#   cp ops/systemd/wifi-watchdog.* ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now wifi-watchdog.timer
+[Unit]
+Description=Reconnect the Wi-Fi if NetworkManager has given up
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash %h/streetscissors/ops/wifi-watchdog.sh

@@ -1,0 +1,11 @@
+# Starts wifi-watchdog.service every two minutes. See that file to install.
+[Unit]
+Description=Check the Wi-Fi every two minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

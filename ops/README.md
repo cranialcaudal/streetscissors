@@ -12,6 +12,7 @@ what keep it up.
 | [`start_prod.sh`](start_prod.sh) | Starts the release by hand in a terminal, with the same settings the service uses, to see its output directly | Rarely; for debugging. It refuses to run while the service is up |
 | [`systemd/streetscissors.service`](systemd/streetscissors.service) | The service that runs the site and restarts it if it stops | Installed once (below) |
 | [`systemd/caddy-streetscissors.service`](systemd/caddy-streetscissors.service) | The service that runs Caddy, the web server in front of the site | Installed once |
+| [`wifi-watchdog.sh`](wifi-watchdog.sh) + [`systemd/wifi-watchdog.*`](systemd/wifi-watchdog.timer) | **Brings the Wi-Fi back** if NetworkManager gives up on it (it once stayed off for 21 hours). Checks every two minutes; does nothing while the router answers or a cable is plugged in | Installed once (see the `.service` file); `journalctl --user -u wifi-watchdog` shows what it did |
 | [`caddy/Caddyfile`](caddy/Caddyfile) | Caddy's settings: the domain names, HTTPS certificates, serving uploaded media straight from disk, blocking AI scrapers, the access log | Edited rarely; `systemctl --user reload caddy-streetscissors` applies a change |
 
 Each file opens with a comment explaining itself; read it before running anything.
