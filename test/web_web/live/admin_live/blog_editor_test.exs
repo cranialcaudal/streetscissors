@@ -220,7 +220,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       assert has_element?(view, "#post-outline-progress", "0/2")
       assert has_element?(view, "#post-outline-progress", "1/2")
       assert has_element?(view, "#post-outline-progress", "1 notes")
-      assert has_element?(view, "#post-outline-progress", "high water never waits")
+      assert has_element?(view, "#post-zotero", "high water never waits")
       assert has_element?(view, "#post-outline-progress", "I. Opening")
       assert has_element?(view, "#post-preview", "/ 500")
       refute has_element?(view, "#post-preview .adm-prose", "Open on the fog horn")
@@ -416,13 +416,13 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
       assert has_element?(
                view,
-               "#post-outline-progress .adm-reading-list",
+               "#post-zotero .adm-reading-list",
                "Tide Tables of the Sound"
              )
 
       assert has_element?(
                view,
-               "#post-outline-progress .adm-reading-thought",
+               "#post-zotero .adm-reading-thought",
                "Anchor the opening scene on those eleven minutes."
              )
     end

@@ -214,6 +214,52 @@ defmodule Web.Blog.Outline do
   end
 
   @doc """
+  Appends a `> [!thought]` phrasing block directly beneath `beat_title` in
+  `text`.
+  """
+  def add_beat_thought(text, beat_title, thought)
+      when is_binary(text) and is_binary(beat_title) and is_binary(thought) do
+    trimmed = String.trim(thought)
+
+    if trimmed == "" do
+      text
+    else
+      lines = String.split(text, ~r/\r?\n/)
+      target_norm = normalize_title(beat_title)
+      do_add_beat_thought(lines, target_norm, format_thought_callout(trimmed), [])
+    end
+  end
+
+  @doc """
+  Appends a `> [!thought]` note beneath the `index`-th (0-based) reading-list
+  checklist item in `text`.
+  """
+  def add_reading_thought(text, index, thought)
+      when is_binary(text) and is_integer(index) and is_binary(thought) do
+    trimmed = String.trim(thought)
+
+    if trimmed == "" or index < 0 do
+      text
+    else
+      lines = String.split(text, ~r/\r?\n/)
+      do_add_reading_thought(lines, index, 0, format_thought_callout(trimmed), [])
+    end
+  end
+
+  @doc """
+  Toggles `- [ ]` ↔ `- [x]` on the `index`-th (0-based) reading-list checklist
+  item in `text`.
+  """
+  def toggle_reading_item(text, index) when is_binary(text) and is_integer(index) do
+    if index < 0 do
+      text
+    else
+      lines = String.split(text, ~r/\r?\n/)
+      do_toggle_reading_item(lines, index, 0, [])
+    end
+  end
+
+  @doc """
   Inserts formatted reading-list entries (e.g. from `Web.Zotero.format_reading_item/1`)
   into the top `## Reading List` / `## ... Research Checklist` section of `text`.
 
@@ -762,6 +808,75 @@ defmodule Web.Blog.Outline do
       nil ->
         do_seed_beat(rest, target_norm, [line | acc])
     end
+  end
+
+  defp do_add_beat_thought([], _target_norm, _callout, acc),
+    do: acc |> Enum.reverse() |> Enum.join("\n")
+
+  defp do_add_beat_thought([line | rest], target_norm, callout_lines, acc) do
+    case Regex.run(@beat_start_re, line) do
+      [_, header_rest] ->
+        {_checked?, title, _inline} = parse_beat_header(header_rest)
+
+        if normalize_title(title) == target_norm do
+          {{block_lines, _thought_texts}, after_beat} =
+            collect_beat_and_thoughts([line | rest], [], [])
+
+          (Enum.reverse(acc) ++ block_lines ++ callout_lines ++ after_beat)
+          |> Enum.join("\n")
+        else
+          do_add_beat_thought(rest, target_norm, callout_lines, [line | acc])
+        end
+
+      nil ->
+        do_add_beat_thought(rest, target_norm, callout_lines, [line | acc])
+    end
+  end
+
+  defp do_add_reading_thought([], _target_idx, _curr_idx, _callout, acc),
+    do: acc |> Enum.reverse() |> Enum.join("\n")
+
+  defp do_add_reading_thought([line | rest], target_idx, curr_idx, callout_lines, acc) do
+    if Regex.match?(@task_item_re, line) do
+      if curr_idx == target_idx do
+        {existing_quotes, after_quotes} = collect_raw_quote_lines(rest, [line])
+
+        (Enum.reverse(acc) ++ existing_quotes ++ callout_lines ++ after_quotes)
+        |> Enum.join("\n")
+      else
+        do_add_reading_thought(rest, target_idx, curr_idx + 1, callout_lines, [line | acc])
+      end
+    else
+      do_add_reading_thought(rest, target_idx, curr_idx, callout_lines, [line | acc])
+    end
+  end
+
+  defp do_toggle_reading_item([], _target_idx, _curr_idx, acc),
+    do: acc |> Enum.reverse() |> Enum.join("\n")
+
+  defp do_toggle_reading_item([line | rest], target_idx, curr_idx, acc) do
+    case Regex.run(@task_item_re, line) do
+      [_, mark, text] ->
+        if curr_idx == target_idx do
+          new_mark = if String.downcase(mark) == "x", do: " ", else: "x"
+          toggled = "- [#{new_mark}] #{text}"
+          (Enum.reverse([toggled | acc]) ++ rest) |> Enum.join("\n")
+        else
+          do_toggle_reading_item(rest, target_idx, curr_idx + 1, [line | acc])
+        end
+
+      nil ->
+        do_toggle_reading_item(rest, target_idx, curr_idx, [line | acc])
+    end
+  end
+
+  defp format_thought_callout(text) do
+    quoted =
+      text
+      |> String.split(~r/\r?\n/)
+      |> Enum.map(&"> #{&1}")
+
+    ["> [!thought]" | quoted]
   end
 
   defp collect_beat_and_thoughts([line | rest] = all, lines_acc, thoughts_acc) do
