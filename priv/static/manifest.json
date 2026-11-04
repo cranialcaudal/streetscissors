@@ -44,19 +44,6 @@
           "type": "image/png"
         }
       ]
-    },
-    {
-      "name": "Check in",
-      "short_name": "Check in",
-      "description": "Today's check-in",
-      "url": "/admin/quick?tab=checkin",
-      "icons": [
-        {
-          "src": "/images/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
     }
   ]
 }

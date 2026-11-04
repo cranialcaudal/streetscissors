@@ -4,12 +4,9 @@ defmodule WebWeb.AdminLive.FitnessManager do
   a markdown file under `content/fitness/` (`Web.Fitness.Vault`), so the vault
   in Obsidian and this page write the same files.
 
-  Which list is showing is in the URL (`?tab=wiki|regimen|progress|checkin`):
-  the progress tab is the training block's charts (`WebWeb.FitnessCharts`),
-  the check-in tab a day's answers to the checks `content/fitness/checkins.md`
-  lists (`Web.Fitness.Checks`), which the guardrails read
-  (`Web.Fitness.Guardrails`), with the recent history. Today's check-in can
-  also be made on the day page itself (`/fitness`). Editing opens in
+  Which list is showing is in the URL (`?tab=wiki|regimen|progress`): the
+  progress tab is the training block's charts (`WebWeb.FitnessCharts`). Editing
+  opens in
   the page rather than over it — fields on the left, the markdown on the
   right with a preview a click away — and a name filter narrows the wiki.
 
@@ -28,12 +25,11 @@ defmodule WebWeb.AdminLive.FitnessManager do
   import WebWeb.AdminComponents
   import WebWeb.DocumentEditor, only: [document_editor: 1]
 
-  alias Web.Fitness
   alias WebWeb.DocumentEditor
-  alias Web.Fitness.{Block, Checks, Guardrails, SourceCheck, Training, Vault}
+  alias Web.Fitness.{Block, SourceCheck, Training, Vault}
   alias Web.SourceFile
 
-  @tabs ~w(wiki regimen progress checkin files)
+  @tabs ~w(wiki regimen progress files)
 
   # ── Opening the page ──────────────────────────────────────────────────────
 
@@ -44,7 +40,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
          page_title: "Fitness | Admin",
          tab: "wiki",
          query: "",
-         days: Vault.list_days(),
+         days: days(),
          exercises: Vault.list_all_exercises(),
          muscle_groups: Vault.list_muscle_groups(),
          editor_mode: nil,
@@ -105,43 +101,14 @@ defmodule WebWeb.AdminLive.FitnessManager do
     end
   end
 
-  defp assign_progress(socket, "checkin"), do: assign_checkins(socket)
   defp assign_progress(socket, _tab), do: socket
 
-  defp assign_checkins(socket) do
-    today = Web.Clock.local_today()
-    recent = Fitness.recent_checkins(today)
-    todays = Enum.find(recent, &(&1.date == today))
-
-    checks = Checks.all()
-
-    standing =
-      recent
-      |> Guardrails.today(today, checks)
-      |> Enum.map_join(" · ", fn {label, answer, _} -> "#{label}: #{answer}" end)
-
-    assign(socket,
-      checks: checks,
-      checkins: recent,
-      checkin_form:
-        to_form(Fitness.change_checkin(todays || %Fitness.Checkin{date: today}), as: :checkin),
-      guard: if(standing == "", do: nil, else: standing)
-    )
+  # The regimen's files on offer: every session, then the add-ons.
+  defp days do
+    Enum.map(Vault.list_sessions(), &Map.put(&1, :tab, &1.title)) ++ Vault.list_additional()
   end
 
   # ── Buttons: check-ins, days and exercises ────────────────────────────────
-
-  def handle_event("save_checkin", %{"checkin" => params}, socket) do
-    params = Map.update(params, "date", nil, &parse_date/1)
-
-    case Fitness.save_checkin(params, socket.assigns.checks) do
-      {:ok, _} ->
-        {:noreply, socket |> put_flash(:info, "Check-in saved.") |> assign_checkins()}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, checkin_form: to_form(changeset, as: :checkin))}
-    end
-  end
 
   # --- The Files tab ---
 
@@ -311,7 +278,7 @@ defmodule WebWeb.AdminLive.FitnessManager do
       {:noreply,
        socket
        |> put_flash(:info, "Saved #{slug}.md.")
-       |> assign(editor_mode: nil, days: Vault.list_days())}
+       |> assign(editor_mode: nil, days: days())}
     end
   end
 
@@ -382,9 +349,6 @@ defmodule WebWeb.AdminLive.FitnessManager do
           >/fitness</.link>. Daily fueling & recomp is <.link
             navigate={~p"/admin/fitness/fueling"}
             class="adm-link"
-          >here</.link>, and the week as calendar events is <.link
-            href={~p"/admin/fitness/calendar"}
-            class="adm-link"
           >here</.link>.
         </:lede>
         <:actions>
@@ -421,9 +385,6 @@ defmodule WebWeb.AdminLive.FitnessManager do
         <:tab patch={~p"/admin/fitness?tab=progress"} active={@tab == "progress"}>
           Progress
         </:tab>
-        <:tab patch={~p"/admin/fitness?tab=checkin"} active={@tab == "checkin"}>
-          Check-in
-        </:tab>
         <:tab patch={~p"/admin/fitness?tab=files"} active={@tab == "files"}>
           Files
         </:tab>
@@ -433,7 +394,6 @@ defmodule WebWeb.AdminLive.FitnessManager do
         "wiki" -> render_exercises(assigns)
         "regimen" -> render_days(assigns)
         "progress" -> render_progress(assigns)
-        "checkin" -> render_checkin(assigns)
         "files" -> render_files(assigns)
       end}
     <% end %>
@@ -498,106 +458,6 @@ defmodule WebWeb.AdminLive.FitnessManager do
           </button>
         </div>
       </form>
-    </section>
-    """
-  end
-
-  defp render_checkin(%{checks: []} = assigns) do
-    ~H"""
-    <.empty>
-      No checks are defined. A check-in asks what <code>content/fitness/checkins.md</code>
-      lists, one section per check.
-    </.empty>
-    """
-  end
-
-  defp render_checkin(assigns) do
-    assigns = assign(assigns, :answers, assigns.checkin_form[:answers].value || %{})
-
-    ~H"""
-    <section class="adm-fit-checkin" id="fitness-checkin">
-      <p :if={@guard} class="adm-fit-guard" id="checkin-guard">{@guard}</p>
-      <.form
-        for={@checkin_form}
-        id="checkin-form"
-        phx-submit="save_checkin"
-        class="adm-fit-checkin-form"
-      >
-        <.field label="Day">
-          <input
-            type="date"
-            name="checkin[date]"
-            value={@checkin_form[:date].value}
-            class="adm-input"
-            required
-          />
-        </.field>
-
-        <%!-- A state check is one tap: its states as a row of choices, the
-              first the good one. A number check is a measurement. --%>
-        <fieldset :for={check <- @checks} class="adm-fit-check" id={"check-#{check.id}"}>
-          <legend class="adm-label">{check.label}</legend>
-          <%= if check.kind == :state do %>
-            <div class="adm-fit-states">
-              <label
-                :for={state <- check.states}
-                class={["adm-fit-state", "adm-fit-state--#{Checks.level(check, state)}"]}
-              >
-                <input
-                  type="radio"
-                  name={"checkin[answers][#{check.id}]"}
-                  value={state}
-                  checked={@answers[check.id] == state}
-                />
-                <span>{state}</span>
-              </label>
-              <label class="adm-fit-state adm-fit-state--skip">
-                <input
-                  type="radio"
-                  name={"checkin[answers][#{check.id}]"}
-                  value=""
-                  checked={is_nil(@answers[check.id])}
-                />
-                <span>skip</span>
-              </label>
-            </div>
-          <% else %>
-            <input
-              type="text"
-              inputmode="decimal"
-              name={"checkin[answers][#{check.id}]"}
-              value={@answers[check.id]}
-              class="adm-input"
-              placeholder={check.unit}
-            />
-          <% end %>
-        </fieldset>
-
-        <.field label="Note">
-          <input
-            type="text"
-            name="checkin[note]"
-            value={@checkin_form[:note].value}
-            class="adm-input"
-          />
-        </.field>
-        <p :for={{field, error} <- @checkin_form.errors} class="adm-error">
-          {if field != :answers, do: Phoenix.Naming.humanize(field)} {WebWeb.CoreComponents.translate_error(
-            error
-          )}
-        </p>
-        <div>
-          <button type="submit" class="adm-btn adm-btn--primary">Save check-in</button>
-        </div>
-      </.form>
-
-      <.rows :if={@checkins != []} id="checkins" rows={@checkins}>
-        <:col :let={c} label="Day">{Calendar.strftime(c.date, "%a %-d %b")}</:col>
-        <:col :let={c} :for={check <- @checks} label={check.label}>
-          {c.answers[check.id]}{if check.unit && c.answers[check.id], do: " #{check.unit}"}
-        </:col>
-        <:col :let={c} label="Note">{c.note}</:col>
-      </.rows>
     </section>
     """
   end
@@ -848,13 +708,6 @@ defmodule WebWeb.AdminLive.FitnessManager do
       {render_slot(@inner_block)}
     </label>
     """
-  end
-
-  defp parse_date(text) do
-    case Date.from_iso8601(text || "") do
-      {:ok, date} -> date
-      _ -> nil
-    end
   end
 
   defp presence(nil), do: nil

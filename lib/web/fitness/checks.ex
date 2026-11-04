@@ -58,6 +58,7 @@ defmodule Web.Fitness.Checks do
 
   defp build(label, f) do
     states = list(f["states"])
+
     kind = if f["kind"] == "number" or states == [], do: :number, else: :state
 
     %{

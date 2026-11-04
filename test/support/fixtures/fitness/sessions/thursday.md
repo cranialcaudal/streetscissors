@@ -3,6 +3,8 @@ title: Thursday — Lower Body
 tab: Thursday
 theme: legs
 modules: kb-test-circuit
+kind: lift
+minutes: 60
 ---
 
 ## Lower Body

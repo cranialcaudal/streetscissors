@@ -1,6 +1,8 @@
 ---
 title: Wednesday — Intervals
 tab: Wednesday
+kind: lift
+minutes: 60
 ---
 
 ## Intervals

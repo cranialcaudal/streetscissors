@@ -15,11 +15,14 @@ defmodule Web.Fitness.Block do
       poses: front, side, back
       lifts: hex-flat-side-deadlift 3-3 +5 hinge; box-jumps 5-5 +0 plyo_locomotion
       substitutes: box-jumps step-ups; single-leg-calf-raises holds
+      sessions: lower-a, upper-a, easy-ride, easy-run
+      targets: 1-2 lift 1, ride 1; 3-8 lift 2, ride 2
 
   `start` is week 1's Monday. A week 0 in `phases` is the week before it,
   a setup week that belongs to the block but counts toward none of its
   numbers. The phases are `Setup`, `Baseline`, `Push`, `Peak` and `Deload`,
-  each with its own rule (`Web.Fitness.Progression`). `top_set_rpe` is the
+  plus `Base`, a block of rehearsal with no progression: each with its own
+  rule (`Web.Fitness.Progression`). `top_set_rpe` is the
   hardest a top-of-range set may be and still earn the step (9: one rep in
   reserve; 8 when not given). `predict` is the hypothesis in measures the
   block report can check (`bodyweight`, `e1rm`, `volume`, `compliance`).
@@ -29,11 +32,15 @@ defmodule Web.Fitness.Block do
   `substitutes` (optional) names what a lift becomes when the guardrails
   stop it: a wiki slug, or a word. A file that cannot be read as a block is
   no block; nothing here raises.
+
+  A block is also the program on `/fitness`: `sessions` names the files in
+  the vault's `sessions/` folder that it is made of, and `targets` how many
+  of each kind a week asks for, by week range.
   """
 
   alias Web.Fitness.Vault
 
-  @phases ~w(Setup Baseline Push Peak Deload)
+  @phases ~w(Setup Base Baseline Push Peak Deload)
 
   @doc "Every readable block in the vault, earliest first."
   def load do
@@ -59,6 +66,28 @@ defmodule Web.Fitness.Block do
       end
     end)
   end
+
+  @doc """
+  The block a session belongs to on `date`, at the week to read it in: the
+  running block if it lists the session, else the next that does, at its
+  week 1. So a session of the next program, opened early, reads as that
+  program's first week and not as this one's. A session no block lists is
+  read in the running block.
+  """
+  def of_session(slug, %Date{} = date) do
+    running = current(date)
+    ahead = load() |> Enum.filter(&(Date.compare(&1.opens, date) == :gt))
+
+    cond do
+      running && slug in running.sessions -> running
+      planned = Enum.find(ahead, &(slug in &1.sessions)) -> at(planned, 1)
+      true -> running
+    end
+  end
+
+  @doc "What a week of the block asks for: `[{kind, count}]`, in the file's order."
+  def targets(%{targets: targets}, week), do: Map.get(targets, week, [])
+  def targets(_block, _week), do: []
 
   @doc "The block week a date falls in: 1 from `start`, 0 the week before."
   def week_of(%Date{} = date, %{start: start}),
@@ -153,7 +182,9 @@ defmodule Web.Fitness.Block do
            |> String.split(",", trim: true)
            |> Enum.map(&String.trim/1),
          lifts: lifts(meta["lifts"] || ""),
-         substitutes: substitutes(meta["substitutes"] || "")
+         substitutes: substitutes(meta["substitutes"] || ""),
+         sessions: Vault.module_slugs(meta["sessions"]),
+         targets: targets(meta["targets"] || "")
        }}
     else
       _ -> :error
@@ -222,6 +253,24 @@ defmodule Web.Fitness.Block do
       {n, ""} -> n
       _ -> nil
     end
+  end
+
+  # "1-2 lift 1, ride 1; 3-4 lift 2" -> %{1 => [{"lift", 1}, {"ride", 1}], ...}.
+  defp targets(text) do
+    for part <- String.split(text, ";", trim: true),
+        [range, list] <- [String.split(String.trim(part), " ", parts: 2)],
+        counts = target_counts(list),
+        {from, to} <- [week_range(range)],
+        week <- from..to//1,
+        into: %{},
+        do: {week, counts}
+  end
+
+  defp target_counts(list) do
+    for item <- String.split(list, ",", trim: true),
+        [kind, count] <- [String.split(String.trim(item))],
+        {count, ""} <- [Integer.parse(count)],
+        do: {kind, count}
   end
 
   defp substitutes(text) do

@@ -7,10 +7,10 @@ defmodule Web.Fitness.VaultTest do
   # nothing else — no schedule, no locations, no coaching notes.
   setup do
     tmp = Path.join(System.tmp_dir!(), "vault_test_#{System.unique_integer([:positive])}")
-    File.mkdir_p!(Path.join(tmp, "weekly"))
+    File.mkdir_p!(Path.join(tmp, "sessions"))
     File.mkdir_p!(Path.join(tmp, "modules"))
 
-    File.write!(Path.join([tmp, "weekly", "tuesday.md"]), """
+    File.write!(Path.join([tmp, "sessions", "tuesday.md"]), """
     ---
     title: Tuesday — Upper Body Routine
     description: Bias toward throwing arm health.
@@ -134,7 +134,7 @@ defmodule Web.Fitness.VaultTest do
       - [ ] **Split squats**: 3 x 8.
       """)
 
-      File.write!(Path.join([tmp, "weekly", "friday.md"]), """
+      File.write!(Path.join([tmp, "sessions", "friday.md"]), """
       ---
       title: Friday — Swim or Run
       tab: Friday
@@ -180,7 +180,7 @@ defmodule Web.Fitness.VaultTest do
     end
 
     test "an option can compose several modules", %{tmp: tmp} do
-      File.write!(Path.join([tmp, "weekly", "saturday.md"]), """
+      File.write!(Path.join([tmp, "sessions", "saturday.md"]), """
       ---
       title: Saturday
       tab: Saturday
@@ -203,7 +203,7 @@ defmodule Web.Fitness.VaultTest do
     end
 
     test "an option whose modules are all missing is skipped, not rendered blank", %{tmp: tmp} do
-      File.write!(Path.join([tmp, "weekly", "sunday.md"]), """
+      File.write!(Path.join([tmp, "sessions", "sunday.md"]), """
       ---
       title: Sunday
       tab: Sunday
@@ -251,7 +251,7 @@ defmodule Web.Fitness.VaultTest do
     end
 
     test "finds the module no day names, counting rotating options as use", %{tmp: tmp} do
-      File.write!(Path.join([tmp, "weekly", "friday.md"]), """
+      File.write!(Path.join([tmp, "sessions", "friday.md"]), """
       ---
       title: Friday
       tab: Friday
@@ -271,10 +271,27 @@ defmodule Web.Fitness.VaultTest do
       refute Enum.any?(audit.missing_modules, &(elem(&1, 0) == "friday"))
     end
 
-    test "finds the day file the page's fixed order will never show", %{tmp: tmp} do
-      File.write!(Path.join([tmp, "weekly", "someday.md"]), "---\ntitle: Someday\n---\n")
+    test "finds the add-on file the site will never offer", %{tmp: tmp} do
+      File.mkdir_p!(Path.join(tmp, "additional"))
+      File.write!(Path.join([tmp, "additional", "someday.md"]), "---\ntitle: Someday\n---\n")
 
       assert Vault.audit().unlisted_days == ["someday"]
+    end
+
+    test "finds the session a program names that is not there", %{tmp: tmp} do
+      File.mkdir_p!(Path.join(tmp, "blocks"))
+
+      File.write!(Path.join([tmp, "blocks", "p.md"]), """
+      ---
+      title: P
+      start: 2026-01-05
+      weeks: 1
+      phases: 1 Base
+      sessions: tuesday, gone
+      ---
+      """)
+
+      assert Vault.audit().missing_sessions == [{"p", "gone"}]
     end
 
     test "exercise_slugs/0 is every wiki entry, whatever group it is filed under", %{tmp: tmp} do

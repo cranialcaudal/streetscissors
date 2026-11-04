@@ -1,8 +1,9 @@
 defmodule WebWeb.FitnessLive.Index do
   @moduledoc """
   The training plan, one day to a page (`/fitness` is today by the Pacific
-  clock; `/fitness/day/thursday` is Thursday, whatever day it is). The day's
-  exercises are read from the vault (`content/fitness/weekly/<day>.md` and the
+  clock; `/fitness/day/thursday` is Thursday, whatever day it is). The admin can
+  also open any other session at `/fitness/session/<slug>`. Exercises are read
+  from the vault (the day's file in `content/fitness/weeks/<program>/` and the
   modules it lists) by `Web.Fitness.Vault`, and shown as a checklist whose
   ticks the browser remembers (the `GymRoutine` hook,
   `assets/js/gym_routine.js`).
@@ -13,25 +14,24 @@ defmodule WebWeb.FitnessLive.Index do
   plan's own numbers. A lift (sets of reps, loaded or not) also gets its sets
   as chips with the target written on them: a tap logs a set and starts the
   rest timer, a tap on a logged set opens its stepper, and after the planned
-  sets one tap gives the RPE. On today's page, ticking a lift's box logs its
-  planned sets. Visitors see only the plan.
+  sets one tap gives the RPE. Ticking a lift's box logs its planned sets.
+  Visitors see only the plan.
 
-  **The admin's day is also a session** (`WebWeb.FitnessLive.SessionView`,
+  **A session runs as stations for the admin** (`WebWeb.FitnessLive.SessionView`,
   from `Web.Fitness.Session`): `?view=focus` shows one station at a time
   (an exercise, a superset, a circuit) with Back and Next and a swipe,
   `?view=list` all of them with the finished ones folded, `?view=page` the
   plan as visitors see it. A logged set hands its rest to the rest bar (kept
   in the browser), a set that beats every earlier one says so
-  (`Web.Fitness.Records`), and Finish sums the session up. The day strip is
-  coloured by the block week's done against planned (`Web.Fitness.Compliance`).
+  (`Web.Fitness.Records`), and Finish sums the session up.
 
-  The days link to each other with `navigate`, never `patch` (the comment
-  above `mount/3` explains why).
+  Pages link to each other with `navigate`, never `patch` (the comment above
+  `mount/3` explains why).
 
   ## How this file is laid out
 
-  1. **Opening a day** (`mount/3`, `mount_day/4`, `handle_params/3`): which
-     day, its plan, and its strip of days.
+  1. **Opening a page** (`mount/3`, `mount_day/4`, `mount_session/3`,
+     `handle_params/3`): a day or a session, and its plan.
   2. **Logging** (`handle_event/3`): opening, filling, saving, editing and
      removing a log entry, and the set chips. Admin only; each event checks.
      An entry is filed under today unless the form names an earlier day.
@@ -52,9 +52,7 @@ defmodule WebWeb.FitnessLive.Index do
     Block,
     Checks,
     Coach,
-    Compliance,
     Entry,
-    Guardrails,
     Plates,
     Prescription,
     Progression,
@@ -65,7 +63,6 @@ defmodule WebWeb.FitnessLive.Index do
 
   alias WebWeb.FitnessLive.SessionView
 
-  @weekdays ~w[monday tuesday wednesday thursday friday saturday sunday]
   # The fuelling plan is the admin's alone (`/admin/fitness/fueling`): it is
   # never drawn here, and never offered among the extra modules.
   @fuelling "nutrition-module"
@@ -73,71 +70,117 @@ defmodule WebWeb.FitnessLive.Index do
   # expand a colocated hook's short name, so it is named in full.
   @circuit_hook "#{inspect(__MODULE__)}.Circuit"
 
-  # ── Opening a day ─────────────────────────────────────────────────────────
+  # ── Opening a page ────────────────────────────────────────────────────────
 
-  # One day to a page. `/fitness` is always today, by the Pacific clock, so
-  # it moves on by itself; `/fitness/day/thursday` is Thursday whatever the
-  # day, so the day being looked at is in the address and a reload keeps it.
-  # The days link to each other with `navigate`, not `patch`: the checklist
-  # is raw HTML whose ticks GymRoutine restores on mount, and a patch would
-  # carry one day's ticked boxes over onto the next day's list.
+  # One day to a page. `/fitness` is always today, by the Pacific clock, so it
+  # moves on by itself; `/fitness/day/thursday` is Thursday whatever the day, so
+  # the day being looked at is in the address and a reload keeps it.
+  # `/fitness/session/<slug>` is any other session, for the admin alone, and is
+  # treated as today's. Days link with `navigate`, not `patch`: the checklist is
+  # raw HTML whose ticks GymRoutine restores on mount, and a patch would carry
+  # one day's ticked boxes over onto the next.
   @impl true
-  def mount(params, session, socket) do
-    today = Web.Clock.today_slug()
+  def mount(%{"modules" => _}, _session, socket) do
+    {:ok, push_navigate(socket, to: ~p"/fitness")}
+  end
 
-    case params["day"] || today do
-      slug when slug in @weekdays ->
-        {:ok, mount_day(socket, slug, today, session["admin_user"] == true)}
+  def mount(%{"slug" => slug}, session, socket) do
+    is_admin = session["admin_user"] == true
 
-      _ ->
-        {:ok, push_navigate(socket, to: ~p"/fitness")}
+    case is_admin && Vault.session(slug) do
+      found when is_map(found) -> {:ok, mount_session(socket, found, is_admin)}
+      _ -> {:ok, push_navigate(socket, to: ~p"/fitness")}
     end
   end
 
-  defp mount_day(socket, slug, today, is_admin) do
-    listed = Vault.list_days()
+  def mount(params, session, socket) do
+    is_admin = session["admin_user"] == true
+    today = Web.Clock.today_slug()
 
-    week =
-      case Web.Fitness.Week.load() do
-        {:ok, week} -> week
-        :error -> nil
-      end
+    case Vault.day(params["day"] || today) do
+      nil -> {:ok, push_navigate(socket, to: ~p"/fitness")}
+      day -> {:ok, mount_day(socket, day, day.slug == today, is_admin)}
+    end
+  end
 
+  defp mount_day(socket, day, live?, is_admin) do
     socket
-    |> assign(:is_admin, is_admin)
-    |> assign(:week, week)
-    |> assign(:today_slug, today)
-    |> assign(:weekdays, strip(week, listed))
-    |> assign(
-      :day,
-      listed
-      |> Enum.find(%{slug: slug, title: String.capitalize(slug)}, &(&1.slug == slug))
-      |> with_html()
-    )
-    |> assign(:blocks, blocks(week, slug))
+    |> assign(:live_day?, live?)
+    |> assign(:strip, strip())
+    |> mount_page(day, is_admin)
+    |> assign(:page_title, "#{String.capitalize(day.slug)} · Fitness & Sport")
+  end
+
+  defp mount_session(socket, session, is_admin) do
+    socket
+    |> assign(:live_day?, true)
+    |> assign(:strip, [])
+    |> mount_page(session, is_admin)
+    |> assign(:page_title, "#{session.title} · Fitness & Sport")
+  end
+
+  defp mount_page(socket, day, is_admin) do
+    socket
+    |> assign(:day, with_html(day))
     |> assign(
       :extra_modules,
-      listed |> Enum.reject(&(&1.slug in [@fuelling | @weekdays])) |> Enum.map(&with_html/1)
+      Vault.list_additional() |> Enum.reject(&(&1.slug == @fuelling)) |> Enum.map(&with_html/1)
     )
-    # The block's week, the check-ins and every number are the admin's: a
+    |> assign_common(is_admin)
+  end
+
+  # The running program's sessions, for a day that goes another way.
+  defp other_sessions do
+    all = Vault.list_sessions()
+
+    case Block.current(Web.Clock.local_today()) do
+      %{sessions: [_ | _] = slugs} -> Enum.filter(all, &(&1.slug in slugs))
+      _ -> all
+    end
+  end
+
+  # The days in order, each over the one word its file gives as `theme:`.
+  defp strip do
+    for day <- Vault.list_days() do
+      %{
+        slug: day.slug,
+        name: String.capitalize(day.slug),
+        theme: day.theme,
+        title: String.replace(day.title, ~r/^\w+:\s*/, "")
+      }
+    end
+  end
+
+  defp day_path(slug) do
+    if slug == Web.Clock.today_slug(), do: ~p"/fitness", else: ~p"/fitness/day/#{slug}"
+  end
+
+  defp assign_common(socket, is_admin) do
+    socket
+    |> assign(:is_admin, is_admin)
+    # The block's week and every number are the admin's: a
     # visitor's page says nothing of training state (see the privacy tests).
     |> assign(:block, if(is_admin, do: Block.current(Web.Clock.local_today())))
+    |> assign(:other_sessions, if(is_admin, do: other_sessions(), else: []))
     |> assign(:logging, nil)
     |> assign(:open_set, nil)
     |> assign(:log_today, Web.Clock.local_today())
-    |> assign(view: "page", focus: 0, summary: nil, figure: nil, draft: %{})
+    |> assign(view: "focus", view_asked?: false, focus: 0, summary: nil, figure: nil, draft: %{})
     |> assign(
       :gym,
       if(is_admin, do: Plates.settings(), else: %{plates: [], bars: %{}, lifts: %{}})
     )
     |> assign_coach()
     |> assign_logged_today()
-    |> assign(:page_title, "#{String.capitalize(slug)} · Fitness & Sport")
   end
 
   # A day's checklist, plus any rotating options. Days that do the same thing
   # every week come back with `options: []`, so the template handles both
   # shapes the same way.
+  # The key the saved ticks hang off (`vault_gym_<data-day>_<index>` in
+  # GymRoutine).
+  defp day_key(slug), do: slug
+
   defp with_html(nil), do: nil
 
   defp with_html(day) do
@@ -147,41 +190,15 @@ defmodule WebWeb.FitnessLive.Index do
     end
   end
 
-  # The day's line in week.md: what it holds, in order.
-  defp blocks(nil, _slug), do: []
-
-  defp blocks(week, slug) do
-    case Enum.find(week.days, &(&1.slug == slug)) do
-      nil -> []
-      day -> day.blocks
-    end
-  end
-
-  # The days in the order week.md lists them, so the strip and The Week under
-  # it read the same way.
-  defp strip(week, listed) do
-    in_week = if week, do: for(day <- week.days, day.slug in @weekdays, do: day.slug), else: []
-    order = if Enum.sort(in_week) == Enum.sort(@weekdays), do: in_week, else: @weekdays
-
-    for slug <- order do
-      theme = Enum.find_value(listed, &(&1.slug == slug && &1[:theme]))
-      %{slug: slug, name: String.capitalize(slug), theme: theme}
-    end
-  end
-
-  defp day_path(slug, today) when slug == today, do: ~p"/fitness"
-  defp day_path(slug, _today), do: ~p"/fitness/day/#{slug}"
-
-  # The admin's day is a session (`?view=focus`, one station at a time, or
-  # `?view=list`); `?view=page` is the plan as visitors see it, with the
-  # logging stitched in. With no view asked for, today opens in focus and any
-  # other day as the list. A visitor always gets the page.
+  # The admin's day is a session: `?view=focus`, one station at a time, or
+  # `?view=list`. With no view asked for it opens in focus, and the ViewMemory
+  # hook moves it to the one this browser last used. A visitor gets the plan.
   @impl true
   def handle_params(params, _uri, %{assigns: %{is_admin: true}} = socket) do
     view =
       case params["view"] do
-        v when v in ~w(focus list page) -> v
-        _ -> if socket.assigns.day.slug == socket.assigns.today_slug, do: "focus", else: "list"
+        v when v in ~w(focus list) -> v
+        _ -> "focus"
       end
 
     focus =
@@ -190,7 +207,8 @@ defmodule WebWeb.FitnessLive.Index do
         _ -> Session.current(socket.assigns.session)
       end
 
-    {:noreply, assign(socket, view: view, focus: focus)}
+    {:noreply,
+     assign(socket, view: view, focus: focus, view_asked?: params["view"] in ~w(focus list))}
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
@@ -214,7 +232,7 @@ defmodule WebWeb.FitnessLive.Index do
          assign(socket, :logging, %{
            slug: slug,
            name: exercise.name,
-           last: Fitness.last_exercise_log(exercise.id),
+           last: Fitness.last_exercise_log(exercise.id, Web.Clock.local_today()),
            plan: plan_for(socket, slug, exercise.name)
          })}
 
@@ -322,7 +340,7 @@ defmodule WebWeb.FitnessLive.Index do
 
   # ── The session: its view, the station in focus, its end ──────────────────
 
-  def handle_event("set_view", %{"view" => view}, socket) when view in ~w(focus list page) do
+  def handle_event("set_view", %{"view" => view}, socket) when view in ~w(focus list) do
     {:noreply, push_patch(socket, to: view_path(socket, view))}
   end
 
@@ -461,35 +479,6 @@ defmodule WebWeb.FitnessLive.Index do
           socket
       end
     end)
-  end
-
-  # Today's check-in, from the day page itself: one tap per check, saved over
-  # whatever today already had (the admin's /admin/fitness?tab=checkin is the
-  # same record, with its history and any other day).
-  def handle_event("save_checkin", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
-
-  def handle_event("save_checkin", %{"checkin" => params}, socket) do
-    attrs = %{
-      "date" => Web.Clock.local_today(),
-      "answers" => Map.get(params, "answers", %{}),
-      "note" => blank_to_nil(params["note"])
-    }
-
-    case Fitness.save_checkin(attrs, socket.assigns.checks) do
-      {:ok, _} ->
-        {:noreply, socket |> put_flash(:info, "Check-in saved.") |> assign_coach()}
-
-      {:error, changeset} ->
-        message =
-          changeset.errors
-          |> Enum.map_join("; ", fn {_field, error} ->
-            WebWeb.CoreComponents.translate_error(error)
-          end)
-
-        {:noreply, put_flash(socket, :error, "Check-in not saved: #{message}.")}
-    end
   end
 
   # An entry already made opens the same form, its fields at what it says.
@@ -694,7 +683,11 @@ defmodule WebWeb.FitnessLive.Index do
   defp superset_waits?(_socket, _slug), do: false
 
   defp view_path(socket, view, at \\ nil) do
-    base = day_path(socket.assigns.day.slug, socket.assigns.today_slug)
+    base =
+      if socket.assigns.strip == [],
+        do: ~p"/fitness/session/#{socket.assigns.day.slug}",
+        else: day_path(socket.assigns.day.slug)
+
     query = if at, do: %{view: view, at: at}, else: %{view: view}
     base <> "?" <> URI.encode_query(query)
   end
@@ -763,18 +756,12 @@ defmodule WebWeb.FitnessLive.Index do
 
     missed = for s <- session.stations, s.type != :brief, not s.done?, do: SessionView.label(s)
 
-    checkin =
-      for {id, answer} <- socket.assigns.checkin_answers,
-          answer not in [nil, ""],
-          do: "#{id}: #{answer}"
-
     %{
       rows: rows,
       sets: sets,
       volume: Float.round(volume, 0),
       minutes: minutes,
-      missed: missed,
-      checkin: checkin
+      missed: missed
     }
   end
 
@@ -829,31 +816,13 @@ defmodule WebWeb.FitnessLive.Index do
   # ── Targets: what the plan and the block ask for ──────────────────────────
 
   # Every exercise on the day as the admin sees it (Web.Fitness.Coach): the
-  # line under it, its guardrail, its target and what its form starts from;
-  # and the day's check-in standing beside the block's week. Nothing for a
+  # line under it, its target and what its form starts from. Nothing for a
   # visitor.
   defp assign_coach(%{assigns: %{is_admin: true, day: day, block: block}} = socket) do
-    today = Web.Clock.local_today()
-    recent = Fitness.recent_checkins(today)
-    checks = Checks.all()
-
-    standing =
-      recent
-      |> Guardrails.today(today, checks)
-      |> Enum.map_join(" · ", fn {label, answer, _level} -> "#{label}: #{answer}" end)
-
-    todays = Enum.find(recent, &(&1.date == today))
-
-    assign(socket,
-      coach: Coach.day(day.slug, today, block),
-      standing: blank_to_nil(standing),
-      checks: checks,
-      checkin_answers: (todays && todays.answers) || %{}
-    )
+    assign(socket, :coach, Coach.day(day.slug, Web.Clock.local_today(), block))
   end
 
-  defp assign_coach(socket),
-    do: assign(socket, coach: %{}, standing: nil, checks: [], checkin_answers: %{})
+  defp assign_coach(socket), do: assign(socket, :coach, %{})
 
   # An exercise the day's plan does not list (a rotating option, an extra
   # module) still gets a form fitted to it, from its name.
@@ -871,30 +840,6 @@ defmodule WebWeb.FitnessLive.Index do
         Checks.all(),
         today
       )
-    end)
-  end
-
-  # The admin's notes under each Log button in the rendered plan: the line
-  # (last time, the target), the guardrail, and the one-tap Done. Escaped
-  # text only; no checkbox and no `data-day`, which GymRoutine counts.
-  defp annotate(html, coach, _logged, _open) when coach == %{}, do: html
-
-  defp annotate(html, coach, logged, open) do
-    html
-    |> annotate_lifts(coach, logged, open)
-    |> annotate_circuits(coach, logged)
-  end
-
-  # Where a circuit begins (`Vault.circuit/1`'s comment), its timer.
-  defp annotate_circuits(html, coach, logged) do
-    Regex.replace(~r/<!-- circuit:[^>]*-->/, html, fn comment ->
-      with {slug, circuit} <- Vault.circuit_marker(comment),
-           %{prescription: %{kind: :circuit}} <- coach[slug] do
-        log = logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last()
-        circuit_bar(slug, circuit, log)
-      else
-        _ -> comment
-      end
     end)
   end
 
@@ -935,169 +880,6 @@ defmodule WebWeb.FitnessLive.Index do
       ~s(</div></div>) <> logged
   end
 
-  # Only the first line naming an exercise carries its notes and chips: that
-  # line is its plan, and a second set of chips would repeat their ids.
-  defp annotate_lifts(html, coach, logged, open) do
-    ~r{(<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>)}
-    |> Regex.split(html, include_captures: true)
-    |> Enum.map_reduce(MapSet.new(), fn part, seen ->
-      case Regex.run(
-             ~r{\A<button type="button" class="log-trigger" phx-click="open_log" phx-value-slug="([a-z0-9-]+)">Log</button>\z},
-             part
-           ) do
-        [whole, slug] ->
-          if MapSet.member?(seen, slug),
-            do: {whole, seen},
-            else: {annotate_lift(whole, slug, coach, logged, open), MapSet.put(seen, slug)}
-
-        nil ->
-          {part, seen}
-      end
-    end)
-    |> elem(0)
-    |> Enum.join()
-  end
-
-  defp annotate_lift(whole, slug, coach, logged, open) do
-    case coach[slug] do
-      nil ->
-        whole
-
-      plan ->
-        if chips?(plan) do
-          sets =
-            case logged |> Enum.filter(&(&1.exercise.slug == slug)) |> List.last() do
-              nil -> []
-              log -> Entry.set_list(log.metrics)
-            end
-
-          whole <> notes(plan, false) <> chips(plan, sets, open)
-        else
-          whole <> notes(plan, true)
-        end
-    end
-  end
-
-  # The chips for a lift's sets: the logged ones (a tap opens the stepper),
-  # then the ones still to do with the next set written on them (a tap logs
-  # it), then a chip for one more. The stepper and the RPE row follow.
-  defp chips(plan, sets, open) do
-    slug = plan.slug
-    planned = planned_sets(plan)
-    next = set_label(next_set(plan, sets))
-
-    logged =
-      for {set, i} <- Enum.with_index(sets) do
-        ~s(<button type="button" class="log-set is-done#{if open == {slug, i}, do: " is-open"}" phx-click="set_open" phx-value-slug="#{slug}" phx-value-i="#{i}" aria-label="Set #{i + 1}, #{set_label(set)}, logged: change it">#{set_label(set)}</button>)
-      end
-
-    todo =
-      for n <- (length(sets) + 1)..planned//1 do
-        ~s(<button type="button" class="log-set" phx-click="set_done" phx-value-slug="#{slug}" aria-label="Log set #{n}, #{next}">#{next}</button>)
-      end
-
-    more =
-      if length(sets) >= planned,
-        do: [
-          ~s(<button type="button" class="log-set log-set--more" phx-click="set_done" phx-value-slug="#{slug}" aria-label="Log another set, #{next}">+ set</button>)
-        ],
-        else: []
-
-    stepper =
-      case open do
-        {^slug, i} -> if set = Enum.at(sets, i), do: stepper(plan, set, i), else: ""
-        _ -> ""
-      end
-
-    rpe =
-      if sets != [] and length(sets) >= planned,
-        do: rpe_row(slug, List.last(sets)["rpe"]),
-        else: ""
-
-    ~s(<span class="log-sets" id="sets-#{slug}">#{Enum.join(logged ++ todo ++ more)}</span>) <>
-      stepper <> rpe
-  end
-
-  defp set_label(set), do: Session.set_label(set)
-
-  defp stepper(plan, set, i) do
-    w = set["w"] || 0
-    small = if w < 25, do: 2.5, else: 5.0
-
-    step = fn field, by, text, label ->
-      ~s(<button type="button" class="log-step-btn" phx-click="set_adjust" phx-value-slug="#{plan.slug}" phx-value-i="#{i}" phx-value-field="#{field}" phx-value-by="#{by}" aria-label="#{label}">#{text}</button>)
-    end
-
-    big = plan.prescription.kind == :weight
-    weight = if w > 0, do: "#{num(w * 1.0)} lb", else: "no weight"
-
-    ~s(<span class="log-stepper" id="stepper-#{plan.slug}" role="group" aria-label="Set #{i + 1}">) <>
-      ~s(<span class="log-step">) <>
-      if(big, do: step.("w", -25, "−25", "25 lb lighter"), else: "") <>
-      step.("w", -small, "−#{num(small)}", "#{num(small)} lb lighter") <>
-      ~s(<output class="log-step-value">#{weight}</output>) <>
-      step.("w", small, "+#{num(small)}", "#{num(small)} lb heavier") <>
-      if(big, do: step.("w", 25, "+25", "25 lb heavier"), else: "") <>
-      ~s(</span><span class="log-step">) <>
-      step.("r", -1, "−", "One rep fewer") <>
-      ~s(<output class="log-step-value">#{set["r"]} reps</output>) <>
-      step.("r", 1, "+", "One rep more") <>
-      ~s(</span>) <>
-      ~s(<button type="button" class="log-step-btn log-step-btn--quiet" phx-click="set_remove" phx-value-slug="#{plan.slug}" phx-value-i="#{i}">Remove set</button>) <>
-      ~s(<button type="button" class="log-step-btn log-step-btn--quiet" phx-click="set_close">Close</button>) <>
-      ~s(</span>)
-  end
-
-  defp rpe_row(slug, current) do
-    current = current && Entry.number(current * 1.0)
-
-    buttons =
-      Enum.map_join(~w(7 8 9 10), fn rpe ->
-        ~s(<button type="button" class="log-rpe-btn" phx-click="set_rpe" phx-value-slug="#{slug}" phx-value-rpe="#{rpe}" aria-pressed="#{current == rpe}">#{rpe}</button>)
-      end)
-
-    ~s(<span class="log-rpe" id="rpe-#{slug}" role="group" aria-label="How hard was the last set? RPE">) <>
-      ~s(<span class="log-rpe-label">Last set, RPE</span>#{buttons}</span>)
-  end
-
-  defp notes(plan, done_button?) do
-    esc = &(&1 |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string())
-    level = plan.verdict |> elem(0) |> to_string()
-
-    parts =
-      [
-        plan.hint && ~s(<span class="log-hint">#{esc.(plan.hint)}</span>),
-        plan.guard &&
-          ~s(<span class="log-guard log-guard--#{level}">#{esc.(plan.guard)}#{if plan.instead, do: esc.(". Instead: " <> plan.instead), else: ""}</span>),
-        done_button? && elem(plan.verdict, 0) != :stop && planned_metrics(plan) != %{} &&
-          ~s(<button type="button" class="log-quick" phx-click="log_planned" phx-value-slug="#{plan.slug}" phx-disable-with="Logging…" title="Log the planned set as done">Done</button>)
-      ]
-      |> Enum.filter(& &1)
-
-    if parts == [], do: "", else: ~s(<span class="log-notes">#{Enum.join(parts)}</span>)
-  end
-
-  # On today's page, the admin's lines whose exercise is logged today carry
-  # `data-logged` on their Log button, and GymRoutine shows their boxes
-  # ticked: a log is the record, a tick only a reminder. A tick alone still
-  # saves nothing, and a visitor's ticks stay in their own browser.
-  defp mark_logged(html, []), do: html
-
-  defp mark_logged(html, slugs) do
-    Enum.reduce(slugs, html, fn slug, html ->
-      String.replace(
-        html,
-        ~s(class="log-trigger" phx-click="open_log" phx-value-slug="#{slug}"),
-        ~s(class="log-trigger" phx-click="open_log" phx-value-slug="#{slug}" data-logged)
-      )
-    end)
-  end
-
-  defp logged_slugs(logs, day_slug, today_slug) when day_slug == today_slug,
-    do: logs |> Enum.map(& &1.exercise.slug) |> Enum.uniq()
-
-  defp logged_slugs(_logs, _day_slug, _today_slug), do: []
-
   # The planned set as metrics: what "Done" logs.
   defp planned_metrics(%{defaults: d, prescription: p}) do
     %{}
@@ -1129,20 +911,21 @@ defmodule WebWeb.FitnessLive.Index do
     logged = Fitness.exercise_logs_on(Web.Clock.local_today())
     today = Web.Clock.local_today()
 
-    activities =
-      if socket.assigns.day.slug == socket.assigns.today_slug, do: activities_on(today), else: []
-
+    activities = if socket.assigns.live_day?, do: activities_on(today), else: []
     session = Session.build(socket.assigns.day.slug, socket.assigns.coach, logged, activities)
 
     socket
     |> advance(socket.assigns[:session], session, logged)
     |> assign(:logged_today, logged)
     |> assign(:session, session)
-    |> assign(:compliance, Compliance.week(socket.assigns.block, today))
   end
 
   defp assign_logged_today(socket),
-    do: assign(socket, logged_today: [], session: %{modules: [], stations: []}, compliance: nil)
+    do:
+      assign(socket,
+        logged_today: [],
+        session: %{modules: [], stations: []}
+      )
 
   # Today's Komoot tours (rides and runs), as the session shows them.
   defp activities_on(date) do
@@ -1196,14 +979,6 @@ defmodule WebWeb.FitnessLive.Index do
 
   @doc "A log entry's values in a line (`Web.Fitness.entry_line/1`)."
   def log_line(log), do: Fitness.entry_line(log)
-
-  # The week's sessions done of planned, by discipline, for those planned.
-  defp week_totals(%{totals: totals}) do
-    for {kind, label} <- [strength: "Lift", bike: "Bike", run: "Run", swim: "Swim"],
-        {done, planned} = totals[kind],
-        planned > 0,
-        do: {label, {done, planned}}
-  end
 
   defp today_progress(%{stations: []}), do: "nothing to log"
 
@@ -1370,27 +1145,47 @@ defmodule WebWeb.FitnessLive.Index do
 
   # ── The page itself (render) ──────────────────────────────────────────────
 
+  attr :logged, :list, required: true
+
+  defp logged_today(assigns) do
+    ~H"""
+    <section class="day-logged" id="logged-today">
+      <h2 class="day-page-section">Logged today</h2>
+      <ul class="day-logged-list">
+        <li :for={log <- @logged} id={"logged-#{log.id}"}>
+          <span class="day-logged-name">{log.exercise.name}</span>
+          <span class="day-logged-values">{log_line(log)}</span>
+          <button type="button" class="reset-btn" phx-click="edit_log" phx-value-id={log.id}>
+            Edit
+          </button>
+          <button
+            type="button"
+            class="reset-btn"
+            phx-click="delete_log"
+            phx-value-id={log.id}
+            data-confirm={"Remove this #{log.exercise.name} entry?"}
+          >
+            Remove
+          </button>
+        </li>
+      </ul>
+    </section>
+    """
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <div class="blog-bento-wrapper steel fitness-landing">
-      <%!-- The section's tabs lead, as they do on the wiki and Activities,
-            so both are one click from the top. Then what is about to be done:
-            the days, each over the one word its file gives as `theme:`, then
-            the one being looked at. The week and the other modules are
-            underneath it. --%>
+      <%!-- The section's tabs lead, as they do on the wiki and Activities, so
+            both are one click from the top. --%>
       <WebWeb.FitnessSubnav.subnav active={:regimen} />
 
-      <nav class="day-strip" aria-label="Days of the week">
+      <nav :if={@strip != []} class="day-strip" aria-label="Days of the week">
         <.link
-          :for={day <- @weekdays}
-          navigate={day_path(day.slug, @today_slug)}
-          class={[
-            "day-strip-link",
-            day.slug == @today_slug && "is-today",
-            @compliance && @compliance.days[day.slug] &&
-              "is-#{@compliance.days[day.slug].status}"
-          ]}
+          :for={day <- @strip}
+          navigate={day_path(day.slug)}
+          class={["day-strip-link", day.slug == Web.Clock.today_slug() && "is-today"]}
           aria-current={day.slug == @day.slug && "page"}
           title={day.name}
         >
@@ -1398,125 +1193,35 @@ defmodule WebWeb.FitnessLive.Index do
           <span :if={day.theme} class="day-strip-theme">{day.theme}</span>
         </.link>
       </nav>
-      <%!-- The admin's block week, done against planned, by discipline. --%>
-      <p :if={@compliance} class="week-totals" id="week-totals">
-        This week:
-        <span :for={{kind, {done, planned}} <- week_totals(@compliance)} class="week-total">
-          {kind} {done}/{planned}
-        </span>
-      </p>
 
       <div
         class={"blog-bento-card" <> if(@is_admin, do: " is-admin", else: "")}
         id="weekly-routine"
         phx-hook="GymRoutine"
-        data-log-ticks={@is_admin && @day.slug == @today_slug && "true"}
+        data-keep-awake={@is_admin && @live_day? && "true"}
       >
         <div class="fitness-layout">
           <div class="fitness-main">
             <%!-- `.day-details` and `data-day` are what GymRoutine keys a
                   saved tick on (`vault_gym_<data-day>_<index>`), as they were
                   when every day shared one page. --%>
-            <article class="day-details day-page" data-day={@day.slug}>
+            <article class="day-details day-page" data-day={day_key(@day.slug)}>
               <header class="day-page-head">
-                <p class="day-page-when">
-                  <%= if @day.slug == @today_slug do %>
-                    Today
-                  <% else %>
-                    Not today
-                    <.link navigate={~p"/fitness"} class="day-page-back">
-                      Today is {String.capitalize(@today_slug)}
-                    </.link>
-                  <% end %>
+                <p :if={!@live_day?} class="day-page-when">
+                  <.link navigate={~p"/fitness"} class="day-page-back">Back to today</.link>
                 </p>
                 <h1 class="day-page-title">{@day.title}</h1>
                 <p :if={@block} class="day-page-block" id="block-week">
-                  {@block.title} · Week {@block.week} of {@block.weeks} — {@block.phase}
-                  <span :if={@standing} class="day-page-guard" id="block-guard">· {@standing}</span>
-                  ·
-                  <.link navigate={~p"/admin/fitness/block"} class="day-page-back">
-                    Block report
-                  </.link>
+                  {@block.title} · Week {@block.week} of {@block.weeks}
                 </p>
-                <%!-- Today's check-in, for the admin only, where the training
-                      is, so a sore joint is told before the session it changes. --%>
-                <details
-                  :if={@is_admin and @checks != []}
-                  class="day-checkin"
-                  id="day-checkin"
-                  open={@checkin_answers == %{}}
-                >
-                  <summary class="day-checkin-summary">
-                    {if @checkin_answers == %{}, do: "Check in for today", else: "Today's check-in"}
-                  </summary>
-                  <form id="day-checkin-form" phx-submit="save_checkin" class="day-checkin-form">
-                    <fieldset :for={check <- @checks} class="day-check" id={"day-check-#{check.id}"}>
-                      <legend>{check.label}</legend>
-                      <%= if check.kind == :state do %>
-                        <div class="day-check-states">
-                          <label
-                            :for={state <- check.states}
-                            class={[
-                              "day-check-state",
-                              "day-check-state--#{Checks.level(check, state)}"
-                            ]}
-                          >
-                            <input
-                              type="radio"
-                              name={"checkin[answers][#{check.id}]"}
-                              value={state}
-                              checked={@checkin_answers[check.id] == state}
-                            />
-                            <span>{state}</span>
-                          </label>
-                          <label class="day-check-state day-check-state--skip">
-                            <input
-                              type="radio"
-                              name={"checkin[answers][#{check.id}]"}
-                              value=""
-                              checked={is_nil(@checkin_answers[check.id])}
-                            />
-                            <span>skip</span>
-                          </label>
-                        </div>
-                      <% else %>
-                        <input
-                          type="text"
-                          inputmode="decimal"
-                          name={"checkin[answers][#{check.id}]"}
-                          value={@checkin_answers[check.id]}
-                          placeholder={check.unit}
-                          class="day-check-number"
-                        />
-                      <% end %>
-                    </fieldset>
-                    <button type="submit" class="log-save-btn" phx-disable-with="Saving…">
-                      Save check-in
-                    </button>
-                  </form>
-                </details>
-                <ul :if={@blocks != [] and @is_admin} class="week-chips day-page-blocks">
-                  <li
-                    :for={block <- @blocks}
-                    class={"week-chip week-chip--#{block.kind}"}
-                    title={block.label}
-                  >
-                    {block.label}<span :if={@is_admin} class="week-chip-time">{Web.Fitness.Week.span(
-                      block
-                    )}</span>
-                  </li>
-                </ul>
               </header>
 
               <%!-- The admin's session: today's card, then one station at a
-                    time or the list. "Page" is the plan as visitors see it. --%>
+                    time or the list. --%>
               <div :if={@is_admin} class="session-bar" id="session-bar">
-                <div :if={@day.slug == @today_slug} class="today-card" id="today-card">
+                <div :if={@live_day?} class="today-card" id="today-card">
                   <p class="today-card-line">
-                    <strong>Today</strong>
-                    · {today_progress(@session)} · {if @checkin_answers == %{},
-                      do: "check-in needed",
-                      else: "checked in"}
+                    <strong>Today</strong> · {today_progress(@session)}
                   </p>
                   <button
                     :if={@view != "focus" and @session.stations != []}
@@ -1528,9 +1233,17 @@ defmodule WebWeb.FitnessLive.Index do
                     {if Enum.any?(@session.stations, & &1.done?), do: "Resume", else: "Start"}
                   </button>
                 </div>
-                <div class="view-toggle" role="group" aria-label="How the day is shown">
+                <div
+                  class="view-toggle"
+                  id="view-toggle"
+                  role="group"
+                  aria-label="How the day is shown"
+                  data-view={@view}
+                  data-asked={to_string(@view_asked?)}
+                  phx-hook=".ViewMemory"
+                >
                   <button
-                    :for={{v, label} <- [{"focus", "Focus"}, {"list", "List"}, {"page", "Page"}]}
+                    :for={{v, label} <- [{"focus", "Focus"}, {"list", "List"}]}
                     type="button"
                     class="view-toggle-btn"
                     aria-pressed={to_string(@view == v)}
@@ -1543,7 +1256,7 @@ defmodule WebWeb.FitnessLive.Index do
               </div>
 
               <SessionView.session
-                :if={@is_admin and @view in ["focus", "list"]}
+                :if={@is_admin}
                 session={@session}
                 view={@view}
                 focus={@focus}
@@ -1551,14 +1264,11 @@ defmodule WebWeb.FitnessLive.Index do
                 open_set={@open_set}
                 draft={@draft}
                 gym={@gym}
+                jump={length(@session.modules) > 1}
               />
 
-              <div :if={!@is_admin or @view == "page"} class="day-content vault-day markdown-body">
-                {raw(
-                  @day.html
-                  |> annotate(@coach, @logged_today, @open_set)
-                  |> mark_logged(logged_slugs(@logged_today, @day.slug, @today_slug))
-                )}
+              <div :if={!@is_admin} class="day-content vault-day markdown-body">
+                {raw(@day.html)}
 
                 <%!-- Rotating days (Friday's swim-or-run, Saturday's four-week
                   cycle) render each option as its own dropdown, with the one
@@ -1568,7 +1278,7 @@ defmodule WebWeb.FitnessLive.Index do
                   <details
                     :for={option <- @day.options}
                     class="option-details"
-                    data-option={"#{@day.slug}_#{option.key}"}
+                    data-option={"#{day_key(@day.slug)}_#{option.key}"}
                     open={option.active?}
                   >
                     <summary class="option-summary">
@@ -1577,11 +1287,7 @@ defmodule WebWeb.FitnessLive.Index do
                       <.icon name="hero-chevron-down" class="summary-icon" />
                     </summary>
                     <div class="option-content vault-day markdown-body">
-                      {raw(
-                        option.html
-                        |> annotate(@coach, @logged_today, @open_set)
-                        |> mark_logged(logged_slugs(@logged_today, @day.slug, @today_slug))
-                      )}
+                      {raw(option.html)}
                     </div>
                   </details>
                 </div>
@@ -1590,35 +1296,24 @@ defmodule WebWeb.FitnessLive.Index do
 
             <%!-- The admin's own record of the day: never rendered for a
                   visitor, who is sent an empty list. --%>
-            <section :if={@is_admin and @logged_today != []} class="day-logged" id="logged-today">
-              <h2 class="day-page-section">Logged today</h2>
-              <ul class="day-logged-list">
-                <li :for={log <- @logged_today} id={"logged-#{log.id}"}>
-                  <span class="day-logged-name">{log.exercise.name}</span>
-                  <span class="day-logged-values">{log_line(log)}</span>
-                  <button type="button" class="reset-btn" phx-click="edit_log" phx-value-id={log.id}>
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    class="reset-btn"
-                    phx-click="delete_log"
-                    phx-value-id={log.id}
-                    data-confirm={"Remove this #{log.exercise.name} entry?"}
-                  >
-                    Remove
-                  </button>
-                </li>
-              </ul>
-            </section>
+            <.logged_today :if={@is_admin and @logged_today != []} logged={@logged_today} />
 
-            <p class="day-page-reset">
-              <button class="reset-btn" id="reset-week" type="button">Reset All Checkboxes</button>
-            </p>
-
-            <%= if @extra_modules != [] do %>
-              <details class="day-addons" id="day-addons">
-                <summary class="day-page-section">Optional add-ons</summary>
+            <details
+              :if={@other_sessions != [] or @extra_modules != []}
+              class="day-addons"
+              id="day-more"
+            >
+              <summary class="day-page-section">More</summary>
+              <section :if={@other_sessions != []} id="other-sessions">
+                <h2 class="day-more-title">Other sessions</h2>
+                <ul class="day-other-sessions">
+                  <li :for={session <- @other_sessions}>
+                    <.link navigate={~p"/fitness/session/#{session.slug}"}>{session.title}</.link>
+                  </li>
+                </ul>
+              </section>
+              <section :if={@extra_modules != []} id="day-addons">
+                <h2 class="day-more-title">Extras</h2>
                 <div class="regimen-list">
                   <%= for day <- @extra_modules do %>
                     <details class="day-details" data-day={day.slug}>
@@ -1632,21 +1327,45 @@ defmodule WebWeb.FitnessLive.Index do
                     </details>
                   <% end %>
                 </div>
-              </details>
-            <% end %>
+              </section>
+              <p :if={@is_admin and @extra_modules != []} class="day-page-reset">
+                <button class="reset-btn" id="reset-ticks" type="button">Clear my ticks</button>
+              </p>
+            </details>
+            <p :if={!@is_admin} class="day-page-reset">
+              <button class="reset-btn" id="reset-ticks" type="button">Clear my ticks</button>
+            </p>
           </div>
+          <nav :if={@strip != []} class="week-rail" aria-label="The week">
+            <.link
+              :for={day <- @strip}
+              navigate={day_path(day.slug)}
+              class={["week-rail-link", day.slug == Web.Clock.today_slug() && "is-today"]}
+              aria-current={day.slug == @day.slug && "page"}
+            >
+              <span class="week-rail-day">{day.name}</span>
+              <span class="week-rail-what">{day.title}</span>
+            </.link>
+          </nav>
         </div>
       </div>
 
-      <%!-- The big picture, under the day: where the author works, plays and
-            rides, and when. The admin's alone; a visitor is shown the day's
-            plan and not the shape of the week around it. --%>
-      <WebWeb.FitnessWeek.week
-        :if={@week && @is_admin}
-        week={@week}
-        today_slug={@today_slug}
-        timed={@is_admin}
-      />
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".ViewMemory">
+        const KEY = "fitness:view"
+        const read = () => { try { return localStorage.getItem(KEY) } catch (_) { return null } }
+        const keep = (view) => { try { localStorage.setItem(KEY, view) } catch (_) {} }
+        export default {
+          mounted() {
+            const last = read()
+            if (this.el.dataset.asked === "false" && last && last !== this.el.dataset.view) {
+              this.pushEvent("set_view", { view: last })
+            } else {
+              keep(this.el.dataset.view)
+            }
+          },
+          updated() { keep(this.el.dataset.view) }
+        }
+      </script>
 
       <%!-- The rest after a logged set, for the admin. The server says when a
             rest starts; the hook keeps its end time in this browser, so the

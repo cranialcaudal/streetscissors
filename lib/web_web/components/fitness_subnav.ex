@@ -1,6 +1,6 @@
 defmodule WebWeb.FitnessSubnav do
   @moduledoc """
-  The fitness section's tab row (Regimen / Wiki / Activities),
+  The fitness section's tab row (Week / Wiki / Activities),
   shared by every fitness LiveView. All three are always shown, in this order,
   with the page being looked at marked: while the current page's own tab was
   left out, each page showed a different pair and a first visitor could not
@@ -13,7 +13,7 @@ defmodule WebWeb.FitnessSubnav do
   use Phoenix.Component
 
   @tabs [
-    {:regimen, "/fitness", "Regimen"},
+    {:regimen, "/fitness", "Week"},
     {:wiki, "/fitness/wiki", "Wiki"},
     {:rides, "/fitness/rides", "Activities"}
   ]
@@ -24,26 +24,11 @@ defmodule WebWeb.FitnessSubnav do
     assigns = assign(assigns, :tabs, @tabs)
 
     ~H"""
-    <div
-      class="bento-fitness-sub-row"
-      style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;"
-    >
-      <%= for {key, href, label} <- @tabs do %>
-        <a
-          href={href}
-          class={["bento-card bento-card-skinny", key == @active && "is-current"]}
-          aria-current={key == @active && "page"}
-          style="flex: 1; min-width: 130px; text-align: center; padding: 1rem; background: rgba(23, 20, 15, 0.05); border: 1px solid rgba(23, 20, 15, 0.1); border-radius: 12px; text-decoration: none;"
-        >
-          <span
-            class="bento-label-small"
-            style="color: var(--ink); font-family: var(--font-heading); text-transform: uppercase; letter-spacing: 1px;"
-          >
-            {label}
-          </span>
-        </a>
-      <% end %>
-    </div>
+    <nav class="tabs" aria-label="Fitness">
+      <a :for={{key, href, label} <- @tabs} href={href} aria-current={key == @active && "page"}>
+        {label}
+      </a>
+    </nav>
     """
   end
 end

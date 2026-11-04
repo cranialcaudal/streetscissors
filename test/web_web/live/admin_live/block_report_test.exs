@@ -53,6 +53,32 @@ defmodule WebWeb.AdminLive.BlockReportTest do
     refute has_element?(view, "#block-answer"), "a 520-week block is not over"
   end
 
+  test "a measure is saved without touching the day's other answers", %{conn: conn} do
+    today = Web.Clock.local_today()
+    {:ok, _} = Web.Fitness.save_checkin(%{"date" => today, "answers" => %{"shoulder" => "sore"}})
+
+    {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
+
+    view |> form("#measure-form", measure: %{bodyweight: "182.5"}) |> render_submit()
+
+    assert has_element?(view, "#flash-info", "Measure saved.")
+    assert has_element?(view, "#measure-bodyweight", "Latest 182.5")
+
+    assert %{answers: %{"bodyweight" => "182.5", "shoulder" => "sore"}} =
+             Web.Fitness.checkin_on(today)
+  end
+
+  test "an empty measure, or one that is not a number, saves nothing", %{conn: conn} do
+    {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
+
+    view |> form("#measure-form", measure: %{bodyweight: ""}) |> render_submit()
+    assert has_element?(view, "#flash-error", "Nothing to save.")
+
+    view |> form("#measure-form", measure: %{bodyweight: "heavy"}) |> render_submit()
+    assert has_element?(view, "#flash-error", "Numbers only.")
+    assert Web.Fitness.checkin_on(Web.Clock.local_today()) == nil
+  end
+
   test "a photograph is uploaded, shown, and set aside", %{conn: conn} do
     {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
 

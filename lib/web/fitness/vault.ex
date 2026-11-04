@@ -5,9 +5,9 @@ defmodule Web.Fitness.Vault do
 
   ## How this file is laid out
 
-  1. **Weekly Regimen** (`list_days/0` to `update_day/2`): the seven days
-     of the plan, each a markdown file in `weekly/`, and the modules they
-     are assembled from.
+  1. **Days and sessions** (`list_sessions/0` to `update_day/2`): the week's
+     days of each program in `weeks/<program>/`, the sessions in `sessions/`,
+     and the modules they are assembled from.
   2. **Exercise Wiki** (`list_muscle_groups/0` to `delete_exercise/2`):
      the wiki pages in `exercise-wiki/<group>/<slug>.md`, their references,
      and the audit of what nothing uses.
@@ -20,27 +20,80 @@ defmodule Web.Fitness.Vault do
   @doc "The fitness vault's root directory — `:fitness_path`, defaulting to the in-repo content."
   def base_path, do: Application.get_env(:web, :fitness_path) || Path.expand(@default_base)
 
-  @day_order ~w[monday tuesday wednesday thursday friday saturday sunday nutrition-module one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module baseball-5k-module st-herberts-build]
+  @additional ~w[nutrition-module one-shot teleauto core-module bosu-amrap-module pickleball-module cooldown-module baseball-5k-module st-herberts-build]
 
-  # ── Weekly Regimen ────────────────────────────────────────────────────
+  # ── Sessions ──────────────────────────────────────────────────────────
 
-  @doc "Returns ordered list of day metadata from weekly/ or additional/ folders."
+  @doc """
+  Every session in the vault, by title: `%{slug, title, description, kind,
+  minutes, theme}`. A session is a file in `sessions/`; which of them make up
+  a program is the block's to say (`Web.Fitness.Block`). No session belongs
+  to a day: any of them can be done on any day, and is logged under that day.
+  """
+  def list_sessions do
+    for slug <- md_slugs("sessions") do
+      meta = parse_frontmatter(Path.join([base_path(), "sessions", slug <> ".md"]))
+
+      %{
+        slug: slug,
+        title: meta["title"] || slug,
+        description: meta["description"] || "",
+        kind: meta["kind"] || "play",
+        minutes: minutes(meta["minutes"]),
+        theme: meta["theme"]
+      }
+    end
+    |> Enum.sort_by(&String.downcase(&1.title))
+  end
+
+  @doc "The session with this slug, or nil."
+  def session(slug), do: Enum.find(list_sessions(), &(&1.slug == slug))
+
+  defp minutes(nil), do: nil
+
+  defp minutes(text) do
+    case Integer.parse(to_string(text)) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  @weekdays ~w(monday tuesday wednesday thursday friday saturday sunday)
+
+  @doc """
+  The week's days, Monday first: `%{slug, title, description, tab, theme}`.
+  Each is a file of the running program (`weeks/<program>/<day>.md`), so the
+  next program's week takes over by itself on the day it opens.
+  """
   def list_days do
-    @day_order
-    |> Enum.filter(fn slug ->
-      File.exists?(find_day_path(slug))
-    end)
+    for slug <- @weekdays, File.exists?(find_day_path(slug)) do
+      meta = parse_frontmatter(find_day_path(slug))
+
+      %{
+        slug: slug,
+        title: meta["title"] || String.capitalize(slug),
+        description: meta["description"] || "",
+        tab: meta["tab"] || String.capitalize(slug),
+        theme: meta["theme"]
+      }
+    end
+  end
+
+  @doc "The day with this slug, or nil."
+  def day(slug), do: Enum.find(list_days(), &(&1.slug == slug))
+
+  @doc "The optional add-ons in `additional/`, as sessions' metadata without a kind."
+  def list_additional do
+    @additional
+    |> Enum.filter(&File.exists?(Path.join([base_path(), "additional", &1 <> ".md"])))
     |> Enum.map(fn slug ->
-      path = find_day_path(slug)
-      meta = parse_frontmatter(path)
+      meta = parse_frontmatter(find_day_path(slug))
 
       %{
         slug: slug,
         title: meta["title"] || slug,
         description: meta["description"] || "",
         tab: meta["tab"] || String.capitalize(slug),
-        # One word for what the day is ("legs", "arms", "cardio"): the day
-        # strip on /fitness prints it under the day's name.
         theme: meta["theme"]
       }
     end)
@@ -143,10 +196,40 @@ defmodule Web.Fitness.Vault do
     end
   end
 
+  @doc "The module slugs a `modules:` frontmatter value names, in order."
+  def module_slugs(nil), do: []
+
+  def module_slugs(value) when is_binary(value) do
+    value |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+  end
+
+  def module_slugs(value) when is_list(value), do: Enum.reject(value, &(&1 in [nil, ""]))
+
+  @doc """
+  The markdown of a list of modules, run together in the order given.
+
+  One assembly serves both ways a session is put together: a day file's
+  `modules:` line, and a set picked on the day the work is done. A slug with
+  no file contributes nothing, so an address naming a module that has been
+  renamed still renders.
+  """
+  def modules_markdown(slugs) do
+    slugs
+    |> module_slugs()
+    |> Enum.map(fn slug ->
+      case File.read(Path.join([base_path(), "modules", slug <> ".md"])) do
+        {:ok, content} -> content |> strip_frontmatter() |> mark_circuit(slug)
+        _ -> ""
+      end
+    end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n\n")
+  end
+
   @doc """
   A day's markdown with its `modules:` read in after its own text, and its
   frontmatter: `{:ok, meta, markdown}` or `:error`. What `get_day/1` renders,
-  and what `Web.Fitness.Prescription` reads a day's prescriptions from.
+  and what `Web.Fitness.Prescription` reads a session's prescriptions from.
   """
   def day_markdown(slug) do
     path = find_day_path(slug)
@@ -156,33 +239,14 @@ defmodule Web.Fitness.Vault do
         meta = parse_frontmatter(path)
         body = strip_frontmatter(content)
 
-        # Check for modules
+        # The day's own text, then the modules it names.
         body =
-          case Map.get(meta, "modules") do
-            nil ->
-              body
-
-            "" ->
-              body
-
-            mods_str ->
-              mods = String.split(mods_str, ",") |> Enum.map(&String.trim/1)
-
-              modules_body =
-                Enum.map(mods, fn m_slug ->
-                  m_path = Path.join([base_path(), "modules", m_slug <> ".md"])
-
-                  case File.read(m_path) do
-                    {:ok, m_content} -> m_content |> strip_frontmatter() |> mark_circuit(m_slug)
-                    _ -> ""
-                  end
-                end)
-                |> Enum.join("\n\n")
-
-              body <> "\n\n" <> modules_body
+          case modules_markdown(Map.get(meta, "modules")) do
+            "" -> body
+            modules_body -> body <> "\n\n" <> modules_body
           end
 
-        {:ok, meta, this_week(body, block_week(Web.Clock.local_today()))}
+        {:ok, meta, this_week(body, block_week(slug, Web.Clock.local_today()))}
 
       {:error, _} ->
         :error
@@ -224,8 +288,8 @@ defmodule Web.Fitness.Vault do
     |> Enum.join("\n")
   end
 
-  defp block_week(date) do
-    case Web.Fitness.Block.current(date) do
+  defp block_week(slug, date) do
+    case Web.Fitness.Block.of_session(slug, date) do
       %{week: week, weeks: weeks} when week >= 0 -> {week, weeks}
       _ -> nil
     end
@@ -391,11 +455,7 @@ defmodule Web.Fitness.Vault do
 
   @doc "Slugs of exercises actively used in the current regimen or kept as foundational beginner movements."
   def visible_exercise_slugs do
-    day_paths =
-      for day <- @day_order,
-          path = find_day_path(day),
-          File.exists?(path),
-          do: path
+    day_paths = for session <- list_sessions(), do: find_day_path(session.slug)
 
     module_paths =
       for path <- day_paths,
@@ -492,17 +552,16 @@ defmodule Web.Fitness.Vault do
   a module no day names is simply never shown. Returns:
 
     * `missing_modules` — `{day, module}` pairs a day names with no file
-    * `unused_modules` — module files that no day names
-    * `unlisted_days` — files in `weekly/` or `additional/` that are not in
-      the page's fixed day order, so the site never offers them
+    * `unused_modules` — module files that no session names
+    * `unlisted_days` — files in `additional/` the site never offers
+    * `missing_sessions` — `{block, session}` pairs a program names with no file
   """
   def audit do
     modules = "modules" |> md_slugs() |> MapSet.new()
 
     named =
-      for day <- @day_order,
+      for %{slug: day} <- list_sessions(),
           path = find_day_path(day),
-          File.exists?(path),
           {key, value} <- parse_frontmatter(path),
           key == "modules" or Regex.match?(~r/^option_\d+$/, key),
           # `option_N` is `modules|Label`; `modules` has no label to drop.
@@ -516,8 +575,16 @@ defmodule Web.Fitness.Vault do
     %{
       missing_modules: Enum.reject(named, fn {_day, slug} -> MapSet.member?(modules, slug) end),
       unused_modules: modules |> MapSet.difference(used) |> Enum.sort(),
-      unlisted_days: Enum.sort((md_slugs("weekly") ++ md_slugs("additional")) -- @day_order)
+      unlisted_days: Enum.sort(md_slugs("additional") -- @additional),
+      missing_sessions: missing_sessions()
     }
+  end
+
+  defp missing_sessions do
+    for block <- Web.Fitness.Block.load(),
+        slug <- block.sessions,
+        not File.exists?(find_day_path(slug)),
+        do: {block.slug, slug}
   end
 
   defp md_slugs(folder) do
@@ -699,13 +766,26 @@ defmodule Web.Fitness.Vault do
 
   # ── Private Helpers ───────────────────────────────────────────────────
 
+  # A weekday in the running program's folder: the latest to have begun, or
+  # the first to come.
+  defp program_day_path(slug) when slug in @weekdays do
+    case Web.Fitness.Block.latest(Web.Clock.local_today()) do
+      %{slug: program} -> Path.join([base_path(), "weeks", program, slug <> ".md"])
+      nil -> nil
+    end
+  end
+
+  defp program_day_path(_slug), do: nil
+
   defp find_day_path(slug) do
-    weekly_path = Path.join([base_path(), "weekly", slug <> ".md"])
+    session_path = Path.join([base_path(), "sessions", slug <> ".md"])
     additional_path = Path.join([base_path(), "additional", slug <> ".md"])
+    day_path = program_day_path(slug)
 
     cond do
+      day_path && File.exists?(day_path) -> day_path
       File.exists?(additional_path) -> additional_path
-      true -> weekly_path
+      true -> session_path
     end
   end
 

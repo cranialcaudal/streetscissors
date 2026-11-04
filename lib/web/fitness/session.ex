@@ -131,14 +131,23 @@ defmodule Web.Fitness.Session do
       marker = Vault.circuit_marker(line) ->
         {slug, circuit} = marker
 
-        {add(modules, %{type: :circuit, slug: slug, circuit: circuit, plan: coach[slug]}),
-         %{state | circuit?: true, group: nil}}
+        {add(modules, %{
+           type: :circuit,
+           slug: slug,
+           circuit: circuit,
+           plan: coach[slug],
+           moves: []
+         }), %{state | circuit?: true, group: nil}}
 
       Vault.circuit_close?(line) ->
         {modules, %{state | circuit?: false}}
 
+      # A circuit's moves are what to do, not what to log: the timer logs it once.
       state.circuit? ->
-        {modules, state}
+        case Regex.run(@line, line) do
+          [_, body] -> {add_move(modules, body), state}
+          nil -> {modules, state}
+        end
 
       String.starts_with?(line, "### ") ->
         title = line |> String.trim_leading("#") |> String.trim()
@@ -183,6 +192,11 @@ defmodule Web.Fitness.Session do
   defp add([], item), do: [%{title: nil, items: [item]}]
   defp add([m | rest], item), do: [%{m | items: [item | m.items]} | rest]
 
+  defp add_move([%{items: [%{type: :circuit} = c | items]} = m | rest], move),
+    do: [%{m | items: [%{c | moves: c.moves ++ [move]} | items]} | rest]
+
+  defp add_move(modules, _move), do: modules
+
   defp add_to_group([%{items: [%{type: :superset} = g | items]} = m | rest], item),
     do: [%{m | items: [%{g | items: [item | g.items]} | items]} | rest]
 
@@ -190,6 +204,19 @@ defmodule Web.Fitness.Session do
 
   defp close_group(%{type: :superset, items: items} = g), do: %{g | items: Enum.reverse(items)}
   defp close_group(item), do: item
+
+  @doc """
+  One `{label, station_index}` for each module with a station, for a page whose
+  modules are done in any order: "Weekend Full Body — Floating Session (60 Min)"
+  reads "Weekend Full Body".
+  """
+  def jumps(%{modules: modules, stations: stations}) do
+    for {m, mi} <- Enum.with_index(modules),
+        m.title,
+        first = Enum.find(stations, &(&1.module_index == mi)) do
+      {m.title |> String.split([" (", " — "], parts: 2) |> hd(), first.index}
+    end
+  end
 
   # ── What a station needs ──────────────────────────────────────────────────
 
@@ -304,6 +331,15 @@ defmodule Web.Fitness.Session do
     )
     |> then(&Regex.replace(~r/\*\*(.+?)\*\*/u, &1, "<strong>\\1</strong>"))
     |> Phoenix.HTML.raw()
+  end
+
+  @doc "A line's opening link as `{slug, name}`, or nil when it opens without one."
+  def link(text) do
+    case Regex.run(~r/^\s*(?:\*\*)?\[\[([a-z0-9-]+)(?:\|([^\]]+))?\]\]/u, text) do
+      [_, slug, name] -> {slug, name}
+      [_, slug] -> {slug, slug}
+      nil -> nil
+    end
   end
 
   @doc "A line's text with its first link taken off the front: what follows the name."

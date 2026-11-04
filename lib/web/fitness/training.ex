@@ -2,7 +2,7 @@ defmodule Web.Fitness.Training do
   @moduledoc """
   The numbers a block is judged by, worked out from its log entries: e1RM
   per lift, volume load per movement pattern, how many of the planned
-  strength days were trained, and the acute:chronic load ratio.
+  strength sessions were trained, and the acute:chronic load ratio.
 
   Everything here is a pure function of the entries (`entries/2`) and the
   block (`Web.Fitness.Block`), so the charts, the guardrails and the block
@@ -130,62 +130,59 @@ defmodule Web.Fitness.Training do
   end
 
   @doc """
-  The plan, weekday by weekday, for the days that carry one of the block's
-  lifts (the strength days): `%{iso_weekday => %{slugs, sets, minutes}}`.
-  `sets` are the day's prescribed sets (`Prescription.planned_sets/1`);
-  `minutes` the lengths written on the sections that hold a block lift
-  ("### Lower … (75 Min)").
+  The block's strength sessions, the ones that carry one of its lifts:
+  `%{session_slug => %{slugs, sets, minutes}}`. `sets` are the session's
+  prescribed sets (`Prescription.planned_sets/1`); `minutes` the lengths
+  written on the sections that hold a block lift ("### Lower … (75 Min)").
   """
-  def plan(%{lifts: lifts}) do
-    ~w(monday tuesday wednesday thursday friday saturday sunday)
-    |> Enum.with_index(1)
-    |> Enum.flat_map(fn {day, wd} ->
-      lines = Prescription.lines(day)
+  def plan(%{lifts: lifts, sessions: sessions}) do
+    for slug <- sessions,
+        lines = Prescription.lines(slug),
+        Enum.any?(lines, &Map.has_key?(lifts, &1.slug)),
+        into: %{} do
+      minutes =
+        lines
+        |> Enum.filter(&Map.has_key?(lifts, &1.slug))
+        |> Enum.map(& &1.section)
+        |> Enum.uniq_by(& &1.title)
+        |> Enum.map(&(&1.minutes || 0))
+        |> Enum.sum()
 
-      if Enum.any?(lines, &Map.has_key?(lifts, &1.slug)) do
-        minutes =
-          lines
-          |> Enum.filter(&Map.has_key?(lifts, &1.slug))
-          |> Enum.map(& &1.section)
-          |> Enum.uniq_by(& &1.title)
-          |> Enum.map(&(&1.minutes || 0))
-          |> Enum.sum()
-
-        [
-          {wd,
-           %{
-             slugs: MapSet.new(lines, & &1.slug),
-             sets: Prescription.planned_sets(lines),
-             minutes: minutes
-           }}
-        ]
-      else
-        []
-      end
-    end)
-    |> Map.new()
+      {slug,
+       %{
+         slugs: MapSet.new(lines, & &1.slug),
+         sets: Prescription.planned_sets(lines),
+         minutes: minutes
+       }}
+    end
   end
 
   def plan(_block), do: %{}
 
   @doc """
   Planned against done, week by week: `%{week => %{days_done, days_planned,
-  sets_done, sets_planned}}`. A strength day is done when anything on its
-  plan was logged that day; its sets done are the logged sets (1 for an
-  entry with no count) of exercises on that day's plan, at most the plan's.
+  sets_done, sets_planned}}`. A week plans as many strength sessions as the
+  block's `lift` target asks, or all of them with no target, and it is judged
+  on the sessions that went best. A session is done when anything on its plan
+  was logged that week; its sets done are the logged sets (1 for an entry with
+  no count) of exercises on its plan, at most the plan's.
   """
   def compliance(entries, block, weeks, plan \\ nil) do
     plan = plan || plan(block)
-    by_date = Enum.group_by(in_block(entries, block), & &1.date)
+    by_week = entries |> in_block(block) |> Enum.group_by(&week_of(&1.date, block))
 
     Map.new(weeks, fn week ->
-      days =
-        for {wd, day} <- plan do
-          date = Date.add(block.start, (week - 1) * 7 + wd - 1)
-          logged = Enum.filter(Map.get(by_date, date, []), &MapSet.member?(day.slugs, &1.slug))
-          sets = logged |> Enum.map(&(&1.sets || 1)) |> Enum.sum() |> min(day.sets)
-          {logged != [], sets, day.sets}
+      logged = Map.get(by_week, week, [])
+
+      sessions =
+        for {_slug, session} <- plan do
+          mine = Enum.filter(logged, &MapSet.member?(session.slugs, &1.slug))
+          sets = mine |> Enum.map(&(&1.sets || 1)) |> Enum.sum() |> min(session.sets)
+          {mine != [], sets, session.sets}
         end
+
+      planned = planned_lifts(block, week, map_size(plan))
+      days = sessions |> Enum.sort_by(&{elem(&1, 1), elem(&1, 2)}, :desc) |> Enum.take(planned)
 
       {week,
        %{
@@ -197,9 +194,17 @@ defmodule Web.Fitness.Training do
     end)
   end
 
+  defp planned_lifts(block, week, all) do
+    case List.keyfind(Block.targets(block, week), "lift", 0) do
+      {"lift", count} -> count
+      nil -> all
+    end
+  end
+
   @doc """
   Each strength session's stress, RPE × minutes: the mean RPE logged that
-  day (7 when none was) times the minutes the plan gives the day's lifting.
+  day (7 when none was) times the minutes the plan gives the session the
+  day's entries were.
   `[{date, stress}]`, oldest first.
   """
   def session_stress(entries, block, plan \\ nil) do
@@ -209,7 +214,7 @@ defmodule Web.Fitness.Training do
     |> in_block(block)
     |> Enum.group_by(& &1.date)
     |> Enum.flat_map(fn {date, rows} ->
-      case plan[Date.day_of_week(date)] do
+      case session_of(plan, rows) do
         %{minutes: minutes} when minutes > 0 ->
           rpes = for %{rpe: r} <- rows, is_number(r), do: r
           rpe = if rpes == [], do: 7.0, else: Enum.sum(rpes) / length(rpes)
@@ -220,6 +225,19 @@ defmodule Web.Fitness.Training do
       end
     end)
     |> Enum.sort_by(&Date.to_gregorian_days(elem(&1, 0)))
+  end
+
+  # The session a date's entries were: the one they share most lines with.
+  defp session_of(plan, rows) do
+    slugs = MapSet.new(rows, & &1.slug)
+
+    plan
+    |> Map.values()
+    |> Enum.max_by(&MapSet.size(MapSet.intersection(&1.slugs, slugs)), fn -> nil end)
+    |> then(fn
+      nil -> nil
+      session -> if MapSet.disjoint?(session.slugs, slugs), do: nil, else: session
+    end)
   end
 
   @doc "Stress per block week, and its acute:chronic ratio at each week's end."

@@ -40,6 +40,26 @@ defmodule WebWeb.AdminLive.BlockReport do
     end
   end
 
+  # Each measure the vault has: its newest answer and the mean of the last
+  # seven, which is the number the block reads.
+  defp measures(checks, today) do
+    recent = Fitness.recent_checkins(today, 60)
+
+    for id <- ~w(bodyweight waist), check = Enum.find(checks, &(&1.id == id)) do
+      readings =
+        for %{date: date, answers: answers} <- recent,
+            {value, _} <- [Float.parse(to_string(answers[id]))],
+            do: {date, value}
+
+      seven = readings |> Enum.take(7) |> Enum.map(&elem(&1, 1))
+
+      Map.merge(check, %{
+        latest: List.first(readings),
+        average: if(seven != [], do: Float.round(Enum.sum(seven) / length(seven), 1))
+      })
+    end
+  end
+
   defp load(socket) do
     today = Web.Clock.local_today()
     checks = Checks.all()
@@ -47,6 +67,7 @@ defmodule WebWeb.AdminLive.BlockReport do
     socket =
       assign(socket,
         reports: Report.list(),
+        measures: measures(checks, today),
         rendering: Map.get(socket.assigns, :rendering, false)
       )
 
@@ -95,6 +116,23 @@ defmodule WebWeb.AdminLive.BlockReport do
       end
 
     {:noreply, socket |> put_flash(elem(flash, 0), elem(flash, 1)) |> load()}
+  end
+
+  # Bodyweight and waist, taken when the block asks for them (its Measuring
+  # section), not every day: only what is filled in is saved.
+  def handle_event("save_measure", %{"measure" => params}, socket) do
+    answers = Map.reject(params, fn {_id, value} -> String.trim(value) == "" end)
+
+    if answers == %{} do
+      {:noreply, put_flash(socket, :error, "Nothing to save.")}
+    else
+      attrs = %{"date" => Date.to_iso8601(Web.Clock.local_today()), "answers" => answers}
+
+      case Fitness.save_checkin(attrs, socket.assigns.checks) do
+        {:ok, _} -> {:noreply, socket |> put_flash(:info, "Measure saved.") |> load()}
+        {:error, _} -> {:noreply, put_flash(socket, :error, "Numbers only.")}
+      end
+    end
   end
 
   def handle_event("render_report", _params, socket) do
@@ -152,8 +190,8 @@ defmodule WebWeb.AdminLive.BlockReport do
         <% else %>
           No training block in the vault.
         <% end %>
-        Check-ins and the charts are on <.link
-          navigate={~p"/admin/fitness?tab=checkin"}
+        The charts are on <.link
+          navigate={~p"/admin/fitness?tab=progress"}
           class="adm-link"
         >Fitness</.link>.
       </:lede>
@@ -246,6 +284,19 @@ defmodule WebWeb.AdminLive.BlockReport do
         <div class="adm-fit-framing">{raw(@framing)}</div>
       </.panel>
     <% end %>
+
+    <.panel :if={@measures != []} title="Today's measure">
+      <form id="measure-form" class="adm-fit-measure" phx-submit="save_measure">
+        <label :for={m <- @measures} class="adm-field">
+          <span class="adm-label">{m.label} ({m.unit})</span>
+          <input type="text" inputmode="decimal" name={"measure[#{m.id}]"} class="adm-input" />
+          <span :if={m.latest} class="adm-hint" id={"measure-#{m.id}"}>
+            Latest {elem(m.latest, 1)}, {Calendar.strftime(elem(m.latest, 0), "%-d %b")} · last seven average {m.average}
+          </span>
+        </label>
+        <button type="submit" class="adm-btn adm-btn--primary">Save</button>
+      </form>
+    </.panel>
 
     <.panel title="Progress photographs">
       <p class="adm-hint">

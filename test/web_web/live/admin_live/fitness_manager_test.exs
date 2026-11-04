@@ -99,66 +99,29 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     assert e1rm =~ "<circle"
   end
 
-  test "a check-in asks the vault's checks, is saved for the day, and a second one replaces it",
-       %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
-    today = Date.to_iso8601(Web.Clock.local_today())
-
-    assert has_element?(view, "#check-shoulder input[type=radio][value=sore]")
-    assert has_element?(view, "#check-bodyweight input[placeholder=lb]")
-
-    view
-    |> form("#checkin-form",
-      checkin: %{date: today, answers: %{shoulder: "sore", bodyweight: "171.4"}}
-    )
-    |> render_submit()
-
-    assert has_element?(view, "#flash-info", "Check-in saved.")
-    assert has_element?(view, "#checkin-guard", "Shoulder: sore")
-    assert has_element?(view, "#checkins", "171.4 lb")
-
-    view
-    |> form("#checkin-form", checkin: %{date: today, answers: %{shoulder: "fine"}})
-    |> render_submit()
-
-    assert [%{answers: %{"shoulder" => "fine"}}] =
-             Web.Fitness.recent_checkins(Web.Clock.local_today())
-
-    refute has_element?(view, "#checkin-guard")
-  end
-
-  test "a number check refuses an answer that is not a number", %{conn: conn} do
+  test "the check-in tab is gone, and its old address lands on the wiki", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
 
-    html =
-      view
-      |> form("#checkin-form",
-        checkin: %{
-          date: Date.to_iso8601(Web.Clock.local_today()),
-          answers: %{bodyweight: "heavy"}
-        }
-      )
-      |> render_submit()
-
-    assert html =~ "Bodyweight must be a number"
-    assert Web.Fitness.recent_checkins(Web.Clock.local_today()) == []
+    refute has_element?(view, ~s(a[href="/admin/fitness?tab=checkin"]))
+    refute has_element?(view, "#checkin-form")
+    assert has_element?(view, "#exercise-filter")
   end
 
-  test "the vault's files open whole, and a week that would lose a block is not saved",
+  test "the vault's files open whole, and a block that would not read is not saved",
        %{conn: conn} do
-    week = Path.join(Web.Fitness.Vault.base_path(), "week.md")
-    before = File.read!(week)
+    file = Path.join([Web.Fitness.Vault.base_path(), "blocks", "test-block.md"])
+    before = File.read!(file)
 
     {:ok, view, html} = live(admin_conn(conn), "/admin/fitness?tab=files")
     assert html =~ "Reads as:"
     assert has_element?(view, ~s(a[href="/admin/fitness?tab=files&file=block%3Atest-block"]))
 
-    broken = before <> "\n- 7.15-08:00 strength A typo\n"
+    broken = String.replace(before, "weeks: 520", "weeks: many")
     view |> form("#source-form", source: %{content: broken}) |> render_change()
     assert has_element?(view, "#source-check", "Will not be saved")
 
     view |> form("#source-form", source: %{content: broken}) |> render_submit()
     assert has_element?(view, "#flash-error", "Not saved")
-    assert File.read!(week) == before
+    assert File.read!(file) == before
   end
 end

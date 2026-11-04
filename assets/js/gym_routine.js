@@ -14,7 +14,7 @@ export const GymRoutine = {
         // The admin's page for today is the one used mid-workout: keep the
         // phone's screen on while it is open, until 20 minutes pass with no
         // tap, no set and no running timer (timers send `fitness:active`).
-        if (this.el.dataset.logTicks === 'true') this.keepAwake();
+        if (this.el.dataset.keepAwake === 'true') this.keepAwake();
     },
     destroyed() {
         if (this.awake) this.awake.stop();
@@ -63,7 +63,7 @@ export const GymRoutine = {
         const keep = () => {
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (_) {}
         };
-        const resetWeekBtn = this.el.querySelector('#reset-week');
+        const resetBtn = this.el.querySelector('#reset-ticks');
 
         // Ticks are keyed by scope + the checkbox's position within that scope.
         // The scope is the nearest [data-option] if there is one, else the day.
@@ -87,38 +87,25 @@ export const GymRoutine = {
             checkboxes.forEach((cb, index) => {
                 const key = `vault_gym_${scopeId}_${index}`;
                 if (saved[key]) cb.checked = true;
-                // A line logged today (the admin's, on today's page) is done
-                // whatever this browser remembers: the log is the record.
-                // Only this line's own button: a nested sub-list has its own.
-                const line = cb.closest('li');
-                const logged = line && Array.from(line.querySelectorAll('.log-trigger[data-logged]'))
-                    .some((button) => button.closest('li') === line);
-                if (logged) cb.checked = true;
-
                 cb.onchange = () => {
                     saved[key] = cb.checked;
                     keep();
-                    // On the admin's page for today a tick is a log: the
-                    // line's planned sets, done (the server skips a held one).
-                    if (cb.checked && this.el.dataset.logTicks === 'true') {
-                        const own = line && Array.from(line.querySelectorAll('.log-trigger'))
-                            .find((button) => button.closest('li') === line);
-                        if (own && !own.hasAttribute('data-logged')) {
-                            this.pushEvent('log_planned', { slug: own.getAttribute('phx-value-slug') });
-                        }
-                    }
                 };
             });
         });
 
-        // Week reset
-        if (resetWeekBtn) {
-            resetWeekBtn.onclick = () => {
-                if (confirm("Clear all progress for the week?")) {
-                    this.el.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-                    saved = {};
-                    keep();
-                }
+        // Clears the ticks on this page in this browser, and no other day's.
+        if (resetBtn) {
+            resetBtn.onclick = () => {
+                if (!confirm('Clear your ticks for this day?')) return;
+                this.el.querySelectorAll('.day-details').forEach((scope) => {
+                    const prefix = `vault_gym_${scope.dataset.day}_`;
+                    Object.keys(saved)
+                        .filter((key) => key.startsWith(prefix))
+                        .forEach((key) => delete saved[key]);
+                    scope.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+                });
+                keep();
             };
         }
 

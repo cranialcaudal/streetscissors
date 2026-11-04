@@ -26,13 +26,12 @@ defmodule Web.Fitness.Export do
   def headers, do: @headers
 
   @ride_headers ~w(date week_num year quarter month weekday start_local sport kind tt
-                   distance_miles duration_min moving_min avg_mph ascent_ft kcal
-                   avg_hr max_hr)
+                   distance_miles duration_min moving_min avg_mph ascent_ft kcal)
 
   def ride_headers, do: @ride_headers
 
   @doc """
-  Komoot activities (`Web.Rides.list_rides/0`, Apple Health attached) as CSV
+  Komoot activities (`Web.Rides.list_rides/0`) as CSV
   text, header first, oldest first: Komoot's figures stand for the cycling
   stats. The date and `start_local` are Pacific. `kind` is the sport's family
   (`bike`, `run`, `hike`, `other`), so R can keep to the bike. `tt` is `TRUE`
@@ -55,7 +54,6 @@ defmodule Web.Fitness.Export do
     date = NaiveDateTime.to_date(local)
     {year, week} = :calendar.iso_week_number(Date.to_erl(date))
     kind = Web.Rides.Units.sport_kind(ride.sport)
-    health = ride.health
 
     [
       date,
@@ -73,9 +71,7 @@ defmodule Web.Fitness.Export do
       scaled(ride.time_in_motion_s, 1 / 60),
       scaled(ride.avg_speed_mps, 2.23694),
       scaled(ride.ascent_m, 3.28084),
-      na(ride.kcal),
-      na(health && health.avg_hr),
-      na(health && health.max_hr)
+      na(ride.kcal)
     ]
     |> Enum.map(fn
       true -> "TRUE"

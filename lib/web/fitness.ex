@@ -113,11 +113,14 @@ defmodule Web.Fitness do
     |> Repo.insert()
   end
 
-  @doc "The most recent entry for an exercise, or nil: what there is to beat."
-  def last_exercise_log(exercise_id) do
+  @doc """
+  The most recent entry for an exercise before `date`, or nil: what there is
+  to beat. Today's own sets are not last time.
+  """
+  def last_exercise_log(exercise_id, %Date{} = date) do
     Repo.one(
       from l in ExerciseLog,
-        where: l.exercise_id == ^exercise_id,
+        where: l.exercise_id == ^exercise_id and l.date < ^date,
         order_by: [desc: l.date, desc: l.id],
         limit: 1
     )
@@ -249,6 +252,16 @@ defmodule Web.Fitness do
 
         _ ->
           nil
+      end
+
+    # A form carries its own checks only: the day's other answers stay.
+    attrs =
+      case {existing, attrs["answers"]} do
+        {%Checkin{answers: kept}, %{} = answers} ->
+          Map.put(attrs, "answers", Map.merge(kept, answers))
+
+        _ ->
+          attrs
       end
 
     (existing || %Checkin{})

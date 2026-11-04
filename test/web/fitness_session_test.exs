@@ -1,7 +1,7 @@
 defmodule Web.Fitness.SessionTest do
   use ExUnit.Case, async: true
 
-  alias Web.Fitness.{Coach, Compliance, Plates, Prescription, Records, Session}
+  alias Web.Fitness.{Coach, Plates, Prescription, Records, Session}
 
   @md """
   ### Upper B (65 Min)
@@ -88,12 +88,64 @@ defmodule Web.Fitness.SessionTest do
     assert Records.score(%{metrics: %{"result" => "24 laps"}}) == {:laps, 24}
   end
 
-  test "a day's colour" do
-    assert Compliance.status(1.0, :lt) == :done
-    assert Compliance.status(0.6, :lt) == :part
-    assert Compliance.status(0.2, :lt) == :missed
-    assert Compliance.status(0.2, :eq) == :today
-    assert Compliance.status(nil, :lt) == :rest
-    assert Compliance.status(1.0, :gt) == :ahead
+  describe "where a lift's chips start" do
+    @ramp %{
+      id: 1,
+      date: ~D[2026-10-27],
+      note: nil,
+      metrics: %{
+        "weight" => "250 lbs",
+        "reps" => "1",
+        "set_list" => [
+          %{"w" => 190.0, "r" => 5},
+          %{"w" => 210.0, "r" => 3},
+          %{"w" => 250.0, "r" => 1}
+        ]
+      }
+    }
+
+    defp lift(sets, reps) do
+      %{
+        slug: "hex-flat-side-deadlift",
+        kind: :weight,
+        sets: sets,
+        reps: reps,
+        weight: nil,
+        seconds: nil,
+        metres: nil
+      }
+    end
+
+    test "a ramp to a single does not open a lighter day at the single" do
+      plan = Coach.plan(lift(2, {5, 5}), [@ramp], nil, [], [], [], ~D[2026-11-03])
+
+      assert %{sets: 2, reps: 5, weight: 190.0} = plan.defaults
+    end
+
+    test "with no set that reached the reps, the weight stays and the plan's reps win" do
+      log = %{
+        id: 2,
+        date: ~D[2026-10-27],
+        note: nil,
+        metrics: %{"weight" => "30 lbs", "reps" => "6"}
+      }
+
+      plan = Coach.plan(lift(2, {8, 8}), [log], nil, [], [], [], ~D[2026-11-03])
+
+      assert %{reps: 8, weight: 30.0} = plan.defaults
+    end
+
+    test "a last entry that met the plan starts where it was" do
+      log = %{
+        id: 3,
+        date: ~D[2026-10-27],
+        note: nil,
+        metrics: %{"weight" => "200 lbs", "reps" => "5"}
+      }
+
+      plan = Coach.plan(lift(2, {5, 5}), [log], nil, [], [], [], ~D[2026-11-03])
+
+      assert %{reps: 5, weight: 200.0} = plan.defaults
+    end
   end
 end

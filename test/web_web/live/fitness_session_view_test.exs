@@ -49,7 +49,7 @@ defmodule WebWeb.FitnessSessionViewTest do
     - [ ] Easy, conversational
     """)
 
-    File.write!(Path.join([vault, "weekly", "wednesday.md"]), """
+    File.write!(Path.join([vault, "sessions", "wednesday.md"]), """
     ---
     title: Wednesday — Pairs
     tab: Wednesday
@@ -74,12 +74,11 @@ defmodule WebWeb.FitnessSessionViewTest do
     {view, html}
   end
 
-  test "the admin chooses focus, list or the page; a visitor only ever gets the page", %{
-    conn: conn
-  } do
+  test "the admin chooses focus or list; a visitor only ever gets the plan", %{conn: conn} do
     {view, html} = admin(conn, ~p"/fitness/day/tuesday?view=list")
     assert html =~ ~s(id="session-list")
     assert has_element?(view, ~s(.view-toggle-btn[aria-pressed="true"]), "List")
+    refute has_element?(view, ~s(.view-toggle-btn[phx-value-view="page"]))
 
     view |> element(~s(.view-toggle-btn[phx-value-view="focus"])) |> render_click()
     # On a Tuesday, Tuesday's page is /fitness itself.
@@ -87,14 +86,67 @@ defmodule WebWeb.FitnessSessionViewTest do
     assert_patch(view, day <> "?view=focus")
     assert has_element?(view, "#session-focus")
 
-    view |> element(~s(.view-toggle-btn[phx-value-view="page"])) |> render_click()
-    refute has_element?(view, "#session-focus")
-    assert has_element?(view, ".day-content.vault-day")
-
     {:ok, _view, html} = live(conn, ~p"/fitness/day/tuesday?view=focus")
     refute html =~ "session-focus"
     refute html =~ "view-toggle"
     refute html =~ "rest-bar"
+  end
+
+  test "any day opens in focus, whatever the date, and the address no longer takes page", %{
+    conn: conn
+  } do
+    other = hd(~w(tuesday wednesday) -- [Web.Clock.today_slug()])
+
+    for path <- [~p"/fitness", ~p"/fitness/day/#{other}", ~p"/fitness/day/#{other}?view=page"] do
+      {view, _html} = admin(conn, path)
+      assert has_element?(view, ~s(.view-toggle-btn[aria-pressed="true"]), "Focus")
+      assert has_element?(view, "#view-toggle[data-asked='false']")
+    end
+  end
+
+  test "a card says last time once, and today's sets are not last time", %{conn: conn} do
+    {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+    for {days, reps} <- [{-3, "10"}, {0, "14"}] do
+      {:ok, _} =
+        Web.Fitness.create_exercise_log(%{
+          exercise_id: exercise.id,
+          date: Date.add(Web.Clock.local_today(), days),
+          metrics: %{"sets" => "3", "reps" => reps}
+        })
+    end
+
+    {view, _html} = admin(conn, ~p"/fitness/day/tuesday?view=list")
+    card = view |> element("#card-push-ups") |> render()
+
+    assert card =~ "3 x 10"
+    refute card =~ ~r/session-card-(last|hint)[^<]*3 x 14/
+    assert length(String.split(card, "session-card-last")) == 2
+    refute card =~ ~r/session-card-hint[^<]*>\s*Last/
+  end
+
+  test "a lift logs from its chips: no Log button, and Finish appears once", %{conn: conn} do
+    {view, _html} = admin(conn, ~p"/fitness/day/tuesday?view=list")
+
+    assert has_element?(view, "#next-push-ups")
+    refute has_element?(view, "button.session-card-log[phx-value-slug='push-ups']")
+
+    finishes = view |> render() |> String.split(~s(phx-click="finish_session")) |> length()
+    assert finishes == 2
+  end
+
+  test "a session of several modules jumps straight to one; a plain one has no jumps", %{
+    conn: conn
+  } do
+    {plain, _} = admin(conn, ~p"/fitness/day/tuesday?view=focus")
+    refute has_element?(plain, ".session-jumps")
+
+    {view, _} = admin(conn, ~p"/fitness/day/wednesday?view=focus")
+    assert has_element?(view, ~s(.session-jump[aria-current="true"]), "Ride In")
+
+    view |> element(".session-jump", "Pair Day") |> render_click()
+    assert has_element?(view, ~s(.session-jump[aria-current="true"]), "Pair Day")
+    assert has_element?(view, ".session-superset-title", "Superset A: Push and Pull")
   end
 
   test "focus shows one station, moves on, and finishes with a summary", %{conn: conn} do

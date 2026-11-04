@@ -21,6 +21,7 @@ defmodule WebWeb.FitnessLive.SessionView do
   attr :open_set, :any, default: nil
   attr :draft, :map, default: %{}
   attr :gym, :map, required: true
+  attr :jump, :boolean, default: false
 
   def session(%{view: "focus"} = assigns) do
     stations = assigns.session.stations
@@ -40,6 +41,19 @@ defmodule WebWeb.FitnessLive.SessionView do
     ~H"""
     <section id="session-focus" class="session session--focus" phx-hook=".Swipe" data-at={@i}>
       <p :if={@station == nil} class="session-empty">Nothing to log on this day.</p>
+      <%!-- A page of modules done in any order: go straight to the one being done. --%>
+      <nav :if={@jump and @station} class="session-jumps" aria-label="Modules">
+        <button
+          :for={{label, at} <- Session.jumps(@session)}
+          type="button"
+          class="session-jump"
+          aria-current={label == module_label(@station, @session) && "true"}
+          phx-click="focus_to"
+          phx-value-i={at}
+        >
+          {label}
+        </button>
+      </nav>
       <div :if={@station} class="session-focus-card" id={"station-#{@i}"}>
         <p class="session-progress">
           <span>{@i + 1} of {@count}</span>
@@ -176,15 +190,21 @@ defmodule WebWeb.FitnessLive.SessionView do
       </div>
       <div :if={@next && !@next.done?} class="session-next-up">
         <a href={"#station-#{@current}"}>Next up: {label(@next)}</a>
-        <button type="button" class="session-next-finish" phx-click="finish_session">Finish</button>
       </div>
-      <p :if={@next == nil or @next.done?} class="session-finish-row">
+      <p class="session-finish-row">
         <button type="button" class="session-nav-btn session-nav-btn--next" phx-click="finish_session">
           Finish session
         </button>
       </p>
     </section>
     """
+  end
+
+  defp module_label(station, session) do
+    Enum.find_value(Session.jumps(session), fn {label, at} ->
+      first = Enum.at(session.stations, at)
+      first.module_index == station.module_index && label
+    end)
   end
 
   # The module's notes, shown above its station in focus mode: this week's
@@ -255,6 +275,24 @@ defmodule WebWeb.FitnessLive.SessionView do
     <div class="session-circuit">
       <h3 class="session-card-name">{label(@station)}</h3>
       {Phoenix.HTML.raw(WebWeb.FitnessLive.Index.circuit_bar(@station.slug, @station.circuit, @log))}
+      <ul :if={@station.moves != []} class="session-circuit-moves">
+        <li :for={move <- @station.moves}>
+          <%= case Session.link(move) do %>
+            <% {slug, name} -> %>
+              <button
+                type="button"
+                class="session-card-name session-circuit-move"
+                phx-click="show_figure"
+                phx-value-slug={slug}
+              >
+                {name}
+              </button>
+              <span class="session-circuit-dose">{Session.inline(Session.detail(move))}</span>
+            <% nil -> %>
+              <span class="session-circuit-dose">{Session.inline(move)}</span>
+          <% end %>
+        </li>
+      </ul>
     </div>
     """
   end
@@ -287,6 +325,7 @@ defmodule WebWeb.FitnessLive.SessionView do
         sets: sets,
         log: log,
         chips?: Session.chips?(plan),
+        log_button?: not (Session.chips?(plan) or done?(plan) or log_quick?(plan, assigns.item)),
         plates: plates(assigns.item, plan, sets, assigns.gym),
         level: plan.verdict |> elem(0) |> to_string()
       )
@@ -304,6 +343,7 @@ defmodule WebWeb.FitnessLive.SessionView do
           {@name}
         </button>
         <button
+          :if={@log_button?}
           type="button"
           class="log-trigger session-card-log"
           phx-click="open_log"
@@ -316,7 +356,7 @@ defmodule WebWeb.FitnessLive.SessionView do
         {Session.inline(Session.detail(@item.text))}
       </p>
       <p :if={@plan[:last_line]} class="session-card-last">Last, {@plan.last_line}</p>
-      <p :if={@plan.hint} class="session-card-hint">{@plan.hint}</p>
+      <p :if={advice(@plan.hint)} class="session-card-hint">{advice(@plan.hint)}</p>
       <p :if={@plan.guard} class={"session-card-guard log-guard log-guard--#{@level}"}>
         {@plan.guard}<span :if={@plan.instead}>. Instead: {@plan.instead}</span>
       </p>
@@ -327,11 +367,7 @@ defmodule WebWeb.FitnessLive.SessionView do
       <% else %>
         <p class="session-card-actions">
           <button
-            :if={
-              (@plan.prescription.kind in [:hold, :carry, :swim] or
-                 (@plan.prescription.kind == :timed and is_integer(@plan.prescription.seconds))) and
-                elem(@plan.verdict, 0) != :stop
-            }
+            :if={done?(@plan)}
             type="button"
             class="log-quick"
             phx-click="log_planned"
@@ -341,11 +377,7 @@ defmodule WebWeb.FitnessLive.SessionView do
             Done
           </button>
           <button
-            :if={
-              (@item[:komoot] || []) == [] and
-                (@plan.prescription.kind in [:laps, :trial] or
-                   (@plan.prescription.kind == :timed and is_nil(@plan.prescription.seconds)))
-            }
+            :if={log_quick?(@plan, @item)}
             type="button"
             class="log-quick"
             phx-click="open_log"
@@ -364,6 +396,31 @@ defmodule WebWeb.FitnessLive.SessionView do
     </article>
     """
   end
+
+  # A card's own quick way to log. With neither, and no chips, it keeps the
+  # plain Log button.
+  defp done?(%{prescription: p, verdict: verdict}) do
+    (p.kind in [:hold, :carry, :swim] or (p.kind == :timed and is_integer(p.seconds))) and
+      elem(verdict, 0) != :stop
+  end
+
+  defp log_quick?(%{prescription: p}, item) do
+    (item[:komoot] || []) == [] and
+      (p.kind in [:laps, :trial] or (p.kind == :timed and is_nil(p.seconds)))
+  end
+
+  # The line under "Last": what the block says next. The last time itself is
+  # already on the card, so a hint's own "Last" part is dropped.
+  defp advice(nil), do: nil
+
+  defp advice("Last" <> _ = hint) do
+    case String.split(hint, " → ", parts: 2) do
+      [_last, next] -> next
+      _ -> nil
+    end
+  end
+
+  defp advice(hint), do: hint
 
   # What goes on the bar for the weight being lifted (today's last set, else
   # the next one), and the warm-up ramp where the line asks for one.
@@ -713,9 +770,6 @@ defmodule WebWeb.FitnessLive.SessionView do
         </ul>
         <p :if={@summary.missed != []} class="session-summary-missed">
           Not finished: {Enum.join(@summary.missed, ", ")}
-        </p>
-        <p :if={@summary.checkin != []} class="session-summary-checkin">
-          Check-in: {Enum.join(@summary.checkin, " · ")}
         </p>
       </div>
     </div>

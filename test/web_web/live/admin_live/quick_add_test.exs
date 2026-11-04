@@ -37,15 +37,11 @@ defmodule WebWeb.AdminLive.QuickAddTest do
     assert Web.Fitness.list_exercise_logs() == []
   end
 
-  test "today's check-in is saved from its tab", %{conn: conn} do
+  test "there is no check-in tab, and its old address opens the log", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/quick?tab=checkin")
 
-    view
-    |> form("#quick-checkin", checkin: %{answers: %{shoulder: "sore"}})
-    |> render_submit()
-
-    assert has_element?(view, "#flash-info", "Check-in saved.")
-    assert %{answers: %{"shoulder" => "sore"}} = Web.Fitness.checkin_on(Web.Clock.local_today())
+    refute has_element?(view, ~s(a[href="/admin/quick?tab=checkin"]))
+    refute has_element?(view, "#quick-checkin")
   end
 
   test "a note becomes one dated line in the private inbox", %{conn: conn} do

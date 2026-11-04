@@ -75,13 +75,13 @@ defmodule Web.Fitness.TrainingTest do
     assert Training.acwr(rows, "push", ~D[2026-11-22]) == nil
   end
 
-  # Tuesday plans the dips (3 sets), Thursday the RDL (3 sets).
+  # One session plans the dips (3 sets), the other the RDL (3 sets).
   @plan %{
-    2 => %{slugs: MapSet.new(["weighted-dips"]), sets: 3, minutes: 60},
-    4 => %{slugs: MapSet.new(["hexbar-rdl", "push-ups"]), sets: 6, minutes: 75}
+    "upper" => %{slugs: MapSet.new(["weighted-dips"]), sets: 3, minutes: 60},
+    "lower" => %{slugs: MapSet.new(["hexbar-rdl", "push-ups"]), sets: 6, minutes: 75}
   }
 
-  test "compliance counts the planned days and sets done each week" do
+  test "compliance counts the planned sessions and sets done each week" do
     rows =
       entries([
         log(1, ~D[2026-10-29], "hexbar-rdl", %{"weight" => "200", "sets" => "3", "reps" => "5"}),

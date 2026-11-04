@@ -97,11 +97,11 @@ defmodule Web.Fitness.ExportTest do
 
     assert header ==
              "date,week_num,year,quarter,month,weekday,start_local,sport,kind,tt," <>
-               "distance_miles,duration_min,moving_min,avg_mph,ascent_ft,kcal,avg_hr,max_hr"
+               "distance_miles,duration_min,moving_min,avg_mph,ascent_ft,kcal"
 
     assert tt ==
-             "2026-10-22,43,2026,4,10,Thu,06:00,racebike,bike,TRUE,15.0,60.0,58.33,14.99,328.08,500,NA,NA"
+             "2026-10-22,43,2026,4,10,Thu,06:00,racebike,bike,TRUE,15.0,60.0,58.33,14.99,328.08,500"
 
-    assert hike == "2026-10-25,43,2026,4,10,Sun,10:00,hike,hike,FALSE,5.0,NA,NA,NA,NA,NA,NA,NA"
+    assert hike == "2026-10-25,43,2026,4,10,Sun,10:00,hike,hike,FALSE,5.0,NA,NA,NA,NA,NA"
   end
 end

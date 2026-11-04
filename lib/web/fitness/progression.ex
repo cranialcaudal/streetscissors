@@ -71,7 +71,9 @@ defmodule Web.Fitness.Progression do
   """
   def next_target(rule, logs, block)
 
-  def next_target(_rule, _logs, %{phase: phase}) when phase in ["Setup", "Baseline"], do: nil
+  def next_target(_rule, _logs, %{phase: phase}) when phase in ["Setup", "Base", "Baseline"],
+    do: nil
+
   def next_target(%{increment: inc}, _logs, _block) when inc <= 0, do: nil
 
   def next_target(%{} = rule, logs, %{} = block) do
@@ -107,6 +109,9 @@ defmodule Web.Fitness.Progression do
       cond do
         target ->
           "Target: " <> String.replace(target_line(target), " x ", "×") <> rule_note(rule, target)
+
+        block && block.phase == "Base" ->
+          "Rehearsal: leave 4 in reserve (RPE 6)"
 
         block && block.phase in ["Setup", "Baseline"] ->
           "#{block.phase}: find a weight that leaves 3 in reserve (RPE 7)"

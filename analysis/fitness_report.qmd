@@ -1,5 +1,5 @@
 ---
-title: "Get Sharp — the week's numbers"
+title: "The week's numbers"
 format:
   html:
     embed-resources: true

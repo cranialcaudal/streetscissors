@@ -59,7 +59,7 @@ defmodule Web.Fitness.Coach do
       guard: Guardrails.line(verdict),
       instead: if(stopped?, do: Guardrails.substitute(block, slug)),
       hint: if(stopped?, do: nil, else: hint(rule, last_log, last, target, block, prescription)),
-      defaults: defaults(prescription, last, target),
+      defaults: defaults(prescription, start_from(last, last_log, prescription), target),
       last_line: last_line(logs, date)
     }
   end
@@ -95,6 +95,28 @@ defmodule Web.Fitness.Coach do
   end
 
   defp hint(rule, _log, last, target, block, _p), do: Progression.hint(rule, last, target, block)
+
+  # A last entry whose top set is short of the plan's reps is no start: a ramp
+  # to one heavy rep must not open "2 x 5, light" at that weight. The plan keeps
+  # its sets and reps, and the weight is the heaviest set that reached them.
+  defp start_from(nil, _log, _prescription), do: nil
+
+  defp start_from(last, log, prescription) do
+    planned = plan_reps(prescription.reps)
+
+    if is_integer(planned) and is_integer(last.reps) and last.reps < planned,
+      do: %{last | sets: nil, reps: nil, weight: heaviest_at(log, planned) || last.weight},
+      else: last
+  end
+
+  defp heaviest_at(%{metrics: %{"set_list" => sets}}, reps) when is_list(sets) do
+    sets
+    |> Enum.filter(&(is_number(&1["w"]) and is_integer(&1["r"]) and &1["r"] >= reps))
+    |> Enum.map(& &1["w"])
+    |> Enum.max(fn -> nil end)
+  end
+
+  defp heaviest_at(_log, _reps), do: nil
 
   @doc """
   What the form starts from: the target, else the last entry, else the plan.

@@ -17,7 +17,7 @@ defmodule WebWeb.FitnessLandingTest do
 
       assert html =~ "weekly-routine"
       assert html =~ ~s(class="day-details day-page" data-day="#{today}")
-      assert html =~ "Optional add-ons"
+      assert html =~ "Extras"
 
       for other <- @weekdays -- [today] do
         refute html =~ ~s(data-day="#{other}")
@@ -30,8 +30,35 @@ defmodule WebWeb.FitnessLandingTest do
       {:ok, _view, html} = live(conn, ~p"/fitness/day/#{other}")
 
       assert html =~ ~s(class="day-details day-page" data-day="#{other}")
-      assert html =~ "Not today"
-      assert html =~ "Today is #{String.capitalize(Web.Clock.today_slug())}"
+      assert html =~ "Back to today"
+    end
+
+    test "the week rail lists all seven days and marks the one open", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+
+      assert view
+             |> element(".week-rail")
+             |> render()
+             |> String.split("week-rail-link")
+             |> length() >= 8
+
+      assert has_element?(view, ~s(.week-rail a[aria-current="page"]), "Tuesday")
+
+      assert has_element?(
+               view,
+               ".week-rail a.is-today",
+               String.capitalize(Web.Clock.today_slug())
+             )
+    end
+
+    test "a visitor keeps the plain plan and their ticks, and no other session",
+         %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/fitness/day/tuesday")
+
+      assert html =~ "vault-day"
+      assert has_element?(view, "#reset-ticks", "Clear my ticks")
+      refute has_element?(view, "#other-sessions")
+      refute html =~ "view-toggle"
     end
 
     test "the days link to each other, today by the address that follows the clock",
@@ -60,24 +87,49 @@ defmodule WebWeb.FitnessLandingTest do
       refute has_element?(view, ~s(nav.day-strip a[title="Monday"] .day-strip-theme))
     end
 
-    test "the section's tabs lead, then the workout, then the week", %{conn: conn} do
+    test "the section's tabs lead, then the workout, and no timetable", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/fitness")
+      {tabs, _} = :binary.match(html, ~s(class="tabs"))
+      {workout, _} = :binary.match(html, "weekly-routine")
+
+      assert tabs < workout
+      refute html =~ ~s(id="the-week")
+    end
+
+    test "visitors see the plan and none of the admin's day", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/fitness")
+
+      refute has_element?(view, "#day-checkin")
+      refute has_element?(view, "#other-sessions")
+      refute html =~ "the-week"
+    end
+
+    test "any session is the admin's: a visitor is sent to /fitness", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/fitness"}}} =
+               live(conn, "/fitness/session/wednesday")
+
       {:ok, _view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/sunday")
+        conn |> init_test_session(%{"admin_user" => true}) |> live("/fitness/session/wednesday")
 
-      {wiki, _} = :binary.match(html, ~s(href="/fitness/wiki"))
-      {activities, _} = :binary.match(html, ~s(href="/fitness/rides"))
-      {strip, _} = :binary.match(html, ~s(class="day-strip"))
-      {day, _} = :binary.match(html, ~s(data-day="sunday"))
-      {week, _} = :binary.match(html, ~s(id="the-week"))
+      assert html =~ ~s(data-day="wednesday")
+    end
 
-      assert wiki < strip
-      assert activities < strip
-      assert strip < day
-      assert day < week
+    test "nothing on the admin's page scores the week", %{conn: conn} do
+      {:ok, view, html} =
+        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
+
+      assert has_element?(view, "#other-sessions", "Other sessions")
+      refute html =~ "week-totals"
+      refute html =~ ~r/day-strip-link[^"]* is-(done|part|missed|ahead|rest)/
+    end
+
+    test "a retired ?modules= address goes to today", %{conn: conn} do
+      assert {:error, {:live_redirect, %{to: "/fitness"}}} = live(conn, "/fitness?modules=cya")
     end
 
     test "a day that is not a weekday goes to today", %{conn: conn} do
-      assert {:error, {:live_redirect, %{to: "/fitness"}}} = live(conn, ~p"/fitness/day/someday")
+      assert {:error, {:live_redirect, %{to: "/fitness"}}} =
+               live(conn, ~p"/fitness/day/someday")
     end
 
     test "a day renders its checklist, modules included", %{conn: conn} do
@@ -141,9 +193,9 @@ defmodule WebWeb.FitnessLandingTest do
     # answered "not wired up for logging".
     setup %{conn: conn} do
       conn = init_test_session(conn, %{"admin_user" => true})
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday?view=list")
 
-      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+      render_click(view, "open_log", %{"slug" => "push-ups"})
 
       %{view: view, conn: conn}
     end
@@ -192,13 +244,24 @@ defmodule WebWeb.FitnessLandingTest do
       assert date == Web.Clock.local_today()
     end
 
-    test "the form opens on the last entry, the number to beat", %{view: view, conn: conn} do
-      view |> form("form[phx-submit=save_log]", log: %{result: "3 x 12"}) |> render_submit()
+    test "the form opens on the last time, the number to beat, and today is not last time",
+         %{view: view, conn: conn} do
+      {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
 
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
-      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+      {:ok, _} =
+        Web.Fitness.create_exercise_log(%{
+          exercise_id: exercise.id,
+          date: Date.add(Web.Clock.local_today(), -2),
+          metrics: %{"result" => "3 x 12"}
+        })
+
+      view |> form("form[phx-submit=save_log]", log: %{result: "3 x 15"}) |> render_submit()
+
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday?view=list")
+      render_click(view, "open_log", %{"slug" => "push-ups"})
 
       assert has_element?(view, ".log-modal-last", "3 x 12")
+      refute has_element?(view, ".log-modal-last", "3 x 15")
     end
 
     test "Done logs the planned set in one tap", %{view: view} do
@@ -252,15 +315,14 @@ defmodule WebWeb.FitnessLandingTest do
     # in its Push weeks whatever day the suite runs.
     test "the block's week is shown, and a block lift's next target", %{view: view, conn: conn} do
       assert has_element?(view, ".day-page-head #block-week", "Test Block · Week")
-      assert has_element?(view, "#block-week", "Push")
       refute has_element?(view, "#log-target"), "no entry yet, so nothing to aim at"
 
       view
       |> form("form[phx-submit=save_log]", log: %{weight: "20", sets: "3", reps: "12"})
       |> render_submit()
 
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
-      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday?view=list")
+      render_click(view, "open_log", %{"slug" => "push-ups"})
 
       assert has_element?(view, "#log-target", "Target: 3 x 8 @ 25 lbs")
     end
@@ -282,10 +344,10 @@ defmodule WebWeb.FitnessLandingTest do
           answers: %{"shoulder" => "sore"}
         })
 
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
-      assert has_element?(view, "#block-guard", "Shoulder: sore")
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday?view=list")
+      refute has_element?(view, "#block-guard")
 
-      view |> element("button.log-trigger[phx-value-slug='push-ups']") |> render_click()
+      render_click(view, "open_log", %{"slug" => "push-ups"})
       assert has_element?(view, "#log-target", "Target: 3 x 8 @ 20 lbs")
       assert has_element?(view, "#log-guard", "Easy on the pressing today.")
     end
@@ -336,21 +398,6 @@ defmodule WebWeb.FitnessLandingTest do
       assert [%{id: id, metrics: %{"reps" => "10"}}] = Web.Fitness.list_exercise_logs()
       assert id == log.id
       assert has_element?(view, "#logged-today .day-logged-values", "3 x 10")
-    end
-
-    test "today's check-in is made on the day page, and holds what it guards", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
-      assert has_element?(view, "#day-checkin-form #day-check-shoulder")
-
-      view
-      |> form("#day-checkin-form", checkin: %{answers: %{shoulder: "sore", bodyweight: "180"}})
-      |> render_submit()
-
-      assert has_element?(view, "#flash-info", "Check-in saved.")
-      assert has_element?(view, "#block-guard", "Shoulder: sore")
-
-      assert %{answers: %{"shoulder" => "sore", "bodyweight" => "180"}} =
-               Web.Fitness.checkin_on(Web.Clock.local_today())
     end
 
     test "a name the wiki does not have is refused, and makes no row", %{view: view} do
@@ -452,7 +499,7 @@ defmodule WebWeb.FitnessLandingTest do
   describe "a circuit, as the admin" do
     setup %{conn: conn} do
       conn = init_test_session(conn, %{"admin_user" => true})
-      {:ok, view, _html} = live(conn, ~p"/fitness/day/thursday")
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/thursday?view=list")
       %{view: view}
     end
 
@@ -465,6 +512,14 @@ defmodule WebWeb.FitnessLandingTest do
 
       refute has_element?(view, "button.log-trigger[phx-value-slug='push-ups']")
       refute has_element?(view, "#sets-push-ups")
+
+      assert has_element?(
+               view,
+               ".session-circuit-moves button[phx-value-slug='push-ups']",
+               "Push-Ups"
+             )
+
+      assert has_element?(view, ".session-circuit-dose", "3 x 10")
     end
 
     test "Finish logs the circuit once: rounds, time and the bell", %{view: view} do
@@ -549,7 +604,7 @@ defmodule WebWeb.FitnessLandingTest do
       refute has_element?(view, "#log-target")
 
       refute html =~ "log-set"
-      refute html =~ "data-log-ticks"
+      refute html =~ "data-keep-awake"
       render_click(view, "set_done", %{"slug" => "push-ups"})
       assert length(Web.Fitness.list_exercise_logs()) == 1
 
@@ -558,65 +613,12 @@ defmodule WebWeb.FitnessLandingTest do
       render_click(view, "edit_log", %{"id" => to_string(log.id)})
       refute has_element?(view, "form[phx-submit=save_log]")
 
-      # Nobody else checks in, or sees that there is a check-in.
-      refute has_element?(view, "#day-checkin")
-      render_submit(view, "save_checkin", %{"checkin" => %{"answers" => %{"shoulder" => "hurt"}}})
-      assert Web.Fitness.checkin_on(Web.Clock.local_today()) == nil
       render_click(view, "delete_log", %{"id" => to_string(log.id)})
 
       assert [%{metrics: %{"result" => "3 x 12"}}] = Web.Fitness.list_exercise_logs()
     end
   end
 
-  describe "The Week" do
-    test "renders every day, each a link to its page, with today marked", %{conn: conn} do
-      {:ok, _view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
-
-      assert Regex.scan(~r/data-week-day="/, html) |> length() == 7
-      assert html =~ ~s(data-week-day="#{Web.Clock.today_slug()}" class="week-row is-today")
-      assert week_section(html) =~ ~s(href="/fitness/day/thursday")
-    end
-
-    # /fitness is public: visitors get neither the shape of the week nor when.
-    test "visitors are not shown the week at all", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/fitness")
-
-      refute html =~ ~s(id="the-week")
-      refute html =~ "Morning Spin"
-      refute html =~ "week-track"
-      refute html =~ "week-chips"
-    end
-
-    test "the admin sees the timed view", %{conn: conn} do
-      {:ok, _view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness/day/tuesday")
-
-      [head] = Regex.run(~r{<header class="day-page-head">.*?</header>}s, html)
-      assert head =~ "6:45–7:30"
-
-      section = week_section(html)
-
-      assert section =~ "week-track"
-      assert section =~ "week-axis"
-      assert section =~ "6:45–7:30"
-    end
-  end
-
-  defp count_chips(html, marker), do: html |> String.split(marker) |> length() |> Kernel.-(1)
-
-  defp week_section(html) do
-    [section] = Regex.run(~r{<section id="the-week".*?</section>}s, html)
-    section
-  end
-
-  # `data-option` is "<day>_option_<n>".
-  defp option_count(html, day) do
-    Regex.scan(~r/data-option="#{day}_option_\d+"/, html) |> length()
-  end
-
-  # The landing used to sit the regimen beside a latest-ride card; it is now
-  # regimen-only, and rides are reachable solely through the subnav tab.
   test "landing shows no ride card, only the Activities tab", %{conn: conn} do
     ride = ride_fixture(%{name: "Morning spin"})
 
@@ -627,5 +629,16 @@ defmodule WebWeb.FitnessLandingTest do
     refute html =~ "/fitness/rides/#{ride.id}"
     assert html =~ "Activities"
     assert html =~ ~s(href="/fitness/rides")
+  end
+
+  # The weekend is modules with no day attached, so a day the vault has no file
+  # for is not an error: it has no plan page, and /fitness falls back to the
+  # picker rather than redirecting to itself for ever.
+
+  defp count_chips(html, marker), do: html |> String.split(marker) |> length() |> Kernel.-(1)
+
+  # `data-option` is "<day>_option_<n>".
+  defp option_count(html, day) do
+    Regex.scan(~r/data-option="#{day}_option_\d+"/, html) |> length()
   end
 end

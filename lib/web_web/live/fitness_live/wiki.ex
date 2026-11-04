@@ -85,9 +85,9 @@ defmodule WebWeb.FitnessLive.Wiki do
     ~H"""
     <div class="blog-bento-wrapper steel">
       <!-- Header -->
-      <header class="blog-header-card">
-        <h1 class="blog-header-title">Fitness & Sport</h1>
-        <div class="blog-header-subtitle">Pro sports, amateur training & movement science</div>
+      <header class="page-head">
+        <h1 class="page-title">Fitness & Sport</h1>
+        <p class="page-eyebrow">Pro sports, amateur training & movement science</p>
       </header>
 
       <!-- Section Navigation -->

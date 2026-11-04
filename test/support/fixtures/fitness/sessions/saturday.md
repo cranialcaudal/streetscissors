@@ -1,6 +1,8 @@
 ---
 title: Saturday — Long Ride
 tab: Saturday
+kind: lift
+minutes: 60
 ---
 
 ## Long Ride
