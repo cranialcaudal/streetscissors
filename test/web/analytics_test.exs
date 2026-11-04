@@ -87,7 +87,7 @@ defmodule Web.AnalyticsTest do
       })
     end
 
-    test "old hits go, but a post's readers stay witnessed" do
+    test "old hits go, but a post's readers stay viewed" do
       now = ~N[2026-10-20 12:00:00]
       hit_at("/blog/old-post", "early-reader", 500, now)
       hit_at("/blog/old-post", "recent-reader", 3, now)
@@ -128,6 +128,37 @@ defmodule Web.AnalyticsTest do
       bare = :crypto.hash(:sha256, "203.0.113.7") |> Base.encode16()
 
       refute Analytics.hash_ip("203.0.113.7") == bare
+    end
+  end
+
+  describe "visitors_by_page/2" do
+    alias Web.Analytics.Hit
+
+    test "the same person reading twice is one visitor" do
+      Repo.insert!(%Hit{path: "/blog/bare-post", ip_hash: "same"})
+      Repo.insert!(%Hit{path: "/blog/bare-post", ip_hash: "same"})
+
+      assert %{"/blog/bare-post" => visitors} = Analytics.visitors_by_page(["/blog/%"])
+      assert MapSet.size(visitors) == 1
+    end
+
+    test "the spellings of one address share one set of visitors" do
+      Repo.insert!(%Hit{path: "/blog/bare-post", ip_hash: "reader"})
+      Repo.insert!(%Hit{path: "/blog/bare-post?from=feed", ip_hash: "reader"})
+      Repo.insert!(%Hit{path: "/blog/bare%2Dpost", ip_hash: "other"})
+
+      assert Analytics.visitors_by_page(["/blog/%"]) ==
+               %{"/blog/bare-post" => MapSet.new(["reader", "other"])}
+    end
+
+    test "a hit before `since` does not count" do
+      old =
+        NaiveDateTime.add(NaiveDateTime.utc_now(), -10 * 86_400)
+        |> NaiveDateTime.truncate(:second)
+
+      Repo.insert!(%Hit{path: "/blog/bare-post", ip_hash: "x", inserted_at: old})
+      since = Web.Clock.local_today() |> Date.add(-6) |> Analytics.day_start_utc()
+      assert Analytics.visitors_by_page(["/blog/%"], since) == %{}
     end
   end
 

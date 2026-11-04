@@ -23,9 +23,9 @@
           Most Recent
         </a>
         <a
-          href={blog_query("witnessed", @keyword)}
-          class={["writing-chip", @sort == "witnessed" && "is-active"]}
-          aria-current={@sort == "witnessed" && "true"}
+          href={blog_query("viewed", @keyword)}
+          class={["writing-chip", @sort == "viewed" && "is-active"]}
+          aria-current={@sort == "viewed" && "true"}
         >
           Most viewed
         </a>
@@ -98,7 +98,7 @@
 
       <section :if={rest != []} class="writing-contents" aria-labelledby="writing-contents-title">
         <h2 id="writing-contents-title" class="writing-contents-title">
-          {if @sort == "witnessed", do: "More", else: "Earlier"}
+          {if @sort == "viewed", do: "More", else: "Earlier"}
         </h2>
         <ol class="writing-contents-list">
           <%!-- The title's link stretches over the whole row (see

@@ -280,42 +280,41 @@ defmodule Web.Logs do
   and scrubbing adds nothing. `<video>` and `<audio>` both drive it, so the
   same hook serves either kind.
 
-  Watching again is another view, but not at once: `witness` is an anonymous
+  Watching again is another view, but not at once: `viewer` is an anonymous
   token the browser keeps for itself, and a browser with a view of this log
   in the last 30 minutes is `:throttled`, so a loop or a reload cannot run
   the figure up. A missing or malformed token is `:ignored`, never counted.
   Nothing about the viewer's address is kept.
   """
-  def record_play(audio_log_id, witness, user_agent \\ nil)
+  def record_play(audio_log_id, viewer, user_agent \\ nil)
 
-  def record_play(audio_log_id, witness, user_agent) when is_binary(witness) do
+  def record_play(audio_log_id, viewer, user_agent) when is_binary(viewer) do
     cond do
-      not Regex.match?(~r/\A[A-Za-z0-9-]{8,64}\z/, witness) ->
+      not Regex.match?(~r/\A[A-Za-z0-9-]{8,64}\z/, viewer) ->
         :ignored
 
-      viewed_recently?(audio_log_id, witness) ->
+      viewed_recently?(audio_log_id, viewer) ->
         :throttled
 
       true ->
         %Play{}
         |> Play.changeset(%{
           audio_log_id: audio_log_id,
-          witness: witness,
+          viewer: viewer,
           user_agent: user_agent
         })
         |> Repo.insert()
     end
   end
 
-  def record_play(_audio_log_id, _witness, _user_agent), do: :ignored
+  def record_play(_audio_log_id, _viewer, _user_agent), do: :ignored
 
-  defp viewed_recently?(audio_log_id, witness) do
+  defp viewed_recently?(audio_log_id, viewer) do
     since = NaiveDateTime.add(NaiveDateTime.utc_now(), -@view_window)
 
     Repo.exists?(
       from p in Play,
-        where:
-          p.audio_log_id == ^audio_log_id and p.witness == ^witness and p.inserted_at > ^since
+        where: p.audio_log_id == ^audio_log_id and p.viewer == ^viewer and p.inserted_at > ^since
     )
   end
 

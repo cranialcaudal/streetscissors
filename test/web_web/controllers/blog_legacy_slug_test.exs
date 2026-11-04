@@ -55,7 +55,7 @@ defmodule WebWeb.BlogLegacySlugTest do
     assert html =~ "2 views"
   end
 
-  test "one reader at both addresses is one witness", %{conn: conn, dir: dir} do
+  test "one reader at both addresses is one viewer", %{conn: conn, dir: dir} do
     write_post(dir, "tides-out.md")
 
     Web.Analytics.record_hit("/blog/Tide%27s%20Out", "Firefox", "visitor-a")

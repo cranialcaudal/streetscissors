@@ -18,7 +18,7 @@ Every unfamiliar word is explained the first time it appears, and again in the g
 
 If you use social media, you already know how to use this site.
 
-A feed gives you four things: a place to put photographs, a place to put words, a way for people to find them, and a way to know they were seen. This site does all four. The photographs live under `/negatives`. The written words live under `/blog`, and the spoken ones under `/logs`. One set of keywords finds things everywhere, and every piece carries its count of witnesses. If all you want is to look at the work, that is the whole manual; the rest of this page is for people who want to know how the thing is built, and for people who want to build one like it.
+A feed gives you four things: a place to put photographs, a place to put words, a way for people to find them, and a way to know they were seen. This site does all four. The photographs live under `/negatives`. The written words live under `/blog`, and the spoken ones under `/logs`. One set of keywords finds things everywhere, and every piece carries its count of viewers. If all you want is to look at the work, that is the whole manual; the rest of this page is for people who want to know how the thing is built, and for people who want to build one like it.
 
 The difference between this and a feed is not what it does. It is what it refuses to do, and the refusal is the entire point. The first post on this site argued it directly: social media stays in business by fragmenting you. It asks for the profile, the story, the reel, the thread; one person cut into formats, each owned by somebody else, each training you to watch yourself the way the platform watches you. To see an image in parts, the post said, is to never see it at all.
 
@@ -28,7 +28,7 @@ This site is that argument, built:
 
 **Owned, not rented.** It runs on a computer in a house, not in a data centre. There is no account to be suspended and no terms that can change under you. The automated scrapers that feed the large models are refused at the door. The software is free for anyone to take; the work on it belongs to its maker.
 
-**Shown, not fed.** The indexes sort by most recent or most witnessed, and you choose which. No feed decides what you see next, and no metric tells the writer what to make more of. The guestbook takes signed messages, not likes.
+**Shown, not fed.** The indexes sort by most recent or most viewed, and you choose which. No feed decides what you see next, and no metric tells the writer what to make more of. The guestbook takes signed messages, not likes.
 
 **Answered, not commented.** A feed is also how people keep up with each other and reply, so the site does that too, on its own terms:
 
@@ -89,8 +89,8 @@ Three of those deserve a note.
 **`/blog` and `/logs` are siblings, not parent and child.** The blog is written
 work; the logs are spoken work. They are separate systems that happen to share
 one vocabulary; see *Keywords* in Part 4. Both can be sorted by **most recent**
-or by their count: **most witnessed** for the blog, which means most read, and
-**most viewed** for the logs.
+or by **most viewed**: for the blog that means read by the most people, for
+the logs watched the most times.
 
 **`/pc` is a joke that tells the truth.** It looks like an old DOS prompt. Type
 `roll007` and press Enter and it takes you to that roll of film. It works
@@ -1039,7 +1039,7 @@ bottom. If one child dies, only that child is restarted.
 | 5 | `Finch` | The HTTP connection pool mail is sent through |
 | 6 | `Task.Supervisor` | A place to run one-off background tasks, such as recording a page view |
 | 7 | `Web.RateLimit` | Owns the table that counts login attempts and form posts. Must exist before any request arrives |
-| 8 | `Web.Happening` | The homepage's "Happening" section, kept ten minutes |
+| 8 | `Web.Happening` | The homepage's newest work, kept ten minutes |
 | 9 | `Web.Blog.Cache` | Each post as last read, until its file changes |
 | 10 | `Web.Komoot.Auth` | Remembers the Komoot login between hourly syncs |
 | 11 | `Oban` | The job queue |
@@ -2712,12 +2712,12 @@ almost nothing; all styling on this site is written by hand.
 **Vault**: The `content/` folder: the writing and the training notes, as plain
 Markdown files that Obsidian can open.
 
+**Views**: The count each piece carries. A post's views are the different
+people who have read it; a captain's log gets one each time it is watched or
+listened to for thirty seconds or more. Both indexes can be sorted by them.
+
 **WAL**: Write-ahead log. SQLite's way of letting readers and a writer work at
 once, by keeping recent writes in a second file beside the database.
 
 **Webmention**: A way for one website to tell another that it has linked to
 it, with no platform in between.
-
-**Witnessed**: This site's word for how many people have read a piece.
-`/blog` can be sorted by it. A captain's log has **views** instead: one each
-time it is watched or listened to for thirty seconds or more.

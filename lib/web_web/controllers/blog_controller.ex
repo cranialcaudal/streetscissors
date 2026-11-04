@@ -149,13 +149,13 @@ defmodule WebWeb.BlogController do
       else: %{newer: nil, older: nil}
   end
 
-  defp parse_sort("witnessed"), do: "witnessed"
-  # the word a reader sees; the older address still answers
-  defp parse_sort("viewed"), do: "witnessed"
+  defp parse_sort("viewed"), do: "viewed"
+  # The sort's old name, kept for old links.
+  defp parse_sort("witnessed"), do: "viewed"
   defp parse_sort(_), do: "recent"
 
   # list_posts/0 already returns newest first, so "recent" is the identity.
-  defp sort_posts(posts, "witnessed"), do: Enum.sort_by(posts, & &1.hit_count, :desc)
+  defp sort_posts(posts, "viewed"), do: Enum.sort_by(posts, & &1.hit_count, :desc)
   defp sort_posts(posts, _), do: posts
 
   # A filter that normalizes to nothing (punctuation, blanks) is no filter.
@@ -171,9 +171,9 @@ defmodule WebWeb.BlogController do
   # View counts keyed by clean slug. Merges the pre-rename /manuscripts prefix,
   # and folds a post's old title-shaped address ("/blog/Tide's%20Out")
   # into its clean one, so historical hits survive both moves. A count is
-  # witnesses, not page loads: the visitor sets are unioned across every
+  # viewers, not page loads: the visitor sets are unioned across every
   # address a post has lived at, so someone who read it at two of them — or
-  # ten times at one — witnessed it once.
+  # ten times at one — viewed it once.
   defp hit_counts do
     Map.merge(
       Web.Analytics.visitors_by_prefix("/manuscripts/latent-sensus/%"),

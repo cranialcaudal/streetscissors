@@ -264,12 +264,13 @@ defmodule WebWeb.LogEntry do
           if (this.watched < needed) return
 
           this.counted = true
-          this.pushEvent("track_play", { id: this.el.dataset.logId, witness: this.witness() })
+          this.pushEvent("track_play", { id: this.el.dataset.logId, viewer: this.viewer() })
         },
 
         // An anonymous token this browser keeps for itself — random, and
         // nothing about the person. If storage is blocked it lasts the page.
-        witness() {
+        // The key keeps its old name so tokens already stored stay valid.
+        viewer() {
           const key = "streetscissors_witness"
           const fresh = () =>
             (crypto.randomUUID && crypto.randomUUID()) ||
@@ -285,8 +286,8 @@ defmodule WebWeb.LogEntry do
             }
             return token
           } catch (_error) {
-            this.pageWitness = this.pageWitness || fresh()
-            return this.pageWitness
+            this.pageViewer = this.pageViewer || fresh()
+            return this.pageViewer
           }
         },
 

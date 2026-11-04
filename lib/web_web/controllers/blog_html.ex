@@ -17,7 +17,7 @@ defmodule WebWeb.BlogHTML do
   """
   def blog_query(sort, keyword) do
     params =
-      [{"sort", if(sort == "witnessed", do: "viewed")}, {"keyword", keyword}]
+      [{"sort", if(sort == "viewed", do: "viewed")}, {"keyword", keyword}]
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
     if params == [], do: "/blog", else: "/blog?" <> URI.encode_query(params)
@@ -37,7 +37,7 @@ defmodule WebWeb.BlogHTML do
       <span class="writing-meta-dot" aria-hidden="true">·</span>
       <span>{@post.read_min} min read</span>
       <span class="writing-meta-dot" aria-hidden="true">·</span>
-      <span title="How many different people have read it">{witnessed(@post.hit_count)}</span>
+      <span title="How many different people have read it">{viewed(@post.hit_count)}</span>
     </p>
     """
   end
@@ -95,17 +95,17 @@ defmodule WebWeb.BlogHTML do
   defp result_text(count, keyword, sort) do
     noun = if count == 1, do: "1 post", else: "#{count} posts"
     filter = if keyword, do: " filed under #{keyword}", else: ""
-    order = if sort == "witnessed", do: "most viewed first", else: "newest first"
+    order = if sort == "viewed", do: "most viewed first", else: "newest first"
 
     "Showing #{noun}#{filter}, #{order}"
   end
 
-  @doc "The figure a contents row shows: read time, or witnesses when sorted by them."
-  def contents_figure(post, "witnessed"), do: witnessed(post.hit_count)
+  @doc "The figure a contents row shows: read time, or viewers when sorted by them."
+  def contents_figure(post, "viewed"), do: viewed(post.hit_count)
   def contents_figure(post, _sort), do: "#{post.read_min} min"
 
-  # Witnesses, not page loads — the same word, and the same count, as the logs.
+  # Distinct viewers, not page loads. Logs say "views" too, counted per play.
   # A reader sees "views", as on the logs; what is counted is still people.
-  defp witnessed(1), do: "1 view"
-  defp witnessed(count), do: "#{count} views"
+  defp viewed(1), do: "1 view"
+  defp viewed(count), do: "#{count} views"
 end

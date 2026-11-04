@@ -17,7 +17,7 @@ The file-on-disk model stays the source of truth throughout: every admin tool wr
 
 Most of the foundation is already built.
 
-- **Writing.** The blog is markdown on disk, with frontmatter, keywords, reading time and photo and ride embeds. The keywords filter both the blog and the captain's logs, and both sort by most recent or most witnessed.
+- **Writing.** The blog is markdown on disk, with frontmatter, keywords, reading time and photo and ride embeds. The keywords filter both the blog and the captain's logs, and both sort by most recent or most viewed.
 - **Captain's logs.** They are recorded in the browser, transcoded on the server into one progressive file, and served straight off disk.
 - **Negatives.** The archive has a sheet view, an index, a frame view and grease-pencil marks.
 - **Fitness.** The regimen and its exercise wiki are read from the vault. The activities page mirrors every recorded Komoot tour every hour, drawn by Komoot's own embed.
@@ -66,7 +66,7 @@ The vault was the one thing on the site that could not be rebuilt from somewhere
 
 ## 5. Public reading
 
-- **Index parity:** done. The blog and the logs behave alike: newest first, most witnessed or most viewed, and keyword filters.
+- **Index parity:** done. The blog and the logs behave alike: newest first or most viewed, and keyword filters.
 - **Cross-links.** A post can gather related frames, and a log can point at the post it belongs with, without hand-written HTML. (Every piece already links to its day.)
 - **Reading polish.**
   - Done: the 404 page reads the address that missed and offers the nearest real work: the post with the closest name, the rolls nearest that number, the recordings nearest that day. It is also one whole styled page however the miss came about; an unknown address used to get a bare, unstyled block.

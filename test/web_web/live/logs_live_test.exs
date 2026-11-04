@@ -114,7 +114,7 @@ defmodule WebWeb.LogsLiveTest do
 
       # Playing the featured entry must not pull it out of the theater
       # mid-play, which is exactly what re-sorting on every play did.
-      render_hook(view, "track_play", %{"id" => to_string(loud.id), "witness" => @this_browser})
+      render_hook(view, "track_play", %{"id" => to_string(loud.id), "viewer" => @this_browser})
       after_play = render(view)
 
       assert after_play =~ ~s(id="log-plate-#{loud.id}")
@@ -137,10 +137,10 @@ defmodule WebWeb.LogsLiveTest do
           do:
             render_hook(view, "track_play", %{
               "id" => to_string(first.id),
-              "witness" => @this_browser
+              "viewer" => @this_browser
             })
 
-      render_hook(view, "track_play", %{"id" => to_string(second.id), "witness" => @this_browser})
+      render_hook(view, "track_play", %{"id" => to_string(second.id), "viewer" => @this_browser})
 
       assert Logs.get_play_count(first.id) == 1
       assert Logs.get_play_count(second.id) == 2
@@ -315,7 +315,7 @@ defmodule WebWeb.LogsLiveTest do
     end
 
     # The hook owns the plate once it mounts. Without `ignore`, the patch that
-    # counts a witness would put the plate's class back and reset the player.
+    # counts a viewer would put the plate's class back and reset the player.
     test "LiveView leaves the plate to the player", %{conn: conn} do
       log = log_fixture(kind: "video", media_dir: "2026-09-18-abc12345")
 
@@ -378,7 +378,7 @@ defmodule WebWeb.LogsLiveTest do
       other = log_fixture(recorded_on: ~D[2026-01-01])
 
       {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
-      render_hook(view, "track_play", %{"id" => to_string(other.id), "witness" => @this_browser})
+      render_hook(view, "track_play", %{"id" => to_string(other.id), "viewer" => @this_browser})
 
       assert Logs.get_play_count(log.id) == 1
       assert Logs.get_play_count(other.id) == 0
@@ -389,15 +389,15 @@ defmodule WebWeb.LogsLiveTest do
       conn = Plug.Test.init_test_session(conn, admin_user: true)
 
       {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
-      render_hook(view, "track_play", %{"id" => to_string(log.id), "witness" => @this_browser})
+      render_hook(view, "track_play", %{"id" => to_string(log.id), "viewer" => @this_browser})
 
       {:ok, index, _html} = live(conn, "/logs")
-      render_hook(index, "track_play", %{"id" => to_string(log.id), "witness" => @this_browser})
+      render_hook(index, "track_play", %{"id" => to_string(log.id), "viewer" => @this_browser})
 
       assert Logs.get_play_count(log.id) == 0
     end
 
-    test "a play with no witness token is not counted", %{conn: conn} do
+    test "a play with no viewer token is not counted", %{conn: conn} do
       log = log_fixture()
 
       {:ok, view, _html} = live(conn, "/logs/#{log.slug}")

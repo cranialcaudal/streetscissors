@@ -15,7 +15,7 @@ Phoenix 1.8 / LiveView on SQLite. Live at [streetscissors.com](https://streetsci
 | `/search` | One search across every section. Nothing is indexed: each query reads the content as it stands. |
 | `/how-to` | The manual. Rendered from [`docs/how-to.md`](docs/how-to.md), so it reads here and on the site. |
 
-`/blog` sorts by most recent or most witnessed, `/logs` by most recent or most viewed, and both filter by keyword —
+`/blog` and `/logs` sort by most recent or most viewed, and both filter by keyword —
 keywords normalise through one shared module so `"New York"` and `new-york` are one token.
 
 ## Where to start

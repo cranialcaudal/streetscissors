@@ -115,7 +115,7 @@ config :web, Web.Scheduler,
     # a lookup that cannot reach ip-api must not hold retention up.
     {"29 3 * * *", {Web.Analytics, :geo_scheduled, []}},
     # Retention for page hits: user agents go after 30 days, hits after 400,
-    # a blog post's readers kept as witnesses first (Web.Analytics.prune/0).
+    # a blog post's readers kept as viewers first (Web.Analytics.prune/0).
     {"37 3 * * *", {Web.Analytics, :run_scheduled, []}},
     # The year's essays as a book, rebuilt only when one of them changed.
     {"47 3 * * *", {Web.Daybook.Book, :run_scheduled, []}}

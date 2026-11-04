@@ -587,7 +587,7 @@
   .writing .letters,
   .writing .blog-post-draft,
   .writing .blog-embed-controls,
-  /* The reading time and the witness count are the screen's; the date stays. */
+  /* The reading time and the viewer count are the screen's; the date stays. */
   .writing .blog-post-header .writing-meta-dot,
   .writing .blog-post-header .writing-meta-dot ~ span {
     display: none !important;

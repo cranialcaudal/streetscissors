@@ -214,11 +214,11 @@ onto an existing one merges them.
   distinct `ip_hash` per page with the page's spellings unioned (`visitors_by_page/2`), and a
   day starts at Pacific midnight. Who counts at all is `WebWeb.Visitor.counted?/3`, for hits
   and log views alike.
-- **Posts are "witnessed":** distinct `ip_hash` in `analytics_hits`, across every address the post
+- **Posts are "viewed":** distinct `ip_hash` in `analytics_hits`, across every address the post
   has had.
 - **Logs have "views":** each `audio_plays` row. The `.LogPlayer` hook sends one after 30 s of real
   play (or half a short entry) and again at the end. `Logs.record_play/4` takes at most one per
-  browser (`audio_plays.witness`, an id in `localStorage`) per log per 30 min, and none from an
+  browser (`audio_plays.viewer`, an id in `localStorage`) per log per 30 min, and none from an
   admin session.
 - **Prefetch must not count:** `SEO.speculation_rules_tag/0` prefetches on hover (**never
   prerender**: that would open sockets and count views). The Analytics plug skips

@@ -19,7 +19,7 @@ defmodule Web.Analytics do
     * **a day** starts at Pacific midnight (`Web.Clock`), so a window of
       days is whole local days (`day_start_utc/1`).
 
-  Post "witnessed" counts are visitors, all time. Captain's logs count
+  Post "viewed" counts are visitors, all time. Captain's logs count
   *views* of their own kind (`Web.Logs`'s plays), which is a different
   measure and is labelled so.
   """
@@ -29,7 +29,7 @@ defmodule Web.Analytics do
   require Logger
 
   alias Web.Repo
-  alias Web.Analytics.{AccessLog, Hit, Owner, PageWitness}
+  alias Web.Analytics.{AccessLog, Hit, Owner, PageViewer}
 
   @doc """
   Salted hash of a client IP, for counting a returning visitor as one visitor
@@ -770,7 +770,7 @@ defmodule Web.Analytics do
   The visitors behind `all_hits_by_prefix/1`, as `%{slug => MapSet of
   ip_hash}`, before they are counted — so a caller merging a post's several
   addresses can union the sets and count one reader once. Readers whose hits
-  have been pruned are still here, from `PageWitness`.
+  have been pruned are still here, from `PageViewer`.
   """
   def visitors_by_prefix(prefix) do
     hits =
@@ -783,7 +783,7 @@ defmodule Web.Analytics do
       |> Repo.all()
 
     kept =
-      from(w in PageWitness, where: like(w.page, ^prefix), select: {w.page, w.ip_hash})
+      from(w in PageViewer, where: like(w.page, ^prefix), select: {w.page, w.ip_hash})
       |> countable()
       |> Repo.all()
 
@@ -796,15 +796,15 @@ defmodule Web.Analytics do
   # How long a hit keeps its user agent (needed only to purge bots that slipped
   # through), how long a hit is kept at all (the dashboard's trend reads 392
   # days), and which pages are counted for all time, so their readers are
-  # folded into PageWitness before their hits go.
+  # folded into PageViewer before their hits go.
   @agent_days 30
   @keep_days 400
-  @witnessed ["/blog/%", "/manuscripts/latent-sensus/%"]
+  @viewed ["/blog/%", "/manuscripts/latent-sensus/%"]
 
   @doc """
   Retention, nightly (`Web.Scheduler`): a hit older than #{@agent_days} days
   loses its user agent, and one older than #{@keep_days} days is deleted,
-  after a blog page's readers are folded into `PageWitness` so "witnessed"
+  after a blog page's readers are folded into `PageViewer` so "viewed"
   stays all-time. `now` is for tests. Returns what was done.
   """
   def prune(now \\ NaiveDateTime.utc_now()) do
@@ -818,23 +818,23 @@ defmodule Web.Analytics do
     Repo.transaction(fn ->
       stamp = NaiveDateTime.truncate(now, :second)
 
-      # visitors_by_page/3 already leaves the author out, but a witness row is
+      # visitors_by_page/3 already leaves the author out, but a viewer row is
       # kept for all time and no later pass revisits it, so this is said twice
       # on purpose: it is the one place where getting it wrong is permanent.
-      witnesses =
-        @witnessed
+      viewers =
+        @viewed
         |> visitors_by_page(nil, before: keep_cutoff)
         |> Enum.flat_map(fn {page, visitors} ->
           Enum.map(visitors, &%{page: page, ip_hash: &1, inserted_at: stamp})
         end)
         |> Enum.reject(&Owner.mine?(&1.ip_hash))
 
-      witnesses
+      viewers
       |> Enum.chunk_every(500)
-      |> Enum.each(&Repo.insert_all(PageWitness, &1, on_conflict: :nothing))
+      |> Enum.each(&Repo.insert_all(PageViewer, &1, on_conflict: :nothing))
 
       {deleted, _} = Repo.delete_all(from(h in Hit, where: h.inserted_at < ^keep_cutoff))
-      %{anonymised: anonymised, folded: length(witnesses), deleted: deleted}
+      %{anonymised: anonymised, folded: length(viewers), deleted: deleted}
     end)
   end
 

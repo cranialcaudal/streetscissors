@@ -2,7 +2,7 @@ defmodule Web.Analytics.OwnerCountsTest do
   use Web.DataCase, async: false
 
   alias Web.Analytics
-  alias Web.Analytics.{Owner, PageWitness}
+  alias Web.Analytics.{Owner, PageViewer}
 
   @mine "203.0.113.200"
   @reader "198.51.100.30"
@@ -84,9 +84,9 @@ defmodule Web.Analytics.OwnerCountsTest do
     assert Analytics.count_hits_today() == 1
   end
 
-  # A witness row is kept for all time and nothing revisits it, so the author
+  # A viewer row is kept for all time and nothing revisits it, so the author
   # becoming one is the single mistake in this area that cannot be undone.
-  test "retention never folds him into a post's witnesses" do
+  test "retention never folds him into a post's viewers" do
     Analytics.record_hit("/blog/a-post", "Firefox", mine())
     Analytics.record_hit("/blog/a-post", "Safari", reader())
 
@@ -94,7 +94,7 @@ defmodule Web.Analytics.OwnerCountsTest do
 
     assert {:ok, %{deleted: 2}} = Analytics.prune(future)
 
-    kept = Repo.all(PageWitness) |> Enum.map(& &1.ip_hash)
+    kept = Repo.all(PageViewer) |> Enum.map(& &1.ip_hash)
 
     assert kept == [reader()]
   end

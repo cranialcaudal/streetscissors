@@ -69,7 +69,7 @@ defmodule WebWeb.LogsLive.Index do
   # defensively and only count a play for a log actually on this page. The old
   # String.to_integer/1 raised on any non-numeric value, and an unknown id hit
   # the audio_plays foreign key — either one crashed the LiveView. The hook
-  # sends this only after 30 seconds have actually played; `witness` is the
+  # sends this only after 30 seconds have actually played; `viewer` is the
   # browser's own token, checked in Logs.record_play/3.
   def handle_event("track_play", _params, %{assigns: %{counts_views: false}} = socket),
     do: {:noreply, socket}
@@ -80,7 +80,7 @@ defmodule WebWeb.LogsLive.Index do
         {:noreply, socket}
 
       log_id ->
-        Logs.record_play(log_id, params["witness"], socket.assigns.viewer_agent)
+        Logs.record_play(log_id, params["viewer"], socket.assigns.viewer_agent)
 
         # The readouts move; the running order does not. Re-sorting here
         # would let watching something reorder the page underneath the

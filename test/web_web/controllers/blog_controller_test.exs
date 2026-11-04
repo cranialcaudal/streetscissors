@@ -28,7 +28,7 @@ defmodule WebWeb.BlogControllerTest do
     conn = get(conn, ~p"/blog/frontmatter-and-embeds")
     html = html_response(conn, 200)
     assert html =~ "Fixture Post With Frontmatter"
-    # The meta line: the day, then read time and witnesses — no icon row.
+    # The meta line: the day, then read time and viewers — no icon row.
     assert html =~ "Wed 1 Jul 2026"
     assert html =~ "min read"
     refute html =~ "fa-paragraph"
@@ -76,18 +76,18 @@ defmodule WebWeb.BlogControllerTest do
       assert lead_html =~ ~s(href="/blog?keyword=bowling-green")
     end
 
-    test "sorting by most witnessed leads with the most-read post", %{conn: conn} do
+    test "sorting by most viewed leads with the most-read post", %{conn: conn} do
       for visitor <- ~w(a b c) do
         Web.Analytics.record_hit("/blog/frontmatter-and-embeds", "Firefox", "visitor-#{visitor}")
       end
 
-      html = conn |> get(~p"/blog?sort=witnessed") |> html_response(200)
+      html = conn |> get(~p"/blog?sort=viewed") |> html_response(200)
 
       assert [lead_html] = Regex.run(~r{<article class="writing-lead">.*?</article>}s, html)
       assert lead_html =~ "Fixture Post With Frontmatter"
       assert lead_html =~ "3 views"
 
-      # The contents column follows the sort: witnesses, not read time.
+      # The contents column follows the sort: viewers, not read time.
       assert html =~ "More"
       assert html =~ "0 views"
     end
@@ -109,7 +109,7 @@ defmodule WebWeb.BlogControllerTest do
     end
 
     test "clearing a filter keeps the sort", %{conn: conn} do
-      html = conn |> get(~p"/blog?sort=witnessed&keyword=film") |> html_response(200)
+      html = conn |> get(~p"/blog?sort=viewed&keyword=film") |> html_response(200)
 
       assert html =~ "most viewed first"
       assert html =~ ~s(<a href="/blog?sort=viewed" class="writing-clear">)
@@ -161,7 +161,7 @@ defmodule WebWeb.BlogControllerTest do
   end
 
   describe "sorting" do
-    test "sort controls offer most recent and most witnessed", %{conn: conn} do
+    test "sort controls offer most recent and most viewed", %{conn: conn} do
       html = conn |> get(~p"/blog") |> html_response(200)
 
       assert html =~ "Sort by"
@@ -175,8 +175,8 @@ defmodule WebWeb.BlogControllerTest do
       assert html =~ "sort=viewed&amp;keyword=film"
     end
 
-    test "?sort=witnessed renders without error", %{conn: conn} do
-      assert conn |> get(~p"/blog?sort=witnessed") |> html_response(200) =~ "Most viewed"
+    test "?sort=viewed renders without error", %{conn: conn} do
+      assert conn |> get(~p"/blog?sort=viewed") |> html_response(200) =~ "Most viewed"
     end
   end
 

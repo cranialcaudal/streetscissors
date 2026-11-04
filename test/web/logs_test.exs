@@ -332,7 +332,7 @@ defmodule Web.LogsTest do
       assert Logs.get_play_count(log.id) == 2
     end
 
-    test "a missing or malformed witness is ignored" do
+    test "a missing or malformed viewer is ignored" do
       log = log_fixture()
 
       assert Logs.record_play(log.id, nil) == :ignored

@@ -319,7 +319,6 @@ defmodule WebWeb.PageControllerTest do
       html = conn |> get(~p"/") |> html_response(200)
 
       refute html =~ "home-happening"
-      refute html =~ "Witnessed this week"
     end
 
     test "the corner card holds the newest post, video and roll, hidden until the page opens it",

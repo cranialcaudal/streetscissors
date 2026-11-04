@@ -82,7 +82,7 @@ defmodule WebWeb.LogsLive.Show do
 
   def handle_event("track_play", params, socket) do
     log = socket.assigns.log
-    Logs.record_play(log.id, params["witness"], socket.assigns.viewer_agent)
+    Logs.record_play(log.id, params["viewer"], socket.assigns.viewer_agent)
     {:noreply, assign(socket, :play_count, Logs.get_play_count(log.id))}
   end
 
