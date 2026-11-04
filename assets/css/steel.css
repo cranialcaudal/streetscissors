@@ -275,8 +275,7 @@
 /* ── Controls ─────────────────────────────────────────────────────── */
 
 .steel button,
-.steel .reset-btn,
-.steel .theme-btn {
+.steel .reset-btn {
   font-family: var(--font-ui) !important;
   font-weight: 500;
   font-size: 0.8rem !important;
@@ -290,8 +289,7 @@
 }
 
 .steel button:hover,
-.steel .reset-btn:hover,
-.steel .theme-btn:hover {
+.steel .reset-btn:hover {
   color: var(--paper) !important;
   border-color: var(--accent-ink) !important;
   background: var(--accent-ink) !important;

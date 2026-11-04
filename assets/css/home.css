@@ -501,16 +501,6 @@
   }
 }
 
-/* The homepage row runs three cards; WebWeb.FitnessSubnav reuses the same class
-   with two, and steel.css re-lays that one out as flex, so the column count
-   belongs on a modifier rather than in the base rule.
-   Deliberately doubled — `.bento-fitness-sub-row.bento-fitness-sub-row--three`
-   outranks every single-class rule above and in the breakpoints below, so three
-   columns hold at every width without restating this once per media query. */
-.bento-fitness-sub-row.bento-fitness-sub-row--three {
-  grid-template-columns: repeat(3, 1fr);
-}
-
 /* Skinny card variant — short height, centered label */
 .bento-card-skinny {
   min-height: 70px;

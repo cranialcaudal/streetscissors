@@ -29,7 +29,6 @@ import { GymRoutine } from "./gym_routine"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
 import { DocumentEditor } from "./document_editor"
 import { initEmissionsControls } from "./emissions_controls"
-import { initEngland } from "./england"
 import { initChrist } from "./christ"
 import { initHomePreviews } from "./home_previews"
 import { initHomeNew } from "./home_new"
@@ -307,7 +306,3 @@ const initHome = () => { initHomeNew(); initHomePreviews() }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initHome)
 else initHome()
 
-// The England trip's pages: tabs, the calendar's day links, the packing list
-// and the call clocks (assets/js/england.js). Nothing on any other page.
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initEngland)
-else initEngland()

@@ -452,7 +452,6 @@
   color: var(--ink-2);
 }
 
-.activity-card-health,
 .activity-card-power {
   font-family: var(--font-data);
   font-size: 0.8rem;
@@ -510,8 +509,6 @@
   .activity-embed { height: 600px; }
 
   .activity-recent { grid-template-columns: minmax(0, 1fr); }
-
-
 
   /* Touch scrolls a strip natively, so the buttons step aside. */
   .activity-shelf-nav { display: none; }

@@ -5,7 +5,6 @@
 }
 
 /* Flat Buttons */
-.theme-btn,
 button {
     background: var(--paper-raised);
     border: 1px solid var(--hairline);
@@ -24,7 +23,6 @@ button {
     justify-content: center;
 }
 
-.theme-btn:hover,
 button:hover {
     background: var(--accent-color);
     border-color: var(--accent-color);

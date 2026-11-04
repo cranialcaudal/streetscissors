@@ -476,7 +476,6 @@
 .session-focus-card .session-circuit { padding: 1.1rem 1rem; }
 .session-superset .session-card { margin-top: 0.6rem; border-style: dashed; }
 .session-superset-title { margin: 0; font-size: 1.05rem; }
-.session-superset-how { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
 
 .session-station.is-current > .session-card,
 .session-station.is-current > .session-superset,
@@ -580,14 +579,6 @@
   border-radius: 8px;
   text-decoration: none;
 }
-.session-next-finish {
-  min-height: 52px;
-  padding: 0 1rem;
-  color: var(--ink);
-  background: var(--paper-raised);
-  border: 1px solid var(--rule-strong);
-  border-radius: 8px;
-}
 .session-finish-row { margin: 1rem 0 0; display: flex; }
 
 /* The rest bar clears the iPhone's home bar and the session's own buttons. */
@@ -647,7 +638,6 @@
   border: 0 !important;
 }
 .steel .session-nav-btn,
-.steel .session-next-finish,
 .steel .view-toggle-btn {
   font-size: 0.85rem !important;
   letter-spacing: 0.04em !important;

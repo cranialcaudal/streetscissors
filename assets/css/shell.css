@@ -29,10 +29,6 @@
   line-height: 1.15;
   color: var(--ink);
 }
-.page-lede {
-  margin: 0.5rem 0 0;
-  color: var(--ink-2);
-}
 
 /* Buttons. The plain `button` in theme.css is the same thing; this is for
    links and anything that must not inherit it. */

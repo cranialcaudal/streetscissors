@@ -605,8 +605,7 @@ a.daybook-diary-num:hover {
   white-space: nowrap;
 }
 
-.daybook-diary-entries a:hover,
-.daybook-diary-training a:hover {
+.daybook-diary-entries a:hover {
   color: var(--accent-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -618,16 +617,6 @@ a.daybook-diary-num:hover {
   font-size: 0.72rem;
   color: var(--ink-3);
   white-space: nowrap;
-}
-
-/* What is pencilled in ahead of time. */
-.daybook-diary-training a {
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  text-decoration: none;
 }
 
 .daybook-week .daybook-legend {

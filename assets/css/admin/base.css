@@ -869,8 +869,7 @@ textarea.adm-input {
   width: auto;
 }
 
-.adm-error,
-.admin-layout .text-error {
+.adm-error {
   display: flex;
   align-items: center;
   gap: 0.4rem;

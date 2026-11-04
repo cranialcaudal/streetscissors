@@ -19,39 +19,8 @@
   min-height: 80vh;
 }
 
-/* ── Header Card ───────────────────────────────────────── */
-.blog-header-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 3rem 2rem;
-  margin-bottom: 2rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--hairline);
-}
-
-.blog-header-title {
-  font-family: var(--font-heading, 'Futura'), 'Trebuchet MS', sans-serif;
-  font-size: 3rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 0.5rem;
-  color: var(--ink);
-}
-
-.blog-header-subtitle {
-  font-family: var(--font-ui), sans-serif;
-  font-size: 0.95rem;
-  color: var(--ink-2);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
 /* /blog's own index and its controls live in writing.css. What remains here
-   is shared: the wrapper, header card and cards the fitness pages still use,
+   is shared: the wrapper and cards the fitness pages still use,
    and the post-page panel and prose. */
 
 .blog-post-keywords {
@@ -441,14 +410,6 @@
 @media (max-width: 768px) {
   .blog-bento-wrapper {
     padding: 1.5rem 1rem;
-  }
-  
-  .blog-header-card {
-    padding: 2rem 1.5rem;
-  }
-  
-  .blog-header-title {
-    font-size: 2.2rem;
   }
   
   .blog-bento-card {

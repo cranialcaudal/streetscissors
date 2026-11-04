@@ -69,12 +69,6 @@
   font-size: var(--st-fs-sm);
 }
 
-.admin-layout .adm-ed-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
-}
-
 .admin-layout .adm-ed-cm .cm-editor {
   min-height: var(--adm-ed-height, 62vh);
   font-size: var(--st-fs-sm);

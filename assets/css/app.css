@@ -58,7 +58,6 @@
 @import "./meals.css";
 @import "./christ.css";
 @import "./search.css";
-@import "./england.css";
 @import "./dialog.css";
 @import "./mobile.css";
 
@@ -187,7 +186,6 @@ h6 {
 nav,
 footer,
 button,
-.theme-btn,
 label,
 input,
 select,

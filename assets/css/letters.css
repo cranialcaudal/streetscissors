@@ -144,14 +144,6 @@
   padding: 0.5rem 0 1.75rem;
 }
 
-.letters-hint {
-  margin: 0 0 1.25rem;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 1.02rem;
-  color: var(--ink-3);
-}
-
 .letters-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -278,8 +270,7 @@ textarea.letters-input {
   line-height: 1.55;
 }
 
-.letters-error,
-.letters .text-error {
+.letters-error {
   margin: 0 0 1rem;
   font-family: var(--font-ui);
   font-size: 0.82rem;
