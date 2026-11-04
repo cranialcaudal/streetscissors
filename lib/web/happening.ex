@@ -1,30 +1,21 @@
 defmodule Web.Happening do
   @moduledoc """
-  The homepage's "Happening" section, in three parts:
+  The newest work for the homepage: its tiles and the corner card
+  (`#home-new`) read `lately`, the three newest posts with their pictures,
+  the newest roll and the newest captain's log.
 
-    * **Now**: the newest activity that is clear of every private place (its
-      day, sport and distance: never a time, a place or a route), and what is
-      being read, from `content/now.md` when there is one;
-    * **Fresh**: the newest post, captain's log and roll;
-    * **Witnessed**: the three public pieces the most people looked at in
-      the last seven days (distinct `ip_hash` in `analytics_hits`).
-
-  Everything comes from the public functions the pages themselves read, so
-  a draft, an unpublished log or an unlisted page cannot turn up; the
-  witnessed list also refuses `/food`, `/Christ` and
-  `/admin` by name. Each part fails to nothing rather than taking the
-  homepage down. The whole is kept for `:happening_ttl_ms` (ten minutes),
-  since the homepage is the most visited page and the parts read files.
+  Everything comes from the public functions the pages themselves read, so a
+  draft or an unpublished log cannot turn up. Each part fails to nothing
+  rather than taking the homepage down. The whole is kept for
+  `:happening_ttl_ms` (ten minutes), since the homepage is the most visited
+  page and the parts read files.
   """
 
   use GenServer
 
-  alias Web.{Analytics, Blog, Clock, Negatives, Pieces, Rides}
-  alias Web.Fitness.Vault
-  alias Web.Rides.Units
+  alias Web.{Blog, Clock, Negatives}
 
   @table :happening
-  @never ~w(/food /Christ /christ /faith /admin)
 
   # ── The cache ──────────────────────────────────────────────────────
 
@@ -69,15 +60,9 @@ defmodule Web.Happening do
 
   # ── The parts ──────────────────────────────────────────────────────
 
-  @doc "Builds the section afresh: `%{now: map, fresh: list, witnessed: list, lately: map}`."
-  def build(today \\ Clock.local_today()) do
+  @doc "Builds the section afresh: `%{lately: %{posts, roll, log}}`."
+  def build(_today \\ Clock.local_today()) do
     %{
-      now: %{
-        ride: safe(fn -> ride() end, nil),
-        reading: safe(fn -> reading() end, nil)
-      },
-      fresh: safe(fn -> fresh(today) end, []),
-      witnessed: safe(fn -> witnessed(today) end, []),
       lately: %{
         posts: safe(fn -> lately_posts() end, []),
         roll: safe(fn -> lately_roll() end, nil),
@@ -168,160 +153,6 @@ defmodule Web.Happening do
         nil
     end
   end
-
-  defp ride do
-    case Rides.latest_clear() do
-      nil ->
-        nil
-
-      ride ->
-        %{
-          date: Clock.local_today(ride.started_at),
-          sport: Units.sport(ride.sport),
-          distance: Units.distance(ride.distance_m),
-          path: "/fitness/rides/#{ride.id}"
-        }
-    end
-  end
-
-  # `content/now.md`: a `reading:` line in its frontmatter, else the first
-  # line of its text. No file, no line.
-  defp reading do
-    path = Path.join(Path.dirname(Vault.base_path()), "now.md")
-
-    with {:ok, text} <- File.read(path) do
-      case Vault.parse_frontmatter(path)["reading"] do
-        r when is_binary(r) and r != "" ->
-          r
-
-        _ ->
-          text
-          |> Web.Frontmatter.strip()
-          |> String.split("\n", trim: true)
-          |> Enum.map(&String.trim(&1, "# "))
-          |> Enum.find(&(&1 != ""))
-      end
-    else
-      _ -> nil
-    end
-  end
-
-  defp fresh(_today) do
-    [
-      safe(fn -> post() end, nil),
-      safe(fn -> log() end, nil),
-      safe(fn -> roll() end, nil)
-    ]
-    |> Enum.reject(&is_nil/1)
-  end
-
-  defp post do
-    case Blog.list_posts() do
-      [p | _] -> %{kind: "Writing", title: p.title, path: "/blog/#{p.slug}", date: p.date}
-      [] -> nil
-    end
-  end
-
-  defp log do
-    case Web.Logs.list_ready_logs() do
-      [l | _] ->
-        %{
-          kind: "Videostream",
-          title: Web.Logs.Log.title(l),
-          path: "/logs/#{l.slug}",
-          date: l.recorded_on
-        }
-
-      [] ->
-        nil
-    end
-  end
-
-  defp roll do
-    Negatives.list_contact_sheets()
-    |> Enum.flat_map(fn sheet ->
-      case Date.from_iso8601(to_string(sheet.date)) do
-        {:ok, date} ->
-          [
-            %{
-              kind: "Negatives",
-              title: "Roll #{sheet.roll}",
-              path: "/negatives/roll/#{sheet.roll}",
-              date: date
-            }
-          ]
-
-        _ ->
-          []
-      end
-    end)
-    |> Enum.max_by(&Date.to_gregorian_days(&1.date), fn -> nil end)
-  end
-
-  @doc """
-  The three public pieces most people looked at in the seven days to
-  `today`: `[%{kind, title, path, people}]`.
-  """
-  def witnessed(today) do
-    since = today |> Date.add(-6) |> Analytics.day_start_utc()
-
-    ["/blog/%", "/logs/%", "/negatives/roll/%"]
-    |> Analytics.visitors_by_page(since)
-    |> Enum.reject(fn {path, _} -> Enum.any?(@never, &String.starts_with?(path, &1)) end)
-    |> Enum.flat_map(fn {path, visitors} ->
-      case piece(path) do
-        {:ok, piece} -> [{piece, visitors}]
-        :error -> []
-      end
-    end)
-    # A post read at two addresses is one piece, and a reader who used both
-    # is one person: the visitors are unioned, never summed.
-    |> Enum.group_by(fn {piece, _} -> piece.path end)
-    |> Enum.map(fn {_path, [{first, _} | _] = same} ->
-      people = same |> Enum.map(&elem(&1, 1)) |> Enum.reduce(&MapSet.union/2) |> MapSet.size()
-      Map.put(first, :people, people)
-    end)
-    |> Enum.sort_by(&{-&1.people, &1.title})
-    |> Enum.take(3)
-  end
-
-  # `path` is already a page (Analytics.page/1): decoded, without its query.
-  defp piece(path) do
-    with {:ok, ref} <- Pieces.from_path(path),
-         {:ok, piece} <- Pieces.resolve(ref) do
-      {:ok,
-       %{
-         kind: kind_word(piece.kind),
-         title: piece.title,
-         path: piece.path,
-         image: Map.get(piece, :image)
-       }}
-    else
-      _ -> roll_piece(path)
-    end
-  end
-
-  defp roll_piece(path) do
-    with ["negatives", "roll", roll] <- String.split(path, "/", trim: true),
-         %{roll: padded} = sheet <-
-           Enum.find(Negatives.list_contact_sheets(), &(&1.roll == pad(roll))) do
-      {:ok,
-       %{
-         kind: "Negatives",
-         title: "Roll #{padded}",
-         path: "/negatives/roll/#{padded}",
-         image: sheet.preview_url
-       }}
-    else
-      _ -> :error
-    end
-  end
-
-  defp pad(roll), do: Negatives.Roll.pad(roll)
-
-  defp kind_word(:post), do: "Writing"
-  defp kind_word(:log), do: "Videostream"
-  defp kind_word(:frame), do: "Photograph"
 
   defp safe(fun, fallback) do
     fun.()

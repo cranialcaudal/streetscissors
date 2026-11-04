@@ -81,7 +81,7 @@ The site keeps its information in three kinds of place, and each context says wh
 | `Web.Daybook` | `daybook.ex` | The daybook: every week and day, with what was made on it |
 | `Web.Search` | `search.ex` | One search across every section. Every public page must be findable |
 | `Web.Nearby` | `nearby.ex` | What a visitor who hit a missing page was probably looking for |
-| `Web.Happening` | `happening.ex` | The homepage's "Happening" section |
+| `Web.Happening` | `happening.ex` | The homepage's newest work (tiles and corner card) |
 | `Web.Author` | `author.ex` | What the site says about its author, from settings rather than code |
 
 ### Running the machine
