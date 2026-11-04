@@ -75,7 +75,7 @@ version, with references):
    and then the gap between what it predicted and what actually happened says how ready the body
    was that day.
 2. **Load ratio (acute:chronic, Gabbett 2016).** Compares the last 7 days' work with the average
-   week over the last 28 days, separately for each kind of movement (hinge, squat, push, pull,
+   week of the three weeks before them, separately for each kind of movement (hinge, squat, push, pull,
    jumping and running). A sudden rise is a known injury risk; the site's guardrails hold a lift
    back when the ratio passes 1.5. Bike rides count as endurance load.
 3. **Odd days.** Looks for sessions much better or worse than the model expected, using a

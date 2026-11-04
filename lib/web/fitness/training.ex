@@ -101,9 +101,15 @@ defmodule Web.Fitness.Training do
   end
 
   @doc """
-  The acute:chronic workload ratio for a pattern on a day: the last 7 days'
-  volume load over the last 28 days' weekly average. Nil until 28 days of
-  entries exist for the pattern, or when the chronic load is nothing.
+  The acute:chronic workload ratio for a pattern on a day, uncoupled: the
+  last 7 days' volume load over the weekly average of the 21 days before
+  them. Nil until 28 days of entries exist for the pattern, or when the
+  chronic load is nothing.
+
+  The chronic window leaves the acute week out. With the week inside it (the
+  coupled form), the ratio is `4a / (a + r)` for acute load `a` and the
+  three weeks before `r`, so it can never pass 4, reads 4 for a first week
+  with no history, and understates every spike (Lolli et al., 2019).
   """
   def acwr(entries, pattern, %Date{} = date) do
     rows = Enum.filter(entries, &(&1.pattern == pattern and is_number(&1.volume)))
@@ -111,7 +117,7 @@ defmodule Web.Fitness.Training do
     with [first | _] <- rows,
          true <- Date.diff(date, first.date) >= 27 do
       acute = load_between(rows, Date.add(date, -6), date)
-      chronic = load_between(rows, Date.add(date, -27), date) / 4
+      chronic = load_between(rows, Date.add(date, -27), Date.add(date, -7)) / 3
 
       if chronic > 0, do: Float.round(acute / chronic, 2)
     else

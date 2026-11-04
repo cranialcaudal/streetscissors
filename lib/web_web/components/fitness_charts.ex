@@ -245,7 +245,7 @@ defmodule WebWeb.FitnessCharts do
       />
       <.line_chart
         id="chart-acwr"
-        title="Acute:chronic load (7 days over the 28-day weekly average)"
+        title="Acute:chronic load (7 days over the 3 weeks before)"
         xs={@xs}
         series={@acwr}
         bands={[{0.8, 1.3}]}

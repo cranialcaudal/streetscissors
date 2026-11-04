@@ -223,13 +223,15 @@ fit_banister <- function(logs, slug, min_obs = 6, free_taus = 15, load = "volume
 
 # ── 2. ACWR by movement pattern, rides beside the lifts ────────────────
 
-#' The ratio on each day for one daily-load series (7-day sum over the
-#' 28-day sum / 4); NA for the first 27 days and when the chronic load is 0.
+#' The ratio on each day for one daily-load series, uncoupled: the 7-day sum
+#' over the weekly average of the 21 days before it (the acute week is not
+#' part of its own baseline; see Web.Fitness.Training.acwr/3). NA for the
+#' first 27 days and when the chronic load is 0.
 acwr_series <- function(load) {
   if (nrow(load) < 28) return(data.frame(date = load$date, acwr = rep(NA_real_, nrow(load))))
   # stats::filter answers a time series; plain numbers bind cleanly.
   acute <- as.numeric(stats::filter(load$load, rep(1, 7), sides = 1))
-  chronic <- as.numeric(stats::filter(load$load, rep(1, 28), sides = 1)) / 4
+  chronic <- as.numeric(stats::filter(load$load, c(rep(0, 7), rep(1, 21)), sides = 1)) / 3
   data.frame(date = load$date, acwr = ifelse(!is.na(chronic) & chronic > 0, acute / chronic, NA_real_))
 }
 

@@ -56,7 +56,7 @@ defmodule Web.Fitness.TrainingTest do
     assert Training.weekly_volume(rows, @block) == %{"hinge" => %{1 => 6000.0}}
   end
 
-  test "ACWR waits for 28 days, then is the week over the four-week average" do
+  test "ACWR waits for 28 days, then is the week over the three weeks before it" do
     rows =
       for {date, i} <- Enum.with_index(Date.range(~D[2026-10-26], ~D[2026-11-22], 7)),
           do: log(i, date, "hexbar-rdl", %{"weight" => "100", "sets" => "1", "reps" => "10"})
@@ -70,8 +70,9 @@ defmodule Web.Fitness.TrainingTest do
         log(99, ~D[2026-11-22], "hexbar-rdl", %{"weight" => "300", "sets" => "1", "reps" => "10"})
       ])
 
-    # The week is 4000 lb against a 28-day weekly average of 7000 / 4.
-    assert Training.acwr(rows ++ spike, "hinge", ~D[2026-11-22]) == 2.29
+    # The week is 4000 lb against the three weeks before it, 3000 / 3. The
+    # coupled ratio (the week inside its own baseline) read 2.29 here.
+    assert Training.acwr(rows ++ spike, "hinge", ~D[2026-11-22]) == 4.0
     assert Training.acwr(rows, "push", ~D[2026-11-22]) == nil
   end
 
