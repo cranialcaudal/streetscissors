@@ -30,7 +30,7 @@ config :web, :admin_password, "test-admin"
 # Blog posts come from committed fixtures so tests never depend on live content
 config :web, :blog_path, Path.expand("../test/support/fixtures/blog", __DIR__)
 
-# So do the fitness vault, the trip pages and the welcome letter. The real files
+# So do the fitness vault and the welcome letter. The real files
 # are the author's own and never ship with the code; the fixtures are invented.
 # Checks against the real content live in the gitignored test/private/.
 config :web, :fitness_path, Path.expand("../test/support/fixtures/fitness", __DIR__)

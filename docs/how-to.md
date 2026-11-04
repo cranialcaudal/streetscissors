@@ -1978,8 +1978,9 @@ itself. A function that reads a roll of film off the disk belongs in the first;
 the page that shows it belongs in the second.
 
 Two files at the top are for whoever writes code here, person or machine.
-`CLAUDE.md` is the map of the non-obvious wiring and the house style: why each
-odd thing is the way it is. `AGENTS.md` only points to it.
+`CLAUDE.md` is the short list of rules that break easily and the house style;
+`docs/architecture.md` is the map of the non-obvious wiring: why each odd thing
+is the way it is. `AGENTS.md` only points to `CLAUDE.md`.
 
 ### Three places the same code runs
 

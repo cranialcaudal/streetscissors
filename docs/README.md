@@ -8,6 +8,7 @@ want to do:
 | [`setup.md`](setup.md) | **Install everything and get the site running** on your own machine, step by step | Short |
 | [`how-to.md`](how-to.md) | **Understand the whole site**: what it is for, how a roll of film or a markdown file becomes a page, how the machine runs it, how it is backed up. Parts 1–4 assume nothing; Parts 5 onward are for someone running it. Also published at [/how-to](https://streetscissors.com/how-to) | Long |
 | [`roadmap.md`](roadmap.md) | See what is built and what comes next. Also published at [/roadmap](https://streetscissors.com/roadmap) | Medium |
+| [`architecture.md`](architecture.md) | Understand how each part of the code is put together, and why the odd parts are the way they are | Long, technical |
 | [`negatives-pipeline.md`](negatives-pipeline.md) | Go deep on the film pipeline: the scanner's geometry, the colour maths, how a frame is circled on the contact sheet, and (§9) how `film-develop` learned to read strips scanned on bare glass | Long, technical |
 | [`colour/research.md`](colour/research.md) | Read the research behind measured colour from film: what the literature and other tools do | Technical |
 | [`colour/contracts.md`](colour/contracts.md) | See the promises each colour stage must keep, and how they are tested | Technical |

@@ -2,7 +2,7 @@ defmodule Web.Notes do
   @moduledoc """
   A thought caught on the way past (`WebWeb.AdminLive.QuickAdd`): one dated
   line appended to `content/notes/inbox.md`, the private planning folder no
-  public page renders (CLAUDE.md, "Private by default"). Obsidian shows it
+  public page renders (`docs/architecture.md`, "Private by default"). Obsidian shows it
   like any other note, and it is in the nightly content backup.
 
   The folder is `config :web, :notes_path`, or `notes/` beside the blog's
