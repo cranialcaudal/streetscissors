@@ -11,7 +11,7 @@ The public GitHub repo is the site's code only. `content/` (apart from `content/
 photos and the `/pc` reading files are gitignored and live only on the host. **Never
 put personal details in code**: they belong in `content/` or `.env`, with a neutral fallback so a
 fresh clone still builds and boots. Examples:
-`content/emails/welcome.md`, `content/fitness/meals-week.json`, and `AUTHOR_NAME`,
+`content/emails/welcome.md`, `content/fitness/meals-week.json` and `fueling.json`, and `AUTHOR_NAME`,
 `MACHINE_NAME`, `NEGATIVES_PATH` in `.env`.
 
 - The vault's root holds only `about.md` and folders. `content/notes/` is private planning: no
