@@ -50,7 +50,6 @@ can decide what to install.
 | Repair models | The print editor's Repair tab | `tools/install.sh --repair` | `ls ~/.local/share/film-repair` |
 | R + Quarto | The emissions charts and the training report | §5.7 | `Rscript --version`, `quarto --version` |
 | Node.js + Chrome | Filming the exercise figures | `sudo dnf install nodejs` + Google Chrome | `node --version`, `google-chrome --version` |
-| unzip | Apple Health imports | `sudo dnf install unzip` | `unzip -v` |
 | Caddy | Serving the site to the internet (production only) | `sudo dnf install caddy` | `caddy version` |
 
 ---

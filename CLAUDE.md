@@ -229,8 +229,7 @@ onto an existing one merges them.
 
 `Web.Logs`, DB-backed video or audio at `/logs/<slug>`. An entry is titled by its date: the slug
 *is* `recorded_on` (`2026-09-18`, then `-2` for a second that day via `seq`); `caption` is an
-optional line, never the title. The section's look is `logs.css` (`.nx01`; **under it `--ink` is
-light**).
+optional line, never the title. The section's look is `logs.css` (`.nx01`): labels over the picture sit on `--plate`.
 
 - **Delivery is one progressive file.** `Web.Media.Transcoder` (concurrency 1, `nice`-d) runs ffmpeg
   through a `Port` and broadcasts progress on `"log:<id>"`. Video becomes a 720p `video.mp4`
@@ -413,20 +412,25 @@ developed print with sliders, crop, straightening, dust and repair.
 
 `Web.Fitness` and `Web.Fitness.Vault` read the regimen and wiki from `content/fitness/`.
 
-- **`/fitness` is one day to a page**: today by `Web.Clock` (a tzdata-free US-Pacific helper), and
-  `/fitness/day/<weekday>` any day. Days link with `navigate`, never `patch` (a patch carries one
-  day's ticks onto the next). The strip of days prints each day's `theme:` word.
+- **`/fitness` is one day to a page**: today by `Web.Clock`, and `/fitness/day/<weekday>` any day.
+  Days are files of the running program, `content/fitness/weeks/<program>/<day>.md`, so the next
+  program's week takes over by itself. Days link with `navigate`, never `patch` (a patch carries one
+  day's ticks onto the next). The strip of days prints each day's `theme:` word. At 1100px and wider the strip gives way to a week rail beside the day, with each day's title. Visitors get only the
+  workouts. `/fitness/session/<slug>` opens any session in `sessions/`, for the admin alone. His day
+  runs from Google Calendar, not the site, and the site keeps no timetable.
+- **Off the site:** `content/fitness/ironman-race.md` is the draft 70.3 plan after Get Sharp.
 - **Logging** (admin only): the wiki decides what can be logged. `Fitness.loggable_exercise/1`
   creates the `exercises` row on first log. **A modal's backdrop must not carry `phx-click`**:
   LiveView hands every click inside it to that ancestor. An entry is filed under today unless the
   form's Day names an earlier one; "Logged today" entries reopen in the same form (`edit_log`).
-  Today's check-in can be made on the day page too (`#day-checkin`), and on today's page a line
-  logged today shows ticked (`data-logged`). The page's styles are `fitness_log.css`.
+  Signed in, a day is Focus or List (`?view=`), and the browser remembers which; last time on a
+  card and in the form means before today. Visitors get the plain plan and their own ticks
+  (`GymRoutine`, localStorage). The page's styles are `fitness_log.css`.
 - **Files** (`/admin/fitness?tab=files`): `week.md`, each block and `changelog.md` edited whole.
   A save is refused when the file's own parser would skip something (`Web.Fitness.SourceCheck`;
   `Block.validate/1` names the field) or the file moved on disk (`Web.SourceFile`, which the blog
   editor uses too). **Quick add** (`/admin/quick`, the "+" in the admin bar, and the web app's
-  shortcuts): a set (`Web.Fitness.Entry`, shared with the day page), today's check-in, or a note
+  shortcuts): a set (`Web.Fitness.Entry`, shared with the day page) or a note
   appended to the private `content/notes/inbox.md` (`Web.Notes`).
 - **The Week** (`Web.Fitness.Week`, `content/fitness/week.md`): visitors see untimed chips, and only
   the admin sees clock times, so the public page never says when the author is out.
@@ -434,7 +438,7 @@ developed print with sliders, crop, straightening, dust and repair.
   only place a block's dates, phases and lifts are written. Its frontmatter is flat `key: value`
   (`Vault.parse_frontmatter/1`; **a `#` becomes part of the value**). The rules are in the module
   docs: `Progression.next_target/3` (double progression by phase), `Training` (e1RM, volume,
-  compliance, ACWR), `Guardrails` (check-ins from `content/fitness/checkins.md` via `Checks`),
+  compliance, ACWR), `Guardrails` (check-ins from `content/fitness/checkins.md` via `Checks`; no form asks the state checks for now, so the guardrails go quiet; bodyweight and waist are entered on the block report),
   `Prescription` and `Coach` (a day's lines → targets and log form). **The first line naming a
   slug is its plan**, so a primer must never link a block lift.
 - The weekly report renders `analysis/fitness_report.qmd` with Quarto (`Web.Fitness.Report`) to
@@ -443,7 +447,7 @@ developed print with sliders, crop, straightening, dust and repair.
 - `content/fitness/changelog.md` (`Web.Fitness.Changelog`): dated headings, never times. Titles are
   public (the homepage's "fitness update").
 
-### Activities: Komoot and Apple Health
+### Activities: Komoot
 
 `/fitness/rides` mirrors every recorded Komoot tour (`Web.Rides`, `Web.Rides.KomootSync`). **Komoot
 is the only input**: no GPX, planned routes or live tracking. Activities under 0.2 mi are dropped
@@ -470,13 +474,6 @@ at the query (`list_rides/0`, `get_ride/1`), but `komoot_index/0` still sees the
   ride, and nightly), reads its JSON beside the uploads root, and the ride page shows it marked as
   an estimate. Masses, CdA and Crr live in the private `content/fitness/bike.json`; bodyweight
   comes from check-ins when there are some. No W/kg on public pages.
-- **Heart rate comes from Apple Health** (`Web.Rides.Workout`), paired to the nearest ride start
-  within 10 min at read time. It arrives two ways, both via `Rides.store_workouts/1`:
-  - Apple's export uploaded on `/admin/rides`: streamed with `unzip -p`, written by
-    `HealthExportWriter` into a 0700 inbox **beside** the uploads root (never `/tmp`, never
-    `uploads/`), and **deleted whatever happens**.
-  - `POST /api/health/ingest`: closed until a token is made. Only its SHA-256 is kept, and a
-    workout's `route` is never read.
 - **The hourly pass costs nothing when nothing changed.** The token lives in `Web.Komoot.Auth`
   (logging in is what can lock the account), and the listing is a conditional GET on the stored
   ETag (`komoot_etag_tour_recorded`, a plain md5 of the body). The ETag is stored only after a pass
@@ -562,8 +559,7 @@ site**, and the page is the same for every reader.
 - `Web.Liturgy.Saints` (`priv/liturgy/saints.json`): Wikipedia summaries (CC BY-SA) matched by
   hand. **Don't regenerate from search results without checking each.** Pictures in
   `priv/static/images/saints/` are gitignored.
-- Theme: `christ.css`, `.christ` (brown scapular). **Under it `--ink` is light.** `--accent-ink` is at
-  the edge of 4.5:1 on `--paper-raised`, so check contrast before changing it.
+- Theme: `christ.css`, `.faith`: paper with a crimson thread (`--stitch`, the section's tint).
 - `priv/faith/guide.md` is kept on disk but rendered nowhere.
 
 ### Search
@@ -688,10 +684,12 @@ beside and rename it over. Parts 1–4 assume nothing. Parts 5 onward must be ke
   (`--font-data`).
 - **Ink reads, poppy acts:** anything pressable wears `--accent-ink` (`#a73b19`) at rest, not only on
   hover. Targets ≥44px.
-- **Section themes** re-ink the same tokens: `.darkroom` (`/negatives`), `.steel` (every `/fitness*`
-  page; League Spartan; hot metal for figures and interaction only, headings stay `--ink`), `.nx01`
-  (logs), `.christ`. **Under `.darkroom`, `.nx01` and `.christ`, `--ink` is light.** The `/pc` terminal
-  is a deliberate dark exception.
+- **One public shell** (`shell.css`): page head, button, plate, tabs, field. Every public page is
+  paper and Goudy; a section sets only `--section-tint`, which colours decoration and never anything
+  pressable. Wrappers keep their names: `.steel` (`/fitness*`), `.nx01` (logs), `.faith` (`/Christ`).
+  `/negatives` (`.darkroom`) alone stays dark, for the photographs: **under it `--ink` is light** and
+  `--accent-ink` is lifted. Exercise films keep their steel ground, which is in the footage.
+  Bebas Neue is left only for the homepage's stretched wordmark (`baker_wordmark/1`).
 - **Fonts are served from here** (`assets/css/fonts.css`, `priv/static/fonts/*.woff2`, OFL). The root
   layout preloads Goudy regular and Plex Mono 600 via `~p`, and that address must match what
   `phx.digest` writes into the stylesheet, or the font loads twice.

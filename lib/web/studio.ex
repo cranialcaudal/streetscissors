@@ -31,7 +31,6 @@ defmodule Web.Studio do
   alias Web.Cuts
   alias Web.Cuts.Timeline
   alias Web.Darkroom.Taste
-  alias Web.Fitness.Vault
   alias Web.Negatives.SheetLayout
   alias Web.Rides.KomootSync
   alias Web.Scanner.Pipeline
@@ -308,32 +307,23 @@ defmodule Web.Studio do
   # ── Training ──────────────────────────────────────────────────────────
 
   @doc """
-  Training: today's regimen (`theme:` of the fitness vault's day for today by
-  `Web.Clock`), the newest activity with Komoot's picture of it when the ride
+  Training: the running program and its week, the newest activity with Komoot's picture of it when the ride
   is clear and the picture is cached, how many are on file, and Komoot's last
   pass (`KomootSync.last_run/0`).
   """
   def training(rides \\ Rides.list_rides(), now \\ DateTime.utc_now()) do
     %{
-      today: today(Clock.today_slug(now)),
+      program: now |> Clock.local_today() |> program(),
       newest: rides |> List.first() |> activity(),
       activities: length(rides),
       sync: KomootSync.last_run()
     }
   end
 
-  defp today(slug) do
-    case Enum.find(Vault.list_days(), &(&1.slug == slug)) do
-      nil ->
-        nil
-
-      day ->
-        %{
-          slug: slug,
-          word: presence(day.theme),
-          # "Friday — Swim or Run" without the weekday, for a day with no word
-          title: day.title |> String.split(" — ", parts: 2) |> List.last()
-        }
+  defp program(today) do
+    case Web.Fitness.Block.current(today) do
+      nil -> nil
+      block -> %{title: block.title, week: block.week, weeks: block.weeks}
     end
   end
 
@@ -423,14 +413,5 @@ defmodule Web.Studio do
       activities: length(rides),
       signatures: Guestbook.count_guestbook_entries()
     }
-  end
-
-  defp presence(nil), do: nil
-
-  defp presence(text) do
-    case String.trim(text) do
-      "" -> nil
-      text -> text
-    end
   end
 end

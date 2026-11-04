@@ -48,7 +48,7 @@ The public site:
 | `/food` | `PageController.food` | Admin-only kitchen page |
 | `/share/…` | `ShareController` | The pictures a shared link shows |
 | `/health` | `HealthController` | "Is the site up?" for the uptime check |
-| `/webmention`, `/seen`, `/api/health/ingest`, `/unsubscribe/…` | `WebmentionController`, `SeenController`, `HealthWebhookController`, `UnsubscribeController` | Things other programs post to |
+| `/webmention`, `/seen`, `/unsubscribe/…` | `WebmentionController`, `SeenController`, `UnsubscribeController` | Things other programs post to |
 | `/manuscripts/…`, `/almanac/…`, `/faith/…`, `/rides/…` and others | `LegacyRedirectController`, `RideRedirectController` | Old addresses, sent on to where the page lives now |
 
 The admin, all in `live/admin_live/` unless noted, and all behind the admin login:
@@ -63,7 +63,7 @@ The admin, all in `live/admin_live/` unless noted, and all behind the admin logi
 | `/admin/blog`, `/admin/blog/:slug/edit` | `AdminLive.BlogManager`, `.BlogEditor` | Posts and the editor |
 | `/admin/keywords`, `/admin/health` | `AdminLive.Keywords`, `.ContentHealth` | Tending the writing |
 | `/admin/fitness`, `/admin/fitness/block`, `/admin/fitness/report` | `AdminLive.FitnessManager`, `.BlockReport`, `FitnessReportController` | The training plan, a block's report, the weekly R report |
-| `/admin/rides` | `AdminLive.RidesManager` | Komoot sync and Apple Health imports |
+| `/admin/rides` | `AdminLive.RidesManager` | Komoot sync and what strangers can see |
 | `/admin/inbox`, `/admin/guestbook`, `/admin/citations`, `/admin/newsletter` | `AdminLive.Inbox`, `.GuestbookManager`, `.Citations`, `.Newsletter` | Mail |
 | `/admin/settings` | `AdminLive.Settings` | Settings that change without a deploy |
 

@@ -57,7 +57,7 @@ The site keeps its information in three kinds of place, and each context says wh
 | Module | File / folder | What it does |
 |---|---|---|
 | `Web.Fitness` | `fitness.ex`, `fitness/` | The training plan and the exercise wiki (`fitness/vault.ex` reads them from `content/fitness/`), the training log, training blocks and their maths (`fitness/progression.ex`, `fitness/training.ex`), the exercise figures and their films (`fitness/figure.ex`, `fitness/clip.ex`) |
-| `Web.Rides` | `rides.ex`, `rides/` | Activities mirrored from Komoot every hour (`rides/komoot_sync.ex`), with heart rate from Apple Health, and the privacy checks that decide what a stranger may see |
+| `Web.Rides` | `rides.ex`, `rides/` | Activities mirrored from Komoot every hour (`rides/komoot_sync.ex`), and the privacy checks that decide what a stranger may see |
 | `Web.Komoot` | `komoot/` | Logging in to Komoot and keeping the token |
 | `Web.Clock` | `clock.ex` | Today's date in US Pacific time, without a time-zone database |
 

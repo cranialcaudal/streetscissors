@@ -159,7 +159,8 @@ defmodule Web.Search do
   @fixed [
     {"Home", "/", "The front door", "homepage start streetscissors"},
     {"Blog", "/blog", "Essays and written work", "writing posts essays manuscripts"},
-    {"Videostream", "/logs", "Recordings, video and audio", "audio video recordings spoken captain log videostream"},
+    {"Videostream", "/logs", "Recordings, video and audio",
+     "audio video recordings spoken captain log videostream"},
     {"Contact Sheets / Photos", "/negatives", "Every roll of film",
      "negatives photographs film archive rolls darkroom pictures"},
     {"Fitness & Sport", "/fitness", "Today's training", "regimen workout gym training today"},
@@ -226,8 +227,7 @@ defmodule Web.Search do
   defp named(_path), do: ""
 
   defp regimen_days do
-    for day <- Vault.list_days(),
-        day.slug in ~w(monday tuesday wednesday thursday friday saturday sunday) do
+    for day <- Vault.list_days() do
       %{
         title: day.title,
         path: "/fitness/day/#{day.slug}",

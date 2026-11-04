@@ -108,12 +108,12 @@ was last checked, how long the certificate has left, whether the domain still
 points at the house. The machine makes those checks itself every fifteen
 minutes, and writes to its owner when one of them fails.
 The pages are grouped by program, each with its own colour: the **Darkroom**
-(the scanner, the prints and the editor that finishes them, and Taste), the
+(the scanner, the prints and the editor that finishes them), the
 **Cutting room** (the cutting room and the captain's logs), **Writing** (the
 blog, the keywords, and a report on what is broken), **Training** (the fitness
-wiki, and the Komoot activities with the heart rate that goes with them) and
-**Mail** (the inbox, the guestbook, citations from other sites, the
-newsletter), with the Studio overview at the top and a page of settings at the
+wiki, and the Komoot activities) and
+**Mail** (the inbox, the guestbook, the newsletter, and citations from other
+sites, which join the rail only while one is waiting), with the Studio overview at the top and a page of settings at the
 foot. The admin follows the system's light or dark setting. It writes the same
 files you would write by hand, so nothing it does is locked inside it.
 
@@ -432,7 +432,7 @@ should start. It knows each film's long-exposure behaviour from the maker's own
 datasheet, so type the exposure time of a long exposure into it: Velvia 50 at
 32 seconds wants the magenta its sheet asks for. It also knows what your prints
 of that film look like on average, and leans toward how you like them, which it
-learns from what you save and from the **Taste** page (Darkroom, Taste): two
+learns from what you save and from the **Taste** page (a link at the top of Prints): two
 versions of a random print side by side, and you choose (left and right arrow
 keys; down passes). Name the film on each roll (Scanner, Roll, Film) so it can
 tell your films apart.
@@ -686,7 +686,7 @@ Edit a figure and its page falls back to a flat drawing of the same poses until
 it is filmed again; `/admin/health` lists the ones waiting. Part 8 has the
 commands.
 
-### Rides, runs and the heart rate
+### Rides and runs
 
 Bike rides arrive on their own. Once an hour the site asks Komoot for anything
 new and copies it across, and a tour deleted there leaves the site on the next
@@ -733,31 +733,6 @@ height point by point when Komoot shares the route, and the ride's totals when
 it does not. The ride's page shows the average and the work done, marked as an
 estimate: wind and riding in someone's slipstream are invisible to it. It runs
 after a sync that brings a ride and again every night.
-
-**Heart rate and energy come from the watch, by way of the phone.** Komoot
-keeps neither. The watch writes them to Apple Health, and getting them to the
-site is a job done by hand every so often:
-
-1. On the phone, open **Health**, tap your picture, and choose **Export All
-   Health Data**. It makes one file, `export.zip`.
-2. Send that file to this computer (AirDrop, a cable, anything).
-3. On the admin's **Activities** page, drop it on *Heart & energy*.
-
-The site reads the file in the background and says what it found. It keeps
-only the workouts that match an activity, with the heart rate during them. The
-rest of the file is never read (not sleep, not weight, not where you were) and
-the file itself is deleted as soon as it has been read. Do it again whenever
-you want the newer rides filled in; a workout already on file is simply
-updated.
-
-There is also an automatic way: an app on the phone can post each workout as it
-is recorded. It is switched off until you make a token for it on the same page,
-and the app that does it charges money, which is why the file is the default.
-
-What the page then shows, above the map: average, peak and lowest heart rate,
-active energy, the time spent in each of five effort zones, and the heart rate
-drawn across the whole outing. The zones are shares of the highest heart rate
-the watch has ever recorded for you, since the site is never told your age.
 
 ### The newsletter
 
@@ -1074,10 +1049,9 @@ bottom. If one child dies, only that child is restarted.
 | 15 | a one-off task | Clears the pictures print editors left behind |
 | 16 | `Web.Scheduler` | The clock (Quantum) |
 | 17 | a one-off task | Takes any backup the machine slept through |
-| 18 | a one-off task | Clears an Apple Health import that a restart interrupted |
-| 19 | `Web.Backup.MirrorWatcher` | Notices the external drive being plugged in |
-| 20 | `WebWeb.Endpoint` | Starts answering requests. Last on purpose |
-| 21 | a one-off task | `Web.Warm`: reads what the first visitor would otherwise wait for |
+| 18 | `Web.Backup.MirrorWatcher` | Notices the external drive being plugged in |
+| 19 | `WebWeb.Endpoint` | Starts answering requests. Last on purpose |
+| 20 | a one-off task | `Web.Warm`: reads what the first visitor would otherwise wait for |
 
 The order is the boot sequence. The database is migrated before anything
 reads it, the rate limiter exists before the first request can arrive, and the
@@ -1150,7 +1124,7 @@ What the tables hold:
 | Tables | What |
 |---|---|
 | `audio_logs`, `audio_plays` | The captain's logs and their view counts |
-| `rides`, `health_workouts` | Activities from Komoot, and the heart rate that goes with them |
+| `rides` | Activities from Komoot |
 | `exercises`, `exercise_logs` | The weights logged against exercises |
 | `guestbook_entries`, `contact_messages` | Signatures and messages |
 | `subscribers`, `newsletter_drafts` | The mailing list and its letters |
@@ -1312,7 +1286,6 @@ does well, it starts that tool as a child process and reads what it prints.
 | `film_repair.py` | The print editor's Repair: finding and correcting scanner lines, LaMa, and Stable Diffusion. Runs in its own Python under `~/.local/share/film-repair/`; Stable Diffusion under a memory cap, through `systemd-run` | `Web.Darkroom.Repair` |
 | `digital-contact-sheet-maker` | Assembling a contact sheet, through GIMP | `Web.Scanner.Pipeline` |
 | `rsync` | Copying the negatives and the recordings to the external drive | `Web.Backup.Tree` |
-| `unzip` | Reading an Apple Health export | `Web.Rides.AppleHealth.Export` |
 | `df`, `systemctl` | The monitor's disk and service checks | `Web.Monitor.Probe` |
 
 Each is found on the `PATH` the unit file sets, which is why that `PATH`

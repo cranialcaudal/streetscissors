@@ -15,9 +15,8 @@ defmodule WebWeb.Router do
      `on_mount {WebWeb.AdminAuth, :ensure_admin}` line turns away anyone not
      logged in, so **a new admin page must go inside this block**.
   4. **Addresses for other programs**, each in its own small scope with only
-     what it needs: one-click unsubscribe, webmentions, the `/seen` beacon, the
-     Apple Health webhook, `/health` and the share pictures. Most have no
-     session and set no cookie.
+     what it needs: one-click unsubscribe, webmentions, the `/seen` beacon,
+     `/health` and the share pictures. Most have no session and set no cookie.
   5. **Development only** (`/dev`): Phoenix's dashboard and a preview of sent
      mail, admin only, and absent from the live site.
 
@@ -36,6 +35,7 @@ defmodule WebWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :put_csrf_token_in_session
+    plug WebWeb.Plugs.OwnerMark
     plug WebWeb.Plugs.Analytics
     plug WebWeb.Plugs.SetCurrentUser
   end
@@ -164,6 +164,8 @@ defmodule WebWeb.Router do
       live "/fitness", FitnessLive.Index, :index
       # One weekday of the regimen, whatever today is. /fitness is today.
       live "/fitness/day/:day", FitnessLive.Index, :day
+      # Any other session, for the admin; a visitor is sent to /fitness.
+      live "/fitness/session/:slug", FitnessLive.Index, :session
       live "/fitness/wiki", FitnessLive.Wiki, :index
       live "/fitness/wiki/:slug", FitnessLive.Show, :show
       get "/fitness/regimen", LegacyRedirectController, :fitness_regimen
@@ -210,10 +212,6 @@ defmodule WebWeb.Router do
       get "/admin/cuts/:id/media/:file", CutMediaController, :show
       live "/admin/fitness", AdminLive.FitnessManager
       live "/admin/fitness/fueling", AdminLive.Fueling
-      # The week as calendar events, from content/notes/calendar.md. It names
-      # venues and times, so it is the author's own reference rather than a
-      # page: the action 404s without the admin session.
-      get "/admin/fitness/calendar", PageController, :calendar
       # The training block's report, and its progress photographs, which the
       # action serves to the admin session alone (Web.Fitness.Photos).
       live "/admin/fitness/block", AdminLive.BlockReport
@@ -277,18 +275,6 @@ defmodule WebWeb.Router do
   scope "/", WebWeb do
     pipe_through :beacon
     post "/seen", SeenController, :create
-  end
-
-  # Apple Health workouts, posted by an app on the phone as they are recorded
-  # (WebWeb.HealthWebhookController). A server-to-server POST with a bearer
-  # token: no session, no CSRF. It refuses everything until a token is made.
-  pipeline :health_ingest do
-    plug :accepts, ["json"]
-  end
-
-  scope "/api", WebWeb do
-    pipe_through :health_ingest
-    post "/health/ingest", HealthWebhookController, :ingest
   end
 
   # The health check, asked by the uptime check from outside and by

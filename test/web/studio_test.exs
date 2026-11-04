@@ -228,17 +228,25 @@ defmodule Web.StudioTest do
   describe "Training" do
     setup do
       fitness = tmp_dir("fitness")
-      File.mkdir_p!(Path.join(fitness, "weekly"))
+      File.mkdir_p!(Path.join(fitness, "sessions"))
+
+      File.mkdir_p!(Path.join(fitness, "blocks"))
 
       File.write!(
-        Path.join([fitness, "weekly", "thursday.md"]),
-        "---\ntitle: Thursday — Lower Body\ntab: Thursday\ntheme: legs\n---\n\n- [ ] Squats\n"
+        Path.join([fitness, "sessions", "lower.md"]),
+        "---\ntitle: Lower\nkind: lift\n---\n\n- [ ] Squats\n"
       )
 
-      File.write!(
-        Path.join([fitness, "weekly", "friday.md"]),
-        "---\ntitle: Friday — Swim or Run\ntab: Friday\n---\n\n- [ ] Swim\n"
-      )
+      File.write!(Path.join([fitness, "blocks", "p.md"]), """
+      ---
+      title: Conditioning
+      start: 2026-10-12
+      weeks: 1
+      phases: 1 Base
+      sessions: lower
+      targets: 1 lift 1, ride 1
+      ---
+      """)
 
       original = Application.get_env(:web, :fitness_path)
       Application.put_env(:web, :fitness_path, fitness)
@@ -246,18 +254,12 @@ defmodule Web.StudioTest do
       :ok
     end
 
-    # 2026-10-15 is a Thursday; at noon UTC it is the same day in Pacific time.
-    @thursday ~U[2026-10-15 19:00:00Z]
-    @friday ~U[2026-10-16 19:00:00Z]
-    @saturday ~U[2026-10-17 19:00:00Z]
+    test "the running program's week, or none" do
+      assert %{program: %{title: "Conditioning", week: 1, weeks: 1}} =
+               Studio.training([], ~U[2026-10-15 19:00:00Z])
 
-    test "today's word is the day's theme, or its title without the weekday" do
-      assert %{today: %{slug: "thursday", word: "legs"}} = Studio.training([], @thursday)
-
-      assert %{today: %{slug: "friday", word: nil, title: "Swim or Run"}} =
-               Studio.training([], @friday)
-
-      assert %{today: nil, newest: nil, activities: 0} = Studio.training([], @saturday)
+      assert %{program: nil, newest: nil, activities: 0} =
+               Studio.training([], ~U[2026-12-15 19:00:00Z])
     end
 
     test "the newest activity, how many are on file and Komoot's last pass" do
@@ -269,14 +271,14 @@ defmodule Web.StudioTest do
       })
 
       assert %{newest: newest, activities: 2, sync: sync} =
-               Studio.training(Rides.list_rides(), @thursday)
+               Studio.training(Rides.list_rides(), ~U[2026-10-15 19:00:00Z])
 
       assert %{name: "Evening loop", sport: "racebike", distance_m: 40_000.0} = newest
       assert is_nil(newest.picture)
       assert %{at: nil, status: nil} = sync
 
       Web.Rides.KomootSync.record_run({:ok, %{unchanged: true}})
-      assert %{at: %DateTime{}, status: :ok} = Studio.training([], @thursday).sync
+      assert %{at: %DateTime{}, status: :ok} = Studio.training([], ~U[2026-10-15 19:00:00Z]).sync
     end
   end
 

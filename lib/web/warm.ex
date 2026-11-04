@@ -5,7 +5,8 @@ defmodule Web.Warm do
 
   Several things are parsed on first use and then kept in `:persistent_term`:
   the lectionary (200 ms of JSON), the calendars, the saints, the books of the
-  Bible the day's prayer is read from, and the manual. Each is instant ever
+  Bible the day's prayer is read from, the manual, and the set of the author's
+  own visitor hashes (`Web.Analytics.Owner`). Each is instant ever
   after, but a deploy restarts the BEAM, and whoever asked for `/Christ` next
   paid for all of it: 260 ms against 5. This pays it before anyone asks.
 
@@ -20,6 +21,10 @@ defmodule Web.Warm do
     today = Web.Clock.local_today()
 
     steps = [
+      # The author's own hashes, so the first visit after a deploy is already
+      # judged against them and the :browser pipeline keeps its promise of
+      # reading nothing from the database per request.
+      fn -> Web.Analytics.Owner.reload() end,
       fn -> Calendar.day(today) end,
       fn -> Saints.names() end,
       fn -> Web.Bible.books() end,
