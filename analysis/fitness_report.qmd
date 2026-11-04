@@ -110,7 +110,7 @@ if (nrow(a)) {
 
 ```{r retrospective}
 if (is.null(m$retrospective)) {
-  cat("The Achilles retrospective waits for the flare-up's date (`-P flare_date:YYYY-MM-DD`).\n")
+  cat("The flare-up retrospective waits for the flare-up's date (`-P flare_date:YYYY-MM-DD`).\n")
 } else {
   knitr::kable(m$retrospective, caption = "The seven days before the flare-up", digits = 2)
 }

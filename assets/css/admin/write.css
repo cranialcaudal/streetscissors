@@ -341,7 +341,17 @@
   color: var(--st-accent);
 }
 
-/* 1x4 Collapsible Essay Pipeline Workbench on /admin/blog and /admin/blog/:slug/edit */
+/* 1x4 Collapsible Essay Pipeline Workbench on /admin/blog and /admin/blog/:slug/edit
+   Full-bleed across the studio on ultrawide and MacBook screens, just like the
+   scanner bench in darkroom.css; non-workbench panels below it keep a comfortable measure. */
+.admin-layout .adm-page:has(.adm-pipeline-1x4) {
+  max-width: none;
+}
+
+.admin-layout .adm-main:has(.adm-pipeline-1x4) {
+  padding: 1.75rem clamp(1rem, 2vw, 2.25rem) 4rem;
+}
+
 .admin-layout .adm-wb-bar {
   display: flex;
   flex-wrap: wrap;
@@ -374,6 +384,7 @@
 .admin-layout .adm-pipeline-1x4 {
   display: flex;
   flex-direction: row;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 0.75rem;
   width: 100%;
@@ -382,16 +393,25 @@
 
 .admin-layout .adm-pipeline-col {
   margin-bottom: 0;
-  transition: flex-basis 120ms ease;
+  transition: flex-basis 120ms ease, width 120ms ease;
 }
 
 .admin-layout .adm-pipeline-col[data-collapsed="false"] {
   flex: 1 1 0%;
   min-width: 0;
-  max-height: 78vh;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
   padding: 0.85rem 1rem;
+}
+
+/* Give Draft (3) and Preview (4) extra breathing room when open alongside
+   Articles (1) and Outline (2). */
+.admin-layout #wb-panel-draft[data-collapsed="false"],
+.admin-layout #wb-panel-preview[data-collapsed="false"],
+.admin-layout #ed-panel-draft[data-collapsed="false"],
+.admin-layout #ed-panel-preview[data-collapsed="false"] {
+  flex: 1.25 1 0%;
 }
 
 .admin-layout .adm-pipeline-col[data-collapsed="false"] .adm-panel-head {
@@ -410,7 +430,7 @@
   flex: 0 0 2.6rem;
   width: 2.6rem;
   min-width: 2.6rem;
-  max-height: 78vh;
+  max-height: 80vh;
   padding: 0.5rem 0.2rem;
   display: flex;
   flex-direction: column;
@@ -448,25 +468,152 @@
   letter-spacing: 0.02em;
 }
 
-@media (max-width: 960px) {
+/* Ultrawide monitors (21:9 / 32:9, >= 1800px): true 1x4 studio bay with
+   generous gaps, taller columns, and full-height draft/preview surfaces. */
+@media (min-width: 1800px) {
+  .admin-layout .adm-pipeline-1x4 {
+    gap: 1rem;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="false"],
+  .admin-layout .adm-pipeline-col[data-collapsed="true"] {
+    height: calc(100vh - 11.5rem);
+    max-height: 84vh;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="false"] {
+    padding: 1rem 1.15rem;
+  }
+
+  .admin-layout .adm-wb-textarea {
+    min-height: 66vh;
+  }
+
+  .admin-layout .adm-pipeline-col .adm-prose {
+    min-height: 66vh;
+  }
+}
+
+/* MacBook aspect ratios (13"–16" 16:10 laptops, 901px–1799px):
+   tighter gutters and vertical height tuned for 16:10 viewports so there is
+   no double vertical scrollbar. On 13"–14" screens (<= 1400px), when all 4
+   panels are open at once, wrap into a 2x2 grid so no column is crushed
+   below a readable width; collapsing 1+ panels returns immediately to a
+   single horizontal row with vertical rails. */
+@media (min-width: 901px) and (max-width: 1799px) {
+  .admin-layout .adm-main:has(.adm-pipeline-1x4) {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .admin-layout .adm-pipeline-1x4 {
+    gap: 0.55rem;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="false"] {
+    max-height: calc(100vh - 9.5rem);
+    padding: 0.7rem 0.8rem;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="true"] {
+    max-height: calc(100vh - 9.5rem);
+  }
+
+  .admin-layout .adm-wb-textarea {
+    min-height: 48vh;
+  }
+
+  .admin-layout .adm-pipeline-col .adm-prose {
+    min-height: 48vh;
+    padding: 0.9rem 1.05rem;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1400px) {
+  .admin-layout .adm-pipeline-1x4:not(:has(.adm-pipeline-col[data-collapsed="true"])) {
+    flex-wrap: wrap;
+  }
+
+  .admin-layout .adm-pipeline-1x4:not(:has(.adm-pipeline-col[data-collapsed="true"])) .adm-pipeline-col[data-collapsed="false"] {
+    flex: 1 1 calc(50% - 0.55rem);
+    min-width: 18rem;
+    max-height: 62vh;
+  }
+}
+
+/* Mobile & tablet portrait (<= 900px, matching base.css rail fold):
+   vertical collapsible accordion with horizontal 44px+ header rails. */
+@media (max-width: 900px) {
+  .admin-layout .adm-main:has(.adm-pipeline-1x4) {
+    padding: 1.25rem 0.85rem 3rem;
+  }
+
   .admin-layout .adm-pipeline-1x4 {
     flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .admin-layout .adm-pipeline-col[data-collapsed="false"] {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 72vh;
+    padding: 0.75rem 0.85rem;
   }
 
   .admin-layout .adm-pipeline-col[data-collapsed="true"] {
     flex: 0 0 auto;
     width: 100%;
+    min-width: 0;
     max-height: none;
-    padding: 0.45rem 0.85rem;
+    padding: 0.35rem 0.75rem;
   }
 
   .admin-layout .adm-pipeline-rail-btn {
     flex-direction: row;
+    justify-content: flex-start;
+    min-height: 44px;
     height: auto;
+    padding: 0.25rem 0.25rem;
+    font-size: var(--st-fs-sm);
   }
 
   .admin-layout .adm-pipeline-rail-label {
     writing-mode: horizontal-tb;
+  }
+
+  .admin-layout .adm-wb-textarea {
+    min-height: 42vh;
+  }
+
+  .admin-layout .adm-pipeline-col .adm-prose {
+    min-height: 38vh;
+    padding: 0.85rem 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-layout .adm-wb-bar {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .admin-layout .adm-wb-bar-left,
+  .admin-layout .adm-wb-bar-right {
+    width: 100%;
+  }
+
+  .admin-layout .adm-zotero-bars {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-layout .adm-zotero-bars .adm-input,
+  .admin-layout .adm-zotero-bars .adm-btn {
+    width: 100%;
+  }
+
+  .admin-layout .adm-thought-form {
+    margin-left: 0;
+    flex-wrap: wrap;
   }
 }
 

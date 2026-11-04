@@ -3,7 +3,7 @@ defmodule Web.Fitness.Checks do
   The questions a check-in asks, as the author writes them in
   `content/fitness/checkins.md`: one `##` section per check.
 
-      ## Achilles
+      ## Tendon
       states: quiet, talking, angry
       hold: talking
       stop: angry

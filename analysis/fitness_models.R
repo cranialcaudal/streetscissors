@@ -8,9 +8,10 @@
 #      (Banister et al., 1975), fitted by optim(L-BFGS-B). The residual,
 #      observed minus fitted, is the day's readiness.
 #   2. Acute:chronic workload ratio per movement pattern (Gabbett, 2016),
-#      7 days over the 28-day weekly average, with the rides (Komoot) as an
-#      endurance load beside the lifts; and a retrospective look at the days
-#      before the October 2026 Achilles flare when its date is given.
+#      7 days over the weekly average of the 21 days before them (uncoupled),
+#      with the rides (Komoot) as an endurance load beside the lifts; and a
+#      retrospective look at the days before an injury flare-up when its date
+#      is given.
 #   3. Residual anomalies: the generalised ESD test (Rosner, 1983) on the
 #      Banister residuals, written out here; an IQR fence when n < 15.
 #
@@ -260,7 +261,7 @@ acwr_by_pattern <- function(logs, rides) {
 
 #' The ratios over the seven days before a flare-up, by pattern; NULL
 #' without a date.
-achilles_retrospective <- function(acwr, flare_date) {
+flare_retrospective <- function(acwr, flare_date) {
   if (is.null(flare_date) || is.na(flare_date)) return(NULL)
   flare <- as.Date(flare_date)
   acwr |>
@@ -356,7 +357,7 @@ scale_colour_site <- function(...) {
 
 # ── Everything ─────────────────────────────────────────────────────────
 
-#' Runs Stage 0 and the gates. `flare_date` is the Achilles flare-up's day.
+#' Runs Stage 0 and the gates. `flare_date` is an injury flare-up's day, if any.
 run_models <- function(csv, db_path = NULL, block_path, flare_date = NULL) {
   block <- read_block(block_path)
   lifts <- block_lifts(block)
@@ -389,7 +390,7 @@ run_models <- function(csv, db_path = NULL, block_path, flare_date = NULL) {
     n_weeks = n_weeks,
     banister = banister,
     acwr = acwr,
-    retrospective = achilles_retrospective(acwr, flare_date),
+    retrospective = flare_retrospective(acwr, flare_date),
     stage1 = stage1(logs, n_weeks),
     stage2 = stage2(logs, n_weeks)
   )
@@ -400,7 +401,7 @@ if (sys.nframe() == 0) {
   csv <- args[1] %||% "tmp/fitness/fitness_logs.csv"
   db <- args[2] %||% NA
   block <- args[3] %||% "content/fitness/blocks/get-sharp.md"
-  m <- run_models(csv, if (is.na(db)) NULL else db, block, Sys.getenv("ACHILLES_FLARE_DATE", NA))
+  m <- run_models(csv, if (is.na(db)) NULL else db, block, Sys.getenv("FLARE_DATE", NA))
   cat(sprintf("%d entries over %.1f weeks\n", nrow(m$logs), m$n_weeks))
   for (b in m$banister) {
     if (isTRUE(b$ok)) {

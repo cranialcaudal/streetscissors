@@ -95,7 +95,7 @@ defmodule Web.Fitness.Guardrails do
   def substitute(%{substitutes: subs}, slug), do: Map.get(subs, slug)
   def substitute(_block, _slug), do: nil
 
-  @doc "The verdict in words: `Hold: Achilles talking — skip the box jumps today`."
+  @doc "The verdict in words: `Hold: Tendon talking — skip the box jumps today`."
   def line({:green, _}), do: nil
 
   def line({state, reasons}),

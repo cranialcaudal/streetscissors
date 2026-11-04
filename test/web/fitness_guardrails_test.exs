@@ -7,7 +7,7 @@ defmodule Web.Fitness.GuardrailsTest do
   @rdl %{slug: "dumbbell-rdl", low: 10, high: 12, increment: 5.0, pattern: "hinge"}
 
   @checks Checks.parse("""
-          ## Achilles
+          ## Tendon
           states: quiet, talking, angry
           hold: talking
           stop: angry
@@ -31,7 +31,7 @@ defmodule Web.Fitness.GuardrailsTest do
 
   test "the checks are read from the file" do
     assert [
-             %{id: "achilles", kind: :state},
+             %{id: "tendon", kind: :state},
              %{id: "knee-stairs-test", stop: ["fail"]},
              %{id: "bodyweight", kind: :number, unit: "lb"}
            ] =
@@ -40,37 +40,37 @@ defmodule Web.Fitness.GuardrailsTest do
 
   test "green with no check-in, or with a good answer" do
     assert state("box-jumps", []) == {:green, []}
-    assert state("box-jumps", [checkin(0, %{"achilles" => "quiet"})]) == {:green, []}
+    assert state("box-jumps", [checkin(0, %{"tendon" => "quiet"})]) == {:green, []}
   end
 
   test "an answer holds or stops only the exercises its check guards, with its advice" do
-    talking = [checkin(0, %{"achilles" => "talking"})]
+    talking = [checkin(0, %{"tendon" => "talking"})]
 
-    assert {:hold, ["Achilles talking — Skip the jumps today."]} = state("box-jumps", talking)
+    assert {:hold, ["Tendon talking — Skip the jumps today."]} = state("box-jumps", talking)
 
     assert {:green, []} = state("dumbbell-rdl", talking),
-           "the hinge is not the Achilles' business"
+           "the hinge is not the tendon's business"
 
-    assert {:stop, ["Achilles angry"]} =
-             state("single-leg-calf-raises", [checkin(1, %{"achilles" => "angry"})])
+    assert {:stop, ["Tendon angry"]} =
+             state("single-leg-calf-raises", [checkin(1, %{"tendon" => "angry"})])
 
     assert {:stop, ["Knee (stairs test) fail"]} =
              state("sumo-squat-to-box", [checkin(0, %{"knee-stairs-test" => "fail"})])
   end
 
   test "a check-in older than two days says nothing about today" do
-    assert {:green, []} = state("box-jumps", [checkin(3, %{"achilles" => "angry"})])
+    assert {:green, []} = state("box-jumps", [checkin(3, %{"tendon" => "angry"})])
   end
 
   test "an answer worsening three check-ins running holds" do
     seq = [
-      checkin(0, %{"achilles" => "angry"}),
-      checkin(1, %{"achilles" => "talking"}),
-      checkin(2, %{"achilles" => "quiet"})
+      checkin(0, %{"tendon" => "angry"}),
+      checkin(1, %{"tendon" => "talking"}),
+      checkin(2, %{"tendon" => "quiet"})
     ]
 
     assert {:stop, reasons} = state("box-jumps", seq)
-    assert "Achilles worse three check-ins running" in reasons
+    assert "Tendon worse three check-ins running" in reasons
   end
 
   test "a pattern's load over 1.5 times its average holds a tracked lift" do
@@ -100,9 +100,9 @@ defmodule Web.Fitness.GuardrailsTest do
   end
 
   test "today's standing lists the checks off their good state" do
-    assert [{"Achilles", "talking", :hold}] =
+    assert [{"Tendon", "talking", :hold}] =
              Guardrails.today(
-               [checkin(0, %{"achilles" => "talking", "knee-stairs-test" => "pass"})],
+               [checkin(0, %{"tendon" => "talking", "knee-stairs-test" => "pass"})],
                @today,
                @checks
              )
@@ -117,6 +117,6 @@ defmodule Web.Fitness.GuardrailsTest do
 
   test "the verdict in words" do
     assert Guardrails.line({:green, []}) == nil
-    assert Guardrails.line({:hold, ["Achilles talking"]}) == "Hold: Achilles talking"
+    assert Guardrails.line({:hold, ["Tendon talking"]}) == "Hold: Tendon talking"
   end
 end

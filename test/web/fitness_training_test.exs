@@ -130,10 +130,10 @@ defmodule Web.Fitness.TrainingTest do
         log(4, ~D[2026-12-15], "weighted-dips", %{"weight" => "45", "reps" => "8"})
       ])
 
-    [achilles, _] =
+    [tendon, _] =
       checks =
       Web.Fitness.Checks.parse("""
-      ## Achilles
+      ## Tendon
       states: quiet, talking, angry
       hold: talking
       stop: angry
@@ -145,7 +145,7 @@ defmodule Web.Fitness.TrainingTest do
 
     block = Map.put(@block, :predict, [%{measure: "e1rm", value: 10.0, text: "e1rm +10%"}])
     weeks = Enum.to_list(1..8)
-    calm = [%{date: ~D[2026-11-02], answers: %{"achilles" => "quiet", "bodyweight" => "170"}}]
+    calm = [%{date: ~D[2026-11-02], answers: %{"tendon" => "quiet", "bodyweight" => "170"}}]
 
     assert %{answer: "Supported:" <> _, lifts: [rdl, dips], rows: rows8} =
              Training.report(rows, block, weeks, calm, checks, @plan)
@@ -153,12 +153,12 @@ defmodule Web.Fitness.TrainingTest do
     assert rdl.change == 15.0
     assert dips.from == {1, 31.7}
 
-    assert %{week: 2, checks: %{"achilles" => "quiet 1", "bodyweight" => "170.0 lb"}} =
+    assert %{week: 2, checks: %{"tendon" => "quiet 1", "bodyweight" => "170.0 lb"}} =
              Enum.at(rows8, 1)
 
-    assert achilles.kind == :state
+    assert tendon.kind == :state
 
-    sore = [%{date: ~D[2026-11-02], answers: %{"achilles" => "angry"}}]
+    sore = [%{date: ~D[2026-11-02], answers: %{"tendon" => "angry"}}]
 
     assert %{answer: answer, rows: sore_rows} =
              Training.report(rows, block, weeks, sore, checks, @plan)

@@ -56,7 +56,7 @@ defmodule Web.Fitness.ExportTest do
     {:ok, _} =
       Fitness.save_checkin(%{
         date: ~D[2026-10-27],
-        answers: %{"shoulder" => "sore", "bodyweight" => "171.4"}
+        answers: %{"shoulder" => "sore", "bodyweight" => "180.0"}
       })
 
     {:ok, _} = Fitness.save_checkin(%{date: ~D[2026-10-28], answers: %{}, note: "ok"})
@@ -65,7 +65,7 @@ defmodule Web.Fitness.ExportTest do
       Web.Fitness.Checks.parse("## Shoulder\nstates: fine, sore\n\n## Bodyweight\nkind: number\n")
 
     assert Export.checkins_csv(Fitness.checkins_between(~D[2026-10-01], ~D[2026-11-01]), checks) ==
-             "date,shoulder,bodyweight,note\n2026-10-27,sore,171.4,NA\n2026-10-28,NA,NA,ok\n"
+             "date,shoulder,bodyweight,note\n2026-10-27,sore,180.0,NA\n2026-10-28,NA,NA,ok\n"
   end
 
   test "Komoot rides as CSV, in miles and Pacific time, the Thursday morning ride a TT" do

@@ -2,7 +2,7 @@ defmodule Web.Fitness.Checkin do
   @moduledoc """
   A day's check-in: one answer per check the vault defines
   (`Web.Fitness.Checks`, from `content/fitness/checkins.md`), keyed by the
-  check's id — `%{"achilles" => "talking", "bodyweight" => "171.4"}` — and a
+  check's id — `%{"tendon" => "talking", "bodyweight" => "180.0"}` — and a
   note. One a day. The admin's only: no public page reads this table.
   """
   use Ecto.Schema
@@ -26,7 +26,7 @@ defmodule Web.Fitness.Checkin do
     |> unique_constraint(:date)
   end
 
-  # A number check's answer is a measurement: "171.4", never "heavy".
+  # A number check's answer is a measurement: "180.0", never "heavy".
   defp validate_numbers(changeset, checks) do
     answers = get_field(changeset, :answers) || %{}
 
