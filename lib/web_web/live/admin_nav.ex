@@ -71,6 +71,7 @@ defmodule WebWeb.AdminNav do
         heading: "Writing",
         links: [
           %{label: "Blog", path: ~p"/admin/blog", icon: "hero-document-text"},
+          %{label: "Papers", path: ~p"/admin/writing", icon: "hero-pencil-square"},
           %{label: "Keywords", path: ~p"/admin/keywords", icon: "hero-tag"},
           %{
             label: "Content health",

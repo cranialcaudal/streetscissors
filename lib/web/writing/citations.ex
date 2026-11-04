@@ -20,7 +20,7 @@ defmodule Web.Writing.Citations do
   `check/2` lists those, and the sources never cited.
 
   Nothing here knows about the blog: it reads text and reading-list items
-  (`%{text: …}` as `Web.Blog.Outline.analyze/2` returns them).
+  (`%{text: …}` as `Web.Writing.Outline.analyze/2` returns them).
   """
 
   @key_chars "A-Za-z0-9-"
@@ -74,7 +74,7 @@ defmodule Web.Writing.Citations do
   defp item_text(%{text: text}), do: text |> split_key() |> elem(0)
 
   defp source(key, text) do
-    parsed = Web.Zotero.parse_markdown_reading_item(text)
+    parsed = Web.Writing.Zotero.parse_markdown_reading_item(text)
 
     %{
       key: key,
@@ -296,6 +296,99 @@ defmodule Web.Writing.Citations do
       end
     end)
     |> elem(0)
+  end
+
+  @doc """
+  The cited sources as CSL JSON items (`id` the key), for Pandoc's
+  `--citeproc`. Each comes from `zotero` (CSL JSON items, matched by title)
+  when it is there, else from the reading-list line itself: authors, title,
+  container or publisher, year, volume, issue, pages, URL and DOI.
+  """
+  def csl_items(items, keys, zotero \\ []) when is_list(items) do
+    by_title = Map.new(zotero, &{norm_title(&1["title"]), &1})
+    keys = MapSet.new(keys)
+
+    items
+    |> Enum.flat_map(fn item ->
+      key = item_key(item)
+
+      if key && MapSet.member?(keys, key) do
+        text = item_text(item)
+        parsed = Web.Writing.Zotero.parse_markdown_reading_item(text)
+
+        case Map.get(by_title, norm_title(parsed.title)) do
+          %{} = csl -> [Map.put(csl, "id", key)]
+          nil -> [csl_from_line(key, text, parsed)]
+        end
+      else
+        []
+      end
+    end)
+    |> Enum.uniq_by(& &1["id"])
+  end
+
+  defp csl_from_line(key, text, parsed) do
+    type =
+      case parsed.item_type do
+        "journalArticle" -> "article-journal"
+        "newspaperArticle" -> "article-newspaper"
+        "webpage" -> "webpage"
+        "report" -> "report"
+        "document" -> "document"
+        _ -> "book"
+      end
+
+    plain = Web.Markdown.to_text(text)
+
+    %{
+      "id" => key,
+      "type" => type,
+      "title" => parsed.title,
+      "author" => csl_names(parsed.authors),
+      "issued" => parsed.year && %{"date-parts" => [[String.to_integer(parsed.year)]]},
+      if(type in ["article-journal", "article-newspaper"],
+        do: "container-title",
+        else: "publisher"
+      ) => parsed.publication,
+      "volume" =>
+        capture(~r/\*\s*(\d+)\s*,\s*no\./, text) || capture(~r/\*\s+(\d+),\s*no\./, plain),
+      "issue" => capture(~r/\bno\.\s*(\d+)/i, plain),
+      "page" => capture(~r/\):\s*(\d+\s*[–-]\s*\d+)/u, plain),
+      "URL" => parsed.url,
+      "DOI" => capture(~r/\b(10\.\d{4,9}\/[^\s)*]+)/, text)
+    }
+    |> Enum.reject(fn {_k, v} -> v in [nil, "", []] end)
+    |> Map.new()
+  end
+
+  defp csl_names(authors) do
+    authors
+    |> to_string()
+    |> String.replace(~r/,?\s*et al\.?$/i, "")
+    |> String.split(~r/\s*(?:&|;|\band\b)\s*/, trim: true)
+    |> Enum.map(fn name ->
+      case String.split(name, ",", parts: 2) do
+        [family, given] -> %{"family" => String.trim(family), "given" => String.trim(given)}
+        [literal] -> %{"literal" => String.trim(literal)}
+      end
+    end)
+  end
+
+  defp capture(re, text) do
+    case Regex.run(re, text) do
+      [_, value | _] -> String.trim(value)
+      nil -> nil
+    end
+  end
+
+  defp norm_title(nil), do: ""
+
+  defp norm_title(title) do
+    title
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, " ")
+    |> String.trim()
   end
 
   @doc """

@@ -1,8 +1,9 @@
-defmodule Web.Blog.Outline do
+defmodule Web.Writing.Outline do
   @moduledoc """
-  Dialectical outline-to-draft scaffolding inside a blog post's markdown file.
+  Outline-to-draft scaffolding inside one markdown file: a blog post or a paper.
 
-  An essay can be researched, outlined and written in one file in `content/blog/`:
+  A piece can be researched, outlined and written in one file (a post in
+  `content/blog/`, a paper in a `Web.Writing.Papers` folder):
 
     1. **Reading list at the top** (`## Reading List` or `## ... Research Checklist`),
        where each `- [ ]` source can be followed by a `> [!thought]` block holding
@@ -16,8 +17,7 @@ defmodule Web.Blog.Outline do
 
   `strip/1` removes the reading list, beats, thoughts, `(~250 words)` heading
   suffixes, and unwritten section headers before the post is counted, excerpted
-  or rendered for `/blog/:slug`. `analyze/2` reads the same text for the admin
-  editor's workbench: sources read, thoughts recorded, beats answered, and
+  or rendered. `analyze/2` reads the same text for the workbench: sources read, thoughts recorded, beats answered, and
   drafted words against each section's goal. `from_blueprint/2` turns a raw
   markdown blueprint into a single-file draft with the reading list at the top.
   """
@@ -64,12 +64,14 @@ defmodule Web.Blog.Outline do
         drafted_words: non_neg_integer(),
         beats_total: non_neg_integer(),
         beats_done: non_neg_integer(),
-        sections: [%{title, level, target_words, drafted_words, beats_total, beats_done, beats}],
+        sections: [%{title, level, target_words, drafted_words, beats_total, beats_done,
+                     beats, first_sentence, cites}],
         research: %{
           total: non_neg_integer(),
           checked: non_neg_integer(),
           with_thoughts: non_neg_integer(),
-          items: [%{done?: boolean(), text: String.t(), key: String.t() | nil, thoughts: [String.t()]}]
+          items: [%{done?: boolean(), text: String.t(), key: String.t() | nil,
+                    thoughts: [String.t()], used_in: [String.t()]}]
         }
       }
   """
@@ -91,6 +93,8 @@ defmodule Web.Blog.Outline do
         section_target_sum > 0 -> section_target_sum
         true -> nil
       end
+
+    research = link_research(research, sections)
 
     beats_total = Enum.sum(Enum.map(sections, & &1.beats_total))
     beats_done = Enum.sum(Enum.map(sections, & &1.beats_done))
@@ -118,9 +122,10 @@ defmodule Web.Blog.Outline do
   Renders `body` to HTML with `> [!beat]` blocks and their paired `> [!thought]`
   phrasings shown in place as `<aside>` cards, so the author can preview
   unwritten beats alongside their reading notes and drafted paragraphs in
-  `WebWeb.AdminLive.BlogEditor`.
+  the workbench. `to_html` renders the prose between them (the blog passes
+  its own, which knows the vault's embeds).
   """
-  def render_with_beats(body) when is_binary(body) do
+  def render_with_beats(body, to_html \\ &Web.Markdown.to_html/1) when is_binary(body) do
     blocks = parse_blocks(body)
     beats_with_state = mark_beat_states(blocks)
 
@@ -203,7 +208,7 @@ defmodule Web.Blog.Outline do
         [line]
     end)
     |> Enum.join("\n")
-    |> Web.Blog.to_html()
+    |> to_html.()
   end
 
   @doc """
@@ -264,7 +269,7 @@ defmodule Web.Blog.Outline do
   end
 
   @doc """
-  Inserts formatted reading-list entries (e.g. from `Web.Zotero.format_reading_item/1`),
+  Inserts formatted reading-list entries (e.g. from `Web.Writing.Zotero.format_reading_item/1`),
   each given a citation key not already in the list (`Web.Writing.Citations.new_key/2`),
   into the top `## Reading List` / `## ... Research Checklist` section of `text`.
 
@@ -283,7 +288,7 @@ defmodule Web.Blog.Outline do
       end)
       |> Enum.map_reduce(taken, fn item, taken ->
         key = Citations.new_key(item, taken)
-        {Web.Zotero.format_reading_item(Map.put(item, :cite_key, key)), [key | taken]}
+        {Web.Writing.Zotero.format_reading_item(Map.put(item, :cite_key, key)), [key | taken]}
       end)
 
     if new_blocks == [] do
@@ -309,7 +314,10 @@ defmodule Web.Blog.Outline do
 
       item ->
         key =
-          Citations.new_key(Web.Zotero.parse_markdown_reading_item(item.text), reading_keys(text))
+          Citations.new_key(
+            Web.Writing.Zotero.parse_markdown_reading_item(item.text),
+            reading_keys(text)
+          )
 
         {append_task_key(text, index, key), key}
     end
@@ -655,7 +663,7 @@ defmodule Web.Blog.Outline do
           nil -> {"Opening", 2, nil, true}
         end
 
-      {beats, total_prose_words} = analyze_section_items(items)
+      {beats, total_prose_words, prose} = analyze_section_items(items)
       beats_total = length(beats)
       beats_done = Enum.count(beats, & &1.drafted?)
 
@@ -667,26 +675,28 @@ defmodule Web.Blog.Outline do
         beats_total: beats_total,
         beats_done: beats_done,
         beats: beats,
+        first_sentence: first_sentence(prose),
+        cites: beats |> Enum.flat_map(& &1.cites) |> Kernel.++(cite_keys(prose)) |> Enum.uniq(),
         implicit?: implicit? and beats_total == 0 and is_nil(target)
       }
     end)
   end
 
   defp analyze_section_items(items) do
-    {beats_rev, current_beat, orphan_words} =
-      Enum.reduce(items, {[], nil, 0}, fn
-        {:beat, beat}, {acc, prev_beat, orphans} ->
+    {beats_rev, current_beat, orphan_words, orphan_prose} =
+      Enum.reduce(items, {[], nil, 0, []}, fn
+        {:beat, beat}, {acc, prev_beat, orphans, oprose} ->
           next_acc = if prev_beat, do: [finalize_beat(prev_beat) | acc], else: acc
-          {next_acc, Map.put(beat, :words, 0), orphans}
+          {next_acc, beat |> Map.put(:words, 0) |> Map.put(:prose_lines, []), orphans, oprose}
 
-        {:thought, %{text: text}}, {acc, prev_beat, orphans} ->
+        {:thought, %{text: text}}, {acc, prev_beat, orphans, oprose} ->
           if prev_beat do
-            {acc, Map.update!(prev_beat, :thoughts, &(&1 ++ [text])), orphans}
+            {acc, Map.update!(prev_beat, :thoughts, &(&1 ++ [text])), orphans, oprose}
           else
-            {acc, nil, orphans}
+            {acc, nil, orphans, oprose}
           end
 
-        {:prose, line}, {acc, prev_beat, orphans} ->
+        {:prose, line}, {acc, prev_beat, orphans, oprose} ->
           words =
             if Regex.match?(@hr_re, line) do
               0
@@ -695,9 +705,14 @@ defmodule Web.Blog.Outline do
             end
 
           if prev_beat do
-            {acc, Map.update!(prev_beat, :words, &(&1 + words)), orphans}
+            beat =
+              prev_beat
+              |> Map.update!(:words, &(&1 + words))
+              |> Map.update!(:prose_lines, &[line | &1])
+
+            {acc, beat, orphans, oprose}
           else
-            {acc, nil, orphans + words}
+            {acc, nil, orphans + words, [line | oprose]}
           end
 
         _, state ->
@@ -712,20 +727,60 @@ defmodule Web.Blog.Outline do
       end
 
     total_words = orphan_words + Enum.sum(Enum.map(beats, & &1.words))
-    {beats, total_words}
+
+    prose =
+      Enum.join(
+        [Enum.reverse(orphan_prose) |> Enum.join("\n") | Enum.map(beats, & &1.prose)],
+        "\n"
+      )
+
+    {beats, total_words, prose}
   end
+
+  # The section's first drafted sentence, for the reverse outline: what the
+  # prose says it is doing, beside what the beat asked of it.
+  defp first_sentence(prose) do
+    paragraph =
+      prose
+      |> String.split(~r/\n\s*\n/)
+      |> Enum.map(&String.trim/1)
+      |> Enum.find(fn p -> p != "" and not String.starts_with?(p, ["#", ">", "|", "!["]) end)
+
+    case paragraph && Web.Markdown.to_text(paragraph) do
+      nil ->
+        nil
+
+      "" ->
+        nil
+
+      text ->
+        case Regex.run(~r/^.+?[.!?](?=\s|$)/u, text) do
+          [sentence] -> sentence
+          nil -> String.slice(text, 0, 200)
+        end
+    end
+  end
+
+  defp cite_keys(text), do: text |> Citations.citations() |> Enum.map(& &1.key) |> Enum.uniq()
 
   defp finalize_beat(beat) do
     drafted? = beat.checked? or beat.words > 0
+    prompt = Enum.join(beat.body_lines, "\n")
+    thoughts = Map.get(beat, :thoughts, [])
+    prose = beat |> Map.get(:prose_lines, []) |> Enum.reverse() |> Enum.join("\n")
 
     %{
       title: beat.title,
-      prompt: Enum.join(beat.body_lines, "\n"),
-      thoughts: Map.get(beat, :thoughts, []),
+      prompt: prompt,
+      thoughts: thoughts,
       checked?: beat.checked?,
       drafted?: drafted?,
       words: beat.words,
-      body_lines: beat.body_lines
+      body_lines: beat.body_lines,
+      prose: prose,
+      # The sources the beat leans on: cited in its prompt, its phrasings or
+      # the prose written under it.
+      cites: cite_keys(Enum.join([prompt, prose | thoughts], "\n"))
     }
   end
 
@@ -764,6 +819,24 @@ defmodule Web.Blog.Outline do
       if current_beat, do: [{:beat, finalize_beat(current_beat)} | out_rev], else: out_rev
 
     Enum.reverse(final_acc)
+  end
+
+  # Each source learns which beats lean on it (`used_in`, beat titles in
+  # order), so the reading list shows what each reading is for.
+  defp link_research(research, sections) do
+    beats = Enum.flat_map(sections, & &1.beats)
+
+    items =
+      Enum.map(research.items, fn item ->
+        used_in =
+          if item.key,
+            do: beats |> Enum.filter(&(item.key in &1.cites)) |> Enum.map(& &1.title),
+            else: []
+
+        Map.put(item, :used_in, used_in)
+      end)
+
+    %{research | items: items}
   end
 
   defp build_research(blocks) do
@@ -903,7 +976,9 @@ defmodule Web.Blog.Outline do
           {{block_lines, _thought_texts}, after_beat} =
             collect_beat_and_thoughts([line | rest], [], [])
 
-          (Enum.reverse(acc) ++ block_lines ++ callout_lines ++ after_beat)
+          # A blank line first, so Obsidian draws the thought as its own
+          # callout rather than as more lines of the beat's.
+          (Enum.reverse(acc) ++ block_lines ++ ["" | callout_lines] ++ after_beat)
           |> Enum.join("\n")
         else
           do_add_beat_thought(rest, target_norm, callout_lines, [line | acc])

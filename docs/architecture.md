@@ -100,28 +100,9 @@ title/description/date/keywords (`content/templates/blog-template.md`).
   on them does (index, feeds, sitemap, daybook, `/pc`, letters). Only the admin passes
   `drafts: true` or calls `list_all_posts/0`. The author can open a draft at its address
   (marked, `noindex`).
-- **Outlines** (`Web.Blog.Outline`, `Web.Zotero`): a post file can hold its own outline — a top
-  `## Reading List` (or `## Research Checklist`) of `- [ ]` / `- [x]` sources with `> [!thought]`
-  notes, section headings with `(~250 words)` targets, and `> [!beat]` callouts (plus `> [!thought]`
-  phrasings) above the paragraphs that answer them. `Outline.strip/1` removes the scaffolding
-  before a post is counted, excerpted or rendered; `Outline.analyze/2` feeds the editor's progress
-  strip; `Outline.seed_beat_thoughts/2` drops a beat's phrasings beneath it as draft prose;
-  `Outline.from_blueprint/2` turns a raw markdown blueprint into a draft file; and `Web.Zotero`
-  (`ZOTERO_USER_ID` / `ZOTERO_API_KEY`) pulls collections, citations, child notes, and PDF
-  highlight annotations from the Zotero Web API v3 into the top Reading List via
-  `Outline.insert_reading_items/2`.
-- **Citations** (`Web.Writing.Citations`): a reading-list line ends in its key as an Obsidian
-  block id (`^vance2021`), and the prose cites it Pandoc-style (`[@vance2021, p. 19]`,
-  `[see @a; -@b]`). `build_post` renders citations author-date, linked to a `## References`
-  section appended after the prose (not counted as words), before `strip/1` takes the reading
-  list away; an unknown key stays as typed. Keys come from Zotero's `citationKey` (or Better
-  BibTeX's `Citation Key:` line in Extra), else surname + year. The module knows nothing of the
-  blog, so it can serve any writing.
-- **The workbench** (`AdminLive.Workbench`, a LiveComponent) is the one implementation of the
-  four panels, hosted by the desk (`AdminLive.BlogManager`, with a picker) and the editor
-  (`AdminLive.BlogEditor`, full page). Hosts call `Workbench.attach/1` (editor completions, and
-  the component's flash, which the layout renders). **Panel actions only change the text in
-  the editor**; nothing is written until Save, which goes through `write_source/4`.
+- **Outlines, citations and the workbench** are the writing workbench's (next section); a
+  post is one of the two kinds of file it opens. `build_post` renders a post's citations before
+  `Outline.strip/1` takes its reading list away.
 - **The editor** (`AdminLive.BlogEditor`) edits the whole file. `Blog.write_source/4` **refuses to
   save over a file whose revision (SHA-256) moved**, since Obsidian edits the vault too; saving
   over anyway puts the old text in the vault's `.trash/` first. Saves are written beside and
@@ -130,6 +111,49 @@ title/description/date/keywords (`content/templates/blog-template.md`).
 - Keywords live in frontmatter, not the database.
 - The index's styles are in `writing.css`, scoped to `.writing`. The `blog-bento-*` classes
   serve the fitness pages, from `fitness_cards.css`.
+
+## The writing workbench
+
+`Web.Writing` and the modules under it know nothing of the blog, so one outline, citations,
+Zotero and export serve a post, a paper or a grant page. A piece is one markdown file;
+its project settings are frontmatter keys Obsidian shows like any other (`zotero:` its
+Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `abstract:`;
+`Web.Writing.Document.project/1`).
+
+- **Outline** (`Web.Writing.Outline`): a top `## Reading List` (or `## Research Checklist`)
+  of `- [ ]` / `- [x]` sources with `> [!thought]` notes, section headings with
+  `(~250 words)` targets, and `> [!beat]` callouts (plus `> [!thought]` phrasings) above the
+  prose that answers them. `strip/1` removes the scaffolding before a piece is counted or
+  rendered; `analyze/2` gives each beat the sources it cites (prompt, phrasings or prose under
+  it), each source the beats that use it (`used_in`), and each section its first drafted
+  sentence (a reverse outline). `from_blueprint/2` turns a pasted blueprint into a file.
+- **Citations** (`Web.Writing.Citations`): a reading-list line ends in its key as an Obsidian
+  block id (`^vance2021`), and the prose cites it Pandoc-style (`[@vance2021, p. 19]`,
+  `[see @a; -@b]`). On the site, citations render author-date, linked to a `## References`
+  section after the prose (not counted as words); an unknown key stays as typed. Keys come from
+  Zotero's `citationKey` (or Better BibTeX's `Citation Key:` line in Extra), else surname +
+  year. `csl_items/3` makes CSL JSON for an export.
+- **Zotero** (`Web.Writing.Zotero`, `ZOTERO_USER_ID` / `ZOTERO_API_KEY`): collections, items,
+  child notes and PDF annotations into the reading list; the reading list back out; a folder's
+  CSL JSON for exports.
+- **Papers** (`Web.Writing.Papers`, `/admin/writing`): pieces that are never published, in
+  `WRITING_PATH` (default `writing/` beside the blog folder). Started from a skeleton
+  (`Web.Writing.kinds/0`: essay, IMRaD article, literature review, specific aims, response to
+  reviewers) or a blueprint. Saved through `Web.SourceFile.write/4`, like posts.
+- **Export** (`Web.Writing.Export`): the saved file, stripped, through Pandoc with `--citeproc`
+  to Word, PDF (xelatex), LaTeX or Pandoc markdown, at `/admin/writing/:slug/export/:format`
+  and `/admin/blog/:slug/export/:format` (admin session only). The bibliography is the
+  piece's Zotero folder's CSL JSON where titles match, else the reading-list lines. Styles
+  (`.csl`) are looked for beside the piece, then in `CSL_PATH` (default `styles/` beside the
+  blog folder); without one, Pandoc's Chicago author-date. Pandoc is the static build in
+  `~/.local/bin` (on the unit's `PATH`), or `PANDOC_PATH`; tests that run it are tagged
+  `:pandoc` and left out where it is missing (CI).
+- **The workbench** (`AdminLive.Workbench`, a LiveComponent) is the one implementation of the
+  four panels, over a `store` (`Web.Blog` or `Web.Writing.Papers`: `read_source/1`,
+  `write_source/4`, `preview/2`, `to_html/1`). Hosts: the blog's desk (`BlogManager`, with a
+  picker), its editor (`BlogEditor`), and `PaperEditor`. Hosts call `Workbench.attach/1`
+  (editor completions, and the component's flash, which the layout renders). **Panel actions
+  only change the text in the editor**; nothing is written until Save.
 
 ## The document editor
 

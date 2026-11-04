@@ -202,6 +202,12 @@ defmodule WebWeb.Router do
       # logs each own their ingestion now.
       live "/admin/blog", AdminLive.BlogManager
       live "/admin/blog/:slug/edit", AdminLive.BlogEditor
+      # Papers (Web.Writing.Papers): the same workbench, never published, and
+      # Pandoc's Word/PDF/LaTeX of a paper or a post, to the admin alone.
+      live "/admin/writing", AdminLive.WritingDesk
+      live "/admin/writing/:slug", AdminLive.PaperEditor
+      get "/admin/writing/:slug/export/:format", WritingExportController, :paper
+      get "/admin/blog/:slug/export/:format", WritingExportController, :post
       live "/admin/keywords", AdminLive.Keywords
       live "/admin/health", AdminLive.ContentHealth
       live "/admin/logs", AdminLive.LogsManager

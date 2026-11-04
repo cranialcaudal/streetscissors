@@ -20,7 +20,17 @@ defmodule WebWeb.AdminLive.Workbench do
   The host LiveView calls `attach/1` in `mount/3` and handles
   `{:workbench_saved, slug}`, sent after each save. Attributes: `slug`
   (read on first render; later changes come from the desk's own picker),
-  `mode` (`"editor"` renders the page head, `"desk"` a picker over `posts`).
+  `mode` (`"editor"` renders a post's page head, `"desk"` a picker over
+  `posts`, `"paper"` a paper's page head), `store` (`Web.Blog`, the
+  default, or `Web.Writing.Papers`): where the file is read, saved and
+  previewed.
+
+  **Sources and beats.** Each beat lists the sources it leans on (cited in
+  its prompt, its phrasings, or the prose under it); each source lists the
+  beats that use it, and a thought on a source can be carried **To beat**,
+  cited. Each section shows its first drafted sentence beside its beats, a
+  reverse outline. **Export** sends the saved file through Pandoc
+  (`Web.Writing.Export`).
   """
 
   use WebWeb, :live_component
@@ -29,9 +39,9 @@ defmodule WebWeb.AdminLive.Workbench do
   import WebWeb.DocumentEditor, only: [document_editor: 1]
 
   alias Web.Blog
-  alias Web.Blog.Outline
-  alias Web.Writing.Citations
-  alias Web.Zotero
+  alias Web.Writing.Outline
+  alias Web.Writing.{Citations, Document, Export}
+  alias Web.Writing.Zotero
   alias WebWeb.DocumentEditor
 
   @editor "post-source"
@@ -59,6 +69,7 @@ defmodule WebWeb.AdminLive.Workbench do
     socket =
       socket
       |> assign(:mode, Map.get(assigns, :mode, "editor"))
+      |> assign(:store, Map.get(assigns, :store, Blog))
       |> assign(:posts, Map.get(assigns, :posts, []))
       |> assign(:id, assigns.id)
 
@@ -89,7 +100,7 @@ defmodule WebWeb.AdminLive.Workbench do
   # ── The file ──────────────────────────────────────────────────────────
 
   defp open(socket, slug) do
-    case Blog.read_source(slug) do
+    case socket.assigns.store.read_source(slug) do
       {:ok, %{content: content, revision: revision}} ->
         socket
         |> assign(slug: slug, revision: revision, saved: content, conflict: nil)
@@ -163,7 +174,10 @@ defmodule WebWeb.AdminLive.Workbench do
     show_beats = not socket.assigns.show_beats
 
     {:noreply,
-     assign(socket, show_beats: show_beats, html: preview_html(socket.assigns.post, show_beats))}
+     assign(socket,
+       show_beats: show_beats,
+       html: preview_html(socket.assigns.store, socket.assigns.post, show_beats)
+     )}
   end
 
   def handle_event("seed_beat", %{"beat" => beat}, socket) do
@@ -196,6 +210,27 @@ defmodule WebWeb.AdminLive.Workbench do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  # A reading's thought, carried to the beat it serves with its citation, so
+  # the beat shows the source and the phrasing is ready to seed.
+  def handle_event(
+        "thought_to_beat",
+        %{"index" => index, "thought" => thought, "beat" => beat},
+        socket
+      ) do
+    with {i, ""} <- Integer.parse(to_string(index)),
+         {t, ""} <- Integer.parse(to_string(thought)),
+         %{thoughts: thoughts} <- Enum.at(socket.assigns.post.outline.research.items, i),
+         text when is_binary(text) <- Enum.at(thoughts, t),
+         true <- beat != "" do
+      {keyed, key} = Outline.ensure_reading_key(socket.assigns.content, i)
+      updated = Outline.add_beat_thought(keyed, beat, "#{text} [@#{key}]")
+
+      {:noreply, socket |> apply_text(updated) |> flash(:info, "Carried to “#{beat}”.")}
+    else
+      _ -> {:noreply, socket}
     end
   end
 
@@ -372,7 +407,7 @@ defmodule WebWeb.AdminLive.Workbench do
   defp save(socket, opts) do
     %{slug: slug, content: content, revision: revision} = socket.assigns
 
-    case Blog.write_source(slug, content, revision, opts) do
+    case socket.assigns.store.write_source(slug, content, revision, opts) do
       {:ok, revision} ->
         send(self(), {:workbench_saved, slug})
 
@@ -396,19 +431,22 @@ defmodule WebWeb.AdminLive.Workbench do
   end
 
   defp put_content(socket, content) do
-    post = Blog.preview(socket.assigns.slug, content)
+    store = socket.assigns.store
+    post = store.preview(socket.assigns.slug, content)
     show_beats = Map.get(socket.assigns, :show_beats, false)
 
     assign(socket,
       content: content,
       post: post,
-      html: preview_html(post, show_beats),
+      html: preview_html(store, post, show_beats),
       cites: Citations.check(Outline.strip(post.raw_body), post.outline.research.items)
     )
   end
 
-  defp preview_html(post, true), do: Outline.render_with_beats(post.raw_body)
-  defp preview_html(post, false), do: Blog.to_html(post.body)
+  defp preview_html(store, post, true),
+    do: Outline.render_with_beats(post.raw_body, &store.to_html/1)
+
+  defp preview_html(store, post, false), do: store.to_html(post.body)
 
   defp target_collection(socket) do
     socket.assigns.zotero_selected_collection ||
@@ -425,9 +463,12 @@ defmodule WebWeb.AdminLive.Workbench do
     end
   end
 
-  # A subfolder named for the post (slug or title), else the root folder.
-  defp default_selected_collection(collections, slug, title) do
-    names = [slug, title] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.map(&String.downcase/1)
+  # The folder the piece names (`zotero:`), else a subfolder named for it
+  # (slug or title), else the root folder.
+  defp default_selected_collection(collections, slug, post) do
+    project = Document.project(Map.get(post, :meta, %{}))
+    named = project.zotero && Zotero.find_collection(collections, project.zotero)
+    names = [slug, post.title] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.map(&String.downcase/1)
 
     match =
       Enum.find(collections, fn c ->
@@ -435,6 +476,7 @@ defmodule WebWeb.AdminLive.Workbench do
       end)
 
     cond do
+      named -> named.key
       match -> match.key
       root = Enum.find(collections, & &1.is_root?) -> root.key
       true -> nil
@@ -449,7 +491,7 @@ defmodule WebWeb.AdminLive.Workbench do
 
     selected =
       socket.assigns.zotero_selected_collection ||
-        default_selected_collection(collections, socket.assigns.slug, socket.assigns.post.title)
+        default_selected_collection(collections, socket.assigns.slug, socket.assigns.post)
 
     socket
     |> assign(zotero_collections: collections, zotero_selected_collection: selected)
@@ -471,6 +513,11 @@ defmodule WebWeb.AdminLive.Workbench do
 
   defp lf(text), do: String.replace(text || "", "\r\n", "\n")
 
+  defp export_path(Web.Writing.Papers, slug, format),
+    do: ~p"/admin/writing/#{slug}/export/#{format}"
+
+  defp export_path(_blog, slug, format), do: ~p"/admin/blog/#{slug}/export/#{format}"
+
   # ── Render ────────────────────────────────────────────────────────────
 
   @impl true
@@ -483,6 +530,10 @@ defmodule WebWeb.AdminLive.Workbench do
         Enum.find(assigns.zotero_collections, &(&1.key == assigns.zotero_selected_collection))
       )
       |> assign(:unkeyed, Enum.count(assigns.post.outline.research.items, &is_nil(&1.key)))
+      |> assign(
+        :beat_titles,
+        assigns.post.outline.sections |> Enum.flat_map(& &1.beats) |> Enum.map(& &1.title)
+      )
 
     ~H"""
     <div id={@id} class="adm-workbench">
@@ -505,6 +556,18 @@ defmodule WebWeb.AdminLive.Workbench do
           >
             {if @post.draft, do: "Save and publish", else: "Save as a draft"}
           </button>
+          <button form="post-editor" type="submit" class="adm-btn adm-btn--primary">Save</button>
+        </:actions>
+      </.page_head>
+
+      <.page_head :if={@mode == "paper"} slug="Writing / Papers / Edit" title={@post.title}>
+        <:lede>
+          <code>{@slug}.md</code> in the writing folder. Never published; export it to send it.
+        </:lede>
+        <:actions>
+          <.link navigate={~p"/admin/writing"} class="adm-btn adm-btn--quiet">
+            Back to writing
+          </.link>
           <button form="post-editor" type="submit" class="adm-btn adm-btn--primary">Save</button>
         </:actions>
       </.page_head>
@@ -915,9 +978,43 @@ defmodule WebWeb.AdminLive.Workbench do
                         Cite
                       </button>
                     </div>
-                    <p :for={thought <- item.thoughts} class="adm-reading-thought">
-                      “{thought}”
+                    <p :if={item.key} class="adm-reading-used">
+                      <%= if item.used_in == [] do %>
+                        No beat leans on it yet.
+                      <% else %>
+                        For: {Enum.join(item.used_in, " · ")}
+                      <% end %>
                     </p>
+                    <div
+                      :for={{thought, t} <- Enum.with_index(item.thoughts)}
+                      class="adm-reading-thought-row"
+                    >
+                      <p class="adm-reading-thought">“{thought}”</p>
+                      <form
+                        :if={@beat_titles != []}
+                        id={"to-beat-#{idx}-#{t}"}
+                        phx-submit="thought_to_beat"
+                        phx-target={@myself}
+                        class="adm-inline-form adm-to-beat"
+                      >
+                        <input type="hidden" name="index" value={idx} />
+                        <input type="hidden" name="thought" value={t} />
+                        <select
+                          name="beat"
+                          class="adm-select adm-select--small"
+                          aria-label="The beat this thought serves"
+                        >
+                          <option :for={title <- @beat_titles} value={title}>{title}</option>
+                        </select>
+                        <button
+                          type="submit"
+                          class="adm-btn adm-btn--small adm-btn--quiet"
+                          title="Adds the thought to the beat, cited"
+                        >
+                          To beat
+                        </button>
+                      </form>
+                    </div>
                     <form
                       phx-submit="add_reading_thought"
                       phx-target={@myself}
@@ -1016,6 +1113,9 @@ defmodule WebWeb.AdminLive.Workbench do
                         do: " / #{section.target_words}"}w
                     </span>
                   </div>
+                  <p :if={section.first_sentence} class="adm-outline-says">
+                    <span class="adm-outline-label">Says:</span> {section.first_sentence}
+                  </p>
                   <ul :if={section.beats != []} class="adm-outline-beats-cards">
                     <li
                       :for={beat <- section.beats}
@@ -1039,6 +1139,15 @@ defmodule WebWeb.AdminLive.Workbench do
                       </div>
                       <p :if={beat.prompt != ""} class="adm-outline-beat-prompt">
                         {Web.Markdown.to_text(beat.prompt)}
+                      </p>
+                      <p class="adm-outline-beat-sources">
+                        <code
+                          :for={key <- beat.cites}
+                          class={["adm-cite-key", key in @cites.unknown && "is-unknown"]}
+                        >
+                          @{key}
+                        </code>
+                        <span :if={beat.cites == []} class="adm-outline-label">No source yet</span>
                       </p>
                       <p :for={thought <- beat.thoughts} class="adm-reading-thought">
                         “{thought}”
@@ -1096,6 +1205,21 @@ defmodule WebWeb.AdminLive.Workbench do
               >
                 Save
               </button>
+              <details :if={Export.available?()} id="post-export" class="adm-export">
+                <summary class="adm-btn adm-btn--small adm-btn--quiet">Export</summary>
+                <div class="adm-export-menu">
+                  <p :if={@dirty} class="adm-help">Exports the saved file: save first.</p>
+                  <a
+                    :for={{format, label} <- Export.formats()}
+                    id={"export-#{format}"}
+                    href={export_path(@store, @slug, format)}
+                    class="adm-btn adm-btn--small adm-btn--quiet"
+                    download
+                  >
+                    {label}
+                  </a>
+                </div>
+              </details>
               <.fold_button panel="draft" target={@myself} />
             </div>
           </div>

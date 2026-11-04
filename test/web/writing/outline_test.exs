@@ -1,8 +1,8 @@
-defmodule Web.BlogOutlineTest do
+defmodule Web.Writing.OutlineTest do
   use ExUnit.Case, async: false
 
   alias Web.Blog
-  alias Web.Blog.Outline
+  alias Web.Writing.Outline
 
   setup do
     tmp = Path.join(System.tmp_dir!(), "blog-outline-#{System.unique_integer([:positive])}")
@@ -309,6 +309,48 @@ defmodule Web.BlogOutlineTest do
       assert html =~ ~s(<a href="#ref-vance2021">Vance 2021</a>)
       # The References are not the post's words: the heading and the line are.
       assert post.word_count == 16
+    end
+  end
+
+  describe "sources and beats" do
+    @linked """
+    ## Reading List
+
+    - [x] **Vance, Clara.** *Tide Tables* (2021). ^vance2021
+    - [ ] **Ortiz, Ana.** *Ferries at Dusk* (2019). ^ortiz2019
+    - [ ] **Lund, Mara.** *Fog Signals* (2015). ^lund2015
+
+    ## I. Opening (~100 words)
+
+    > [!beat] The narrows
+    > Open on slack water [@vance2021].
+
+    The tide turns twice a day. It waits for no one, as the pilots say [@ortiz2019].
+
+    > [!beat] The horn
+    > Nothing cited yet.
+
+    > [!thought]
+    > Fog makes the horn the only map [@lund2015].
+    """
+
+    test "each beat lists the sources its prompt, phrasings and prose cite" do
+      [section] = Outline.analyze(@linked).sections
+      [narrows, horn] = section.beats
+
+      assert narrows.cites == ["vance2021", "ortiz2019"]
+      assert horn.cites == ["lund2015"]
+      assert section.cites == ["vance2021", "ortiz2019", "lund2015"]
+    end
+
+    test "each source lists the beats that lean on it" do
+      items = Outline.analyze(@linked).research.items
+      assert Enum.map(items, & &1.used_in) == [["The narrows"], ["The narrows"], ["The horn"]]
+    end
+
+    test "each section's first drafted sentence, for the reverse outline" do
+      [section] = Outline.analyze(@linked).sections
+      assert section.first_sentence == "The tide turns twice a day."
     end
   end
 end

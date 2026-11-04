@@ -1,8 +1,10 @@
-defmodule Web.Zotero do
+defmodule Web.Writing.Zotero do
   @moduledoc """
-  Client for the Zotero Web API v3 (`https://api.zotero.org`), connecting the
-  blog editor's top Reading List with the author's `streetscissors` Zotero
-  folder (and its subfolders):
+  Client for the Zotero Web API v3 (`https://api.zotero.org`), connecting a piece's top Reading List with the author's Zotero folders.
+
+  The root folder is `ZOTERO_COLLECTION` (default `streetscissors`); a
+  piece can name its own with `zotero:` in its frontmatter
+  (`Web.Writing.Document.project/1`).
 
     * **Read / Pull:** lists collections and subfolders under `streetscissors`,
       searches items, and pulls bibliographic citations, child notes, and PDF
@@ -422,6 +424,44 @@ defmodule Web.Zotero do
   end
 
   @doc """
+  The top-level items of `collection_key` as CSL JSON (Zotero's own
+  `format=csljson`), for an export's bibliography: more exact than a
+  reading-list line, since Zotero keeps volume, pages, DOI and the rest.
+  """
+  def fetch_csl(collection_key) when is_binary(collection_key) do
+    with {:ok, auth} <- fetch_auth(),
+         {:ok, %{status: 200, body: body}} <-
+           Req.get(req(auth),
+             url: "/users/#{auth.user_id}/collections/#{collection_key}/items/top",
+             params: [format: "csljson", limit: 100]
+           ) do
+      items =
+        case body do
+          %{"items" => items} when is_list(items) -> items
+          items when is_list(items) -> items
+          binary when is_binary(binary) -> binary |> Jason.decode!() |> Map.get("items", [])
+          _ -> []
+        end
+
+      {:ok, items}
+    else
+      {:ok, %{status: status}} when status in [401, 403] -> {:error, :auth_failed}
+      {:ok, %{status: status}} -> {:error, {:http, status}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "The collection named `name` (case-insensitive) among `collections`, or nil."
+  def find_collection(collections, name) when is_list(collections) and is_binary(name) do
+    wanted = name |> String.trim() |> String.downcase()
+
+    Enum.find(
+      collections,
+      &(String.downcase(&1.name) == wanted or String.downcase(&1.path) == wanted)
+    )
+  end
+
+  @doc """
   Formats a Zotero item (and any child notes / PDF annotations) as a markdown
   reading-list entry with `> [!thought]` blocks.
 
@@ -721,7 +761,9 @@ defmodule Web.Zotero do
       # Quoted article title + italicized journal: "Title," *Journal* ...
       match = Regex.run(~r/^[""“]([^""”]+?)[""”],?\s*\*([^*]+)\*/, after_author) ->
         [_, article_title, journal] = match
-        {"journalArticle", String.trim(article_title, " ,."), String.trim(journal)}
+
+        {"journalArticle", String.replace(article_title, ~r/^[\s,.]+|[\s,.]+$/, ""),
+         String.trim(journal)}
 
       # Italicized book or report title: *Title* (Publisher, 2001)
       match = Regex.run(~r/^\*\[?([^*\]]+)\]?(?:\([^)]*\))?\*\s*(?:\(([^)]+)\))?/, after_author) ->

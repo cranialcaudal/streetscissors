@@ -568,6 +568,35 @@ changes the text in the editor only. Nothing is written to the file until you
 press Save, and Save refuses to write over a version that changed on disk (in
 Obsidian, say) and shows you both.
 
+**Sources and beats.** Each beat card in the Outline panel lists the sources
+it leans on: any `[@key]` in its prompt, its phrasings, or the prose written
+under it. A beat with none says **No source yet**. Each source in the reading
+list says which beats it is for, or that no beat leans on it yet. Beside each
+thought on a source, **To beat** carries it to the beat you pick, with the
+source's citation on the end, ready for **Use my phrasings**. Under each
+section's title, **Says:** shows the first sentence drafted there, so the
+outline can be read against what the prose actually does.
+
+**Export.** The Draft panel's **Export** makes Word, PDF, LaTeX or Pandoc
+markdown of the saved file (save first), through Pandoc: the reading list,
+beats and thoughts are left out, and the citations are formatted with a
+References list. The title page reads `title:`, `author:` (several separated
+by `;`), `affiliation:`, `date:` and `abstract:` from the frontmatter. A
+`csl:` line names a citation style (`csl: apa.csl`), a file from the
+[Zotero style repository](https://www.zotero.org/styles) kept beside the piece
+or in the vault's `styles/` folder; without one, Chicago author-date. A
+`zotero:` line names the piece's Zotero folder, which the workbench opens by
+default and which an export takes its bibliography from, so volume, pages and
+DOI come out exactly as Zotero has them.
+
+**Papers.** Writing that is not for the blog lives under Writing → **Papers**
+(`/admin/writing`), in the vault's `writing/` folder. Start one from a title
+and a kind (essay, research article, literature review, specific aims page,
+response to reviewers), which lays out its sections, word goals and beats, or
+from a pasted outline. A paper opens in the same workbench, with the same
+reading list, citations and Zotero, has no Publish button, and is never on the
+site; Export is how it leaves.
+
 The same editor writes the fitness wiki and days, the files under the Files
 tab, a newsletter, and a log's notes.
 

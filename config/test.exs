@@ -153,9 +153,9 @@ config :web, :komoot, email: "test@example.com", password: "test-password"
 config :web, :komoot_req_options, plug: {Req.Test, Web.Komoot.Client}
 
 # Zotero Web API: unset by default in tests; tests that exercise it set
-# credentials and stub Web.Zotero via Req.Test.
+# credentials and stub Web.Writing.Zotero via Req.Test.
 config :web, :zotero, user_id: nil, api_key: nil
-config :web, :zotero_req_options, plug: {Req.Test, Web.Zotero}
+config :web, :zotero_req_options, plug: {Req.Test, Web.Writing.Zotero}
 
 # Webmention verification never touches real DNS or the network here: a stub
 # resolver (test/support) and a Req.Test plug stand in for both.

@@ -314,7 +314,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
         api_key: "secret-key"
       )
 
-      Req.Test.stub(Web.Zotero, fn http ->
+      Req.Test.stub(Web.Writing.Zotero, fn http ->
         case {http.method, http.request_path} do
           {"GET", "/users/99999/collections"} ->
             Req.Test.json(http, [

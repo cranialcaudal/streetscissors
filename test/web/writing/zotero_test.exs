@@ -1,8 +1,8 @@
-defmodule Web.ZoteroTest do
+defmodule Web.Writing.ZoteroTest do
   use ExUnit.Case, async: false
 
-  alias Web.Blog.Outline
-  alias Web.Zotero
+  alias Web.Writing.Outline
+  alias Web.Writing.Zotero
 
   setup do
     original = Application.get_env(:web, :zotero)
@@ -30,7 +30,7 @@ defmodule Web.ZoteroTest do
   end
 
   test "list_collections/0 prioritizes streetscissors and its subfolders with full paths" do
-    Req.Test.stub(Web.Zotero, fn conn ->
+    Req.Test.stub(Web.Writing.Zotero, fn conn ->
       assert conn.request_path == "/users/12345/collections"
       assert Plug.Conn.get_req_header(conn, "zotero-api-key") == ["test-zotero-key"]
 
@@ -70,7 +70,7 @@ defmodule Web.ZoteroTest do
   end
 
   test "create_collection/2 creates a subfolder inside streetscissors" do
-    Req.Test.stub(Web.Zotero, fn conn ->
+    Req.Test.stub(Web.Writing.Zotero, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/users/12345/collections"} ->
           Req.Test.json(conn, [
@@ -106,7 +106,7 @@ defmodule Web.ZoteroTest do
   end
 
   test "create_item/2 and sync_reading_list/2 push documents and thoughts into a Zotero folder" do
-    Req.Test.stub(Web.Zotero, fn conn ->
+    Req.Test.stub(Web.Writing.Zotero, fn conn ->
       case {conn.method, conn.request_path} do
         {"GET", "/users/12345/collections/SUB9/items/top"} ->
           Req.Test.json(conn, [])
@@ -153,7 +153,7 @@ defmodule Web.ZoteroTest do
   end
 
   test "fetch_item_with_notes/1 pulls item metadata, child notes, and PDF annotations" do
-    Req.Test.stub(Web.Zotero, fn conn ->
+    Req.Test.stub(Web.Writing.Zotero, fn conn ->
       case conn.request_path do
         "/users/12345/items/ITEM1" ->
           Req.Test.json(conn, %{
@@ -234,7 +234,7 @@ defmodule Web.ZoteroTest do
   end
 
   test "a source's own citation key comes through and keys its reading-list line" do
-    Req.Test.stub(Web.Zotero, fn conn ->
+    Req.Test.stub(Web.Writing.Zotero, fn conn ->
       Req.Test.json(conn, [
         %{
           "key" => "KEYED1",

@@ -24,13 +24,12 @@ defmodule Web.Blog do
   """
 
   alias Web.{Keywords, SourceFile}
-  alias Web.Blog.Outline
+  alias Web.Writing.Outline
   alias Web.Writing.Citations
 
   @default_base_path "content/blog"
 
   # Frontmatter is the file-leading block delimited by `---` lines.
-  @yaml_line_re ~r/^([A-Za-z_][A-Za-z0-9_-]*):\s*(.*)$/
   @yaml_list_item_re ~r/^\s*-\s+(.+)$/
   # Obsidian's native key is `tags`; this site's is `keywords`. Both read.
   @keyword_key_re ~r/^\s*(keywords|tags):/i
@@ -171,7 +170,7 @@ defmodule Web.Blog do
   end
 
   @doc """
-  Starts a draft from a raw markdown essay blueprint (`Web.Blog.Outline`),
+  Starts a draft from a raw markdown essay blueprint (`Web.Writing.Outline`),
   converting section word targets, bulleted beats (`> [!beat]`), and a
   research checklist (`- [ ]`) into one file in `content/blog/`.
 
@@ -357,6 +356,9 @@ defmodule Web.Blog do
       word_count: words,
       read_min: max(1, div(words, 200)),
       outline: outline,
+      # The rest of the frontmatter, for the workbench's project settings
+      # (`zotero:`, `csl:`; Web.Writing.Document.project/1).
+      meta: meta,
       raw_body: raw_body,
       body: body
     }
@@ -395,39 +397,10 @@ defmodule Web.Blog do
 
   defp split_frontmatter(content) do
     {yaml, body} = split_raw_frontmatter(content)
-    {parse_yaml(yaml), body}
+    {Web.Writing.Document.parse(yaml), body}
   end
 
   defp split_raw_frontmatter(content), do: Web.Frontmatter.split(content)
-
-  defp parse_yaml(yaml) do
-    yaml
-    |> String.split(~r/\r?\n/)
-    |> Enum.reduce({%{}, nil}, &parse_yaml_line/2)
-    |> elem(0)
-  end
-
-  # Frontmatter reduces to a flat `%{key => scalar}` map. A key may be
-  # followed by `- item` lines (Obsidian writes tag lists that way); those
-  # collapse into the same comma-separated scalar a `key: a, b` line yields,
-  # so readers never have to care which form was authored.
-  defp parse_yaml_line(line, {acc, last_key}) do
-    case Regex.run(@yaml_list_item_re, line) do
-      [_, item] when is_binary(last_key) ->
-        {Map.update(acc, last_key, scalar(item), &join_scalar(&1, scalar(item))), last_key}
-
-      _ ->
-        case Regex.run(@yaml_line_re, line) do
-          [_, key, value] -> {Map.put(acc, key, scalar(value)), key}
-          nil -> {acc, last_key}
-        end
-    end
-  end
-
-  defp scalar(value), do: value |> String.trim() |> String.trim("\"") |> String.trim("'")
-
-  defp join_scalar("", item), do: item
-  defp join_scalar(existing, item), do: existing <> ", " <> item
 
   # Replaces the keywords/tags key (and any block-list lines hanging off it)
   # with one canonical `keywords:` line, leaving every other key untouched.

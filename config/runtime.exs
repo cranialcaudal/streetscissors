@@ -32,6 +32,21 @@ if blog_path = System.get_env("BLOG_PATH") do
   config :web, :blog_path, blog_path
 end
 
+# The writing workbench's papers (Web.Writing.Papers) and citation styles
+# (Web.Writing.Export). When unset, writing/ and styles/ beside the blog
+# folder in the vault. PANDOC_PATH when pandoc is not on the PATH.
+if writing_path = System.get_env("WRITING_PATH") do
+  config :web, :writing_path, writing_path
+end
+
+if csl_path = System.get_env("CSL_PATH") do
+  config :web, :csl_path, csl_path
+end
+
+if pandoc_path = System.get_env("PANDOC_PATH") do
+  config :web, :pandoc, pandoc_path
+end
+
 # A Bible laid out like priv/bible/cpdv/ but kept outside the checkout, for a
 # translation that may be hosted under licence and not committed (Web.Bible).
 if bible_path = System.get_env("BIBLE_PATH") do
