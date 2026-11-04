@@ -9,7 +9,7 @@
 button {
     background: var(--paper-raised);
     border: 1px solid var(--hairline);
-    color: var(--ink);
+    color: var(--accent-ink);
     padding: 0.5rem 1rem;
     /* Standard Padding */
     transition: all 0.3s ease;

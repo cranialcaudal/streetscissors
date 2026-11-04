@@ -25,6 +25,12 @@ defmodule WebWeb.AdminLive.DarkroomTest do
     assert {:error, {:redirect, _}} = live(conn, ~p"/admin/darkroom/007/3")
   end
 
+  test "Taste is reached from the Prints page", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom")
+
+    assert has_element?(view, ~s(#taste-link[href="/admin/darkroom/taste"]), "Teach taste")
+  end
+
   test "the prints of a roll, the edited ones marked", %{conn: conn, folder: folder} do
     :ok = Darkroom.save(folder, 3, %{controls: %{"light.exposure" => 0.4}, crop: nil})
 

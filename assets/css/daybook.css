@@ -301,7 +301,7 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   font-size: 0.62rem;
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 .daybook-cell.has-work {

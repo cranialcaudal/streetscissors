@@ -1,10 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════
    ACTIVITIES — /fitness/rides and each ride page
    ═══════════════════════════════════════════════════════════════════
-   What the body did comes first: a band for the last week and the last
-   four, then the newest activity with what the watch measured — heart
-   rate, energy — set above Komoot's own embed of the outing. After it one
-   shelf per sport, largest first, each a sideways run of cards carrying
+   A band for the last week and the last four, then the newest activity
+   above Komoot's own embed of the outing. After it one shelf per sport, largest first, each a sideways run of cards carrying
    Komoot's route map. The year's totals are a footnote.
 
    Komoot draws every map here, and cuts its privacy zones out of what it
@@ -16,8 +14,6 @@
    ─────────────────────────────────────────────────────────────────── */
 
 .activities {
-  --activity-radius: 14px;
-  --activity-radius-sm: 10px;
 }
 
 .activity--bike { --sport-color: var(--color-jade); }
@@ -27,30 +23,8 @@
 .activity--hike { --sport-color: var(--color-dodger); }
 .activity--other { --sport-color: var(--ink-3); }
 
-/* .steel squares every corner in the section with
-   `.steel * { border-radius: 0 !important }`. These pages are the one place
-   that opts back in, so the selectors carry both wrapper classes and
-   !important to outrank it. */
-.steel.activities .activity-map,
-.steel.activities .activity-embed,
-.steel.activities .activity-figures,
-.steel.activities .heart-trace,
-.steel.activities .heart-zones,
-.steel.activities .activity-card,
-.steel.activities .activities-empty {
-  border-radius: var(--activity-radius) !important;
-}
-
-.steel.activities .heart-trace-tip {
-  border-radius: var(--activity-radius-sm) !important;
-}
-
-.steel.activities .activity-pill,
-.steel.activities .activity-dot,
-.steel.activities .heart-trace-dot,
-.steel.activities .heart-zones-bar,
-.steel.activities .heart-zone-swatch,
-.steel.activities .activity-shelf-btn {
+/* Every corner in the section is square; a sport's dot stays round. */
+.steel.activities .activity-dot {
   border-radius: 999px !important;
 }
 
@@ -67,6 +41,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 44px;
   padding: 0.45rem 0.95rem;
   background: var(--paper-raised);
   border: 1px solid var(--rule);
@@ -171,7 +146,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* Komoot's embed: its map, stats strip and elevation profile, at the
@@ -247,7 +222,7 @@
   color: var(--ink-3);
 }
 
-/* Three figures without the watch, five with it. They wrap and each row
+/* Three figures. They wrap and each row
    shares its width out, so an odd one never leaves a hole in the panel. */
 .activity-recent .activity-figures {
   display: flex;
@@ -258,18 +233,7 @@
 .activity-recent .activity-figure { flex: 1 1 7.5rem; padding: 0.8rem 1rem; }
 .activity-recent .activity-figure-value { font-size: clamp(1.15rem, 2.4vw, 1.5rem); }
 
-.activity-recent-note {
-  margin: 0.5rem 0 0;
-  font-family: var(--font-data);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
-
-/* ── Heart & energy: what the watch measured ───────────────────── */
-
-/* It leads the activity, so the space goes beneath it, before the map. */
-.activity-health { margin: 0 0 1.75rem; }
+/* ── The estimated power panel ─────────────────────────────────── */
 
 .activity-health-head {
   display: flex;
@@ -290,9 +254,6 @@
   text-transform: uppercase;
 }
 
-/* The heart is a mark, not text, so it may wear hot metal. */
-.activity-health-mark { color: var(--color-orange); }
-
 .activity-health-source {
   margin: 0;
   font-family: var(--font-ui);
@@ -302,9 +263,7 @@
   color: var(--ink-3);
 }
 
-.activity-health .activity-figures { margin-top: 0.75rem; }
-
-/* Power, estimated: laid out as the heart panel is, marked as an estimate. */
+/* Power, estimated. */
 .activity-power { margin: 0 0 1.75rem; }
 .activity-power .activity-figures { margin-top: 0.75rem; }
 .activity-power-mark { color: var(--color-dodger); }
@@ -313,192 +272,6 @@
   color: var(--ink-3);
   font-size: 0.85rem;
 }
-
-/* The trace: one 2px hot-metal line on a 10% wash, bpm rules in the panel's
-   hairline with their numbers in the left gutter, stopwatch time beneath. */
-.heart-trace {
-  margin: 1rem 0 0;
-  padding: 1rem 1.25rem 0.75rem 3.25rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-}
-
-.heart-trace-caption {
-  margin: 0 0 1rem -2rem;
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.heart-trace-plot {
-  position: relative;
-  height: 170px;
-  cursor: crosshair;
-  touch-action: pan-y;
-}
-
-.heart-trace-plot svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.heart-trace-line {
-  fill: none;
-  stroke: var(--color-orange);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.heart-trace-area {
-  fill: var(--color-orange);
-  opacity: 0.1;
-}
-
-.heart-trace-rule {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 1px solid var(--rule);
-}
-
-.heart-trace-tick {
-  position: absolute;
-  right: 100%;
-  padding-right: 0.6rem;
-  transform: translateY(-50%);
-  font-family: var(--font-data);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-
-.heart-trace-axis {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.45rem;
-  font-family: var(--font-data);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-
-.heart-trace-cursor {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-left: 1px solid var(--rule-strong);
-  pointer-events: none;
-}
-
-.heart-trace-cursor[hidden] { display: none; }
-
-.heart-trace-dot {
-  position: absolute;
-  left: 0;
-  width: 10px;
-  height: 10px;
-  transform: translate(-50%, -50%);
-  background: var(--color-orange);
-  box-shadow: 0 0 0 2px var(--paper-raised);
-}
-
-.heart-trace-tip {
-  position: absolute;
-  top: 0;
-  left: 0.6rem;
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.3rem 0.55rem;
-  white-space: nowrap;
-  background: var(--paper-deep);
-  border: 1px solid var(--rule);
-  font-family: var(--font-data);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-
-.heart-trace-cursor.is-flipped .heart-trace-tip {
-  left: auto;
-  right: 0.6rem;
-}
-
-.heart-trace-tip-value { color: var(--ink); }
-
-/* Time in each zone: one bar cut by share, and the same five as a list, so
-   the lengths are also said as times. The five steps run from the panel's
-   own quiet ink to hot metal — one pigment by lightness, so the order reads
-   without the legend and does not lean on telling hues apart. */
-.heart-zones {
-  margin: 1rem 0 0;
-  padding: 1rem 1.25rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-}
-
-.heart-zones .heart-trace-caption { margin: 0 0 0.9rem; }
-
-.heart-zones-bar {
-  display: flex;
-  gap: 2px;
-  height: 14px;
-  overflow: hidden;
-}
-
-.heart-zone { flex: 0 0 auto; min-width: 3px; background: var(--zone-color); }
-
-.heart-zone--1 { --zone-color: color-mix(in srgb, var(--color-orange) 18%, var(--ink-4)); }
-.heart-zone--2 { --zone-color: color-mix(in srgb, var(--color-orange) 40%, var(--ink-4)); }
-.heart-zone--3 { --zone-color: color-mix(in srgb, var(--color-orange) 62%, var(--ink-4)); }
-.heart-zone--4 { --zone-color: color-mix(in srgb, var(--color-orange) 82%, var(--ink-4)); }
-.heart-zone--5 { --zone-color: var(--color-orange); }
-
-.heart-zones-list {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.5rem 1rem;
-  margin: 0.9rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.heart-zones-list li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 0.45rem;
-  align-items: center;
-}
-
-.heart-zone-swatch {
-  width: 0.6rem;
-  height: 0.6rem;
-  background: var(--zone-color);
-}
-
-.heart-zone-name {
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.heart-zone-range,
-.heart-zone-time {
-  grid-column: 2;
-  font-family: var(--font-data);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-
-.heart-zone-time { color: var(--ink); }
 
 /* Pressable, so it wears the accent at rest, on a 44px target. */
 .activity-komoot {
@@ -738,11 +511,7 @@
 
   .activity-recent { grid-template-columns: minmax(0, 1fr); }
 
-  .heart-zones { padding: 0.85rem; }
-  .heart-zones-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  .heart-trace { padding: 0.85rem 0.85rem 0.6rem 2.75rem; }
-  .heart-trace-plot { height: 140px; }
 
   /* Touch scrolls a strip natively, so the buttons step aside. */
   .activity-shelf-nav { display: none; }

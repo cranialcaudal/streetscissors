@@ -44,8 +44,8 @@ defmodule WebWeb.AdminComponents do
   def rail(assigns) do
     sections = WebWeb.AdminNav.sections()
 
-    # The page is marked on the link nearest it: /admin/darkroom/taste is
-    # Taste, not also Prints at /admin/darkroom.
+    # The page is marked on the link nearest it: /admin/logs/1 is Videostream,
+    # and a path with no link of its own is marked on the one above it.
     nearest =
       for(
         group <- sections,
@@ -91,6 +91,7 @@ defmodule WebWeb.AdminComponents do
             </p>
             <.link
               :for={link <- group.links}
+              :if={!link[:only_when_waiting] or Map.get(@counts, link.count, 0) > 0}
               navigate={link.path}
               class="adm-nav-link"
               aria-current={link.path == @nearest && "page"}

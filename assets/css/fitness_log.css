@@ -129,7 +129,6 @@
   border-radius: 4px;
   cursor: pointer;
 }
-.is-admin .log-trigger[data-logged] { color: var(--color-jade); border-color: var(--color-jade); }
 .is-admin .log-trigger:hover {
   color: var(--theme-color);
   border-color: var(--theme-color);
@@ -336,57 +335,6 @@
   cursor: pointer;
 }
 
-/* ── Today's check-in, on the day page (admin only) ─────────────────── */
-
-.day-checkin {
-  margin: 0.75rem 0 0;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-}
-.day-checkin-summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 1rem;
-  font-family: var(--font-ui);
-  color: var(--accent-ink, var(--ink));
-  cursor: pointer;
-}
-.day-checkin-form { display: grid; gap: 0.75rem; padding: 0 1rem 1rem; }
-.day-check { margin: 0; padding: 0; border: 0; }
-.day-check legend { margin-bottom: 0.35rem; font-size: 0.9rem; color: var(--ink-2); }
-.day-check-states { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.day-check-state {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 0.9rem;
-  color: var(--ink-2);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  cursor: pointer;
-}
-/* The radio is the whole chip: hidden, but still the focus and the value. */
-.day-check-state input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.day-check-state:has(input:focus-visible) { outline: 2px solid var(--accent-color); outline-offset: 2px; }
-.day-check-state:has(input:checked) { color: var(--paper); background: var(--color-jade); border-color: var(--color-jade); }
-.day-check-state--hold:has(input:checked) { background: var(--color-orange); border-color: var(--color-orange); }
-.day-check-state--stop:has(input:checked) { background: var(--accent-ink, var(--color-orange)); border-color: var(--accent-ink, var(--color-orange)); }
-.day-check-state--skip { border-style: dashed; color: var(--ink-3); }
-.day-check-state--skip:has(input:checked) { color: var(--ink-2); background: none; border-color: var(--rule-strong); }
-.day-check-number {
-  min-height: 44px;
-  width: 8rem;
-  padding: 0.5rem;
-  font-size: 1rem;
-  color: var(--ink-2);
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-}
-.day-checkin-form .log-save-btn { justify-self: start; }
-
 /* The circuit timer under a circuit's title: one log for the whole circuit. */
 .circuit {
   display: grid;
@@ -468,6 +416,20 @@
 }
 .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--rule-strong); }
 .view-toggle-btn[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
+
+.session-jumps { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.session-jump {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.session-jump[aria-current="true"] { color: var(--paper); background: var(--ink); }
 
 .session { display: flex; flex-direction: column; gap: 0.75rem; }
 .session-empty { color: var(--ink-3); }
@@ -668,22 +630,9 @@
 .session-summary-line { font-family: var(--font-data); font-size: 0.85rem; color: var(--ink-2); }
 .session-summary-best { flex-basis: 100%; color: var(--color-jade); font-weight: 600; }
 .session-summary-missed { color: var(--color-orange); }
-.session-summary-checkin { color: var(--ink-3); font-size: 0.85rem; }
 
 /* Optional add-ons fold into one line at the end of the day. */
 .day-addons > summary { cursor: pointer; min-height: 44px; }
-
-/* The block week's colours on the day strip, for the admin. */
-.week-totals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
-  margin: 0.4rem 0 0.8rem;
-  font-family: var(--font-data);
-  font-size: 0.8rem;
-  color: var(--ink-3);
-}
-.week-total { color: var(--ink-2); }
 
 /* steel.css styles every button as a quiet, uppercase outline (!important).
    In the session the buttons are the work itself, so they speak plainly:
@@ -702,17 +651,17 @@
 .steel .view-toggle-btn {
   font-size: 0.85rem !important;
   letter-spacing: 0.04em !important;
-  color: var(--ink) !important;
-  border: 1px solid var(--rule-strong) !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid var(--accent-ink) !important;
   padding: 0 1rem !important;
 }
 .steel .view-toggle-btn { border: 0 !important; }
-.steel .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--rule-strong) !important; }
+.steel .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--accent-ink) !important; }
 .steel .view-toggle-btn[aria-pressed="true"],
 .steel .session-nav-btn--next {
   color: var(--paper) !important;
-  background: var(--ink) !important;
-  border-color: var(--ink) !important;
+  background: var(--accent-ink) !important;
+  border-color: var(--accent-ink) !important;
 }
 .steel .session-nav-btn:disabled { opacity: 0.35; }
 .steel .session-sets .log-set {
@@ -720,8 +669,8 @@
   font-size: 1rem !important;
   letter-spacing: 0 !important;
   text-transform: none;
-  color: var(--ink) !important;
-  border: 1px solid var(--rule-strong) !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid var(--accent-ink) !important;
   padding: 0 0.9rem !important;
 }
 .steel .session-sets .log-set.is-done {
@@ -735,8 +684,8 @@
   font-family: var(--font-data) !important;
   font-size: 0.95rem !important;
   letter-spacing: 0 !important;
-  color: var(--ink) !important;
-  border: 1px solid var(--rule-strong) !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid var(--accent-ink) !important;
   padding: 0 0.75rem !important;
 }
 .steel .session .log-rpe-btn[aria-pressed="true"] { color: var(--paper) !important; background: var(--ink) !important; }
@@ -744,8 +693,8 @@
   font-size: 0.85rem !important;
   letter-spacing: 0.04em !important;
   color: var(--paper) !important;
-  background: var(--color-jade) !important;
-  border-color: var(--color-jade) !important;
+  background: var(--accent-ink) !important;
+  border-color: var(--accent-ink) !important;
   padding: 0 1.1rem !important;
 }
 .steel .session-nav-btn--next {
@@ -762,3 +711,21 @@
   background: color-mix(in srgb, var(--ink) 4%, transparent);
   border-radius: 6px;
 }
+
+/* The other sessions, under the day: a plain list of links. */
+.day-other-sessions { margin: 0.5rem 0 1rem; padding: 0; list-style: none; }
+.day-other-sessions li { min-height: 44px; display: flex; align-items: center; }
+
+.day-more-title { margin: 1rem 0 0.25rem; font-size: 1rem; font-weight: 600; color: var(--ink); }
+
+/* What a circuit asks for, under its timer. The timer logs it once. */
+.session-circuit-moves { margin: 0.75rem 0 0; padding: 0; list-style: none; }
+.session-circuit-moves li {
+  display: grid;
+  gap: 0.1rem;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--rule);
+}
+.session-circuit-move { justify-self: start; text-align: left; }
+.session-circuit-dose { font-size: 1rem; color: var(--ink-2); }

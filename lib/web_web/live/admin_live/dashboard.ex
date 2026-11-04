@@ -493,7 +493,7 @@ defmodule WebWeb.AdminLive.Dashboard do
 
   defp training_card(assigns) do
     t = assigns.t
-    quiet? = is_nil(t.today) and is_nil(t.newest) and is_nil(t.sync.at)
+    quiet? = is_nil(t.program) and is_nil(t.newest) and is_nil(t.sync.at)
     assigns = assign(assigns, :quiet?, quiet?)
 
     ~H"""
@@ -507,12 +507,12 @@ defmodule WebWeb.AdminLive.Dashboard do
         <img src={@t.newest.picture} alt="" loading="lazy" decoding="async" />
       </:picture>
       <:state :if={@quiet?}>
-        No regimen for today, no activities and no Komoot sync yet. Open Fitness to set the week.
+        No program running, no activities and no Komoot sync yet. Open Fitness to set one.
       </:state>
-      <:state :if={@t.today}>
-        Today is {String.capitalize(@t.today.slug)}: {@t.today.word || @t.today.title}
+      <:state :if={@t.program}>
+        {@t.program.title}, week {@t.program.week} of {@t.program.weeks}
       </:state>
-      <:state :if={!@quiet? and is_nil(@t.today)}>No regimen written for today</:state>
+      <:state :if={!@quiet? and is_nil(@t.program)}>No program running</:state>
       <:state :if={@t.newest}>
         Newest activity <span class="ov-words">{@t.newest.name}</span>, <b class="ov-num">{Rides.Units.distance(@t.newest.distance_m)}</b>, {Rides.Units.date(
           @t.newest.started_at

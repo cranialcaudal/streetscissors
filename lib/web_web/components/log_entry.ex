@@ -81,8 +81,7 @@ defmodule WebWeb.LogEntry do
   @doc """
   The theater: a dark plate holding the poster, and the media once asked for.
 
-  Under `.nx01` the `--ink` tokens are *light*, so everything meant to stay
-  dark in here keys off `--paper-*`. See the warning at the top of logs.css.
+  Labels over the picture sit on `--plate`, which is dark on every ground.
   """
   def plate(assigns) do
     # assign_new/3 is no use here: `attr :id` has already put the key in

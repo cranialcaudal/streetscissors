@@ -10,6 +10,7 @@ defmodule WebWeb.PageControllerTest do
     # The manual is only reachable from here and /about — if this link goes, it
     # becomes a page nobody can find.
     assert html =~ ~s(href="/how-to?from=home")
+
     # The skinny row holds Videostream and About Me; Christ is linked quietly via Chi-Rho in the footer.
     [cards] = Regex.run(~r{<div class="bento-fitness-sub-row.*?</div>}s, html)
     refute cards =~ ~s(href="/Christ")
@@ -190,19 +191,12 @@ defmodule WebWeb.PageControllerTest do
     end
   end
 
-  # The calendar reference names venues and times, so it is the author's alone.
-  describe "GET /admin/fitness/calendar" do
-    test "404s without the admin session, and the old public path is gone", %{conn: conn} do
-      assert conn |> get(~p"/admin/fitness/calendar") |> html_response(404)
-      assert conn |> get("/calendar-markdown") |> html_response(404)
-    end
+  test "the old calendar reference is gone, for everyone", %{conn: conn} do
+    assert conn |> get("/admin/fitness/calendar") |> html_response(404)
+    assert conn |> get("/calendar-markdown") |> html_response(404)
 
-    test "renders for the admin", %{conn: conn} do
-      conn =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/admin/fitness/calendar")
-
-      assert html_response(conn, 200) =~ ~s(content="noindex, nofollow")
-    end
+    admin = conn |> init_test_session(%{"admin_user" => true}) |> get("/admin/fitness/calendar")
+    assert html_response(admin, 404)
   end
 
   # Against the fixture vault (config/test.exs); the real meals.md is checked

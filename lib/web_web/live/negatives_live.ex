@@ -400,15 +400,9 @@ defmodule WebWeb.NegativesLive do
       <link :if={@prev_sheet} rel="prefetch" as="image" href={@prev_sheet.preview_url} />
       <link :if={@next_sheet} rel="prefetch" as="image" href={@next_sheet.preview_url} />
 
-      <%!-- The same treatment the homepage card advertises, arrived at:
-            stretched, cropped, half-opacity orange. Geometry measured off
-            Bebas Neue — see WebWeb.CoreComponents.baker_wordmark/1. --%>
-      <WebWeb.CoreComponents.baker_wordmark
-        class="darkroom-masthead"
-        viewbox="0 31.52 1000 66.96"
-        label="Contact Sheets"
-        lines={[%{text: "Contact Sheets", x: "-5.95", y: "100", length: "1010.32"}]}
-      />
+      <header class="page-head darkroom-masthead">
+        <h1 class="page-title">Contact Sheets</h1>
+      </header>
 
       <%= if @view_mode == :index do %>
         <main class="index-viewport">
@@ -417,7 +411,7 @@ defmodule WebWeb.NegativesLive do
             <.link
               :if={@sheet}
               patch={sheet_path(assigns, @sheet, mode: :single)}
-              class="index-toggle-btn"
+              class="btn index-toggle-btn"
             >
               <.icon name="hero-photo" class="size-5" /> View Single Image
             </.link>

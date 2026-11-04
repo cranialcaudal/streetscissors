@@ -13,7 +13,7 @@
           links, and a GET that unsubscribes gets people removed by a robot
           that merely looked at the message. --%>
     <.form for={%{}} action={~p"/unsubscribe/#{@token}"} method="post" class="unsub-form">
-      <button type="submit" class="theme-btn unsub-confirm">Yes, unsubscribe me</button>
+      <button type="submit" class="btn btn--main unsub-confirm">Yes, unsubscribe me</button>
     </.form>
 
     <p class="unsub-aside">

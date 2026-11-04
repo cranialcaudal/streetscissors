@@ -205,7 +205,11 @@
         </span>
       </a>
 
-      <a :for={post <- Enum.take(@lately.posts, 1)} href={post.path} class={["new-item", @latest_type == :post && "new-item--latest"]}>
+      <a
+        :for={post <- Enum.take(@lately.posts, 1)}
+        href={post.path}
+        class={["new-item", @latest_type == :post && "new-item--latest"]}
+      >
         <span class={["new-plate", !post.cover && "new-plate--type"]}>
           <img
             :if={post.cover}
@@ -227,7 +231,11 @@
         </span>
       </a>
 
-      <a :if={@lately.roll} href={@lately.roll.path} class={["new-item", @latest_type == :roll && "new-item--latest"]}>
+      <a
+        :if={@lately.roll}
+        href={@lately.roll.path}
+        class={["new-item", @latest_type == :roll && "new-item--latest"]}
+      >
         <span class="new-plate">
           <img
             src={Web.Negatives.sized_url(@lately.roll.preview_url, 480)}

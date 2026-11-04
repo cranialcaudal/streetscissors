@@ -118,6 +118,9 @@ defmodule WebWeb.AdminLive.Darkroom do
         as it was developed is never lost: Revert puts it back.
       </:lede>
       <:actions>
+        <.link navigate={~p"/admin/darkroom/taste"} class="adm-btn adm-btn--quiet" id="taste-link">
+          Teach taste
+        </.link>
         <.link navigate={~p"/admin/scanner"} class="adm-btn">
           <.icon name="hero-film" class="size-4" /> Scan a roll
         </.link>

@@ -13,7 +13,5 @@ Fraunces is the variable file with the weight and optical-size axes).
 | Sorts Mill Goudy | Copyright (c) 2009, Barry Schwartz |
 | IBM Plex Mono | Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex" |
 | Bebas Neue | Copyright (c) 2010, Dharma Type |
-| League Spartan | Copyright (c) 2020, The League Spartan Project Authors |
-| Saira Condensed | Copyright (c) 2016, The Saira Project Authors (Omnibus-Type) |
 | IBM Plex Sans | Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex" |
 | Fraunces | Copyright (c) 2020, The Fraunces Project Authors (https://github.com/undercasetype/Fraunces) |

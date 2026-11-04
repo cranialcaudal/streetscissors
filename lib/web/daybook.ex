@@ -18,7 +18,7 @@ defmodule Web.Daybook do
     * activities — `Web.Rides`, the Pacific-local day it started
 
   **Only dates, never times.** The public site does not say when he is out
-  of the house (see `WebWeb.FitnessWeek`), so an activity is a day and a
+  of the house so an activity is a day and a
   distance here, never an hour.
   """
 
@@ -79,14 +79,13 @@ defmodule Web.Daybook do
   @doc """
   One week, Monday to Sunday, as an engagement calendar lays it out:
 
-      %{monday, year, week, days: [%{date, entries, observance, training}],
+      %{monday, year, week, days: [%{date, entries, observance}],
         plate, month, previous, next}
 
   `year` and `week` are the ISO week's, which is what the address carries.
-  Each day has its entries, the day the Church keeps when it is more than a
-  weekday (`observance`, as a printed calendar marks its holidays), and, from
-  `today` on, the regimen's one word for that weekday (`training`): what is
-  written in a diary ahead of time. Days already gone say only what was made.
+  Each day has its entries, and the day the Church keeps when it is more than
+  a weekday (`observance`, as a printed calendar marks its holidays). Training
+  logs are the admin's, and stay off this page.
 
   `plate` is the picture facing the week: a roll or recording from the week
   itself, else a roll from the archive chosen by the week's number, so the
@@ -106,7 +105,6 @@ defmodule Web.Daybook do
     else
       {year, week} = :calendar.iso_week_number(Date.to_erl(monday))
       mondays = entries |> Enum.map(&Date.beginning_of_week(&1.date)) |> Enum.uniq()
-      themes = training_themes()
 
       {:ok,
        %{
@@ -118,8 +116,7 @@ defmodule Web.Daybook do
              %{
                date: day,
                entries: by_day |> Map.get(day, []) |> Enum.sort_by(&kind_index(&1.kind)),
-               observance: observance(day),
-               training: Date.compare(day, today) != :lt && themes[Date.day_of_week(day)]
+               observance: observance(day)
              }
            end,
          plate: plate(by_day, week),
@@ -170,19 +167,6 @@ defmodule Web.Daybook do
     end
   rescue
     _ -> nil
-  end
-
-  # The regimen's word for each weekday (1 = Monday), from the vault.
-  defp training_themes do
-    slugs = ~w(monday tuesday wednesday thursday friday saturday sunday)
-
-    for day <- Web.Fitness.Vault.list_days(),
-        index = Enum.find_index(slugs, &(&1 == day.slug)),
-        is_binary(day.theme) and day.theme != "",
-        into: %{},
-        do: {index + 1, day.theme}
-  rescue
-    _ -> %{}
   end
 
   defp plate(by_day, week) do

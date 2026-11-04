@@ -28,7 +28,8 @@ defmodule WebWeb.AdminNav do
     * `:heading`, the label printed over its links (`nil` for the two neutral
       ones, whose single link is their own label)
     * `:links`, each with `:label`, `:path`, `:icon` and, where the badge is a
-      count of what waits, `:count`, a key in `counts/0`
+      count of what waits, `:count`, a key in `counts/0`. With
+      `:only_when_waiting` a link is shown only while that count is above zero
   """
   def sections do
     [
@@ -47,8 +48,7 @@ defmodule WebWeb.AdminNav do
         heading: "Darkroom",
         links: [
           %{label: "Scanner", path: ~p"/admin/scanner", icon: "hero-film"},
-          %{label: "Prints", path: ~p"/admin/darkroom", icon: "hero-photo"},
-          %{label: "Taste", path: ~p"/admin/darkroom/taste", icon: "hero-squares-2x2"}
+          %{label: "Prints", path: ~p"/admin/darkroom", icon: "hero-photo"}
         ]
       },
       %{
@@ -109,7 +109,8 @@ defmodule WebWeb.AdminNav do
             label: "Citations",
             path: ~p"/admin/citations",
             icon: "hero-chat-bubble-left-right",
-            count: :citations
+            count: :citations,
+            only_when_waiting: true
           },
           %{label: "Newsletter", path: ~p"/admin/newsletter", icon: "hero-envelope"}
         ]
@@ -128,8 +129,8 @@ defmodule WebWeb.AdminNav do
   @doc """
   Which program a path belongs to: `:darkroom`, `:cuts`, `:writing`,
   `:training`, `:mail`, or the neutral `:studio` / `:settings`. It is the group
-  of the rail link nearest the path (`/admin/darkroom/taste` is Taste's, not
-  Prints'), and `:studio` for anything the rail does not name.
+  of the rail link nearest the path (`/admin/darkroom/taste` is under Prints),
+  and `:studio` for anything the rail does not name.
   """
   def program(path) when is_binary(path) do
     candidates =

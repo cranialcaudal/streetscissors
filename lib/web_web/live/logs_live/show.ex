@@ -94,12 +94,16 @@ defmodule WebWeb.LogsLive.Show do
     ip = WebWeb.Visitor.ip(socket)
     agent = WebWeb.Visitor.user_agent(socket)
     admin? = session["admin_user"] == true
+    # Whether it counts is a wider question than whether the admin is logged
+    # in: the author's mark rides in the session (WebWeb.OwnerMark), because a
+    # LiveView cannot read the cookie it comes from.
+    mine? = WebWeb.OwnerMark.mine?(session)
 
     assign(socket,
       client_ip: ip,
       viewer_agent: agent,
       is_admin: admin?,
-      counts_views: WebWeb.Visitor.counted?(ip, agent, admin?)
+      counts_views: WebWeb.Visitor.counted?(ip, agent, mine?)
     )
   end
 
@@ -109,12 +113,6 @@ defmodule WebWeb.LogsLive.Show do
       {raw(SEO.page_json_ld_tag(assigns))}
       <article class="console-frame h-entry">
         <WebWeb.Microformats.entry_fields path={~p"/logs/#{@log.slug}"} />
-        <div class="console-rail">
-          <span class="rail-tag" title="The section's console is styled after a ship's">NX-01</span>
-          <span class="rail-hazard" aria-hidden="true"></span>
-          <span class="rail-readout">Log {@log.slug}</span>
-        </div>
-
         <header class="console-head">
           <LogEntry.meta log={@log} />
           <h1 class="logs-title p-name">{Log.title(@log)}</h1>
@@ -148,16 +146,16 @@ defmodule WebWeb.LogsLive.Show do
           <.link
             :if={@neighbours.older}
             navigate={~p"/logs/#{@neighbours.older.slug}"}
-            class="console-btn"
+            class="btn console-btn"
             rel="prev"
           >
             ‹ Earlier entry
           </.link>
-          <.link navigate={~p"/logs"} class="console-btn">All logs</.link>
+          <.link navigate={~p"/logs"} class="btn console-btn">All logs</.link>
           <.link
             :if={@neighbours.newer}
             navigate={~p"/logs/#{@neighbours.newer.slug}"}
-            class="console-btn"
+            class="btn console-btn"
             rel="next"
           >
             Later entry ›

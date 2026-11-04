@@ -141,8 +141,6 @@ defmodule WebWeb.PcLive do
   def render(assigns) do
     ~H"""
     <div class="pc-container" id="pc-terminal" phx-hook="AutoScroll">
-      <div class="pc-crt-overlay"></div>
-
       <div class="pc-header">
         <a href="/" class="pc-back-link">[← ESC to exit]</a>
         <div style="text-align: right;">

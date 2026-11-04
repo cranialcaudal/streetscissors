@@ -2,9 +2,9 @@ defmodule WebWeb.PageController do
   @moduledoc """
   The site's single pages: the homepage, `/about`, the manual (`/how-to`) and
   the roadmap (`/roadmap`), both rendered from markdown in `docs/` by
-  `Web.Docs`, search and its suggestions (`/search`, `/search/suggest`), the
-  admin-only kitchen page (`/food`), and the admin's training calendar. Each
-  function is one page and says what it gathers.
+  `Web.Docs`, search and its suggestions (`/search`, `/search/suggest`), and the
+  admin-only kitchen page (`/food`). Each function is one page and says what it
+  gathers.
   """
 
   use WebWeb, :controller
@@ -265,7 +265,7 @@ defmodule WebWeb.PageController do
     )
   end
 
-  # Admin only, like the calendar: it holds the author's body figures, his
+  # Admin only: it holds the author's body figures, his
   # household's schedule and his diet. A plain `get` is not covered by the
   # session's on_mount hooks, so the check is made here.
   def food(conn, params) do
@@ -328,25 +328,6 @@ defmodule WebWeb.PageController do
       }
     else
       _ -> %{description: "The kitchen.", days: []}
-    end
-  end
-
-  # Admin only. A plain `get` inside `live_session :admin` is not covered by
-  # the session's on_mount hooks, so the check is made here.
-  def calendar(conn, _params) do
-    if get_session(conn, "admin_user") do
-      markdown =
-        case File.read("content/notes/calendar.md") do
-          {:ok, content} -> content
-          {:error, _} -> "Could not find notes/calendar.md in the content directory."
-        end
-
-      conn
-      |> assign(:page_title, "Calendar Reference")
-      |> assign(:robots, "noindex, nofollow")
-      |> render(:calendar, html_content: Web.Markdown.to_html(markdown))
-    else
-      WebWeb.NotFound.render(conn)
     end
   end
 end

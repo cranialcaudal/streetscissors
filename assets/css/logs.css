@@ -1,86 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════
-   NX-01 — the /logs section
+   LOGS — the /logs section, on the paper shell (shell.css)
    ═══════════════════════════════════════════════════════════════════
-   A captain's log is a recording made under way, so the page is the
-   console it was recorded at: gunmetal panels, amber backlight behind
-   smoked glass, hard-edged switch banks.
-
-   The look is the *Enterprise* era on purpose — 2151, not 2364. No LCARS:
-   no rounded pill blocks, no flat pastel fields. Pre-Federation gear is
-   submarine-descended — rectilinear, riveted, physically switched, with
-   dense monospace readouts behind glass. Amber is the panel's own light;
-   cyan is instrumentation; red is only ever a warning.
-
-   Scoped token overrides in the manner of `.steel` and `.darkroom` — the
-   same tokens every component already reads, re-inked. Style with
-   tokens, and note that under `.nx01` `--ink` is *light*: anything that
-   must stay dark keys off `--paper-*`.
+   Ground and type are the site's own; a gunmetal teal tints the decoration.
+   Over the video itself labels keep a dark plate (`--plate`), because a
+   picture can be any colour underneath them.
    ─────────────────────────────────────────────────────────────────── */
 
 .nx01 {
-  /* Ground: gunmetal, four depths. Cold and slightly green, the way a
-     hull looks under working light rather than daylight. */
-  --paper: #0d1114;
-  --paper-raised: #151c21;
-  --paper-sunk: #090c0e;
-  --paper-deep: #050708;
-
-  /* Backlit type on smoked glass */
-  --ink: #dfe8ee;
-  --ink-2: #a8b8c2;
-  --ink-3: #71828d;
-  --ink-4: #4c5a63;
-
-  --rule: rgba(223, 232, 238, 0.16);
-  --rule-strong: rgba(223, 232, 238, 0.42);
-  --hairline: var(--rule);
-  --glass-bg: var(--paper-raised);
-
-  /* Amber is the console's own light — labels, active switches, figures.
-     Cyan is instrumentation, and carries the readouts. */
-  --color-orange: #ff9e3d;
-  --color-dodger: #5fd0e8;
-  --color-jade: #54d18a;
-  --accent-color: var(--color-orange);
-  --theme-color: var(--color-orange);
-  --logs-accent: var(--color-orange);
-
-  /* Panel labels are narrow and squared — stencilled onto metal, not set
-     on paper. Readouts stay mono, because that is what a readout is. */
-  --font-display: 'Saira Condensed', 'Oswald', 'Arial Narrow', sans-serif;
-  --font-heading: var(--font-display);
-  --font-ui: var(--font-display);
-
-  background: var(--paper);
-  color: var(--ink);
-}
-
-/* Paint the viewport, not just the content column. */
-.nx01::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 158, 61, 0.07), transparent 60%),
-    var(--paper);
-  z-index: -2;
-}
-
-/* Scanlines over everything, at the threshold of noticing. The panel is
-   lit from behind glass; this is the glass. */
-.nx01::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.16) 0px,
-    rgba(0, 0, 0, 0.16) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  --section-tint: #2f5d62;
+  --plate: rgba(23, 20, 15, 0.82);
+  --accent-color: var(--accent-ink);
+  --color-orange: var(--accent-ink);
+  --color-dodger: var(--section-tint);
+  --theme-color: var(--accent-ink);
+  --logs-accent: var(--accent-ink);
+  --font-display: var(--font-heading);
+  font-synthesis: none;
 }
 
 .logs-wrapper {
@@ -93,62 +28,9 @@
    One bezel around the whole instrument: raised outer edge,
    sunk inner face, the way a panel is actually built. */
 .console-frame {
-  background: linear-gradient(180deg, var(--paper-raised), var(--paper));
+  background: var(--paper-raised);
   border: 1px solid var(--rule-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(223, 232, 238, 0.09),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
-    0 24px 60px rgba(0, 0, 0, 0.55);
   padding: 0 0 2rem;
-}
-
-/* Top rail: designation plate flanked by hazard striping. */
-.console-rail {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
-  background: var(--paper-deep);
-  border-bottom: 1px solid var(--rule);
-}
-
-.rail-tag {
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-/* Diagonal caution striping — the one place the page raises its voice
-   without saying anything. */
-.rail-hazard {
-  flex: 1;
-  height: 10px;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 158, 61, 0.5) 0px,
-    rgba(255, 158, 61, 0.5) 6px,
-    transparent 6px,
-    transparent 12px
-  );
-  opacity: 0.55;
-}
-
-/* The right-hand end of the rail: a real reading, in the panel's own
-   voice. The stardate that used to sit here had no style of its own at
-   all, so it rendered in the page's serif — a caption pasted onto an
-   instrument. */
-.rail-readout {
-  font-family: var(--font-data), monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-dodger);
-  white-space: nowrap;
 }
 
 /* ── Masthead ─────────────────────────────────────────── */
@@ -158,14 +40,12 @@
 
 .logs-title {
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 9vw, 5.25rem);
-  font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
   color: var(--ink);
   margin: 0;
-  text-shadow: 0 0 26px rgba(255, 158, 61, 0.22);
 }
 
 .logs-bio {
@@ -180,7 +60,7 @@
 .logs-bio a {
   color: var(--color-dodger);
   text-decoration: none;
-  border-bottom: 1px solid rgba(95, 208, 232, 0.4);
+  border-bottom: 1px solid var(--rule);
 }
 
 .logs-bio a:hover {
@@ -221,11 +101,11 @@
 
 .bank-label {
   font-family: var(--font-ui);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 .console-btn,
@@ -237,48 +117,46 @@
   text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
-  background: linear-gradient(180deg, var(--paper-raised), var(--paper-sunk));
+  background: var(--paper-raised);
   border: 1px solid var(--rule);
-  box-shadow: inset 0 1px 0 rgba(223, 232, 238, 0.07);
   color: var(--ink-2);
   transition: color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .console-btn {
+  min-height: 44px;
   padding: 0.5rem 1.1rem;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em;
 }
 
 .console-tab {
   padding: 0.25rem 0.65rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
 }
 
 .console-btn:hover,
 .console-tab:hover {
   color: var(--ink);
-  border-color: rgba(255, 158, 61, 0.55);
+  border-color: color-mix(in srgb, var(--accent-ink) 55%, transparent);
 }
 
 /* Engaged: backlit from inside the panel. */
 .console-btn.is-active,
 .console-tab.is-active {
-  color: var(--color-orange);
+  color: var(--paper);
+  background: var(--accent-ink);
   border-color: var(--color-orange);
-  box-shadow:
-    inset 0 0 14px rgba(255, 158, 61, 0.22),
-    0 0 10px rgba(255, 158, 61, 0.16);
 }
 
 .tab-count {
   font-family: var(--font-data), monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 0.62rem;
-  color: var(--ink-4);
+  font-size: 0.75rem;
+  color: var(--ink-2);
 }
 
 .console-tab.is-active .tab-count {
@@ -288,10 +166,13 @@
 /* "Follow <keyword> by RSS": a quiet link at the end of the filter bank,
    only while a keyword is engaged. */
 .console-follow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-left: auto;
   font-family: var(--font-ui);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-orange);
   text-decoration: underline;
@@ -307,11 +188,11 @@
    the caption still sits above the number visually. */
 .status-cell dt {
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
   margin: 0;
 }
 
@@ -332,15 +213,15 @@
   gap: 0.5rem;
   margin: 0 0 0.4rem;
   font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 .log-kind { color: var(--kind-color, var(--color-orange)); }
-.log-meta-dot { color: var(--ink-4); }
+.log-meta-dot { color: var(--ink-2); }
 .log-ordinal { color: var(--color-dodger); }
 
 /* Video is the console's own amber; audio is instrumentation cyan, the same
@@ -358,10 +239,9 @@
 .log-feature-title {
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 5vw, 3rem);
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   margin: 0 0 0.5rem;
 }
 
@@ -406,11 +286,6 @@
      a hairline where the two meet, and the screen's own vignette inside.
      Drawn with spread shadows rather than a wrapper element, so it costs no
      markup and never lands on the picture itself. */
-  box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.7),
-    0 0 0 6px var(--paper-raised),
-    0 0 0 7px var(--rule-strong),
-    0 12px 28px rgba(0, 0, 0, 0.55);
 }
 
 /* An audio entry's plate is a waveform, which wants to be a band
@@ -449,9 +324,9 @@
   justify-content: center;
   font-family: var(--font-ui);
   font-size: 0.7rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* Once it is playing the key steps aside. A video's poster goes with it —
@@ -472,8 +347,8 @@
   font-family: var(--font-data), monospace;
   font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
-  color: var(--ink);
-  background: rgba(5, 7, 8, 0.82);
+  color: var(--paper-raised);
+  background: var(--plate);
   border: 1px solid var(--rule);
   pointer-events: none;
 }
@@ -499,10 +374,10 @@
   padding: 0.5rem;
   text-align: center;
   font-family: var(--font-ui);
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
   background: var(--paper-deep);
 }
 
@@ -530,12 +405,10 @@
   place-items: center;
   width: 72px;
   height: 72px;
-  background: rgba(5, 7, 8, 0.78);
-  border: 1px solid var(--color-orange);
-  box-shadow:
-    0 0 24px rgba(255, 158, 61, 0.28),
-    inset 0 1px 0 rgba(255, 158, 61, 0.25);
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  color: var(--paper-raised);
+  background: var(--plate);
+  border: 1px solid var(--paper-raised);
+  transition: background 0.15s ease;
 }
 
 .log-play-mark::after {
@@ -544,17 +417,14 @@
   height: 0;
   /* A triangle sits left of its own centre; nudge it back optically. */
   margin-left: 5px;
-  border-left: 21px solid var(--color-orange);
+  border-left: 21px solid var(--paper-raised);
   border-top: 13px solid transparent;
   border-bottom: 13px solid transparent;
 }
 
 .log-play:hover .log-play-mark,
 .log-play:focus-visible .log-play-mark {
-  background: rgba(255, 158, 61, 0.18);
-  box-shadow:
-    0 0 34px rgba(255, 158, 61, 0.45),
-    inset 0 1px 0 rgba(255, 158, 61, 0.4);
+  background: color-mix(in srgb, var(--accent-ink) 18%, transparent);
 }
 
 /* ── Loading, buffering, failing ──────────────────────────
@@ -571,7 +441,7 @@
   height: 28px;
   margin: 0;
   box-sizing: border-box;
-  border: 3px solid rgba(255, 158, 61, 0.25);
+  border: 3px solid color-mix(in srgb, var(--accent-ink) 25%, transparent);
   border-top-color: var(--color-orange);
   border-radius: 50%;
   animation: log-turn 0.9s linear infinite;
@@ -624,7 +494,7 @@
   margin: 0;
   font-family: var(--font-ui);
   font-size: 0.75rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink);
 }
@@ -644,7 +514,7 @@
   padding: 0 1.1rem;
   font-family: var(--font-ui);
   font-size: 0.7rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   text-decoration: none;
   color: var(--color-orange);
@@ -660,7 +530,7 @@
 
 .log-retry:hover,
 .log-retry:focus-visible {
-  background: rgba(255, 158, 61, 0.14);
+  background: color-mix(in srgb, var(--accent-ink) 14%, transparent);
 }
 
 .log-file:hover,
@@ -702,11 +572,11 @@
 
 .log-figure-label {
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* ── The archive ──────────────────────────────────────────
@@ -727,9 +597,9 @@
   font-family: var(--font-ui);
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 .log-feed-count {
@@ -747,9 +617,6 @@
   overflow: hidden;
   background: var(--paper-sunk);
   border: 1px solid var(--rule);
-  box-shadow:
-    inset 0 1px 0 rgba(223, 232, 238, 0.06),
-    0 2px 0 rgba(0, 0, 0, 0.5);
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
@@ -784,10 +651,10 @@
   padding: 0.5rem;
   text-align: center;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* The running time, stamped on the frame the way a slate is. */
@@ -798,9 +665,9 @@
   padding: 0.1rem 0.4rem;
   font-family: var(--font-data), monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 0.68rem;
-  color: var(--ink);
-  background: rgba(5, 7, 8, 0.82);
+  font-size: 0.75rem;
+  color: var(--paper-raised);
+  background: var(--plate);
   border: 1px solid var(--rule);
 }
 
@@ -814,16 +681,15 @@
 .log-card-title {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--ink);
 }
 
 .log-card-ordinal {
   font-family: var(--font-ui);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-dodger);
 }
@@ -838,10 +704,10 @@
 .log-card-stats {
   margin-top: auto;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* ── A log's own page ─────────────────────────────────────── */
@@ -853,11 +719,11 @@
 .log-notes-head,
 .log-filed .bank-label {
   font-family: var(--font-ui);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-2);
   margin: 0 0 0.5rem;
 }
 
@@ -890,7 +756,7 @@
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 .log-totals p { margin: 0.2rem 0; }
@@ -899,7 +765,7 @@
   padding: 3rem 1.75rem;
   font-family: var(--font-data), monospace;
   font-size: 0.85rem;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* ── Narrow ───────────────────────────────────────────────── */
@@ -936,5 +802,10 @@
 }
 
 /* The essay a log goes with (Log.post_ref). */
-.nx01 .log-post { margin: 1rem 0 0; color: var(--ink-3); }
+.nx01 .log-post { margin: 1rem 0 0; color: var(--ink-2); }
 .nx01 .log-post a { color: var(--color-orange); }
+
+/* On a phone the readouts stack evenly, so no grid cell is left bare. */
+@media (max-width: 640px) {
+  .status-strip { grid-template-columns: 1fr !important; }
+}

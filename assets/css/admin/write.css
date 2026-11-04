@@ -376,21 +376,6 @@
   }
 }
 
-/* ── Fitness: the training block's check-in (?tab=checkin) ─────────── */
-
-.adm-fit-checkin-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-  gap: var(--st-space-3, 0.75rem) var(--st-space-4, 1rem);
-  align-items: end;
-  margin-bottom: var(--st-space-6, 1.5rem);
-}
-
-.adm-fit-guard {
-  margin: 0 0 var(--st-space-4, 1rem);
-  color: var(--st-warn);
-}
-
 /* ── Fitness: the block report (/admin/fitness/block) ──────────────── */
 
 .adm-fit-answer {
@@ -428,8 +413,8 @@
   border-radius: var(--st-radius-sm, 4px);
 }
 
-/* A state check as one row of choices (?tab=checkin): the radio is the
-   whole pill, so one tap answers it. */
+/* A row of choices on the block report: the radio is the whole pill,
+   so one tap answers it. */
 .adm-fit-check { margin: 0; padding: 0; border: 0; min-width: 0; }
 .adm-fit-states { display: flex; flex-wrap: wrap; gap: var(--st-space-2, 0.5rem); }
 
@@ -481,3 +466,11 @@
   background: var(--st-raised);
 }
 .adm-fit-conflict p { margin: 0; }
+
+/* Bodyweight and waist on the block report. */
+.adm-fit-measure {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--st-space-3, 0.75rem) var(--st-space-4, 1rem);
+  align-items: end;
+}

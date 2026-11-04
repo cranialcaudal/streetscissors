@@ -265,7 +265,12 @@ defmodule WebWeb.AdminLive.BlogManager do
               <span class="adm-figure">{Calendar.strftime(post.date, "%Y-%m-%d")}</span>
               <span><span class="adm-figure">{post.word_count}</span> words</span>
               <span>
-                <span class="adm-figure">{readers = Map.get(@readers, post.slug, 0)}</span> {if readers == 1, do: "reader", else: "readers"}
+                <span class="adm-figure">{readers = Map.get(@readers, post.slug, 0)}</span> {if readers ==
+                                                                                                  1,
+                                                                                                do:
+                                                                                                  "reader",
+                                                                                                else:
+                                                                                                  "readers"}
               </span>
               <span class="adm-figure">/blog/{post.slug}</span>
             </div>

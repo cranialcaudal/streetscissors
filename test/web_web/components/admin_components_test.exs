@@ -203,4 +203,20 @@ defmodule WebWeb.AdminComponentsTest do
       assert heights.(flat) |> Enum.uniq() |> length() == 1
     end
   end
+
+  describe "the rail" do
+    test "Citations appears only while one is waiting" do
+      refute render_component(&AdminComponents.rail/1, counts: %{citations: 0}) =~
+               "/admin/citations"
+
+      assert render_component(&AdminComponents.rail/1, counts: %{citations: 2}) =~
+               "/admin/citations"
+    end
+
+    test "Taste is reached from Prints, not the rail, and stays in the Darkroom" do
+      refute render_component(&AdminComponents.rail/1, counts: %{}) =~ "/admin/darkroom/taste"
+      assert WebWeb.AdminNav.program("/admin/darkroom/taste") == :darkroom
+      assert WebWeb.AdminNav.program("/admin/citations") == :mail
+    end
+  end
 end

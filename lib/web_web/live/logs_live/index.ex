@@ -44,11 +44,15 @@ defmodule WebWeb.LogsLive.Index do
     ip = WebWeb.Visitor.ip(socket)
     agent = WebWeb.Visitor.user_agent(socket)
     admin? = session["admin_user"] == true
+    # Whether it counts is a wider question than whether the admin is logged
+    # in: the author's mark rides in the session (WebWeb.OwnerMark), because a
+    # LiveView cannot read the cookie it comes from.
+    mine? = WebWeb.OwnerMark.mine?(session)
 
     assign(socket,
       viewer_agent: agent,
       is_admin: admin?,
-      counts_views: WebWeb.Visitor.counted?(ip, agent, admin?)
+      counts_views: WebWeb.Visitor.counted?(ip, agent, mine?)
     )
   end
 
@@ -163,11 +167,6 @@ defmodule WebWeb.LogsLive.Index do
     ~H"""
     <div class="logs-wrapper nx01">
       <article class="console-frame">
-        <div class="console-rail">
-          <span class="rail-tag" title="The section's console is styled after a ship's">NX-01</span>
-          <span class="rail-hazard" aria-hidden="true"></span>
-        </div>
-
         <header class="console-head">
           <h1 class="logs-title">Videostream</h1>
           <p class="logs-bio" title="Recorded as things happen, not afterwards">Recorded under way</p>
@@ -192,14 +191,14 @@ defmodule WebWeb.LogsLive.Index do
           <span class="bank-label">Sort</span>
           <.link
             patch={logs_path("recent", @keyword)}
-            class={["console-btn", @sort == "recent" && "is-active"]}
+            class={["btn console-btn", @sort == "recent" && "is-active"]}
             aria-current={@sort == "recent" && "true"}
           >
             Most recent
           </.link>
           <.link
             patch={logs_path("viewed", @keyword)}
-            class={["console-btn", @sort == "viewed" && "is-active"]}
+            class={["btn console-btn", @sort == "viewed" && "is-active"]}
             aria-current={@sort == "viewed" && "true"}
           >
             Most viewed

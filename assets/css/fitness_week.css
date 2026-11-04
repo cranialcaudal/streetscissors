@@ -1,201 +1,4 @@
 /* ═══════════════════════════════════════════════════════════════════
-   THE WEEK — the big picture under the day on /fitness
-   ═══════════════════════════════════════════════════════════════════
-   Tokens only, so it re-inks with .steel like the rest of the section.
-   Work is the ground the training sits on; the three race sports take
-   the three pigments; strength and play stay in the ink family.
-   .steel zeroes border-radius and box-shadow on everything, so hairlines
-   here are outlines and every edge is square.
-
-   Seamless by design: every day is one strip stretched to the full width,
-   its blocks meeting at a 2px seam of ground, so there is no dead space
-   to the right of a short day.
-   ─────────────────────────────────────────────────────────────────── */
-
-.week { margin-bottom: 2rem; }
-
-.week-title {
-  font-family: var(--font-heading);
-  font-size: 1.8rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin: 0 0 1.25rem;
-}
-
-.week-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.week-row {
-  display: grid;
-  grid-template-columns: 3.25rem 1fr;
-  align-items: stretch;
-  column-gap: 0.75rem;
-  row-gap: 2px;
-}
-
-.week-day {
-  display: flex;
-  align-items: center;
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--ink-3);
-}
-
-a.week-day { text-decoration: none; }
-a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
-
-.week-row.is-today .week-day { color: var(--ink); font-weight: 700; }
-
-/* ── The strip: equal shares, full width ── */
-.week-chips {
-  grid-column: 2;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  gap: 2px;
-  min-height: 2.75rem;
-}
-
-.week-chip {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  line-height: 1.2;
-  padding: 0.35rem 0.5rem;
-}
-
-.week-chips .week-chip {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-.week-chip-time { font-size: 0.75rem; opacity: 0.8; }
-
-/* The nightly stretch is a sliver, not a share: it closes the day without
-   taking a fifth of the strip. The label stays in the markup for screen
-   readers and the hover title; the legend names the colour. Three classes
-   so the phone-width font rule below can't bring the text back. */
-.week-chips .week-chip.week-chip--stretch {
-  flex: 0 0 1.5rem;
-  padding: 0;
-  font-size: 0;
-}
-
-.week-block--stretch .week-block-label { display: none; }
-
-.week-legend {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-
-.week-legend .week-chip { flex: 1 1 0; min-width: 4.5rem; text-align: center; }
-
-/* Kinds — a strip block, a timed block and a legend entry share one colour */
-.week-chip--work, .week-block--work {
-  background: var(--paper-sunk);
-  color: var(--ink-2);
-  outline: 1px solid var(--rule);
-  outline-offset: -1px;
-}
-.week-chip--swim, .week-block--swim { background: var(--color-dodger); color: var(--paper-deep); }
-.week-chip--bike, .week-block--bike { background: var(--color-jade); color: var(--paper-deep); }
-.week-chip--run, .week-block--run { background: var(--color-orange); color: var(--paper-deep); }
-.week-chip--strength, .week-block--strength { background: var(--ink-2); color: var(--paper-deep); }
-.week-chip--play, .week-block--play { background: var(--ink-3); color: var(--paper-deep); }
-.week-chip--stretch, .week-block--stretch { background: var(--ink-4); color: var(--ink); }
-.week-chip--other, .week-block--other {
-  background: var(--paper-raised);
-  color: var(--ink-2);
-  outline: 1px solid var(--rule);
-  outline-offset: -1px;
-}
-.week-chip--sleep {
-  background: var(--paper-deep);
-  color: var(--ink-3);
-  outline: 1px solid var(--rule);
-  outline-offset: -1px;
-}
-
-/* Today — a hairline rather than a colour, so it never reads as a kind */
-.week-row.is-today .week-chips,
-.week-row.is-today .week-track {
-  outline: 2px solid var(--ink-2);
-  outline-offset: 2px;
-}
-
-/* ── Timed view (admin only): the waking day, edge to edge ── */
-.week-axis {
-  position: relative;
-  height: 1.25rem;
-  margin-left: 4rem;
-  font-family: var(--font-data);
-  font-size: 0.75rem;
-  color: var(--ink-3);
-}
-
-.week-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-
-.week-track {
-  grid-column: 2;
-  position: relative;
-  height: 2.75rem;
-  background: var(--paper-raised);
-  overflow: hidden;
-}
-
-.week-sleep { position: absolute; top: 0; bottom: 0; background: var(--paper-deep); }
-
-.week-block {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
-  overflow: hidden;
-  border-left: 2px solid var(--paper);
-}
-
-.week-block-label {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.week--timed .week-chips { display: none; }
-
-@media (max-width: 640px) {
-  .week-row { grid-template-columns: 2.5rem 1fr; column-gap: 0.5rem; }
-  .week-axis { margin-left: 3rem; }
-  .week-chips .week-chip { font-size: 0.75rem; padding: 0.3rem 0.2rem; }
-  .week-block-label { display: none; }
-  .week-track { height: 1.25rem; }
-  .week--timed .week-chips { display: flex; }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════
    ONE DAY — what /fitness opens on
    ═══════════════════════════════════════════════════════════════════
    The page is read on a phone, between sets: the seven days across the
@@ -207,7 +10,7 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .day-strip-link {
@@ -226,11 +29,9 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 
 .day-strip-name {
   font-family: var(--font-heading);
-  font-size: clamp(1.15rem, 4.6vw, 1.9rem);
-  font-weight: 700;
+  font-size: clamp(1rem, 4vw, 1.7rem);
+  font-weight: 400;
   line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 /* The day's one word: legs, arms, cardio. */
@@ -248,12 +49,12 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 
 /* Today is the one in hot metal, whichever day is open. */
 .day-strip-link.is-today {
-  background: var(--theme-color);
-  outline-color: var(--theme-color);
-  color: var(--paper-deep);
+  background: var(--accent-ink);
+  outline-color: var(--accent-ink);
+  color: var(--paper-raised);
 }
 
-.day-strip-link.is-today .day-strip-theme { color: var(--paper-deep); }
+.day-strip-link.is-today .day-strip-theme { color: var(--paper-raised); }
 
 /* Another day, opened: a white frame, so it cannot be taken for today. */
 .day-strip-link[aria-current="page"]:not(.is-today) {
@@ -266,7 +67,7 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 
 .day-page.day-details { background: none; border: 0; overflow: visible; }
 
-.day-page-head { margin-bottom: 1.5rem; }
+.day-page-head { margin-bottom: 0.75rem; }
 
 .day-page-when {
   margin: 0 0 0.35rem;
@@ -282,9 +83,9 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 .day-page-title {
   margin: 0 0 1rem;
   font-family: var(--font-heading);
-  font-size: clamp(1.6rem, 5vw, 2.4rem);
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
   line-height: 1.15;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
   color: var(--ink);
 }
@@ -316,26 +117,22 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
 .day-page .day-content > .vault-day ul,
 .day-page .day-content > ul { padding: 0; }
 
-.day-page-reset { margin: 2rem 0 0; }
+.day-page-reset { margin: 1rem 0 0; }
 
 .day-page-section {
-  margin: 3rem 0 1rem;
-  padding-bottom: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--rule);
   font-family: var(--font-heading);
   font-size: 1.4rem;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
   color: var(--ink);
 }
 
-.fitness-landing .week { margin-top: 2rem; }
 
-/* The admin's block week: a bar under each day, coloured by what was done. */
+/* A bar under today. */
 .day-strip-link { position: relative; }
-.day-strip-link.is-done::after,
-.day-strip-link.is-part::after,
-.day-strip-link.is-missed::after,
 .day-strip-link.is-today::after {
   content: "";
   position: absolute;
@@ -344,8 +141,4 @@ a.week-day:hover, a.week-day:focus-visible { color: var(--theme-color); }
   bottom: 0.3rem;
   height: 4px;
   border-radius: 2px;
-}
-.day-strip-link.is-done::after { background: var(--color-jade); }
-.day-strip-link.is-part::after { background: #d9a400; }
-.day-strip-link.is-missed::after { background: var(--color-orange); }
-.day-strip-link.is-today::after { background: color-mix(in srgb, var(--paper-deep) 60%, transparent); }
+  background: color-mix(in srgb, var(--paper-raised) 60%, transparent); }

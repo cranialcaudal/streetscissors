@@ -49,8 +49,6 @@ defmodule WebWeb.SpeedTest do
             "Sorts Mill Goudy",
             "IBM Plex Mono",
             "Bebas Neue",
-            "League Spartan",
-            "Saira Condensed",
             "IBM Plex Sans",
             "Fraunces"
           ] do

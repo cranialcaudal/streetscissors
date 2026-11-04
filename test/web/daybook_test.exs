@@ -94,20 +94,6 @@ defmodule Web.DaybookTest do
       assert Enum.all?(week.days, &(&1.entries == []))
     end
 
-    test "training is pencilled in from today on, never for days gone by" do
-      # Wednesday: Monday and Tuesday are past.
-      assert {:ok, week} = Daybook.week(~D[2026-05-13], Daybook.entries(), ~D[2026-05-13])
-      [monday, tuesday | rest] = week.days
-
-      refute monday.training
-      refute tuesday.training
-      # The fixture vault gives Tuesday "arms" and Thursday "legs".
-      assert Enum.find(rest, &(&1.date == ~D[2026-05-14])).training == "legs"
-
-      assert {:ok, week} = Daybook.week(~D[2026-05-13], Daybook.entries(), ~D[2026-05-11])
-      assert Enum.at(week.days, 1).training == "arms"
-    end
-
     test "a day the Church keeps is named; a weekday of the season is not" do
       assert {:ok, week} = Daybook.week(~D[2026-07-13], Daybook.entries(), ~D[2026-10-07])
       observances = Map.new(week.days, &{&1.date, &1.observance})

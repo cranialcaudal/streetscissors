@@ -114,11 +114,6 @@
               <span :if={entry.note} class="daybook-diary-note">{entry.note}</span>
             </li>
           </ul>
-          <p :if={day.training} class="daybook-diary-training">
-            <.link href={~p"/fitness/day/#{String.downcase(Calendar.strftime(day.date, "%A"))}"}>
-              Training: {day.training}
-            </.link>
-          </p>
         </div>
       </li>
     </ol>

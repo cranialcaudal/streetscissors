@@ -97,6 +97,8 @@ defmodule WebWeb.AdminLive.Inbox do
       <:lede>
         Messages from the contact page, and letters about a piece. Nothing here is public until
         you publish it under the piece.
+        <.link navigate={~p"/admin/citations"} class="adm-link">Citations</.link>
+        from other sites are kept separately.
       </:lede>
     </.page_head>
 

@@ -1,70 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════════
-   BLUEPRINT STEEL — the /fitness section
+   STEEL — the /fitness section, on the paper shell (shell.css)
    ═══════════════════════════════════════════════════════════════════
-   The rest of the site is paper and Goudy. The shop floor is not: steel
-   blue-grey ground, white lines struck across it like a fabrication
-   drawing, League Spartan (ATF Spartan's descendant, Futura's American
-   rival) in every voice, and hot metal reserved for live numbers — the
-   only thing on these pages that changes when you train.
-
-   This is a scoped re-inking, not a second stylesheet: `.steel` overrides
-   the same tokens every page already reads, so the section's components
-   need no special cases. Keep it that way — style with tokens.
+   The section's ground and type are the site's own now. What stays is a
+   steel-blue tint for decoration, and the plain layout of plates and rules.
+   The exercise films keep their steel ground: it is in the footage.
    ─────────────────────────────────────────────────────────────────── */
 
 .steel {
-  /* Ground: cold rolled, three depths */
-  --paper: #263039;
-  --paper-raised: #2d3943;
-  --paper-sunk: #1e272e;
-  --paper-deep: #172026;
+  --section-tint: var(--color-dodger);
+  --accent-color: var(--accent-ink);
+  --color-orange: var(--accent-ink);
+  --theme-color: var(--accent-ink);
+  --blog-accent: var(--accent-ink);
 
-  /* Lines and type: white on steel, as a blueprint is */
-  --ink: #eff4f8;
-  --ink-2: #c3cfd9;
-  --ink-3: #8c9aa7;
-  --ink-4: #65727e;
+  /* Goudy has one weight: a heavier one here would be smeared by the browser. */
+  font-synthesis: none;
 
-  --rule: rgba(239, 244, 248, 0.22);
-  --rule-strong: rgba(239, 244, 248, 0.55);
-
-  /* Hot metal. Reserved for figures — see .steel .activity-figure-value etc. */
-  --color-orange: #ff6a2b;
-  --color-jade: #57b98c;
-  --color-dodger: #7ab5e8;
-  --accent-color: var(--color-orange);
-  --theme-color: var(--color-orange);
-  --hairline: var(--rule);
-  --glass-bg: var(--paper-raised);
-  --blog-accent: var(--color-orange);
-
-  /* One voice, top to bottom. Real Futura is not licensable for the web;
-     League Spartan carries the same geometric bones with more weight. */
-  --font-heading: 'League Spartan', 'Futura', 'Century Gothic', sans-serif;
-  --font-body: var(--font-heading);
-  --font-ui: var(--font-heading);
-  --font-data: var(--font-heading);
-  --font-serif: var(--font-heading);
-
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-body);
-  /* League Spartan runs small for its point size — this section is read on a
-     phone, mid-set, so the whole scale sits above the site's default. */
+  /* Read on a phone mid-set, so the scale sits above the site's default. */
   font-size: 1.125rem;
   line-height: 1.6;
   min-height: 100vh;
   padding-bottom: 4rem;
-}
-
-/* Paint the whole viewport, not just the content column, so the section
-   doesn't read as a grey card dropped onto the paper site. */
-.steel::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: var(--paper);
-  z-index: -2;
 }
 
 /* Simple in presentation: no rounded corners, no floating cards, no
@@ -77,19 +33,16 @@
   box-shadow: none !important;
 }
 
-/* Headings are white lines on the drawing. The section inherited a lot of
-   inline `color: var(--theme-color)` from the old orange theme; rather than
-   chase it through every template, it is struck back to ink here — hot metal
-   is spent on figures and interaction only. */
+/* The section inherited inline `color: var(--theme-color)` from an old theme;
+   headings are struck back to ink here. */
 .steel h1,
 .steel h2,
 .steel h3,
 .steel h4,
 .steel h5 {
   font-family: var(--font-heading);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--ink) !important;
 }
 
@@ -100,77 +53,7 @@
 /* Links keep the heat: they are the things that do something. */
 .steel .markdown-body a {
   color: var(--accent-color) !important;
-  border-bottom-color: rgba(255, 106, 43, 0.4) !important;
-}
-
-/* ── Masthead ─────────────────────────────────────────────────────── */
-
-.steel .blog-header-card {
-  background: none;
-  border: none;
-  border-bottom: 3px solid var(--ink);
-  padding: 2.25rem 0 1rem;
-  margin-bottom: 0;
-  text-align: left;
-}
-
-.steel .blog-header-title {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: clamp(2.2rem, 6vw, 3.4rem);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink);
-  text-shadow: none;
-}
-
-.steel .blog-header-subtitle {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  margin-top: 0.5rem;
-}
-
-/* ── Section tabs: struck lines, not pills ────────────────────────── */
-
-.steel .bento-fitness-sub-row {
-  display: flex !important;
-  gap: 0 !important;
-  margin: 0 0 2.5rem !important;
-  border-bottom: 1px solid var(--rule);
-}
-
-.steel .bento-fitness-sub-row > a {
-  flex: 0 0 auto !important;
-  background: none !important;
-  border: none !important;
-  border-right: 1px solid var(--rule) !important;
-  padding: 0.85rem 1.5rem !important;
-  text-align: left !important;
-  transition: background 0.15s ease;
-}
-
-.steel .bento-fitness-sub-row > a:last-child {
-  border-right: none !important;
-}
-
-.steel .bento-fitness-sub-row > a:hover {
-  background: var(--paper-raised) !important;
-}
-
-.steel .bento-fitness-sub-row > a span {
-  font-family: var(--font-ui) !important;
-  font-weight: 600;
-  font-size: 0.78rem !important;
-  letter-spacing: 0.22em !important;
-  color: var(--ink-2) !important;
-}
-
-.steel .bento-fitness-sub-row > a:hover span {
-  color: var(--accent-color) !important;
+  border-bottom-color: var(--rule-strong) !important;
 }
 
 /* ── Plates ───────────────────────────────────────────────────────── */
@@ -182,18 +65,27 @@
   padding: 2rem 0;
 }
 
+.steel.fitness-landing .blog-bento-card {
+  padding: 1rem 0 2rem;
+  border-bottom: 0;
+}
+
+.steel.fitness-landing .day-page.day-details {
+  border-bottom: 0 !important;
+}
+
 .steel .blog-bento-wrapper {
   max-width: 1000px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
-/* ── Live numbers: the only hot metal on the page ─────────────────── */
+/* ── Live numbers ─────────────────────────────────────────────────── */
 
 .steel .activity-figure-value {
   font-family: var(--font-data);
-  font-weight: 800;
-  color: var(--accent-color);
+  font-weight: 600;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
@@ -231,9 +123,9 @@
 
 .steel .day-title {
   font-family: var(--font-heading) !important;
-  font-weight: 700;
-  font-size: 1.25rem !important;
-  letter-spacing: 0.12em !important;
+  font-weight: 400;
+  font-size: 1.3rem !important;
+  letter-spacing: 0.01em !important;
   color: var(--ink) !important;
 }
 
@@ -287,8 +179,7 @@
   color: var(--ink);
 }
 
-/* Hot metal, because this is the live figure on the page — which
-   of the options is actually on this week. */
+/* Which of the options is on this week. */
 .steel .option-badge {
   font-family: var(--font-data);
   font-size: 0.65rem;
@@ -315,8 +206,7 @@
 }
 
 /* Vault markdown inside a day: rules and indents carry the structure, so the
-   coloured blocks and left bars can go. Subheads stay white — hot metal is
-   spent only on figures, or it stops meaning anything. */
+   coloured blocks and left bars can go. */
 /* Block headings inside a day: the only structure left once the prose is
    filtered out, so they carry weight rather than whispering. */
 .steel .vault-day h2,
@@ -325,10 +215,10 @@
   border-left: none !important;
   border-bottom: 1px solid var(--rule) !important;
   color: var(--ink) !important;
-  font-size: 1rem !important;
-  letter-spacing: 0.2em !important;
+  font-size: 1.3rem !important;
+  letter-spacing: 0.01em !important;
   padding: 0 0 0.5rem !important;
-  margin: 2.5rem 0 0.5rem !important;
+  margin: 1.5rem 0 0.5rem !important;
 }
 
 /* The checklist itself. Sized and spaced to be read and tapped one-handed
@@ -336,11 +226,11 @@
 .steel .vault-day li {
   font-family: var(--font-body) !important;
   color: var(--ink) !important;
-  font-size: 1.15rem !important;
+  font-size: 1.2rem !important;
   line-height: 1.5 !important;
   padding: 0.6rem 0 !important;
   gap: 1rem !important;
-  border-bottom: 1px solid rgba(239, 244, 248, 0.08);
+  border-bottom: 1px solid var(--rule);
   min-height: 44px;
   align-items: center !important;
 }
@@ -388,22 +278,23 @@
 .steel .reset-btn,
 .steel .theme-btn {
   font-family: var(--font-ui) !important;
-  font-weight: 600;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.18em !important;
+  font-weight: 500;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.06em !important;
   text-transform: uppercase;
+  min-height: 44px;
   background: none !important;
-  color: var(--ink-3) !important;
-  border: 1px solid var(--rule) !important;
-  padding: 0.55rem 1.1rem !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid var(--accent-ink) !important;
+  padding: 0.5rem 1rem !important;
 }
 
 .steel button:hover,
 .steel .reset-btn:hover,
 .steel .theme-btn:hover {
-  color: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
-  background: none !important;
+  color: var(--paper) !important;
+  border-color: var(--accent-ink) !important;
+  background: var(--accent-ink) !important;
 }
 
 /* ── Wiki index ───────────────────────────────────────────────────── */
@@ -432,15 +323,6 @@
 }
 
 @media (max-width: 640px) {
-  .steel .bento-fitness-sub-row {
-    flex-wrap: wrap !important;
-  }
-
-  .steel .bento-fitness-sub-row > a {
-    flex: 1 0 auto !important;
-    padding: 0.75rem 1rem !important;
-  }
-
   /* Phone: the checklist is the page. Nothing here gets smaller than the
      desktop scale — this is the screen it's actually read on. */
   .steel .vault-day li {
@@ -471,15 +353,57 @@
 /* ── Fitness landing: the workout ─────────────────────────────────
    The day's work takes the whole column. */
 .blog-bento-wrapper.steel.fitness-landing {
-  max-width: 1320px;
+  max-width: 1060px;
+  min-height: 0;
 }
 
 .steel .fitness-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  align-items: start;
 }
+
+/* The week beside the day, where the screen has room for it. */
+.week-rail { display: none; }
+
+@media (min-width: 1100px) {
+  .steel .fitness-layout {
+    grid-template-columns: minmax(0, 720px) 260px;
+    justify-content: space-between;
+    gap: 2.5rem;
+  }
+
+  .steel .day-strip { display: none; }
+
+  .week-rail {
+    display: block;
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    border-top: 2px solid var(--section-tint);
+  }
+}
+
+.week-rail-link {
+  display: grid;
+  gap: 0.1rem;
+  min-height: 44px;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  color: var(--ink-2);
+}
+.week-rail-day {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+.week-rail-what { font-family: var(--font-body); font-size: 1.05rem; line-height: 1.25; }
+.week-rail-link:hover { background: var(--paper-raised); }
+.week-rail-link[aria-current="page"] { background: var(--paper-sunk); color: var(--ink); }
+.week-rail-link[aria-current="page"] .week-rail-day { color: var(--ink); }
+.week-rail-link.is-today { box-shadow: inset 3px 0 0 var(--accent-ink); }
 
 @media (max-width: 1100px) {
   .steel .fitness-layout {
@@ -490,10 +414,14 @@
   }
 
 /* The fitness tabs: the page being looked at is the one in solid ink. */
-.steel .bento-fitness-sub-row .bento-card-skinny.is-current {
-  background: var(--ink) !important;
-  border-color: var(--ink) !important;
+
+/* Titles are set in Goudy upper and lower case, like every other page. */
+.steel .wiki-index-title,
+.steel .wiki-group-title,
+.steel .wiki-overlay-title,
+.steel h1 {
+  text-transform: none;
 }
-.steel .bento-fitness-sub-row .bento-card-skinny.is-current .bento-label-small {
-  color: var(--paper) !important;
-}
+
+/* The back link sits flush with the title under it. */
+.steel .day-page-back { padding-left: 0; margin-left: 0; letter-spacing: 0.06em; }

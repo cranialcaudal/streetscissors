@@ -1,14 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════
    DARKROOM — the /negatives page
    ═══════════════════════════════════════════════════════════════════
-   The homepage advertises this section with a stretched, cropped,
-   half-opacity orange wordmark over a dark veil; the page keeps that
-   promise instead of dropping you back onto paper. Same ground, same
-   Bebas display face, same orange, and the masthead is literally the
-   same component as the card that got you here.
-
-   Scoped token overrides in the manner of `.steel` — the viewer's own
-   components need no special cases, so keep styling with tokens.
+   The one public section on a dark ground, because photographs read better
+   on one. The site's ink becomes the ground and its paper the type, and
+   Goudy, Plex Mono and the shell's parts carry over by token. Under
+   `.darkroom` `--ink` is light, and poppy is lifted to read on the dark.
    ─────────────────────────────────────────────────────────────────── */
 
 .darkroom {
@@ -20,15 +16,18 @@
 
   --ink: #f3eee4;
   --ink-2: #cfc7b8;
-  --ink-3: #98907f;
-  --ink-4: #6b6555;
+  --ink-3: #b0a796;
+  --ink-4: #a0978a;
+  --accent-ink: #f08a63;
+  --accent-color: var(--accent-ink);
 
   --rule: rgba(243, 238, 228, 0.18);
   --rule-strong: rgba(243, 238, 228, 0.45);
   --hairline: var(--rule);
   --glass-bg: var(--paper-raised);
 
-  --font-display: 'Bebas Neue', Impact, 'Haettenschweiler', sans-serif;
+  --font-display: var(--font-heading);
+  font-synthesis: none;
 
   background: var(--paper);
   color: var(--ink);
@@ -45,9 +44,12 @@
 
 /* Trimmed so the sheet, not the masthead, owns the first screen. */
 .darkroom-masthead {
-  width: 100%;
-  height: clamp(3rem, 7.5vw, 6rem);
-  margin-bottom: 0.75rem;
+  max-width: 1400px;
+  margin: 1.25rem auto 1rem;
+  padding-inline: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom-width: 1px;
+  border-bottom-color: var(--rule-strong);
 }
 
 /* Display voice: the labels you press. Data — filenames, dates, frame
@@ -57,13 +59,13 @@
 .darkroom .index-header-row h2,
 .darkroom .minimal-index-table th {
   font-family: var(--font-display);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .darkroom .index-header-row h2 {
   font-size: 2.2rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   color: var(--ink);
 }
 
@@ -129,7 +131,7 @@
 .sheet-meta {
   font-family: var(--font-data);
   font-size: 0.75rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
   text-align: center;
@@ -172,6 +174,8 @@
    thin chevron legible over a bright frame. */
 .stage-arrow,
 .stage-download {
+  min-width: 44px;
+  min-height: 44px;
   position: absolute;
   z-index: 3;
   display: flex;
@@ -683,7 +687,7 @@
 .roll-rail-head {
   font-family: var(--font-data, monospace);
   font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
   margin: 0 0 0.75rem;
@@ -736,6 +740,7 @@
 /* Solid accent marks the roll you are on, the way the header marks the
    current section — not an outline, which reads as merely hovered. */
 .roll-rail-item.is-current {
+  padding-left: 0.5rem;
   color: var(--paper);
   background: var(--accent-color);
 }
@@ -759,7 +764,7 @@
 .roll-rail-format {
   grid-area: format;
   font-size: 0.62rem;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -938,7 +943,7 @@
 .frame-strip-title {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
   margin-bottom: 0.85rem;
@@ -1055,7 +1060,7 @@
   min-height: 2.75rem;
   color: var(--ink-2);
   font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -1079,7 +1084,7 @@
   align-items: baseline;
   gap: 0.75rem;
   font-size: 0.85rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink);
   white-space: nowrap;
@@ -1260,7 +1265,7 @@
 
   .sheet-meta {
     font-size: 0.7rem;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
   }
 
   /* The roll bar above already says how many rolls there are. */

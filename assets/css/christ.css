@@ -1,74 +1,40 @@
-/* The prayer pages (/Christ and everything under it).
+/* The prayer pages (/Christ and everything under it), on the paper shell.
  *
- * The brown scapular: two squares of brown wool, edged and lettered in red
- * thread. `.christ` re-inks the site's own tokens the way `.steel` and
- * `.darkroom` do, so everything below reads tokens and nothing else. The
- * ground is the wool, the type is undyed cream, and red is the thread:
- * `--stitch` for the sewn lines (dashed, as a running stitch is), and
- * `--accent-ink`, the same red lifted until small text passes on brown, for
- * whatever a printed breviary sets in red (citations, rubrics, "V." and "R.")
- * and for anything that can be pressed. Under `.christ` `--ink` is *light*.
+ * What is left of the brown scapular is its thread: `--stitch` for the sewn
+ * lines, dashed as a running stitch is, and the section's tint. Citations,
+ * rubrics, "V." and "R." are in `--accent-ink`, as a printed breviary sets them
+ * in red.
  *
  * The five liturgical colours are the Church's and not the site's; they are
- * lifted here to show on the wool.
+ * deepened here to read on paper.
  */
 
-.christ {
-  --paper: #1e120a;
-  --paper-raised: #2a1a0f;
-  --paper-sunk: #21140b;
-  --paper-deep: #150c06;
-
-  --ink: #f3e9d6;
-  --ink-2: #d9cab0;
-  --ink-3: #b3a086;
-  --ink-4: #8a7860;
-
-  --rule: rgba(243, 233, 214, 0.18);
-  --rule-strong: rgba(243, 233, 214, 0.42);
-  --hairline: var(--rule);
-
-  /* Crimson thread, and the same red lifted only as far as small type needs
-     to pass on the wool (5.2:1 on --paper, 4.7:1 on --paper-raised). */
-  --stitch: #c81a22;
-  --accent-ink: #f0503f;
+.faith {
+  --section-tint: var(--color-red);
+  --stitch: var(--color-red);
   --accent-color: var(--accent-ink);
   --theme-color: var(--accent-ink);
 
-  --liturgy-green: #6fa868;
-  --liturgy-violet: #a783c9;
-  --liturgy-white: #e9dcae;
-  --liturgy-red: #e0473a;
-  --liturgy-rose: #e39bb0;
+  --liturgy-green: #3f6b4a;
+  --liturgy-violet: #5e3a86;
+  --liturgy-white: #7a6a2f;
+  --liturgy-red: #9e2f26;
+  --liturgy-rose: #a8466a;
   --liturgy: var(--rule-strong);
   --christ-measure: 38rem;
-
-  color: var(--ink);
 }
 
-/* Paint the whole viewport, as `.steel` does, with the weave of the cloth. */
-.christ::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background:
-    repeating-linear-gradient(45deg, rgba(243, 233, 214, 0.028) 0 1px, transparent 1px 4px),
-    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 4px),
-    var(--paper);
-}
-
-/* The square of wool, sewn round its edge. */
+/* The square of paper, sewn round its edge. */
 .christ-panel {
   padding: 2.75rem 3rem 3.5rem;
   min-height: 80vh;
-  border-color: var(--paper-deep);
-  outline: 2px dashed var(--stitch);
+  border-color: var(--rule);
+  outline: 1px dashed var(--stitch);
   outline-offset: -11px;
 }
 
 .christ-panel:hover {
-  border-color: var(--paper-deep);
+  border-color: var(--rule);
 }
 
 .christ-panel > * {
@@ -85,7 +51,7 @@
   gap: 0.25rem 1.1rem;
   padding-bottom: 0.9rem;
   margin-bottom: 2rem;
-  border-bottom: 2px dashed var(--stitch);
+  border-bottom: 1px dashed var(--stitch);
   font-family: var(--font-ui);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
@@ -372,7 +338,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 0.6rem;
-  border-bottom: 2px dashed var(--stitch);
+  border-bottom: 1px dashed var(--stitch);
 }
 
 .christ-hours-head .christ-section-title {
@@ -686,7 +652,7 @@
   gap: 0.3rem 1.2rem;
   margin-top: 2.5rem;
   padding-top: 0.6rem;
-  border-top: 2px dashed var(--stitch);
+  border-top: 1px dashed var(--stitch);
   font-family: var(--font-ui);
   font-size: 0.8rem;
 }
@@ -829,7 +795,7 @@
 .christ-bead.is-current {
   background: var(--accent-ink);
   border-color: var(--accent-ink);
-  box-shadow: 0 0 0 3px var(--paper-deep);
+  box-shadow: 0 0 0 3px var(--paper);
 }
 
 .christ-beads-steps {
@@ -893,7 +859,7 @@
 }
 
 .christ-month-day.is-today > a {
-  background: var(--paper-deep);
+  background: var(--paper-sunk);
 }
 
 .christ-month-date {
@@ -999,7 +965,7 @@
 }
 
 @media print {
-  .christ {
+  .faith {
     --paper: #fff;
     --paper-raised: #fff;
     --paper-sunk: #fff;
@@ -1011,10 +977,6 @@
     --rule: rgba(0, 0, 0, 0.25);
     --rule-strong: rgba(0, 0, 0, 0.5);
     --accent-ink: #9e2f26;
-  }
-
-  .christ::before {
-    display: none;
   }
 
   .christ-panel {

@@ -22,11 +22,13 @@
 @import "./custom.css";
 @import "./panels.css";
 @import "./prose.css";
+@import "./fitness_week.css";
 @import "./fitness_cards.css";
 @import "./writing.css";
 @import "./guestbook.css";
 @import "./logs.css";
 @import "./theme.css";
+@import "./shell.css";
 /* The admin, one file per area (base first: tokens, layout, the rail and every
    shared component class; the rest are the programs' own rules). */
 @import "./admin/base.css";
@@ -46,7 +48,6 @@
 @import "./rides.css";
 /* Section theme — must follow the component sheets it re-inks */
 @import "./steel.css";
-@import "./fitness_week.css";
 @import "./fitness_wiki.css";
 @import "./fitness_charts.css";
 @import "./fitness_log.css";
@@ -86,8 +87,9 @@
     /* Ink — primary text down to metadata */
     --ink: #17140f;
     --ink-2: #4b453a;
-    --ink-3: #7d7566;
-    --ink-4: #a49b89;
+    /* --ink-3 and --ink-4 carry small type, so both pass 4.5:1 on every paper. */
+    --ink-3: #635b4e;
+    --ink-4: #6f6759;
 
     --bg-color: var(--paper);
     --text-color: var(--ink);

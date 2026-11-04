@@ -236,8 +236,6 @@ defmodule WebWeb.LogsLiveTest do
 
       assert html =~ "Friday, 18 September 2026"
       assert html =~ "What happened."
-      # The rail carries a real designation rather than invented numerology.
-      assert html =~ "Log 2026-09-18"
     end
 
     test "notes are Markdown, set on the page and plain in its description", %{conn: conn} do

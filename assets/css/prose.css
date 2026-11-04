@@ -63,5 +63,5 @@
     background: var(--paper-sunk);
     padding: 0.2rem 0.4rem;
     font-family: var(--font-mono);
-    color: var(--accent-color);
+    color: var(--accent-ink);
 }
