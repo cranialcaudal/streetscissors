@@ -312,7 +312,9 @@ defmodule Web.Writing.Zotero do
     {item_type, title, publication} =
       extract_title_and_publication(after_author, authors_str, url)
 
-    year = extract_year(citation_no_cn)
+    # The year in the publication's parentheses, `(Basic Books, 2001)` or
+    # `(2022): 160–181`, before any year a title holds ("… Since 1940").
+    year = paren_year(citation_no_cn) || extract_year(citation_no_cn)
 
     notes =
       ([inline_note] ++ thoughts)
@@ -972,6 +974,15 @@ defmodule Web.Writing.Zotero do
   end
 
   defp format_creators(_), do: ""
+
+  defp paren_year(text) do
+    case Regex.scan(~r/\(([^()]*)\)/, text)
+         |> Enum.reverse()
+         |> Enum.find_value(fn [_, inner] -> extract_year(inner) end) do
+      nil -> nil
+      year -> year
+    end
+  end
 
   defp extract_year(nil), do: nil
 

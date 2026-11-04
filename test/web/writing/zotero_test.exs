@@ -265,4 +265,16 @@ defmodule Web.Writing.ZoteroTest do
     assert Zotero.parse_markdown_reading_item("- [ ] *Ferries at Dusk* (2019). ^k").title ==
              "Ferries at Dusk"
   end
+
+  test "a reading-list line's year is its publication's, not one its title holds" do
+    parsed =
+      Zotero.parse_markdown_reading_item(
+        ~s{- [ ] **Katz, Lawrence F. & Krueger, Alan B.** "The Rise of Alternative Work, 1995–2015," *NBER Working Paper* 22667 (2016).}
+      )
+
+    assert parsed.year == "2016"
+
+    assert Zotero.parse_markdown_reading_item("*Trends Since 1940* (Harbor Press, 2017).").year ==
+             "2017"
+  end
 end
