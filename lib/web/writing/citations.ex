@@ -25,7 +25,9 @@ defmodule Web.Writing.Citations do
 
   @key_chars "A-Za-z0-9-"
   @block_id_re ~r/\s+\^([A-Za-z0-9-]+)\s*$/
-  @bracket_re ~r/(?<![\[!\w])\[([^\[\]\n]*@[^\[\]\n]*)\](?![\(\[:])/
+  # Not a link (`[x](…)`, `[x][y]`); a reference definition (`[x]: …` at
+  # the start of a line) is dropped in brackets/1.
+  @bracket_re ~r/(?<![\[!\w])\[([^\[\]\n]*@[^\[\]\n]*)\](?![\(\[])/
   @cite_part_re ~r/^(.*?)(?:^|(?<=\s))(-?)@([A-Za-z0-9][A-Za-z0-9-]*)(?:(?:,\s*|\s+)(.*))?$/s
   @fence_re ~r/^\s*(?:```|~~~)/
   @inline_code_re ~r/`[^`\n]*`/
@@ -241,6 +243,7 @@ defmodule Web.Writing.Citations do
   defp brackets(masked) do
     @bracket_re
     |> Regex.scan(masked, return: :index)
+    |> Enum.reject(fn [{start, len} | _] -> definition?(masked, start, len) end)
     |> Enum.flat_map(fn [range, {inner_start, inner_len}] ->
       inner = binary_part(masked, inner_start, inner_len)
 
@@ -253,6 +256,12 @@ defmodule Web.Writing.Citations do
         do: [%{range: range, cites: parts}],
         else: []
     end)
+  end
+
+  # `[x]: …` opening a line (up to three spaces in) defines a reference link.
+  defp definition?(line, start, len) do
+    String.trim(binary_part(line, 0, start), " ") == "" and start <= 3 and
+      binary_part(line, start + len, min(1, byte_size(line) - start - len)) == ":"
   end
 
   defp parse_part(part) do

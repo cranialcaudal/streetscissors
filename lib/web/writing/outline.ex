@@ -543,8 +543,10 @@ defmodule Web.Writing.Outline do
   defp strip_md_formatting(text) do
     text
     |> String.trim()
-    |> String.replace(~r/^\*\*|\*\*$/, "")
-    |> String.replace(~r/^\*|\*$/, "")
+    # Only a wrapper around the whole title: `**Title**` or `*Title*`, never
+    # the closing mark of an italic inside it (`Kukkonen’s *Designs*`).
+    |> String.replace(~r/^\*\*(.+)\*\*$/, "\\1")
+    |> String.replace(~r/^\*([^*].*)\*$/, "\\1")
     |> String.trim_trailing(":")
   end
 

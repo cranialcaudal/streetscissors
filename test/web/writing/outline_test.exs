@@ -353,4 +353,23 @@ defmodule Web.Writing.OutlineTest do
       assert section.first_sentence == "The tide turns twice a day."
     end
   end
+
+  test "a beat title keeps an italic inside it, and loses a bold wrapper" do
+    text = """
+    ## One
+
+    > [!beat] Kukkonen’s *Probability Designs*
+    > Read it.
+
+    > [!beat] **The narrows**
+    > Open on the water.
+    """
+
+    [section] = Outline.analyze(text).sections
+
+    assert Enum.map(section.beats, & &1.title) == [
+             "Kukkonen’s *Probability Designs*",
+             "The narrows"
+           ]
+  end
 end

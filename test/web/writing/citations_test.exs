@@ -49,6 +49,8 @@ defmodule Web.Writing.CitationsTest do
       text = """
       As shown [@vance2021, p. 19] and [see @ortiz2019; -@lund2015 ch. 2].
       Not these: `[@vance2021]`, [@vance2021](https://example.org), [[note]], [mail@example.org].
+      [@lund2015]: https://example.org/a-reference-definition
+      “Fog Signals” [@lund2015]: a citation the sentence goes on from.
 
       ```
       [@ortiz2019]
@@ -58,7 +60,8 @@ defmodule Web.Writing.CitationsTest do
       assert [
                %{key: "vance2021", locator: "p. 19", prefix: nil, suppress?: false},
                %{key: "ortiz2019", prefix: "see", locator: nil},
-               %{key: "lund2015", locator: "ch. 2", suppress?: true}
+               %{key: "lund2015", locator: "ch. 2", suppress?: true},
+               %{key: "lund2015", locator: nil}
              ] = Citations.citations(text)
     end
   end
