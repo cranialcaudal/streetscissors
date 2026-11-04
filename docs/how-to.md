@@ -634,9 +634,11 @@ page.
 A day is assembled from two kinds of file, so that a block of work written once
 can be used on any day that wants it.
 
-- **A day** lives in `weekly/` (or `additional/`, for the sessions that belong
-  to no particular day). It is short: a title, the name on its tab, and a list
-  of the blocks it is made of.
+- **A day** lives in `weeks/<program>/`, one folder per training program, and
+  the running program's week is the one shown, so the next program takes over
+  by itself. (`additional/` holds the sessions that belong to no particular
+  day.) A day is short: a title, the name on its tab, its one-word theme, and a
+  list of the blocks it is made of.
 - **A module** lives in `modules/`. It is one block: a warm-up, a swim set, a
   long run, with its exercises as a checklist. A module is never a page by
   itself. It appears only where a day names it.
