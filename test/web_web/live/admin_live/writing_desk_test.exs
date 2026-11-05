@@ -72,6 +72,8 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
     assert has_element?(view, "#post-outline-progress .adm-outline-says", "The tide turns")
     assert has_element?(view, "#post-outline-progress .adm-cite-key", "@vance2021")
     assert has_element?(view, "#reading-0 .adm-reading-used", "The narrows")
+    # Read aloud at 150 words a minute: the goal of 100 words is a minute.
+    assert has_element?(view, "#post-aloud", "1 at the goal")
   end
 
   test "a thought on a source is carried to a beat, cited", %{conn: conn} do

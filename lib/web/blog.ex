@@ -128,15 +128,20 @@ defmodule Web.Blog do
   end
 
   @doc """
-  Starts a post from the vault's own template, as a draft dated today.
+  Starts a post from the vault's own template, as a draft dated today, with
+  the outline of `kind` already in it.
 
-  The template is `content/templates/blog-template.md` — the one Obsidian
-  inserts — so a post begun here carries the same frontmatter as one begun
-  there. Returns `{:ok, slug}`, `{:error, :exists}` when a file by that name
-  is already there, or `{:error, :blank}` for a title that slugifies to
-  nothing.
+  The frontmatter is `content/templates/blog-template.md`'s — the one
+  Obsidian inserts — so a post begun here carries the same keys (and the
+  author's comments) as one begun there. The body is the skeleton of `kind`
+  (`Web.Writing.kinds/0`: an empty reading list, sections with word goals,
+  beats); `"blank"` keeps the template's own body instead.
+
+  Returns `{:ok, slug}`, `{:error, :exists}` when a file by that name is
+  already there, or `{:error, :blank}` for a title that slugifies to nothing.
   """
-  def create_draft(title, today \\ Web.Clock.local_today()) do
+  def create_draft(title, kind \\ "essay", today \\ Web.Clock.local_today())
+      when is_binary(kind) do
     slug = Keywords.slugify(title)
     path = Path.join(base_path(), slug <> ".md")
 
@@ -148,7 +153,8 @@ defmodule Web.Blog do
         {:error, :exists}
 
       true ->
-        {yaml, body} = split_raw_frontmatter(template())
+        {yaml, template_body} = split_raw_frontmatter(template())
+        body = if kind == "blank", do: template_body, else: Web.Writing.skeleton(kind)
 
         yaml =
           yaml

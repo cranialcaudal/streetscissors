@@ -138,8 +138,10 @@ Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `ab
   CSL JSON for exports.
 - **Papers** (`Web.Writing.Papers`, `/admin/writing`): pieces that are never published, in
   `WRITING_PATH` (default `writing/` beside the blog folder). Started from a skeleton
-  (`Web.Writing.kinds/0`: essay, IMRaD article, literature review, specific aims, response to
-  reviewers) or a blueprint. Saved through `Web.SourceFile.write/4`, like posts.
+  (`Web.Writing.kinds/0`: essay, long essay, IMRaD article, literature review, specific aims,
+  response to reviewers) or a blueprint. Saved through `Web.SourceFile.write/4`, like posts.
+  A new blog post starts from the same skeletons (`Blog.create_draft/3`), with the vault
+  template's frontmatter; `"blank"` keeps the template's body.
 - **Export** (`Web.Writing.Export`): the saved file, stripped, through Pandoc with `--citeproc`
   to Word, PDF (xelatex), LaTeX or Pandoc markdown, at `/admin/writing/:slug/export/:format`
   and `/admin/blog/:slug/export/:format` (admin session only). The bibliography is the

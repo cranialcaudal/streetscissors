@@ -21,6 +21,7 @@ defmodule WebWeb.AdminLive.BlogManager do
       |> assign(:uploaded, [])
       |> assign(:keyword_edit, nil)
       |> assign(:filter, "all")
+      |> assign(:new_post, to_form(%{"title" => "", "kind" => "essay"}, as: :post))
       |> load_posts()
       |> then(&assign(&1, :wb_slug, desk_slug(&1.assigns.posts)))
       |> WebWeb.AdminLive.Workbench.attach()
@@ -48,8 +49,11 @@ defmodule WebWeb.AdminLive.BlogManager do
     {:noreply, assign(socket, :filter, filter)}
   end
 
-  def handle_event("new_post", %{"title" => title}, socket) do
-    case Blog.create_draft(title) do
+  def handle_event("new_post", %{"post" => %{"title" => title} = params}, socket) do
+    kinds = ["blank" | Enum.map(Web.Writing.kinds(), &elem(&1, 0))]
+    kind = if params["kind"] in kinds, do: params["kind"], else: "essay"
+
+    case Blog.create_draft(title, kind) do
       {:ok, slug} ->
         {:noreply, push_navigate(socket, to: ~p"/admin/blog/#{slug}/edit")}
 
@@ -217,22 +221,32 @@ defmodule WebWeb.AdminLive.BlogManager do
     />
 
     <.panel title="New post">
-      <form id="new-post-form" phx-submit="new_post" class="adm-inline-form">
-        <input
+      <.form for={@new_post} id="new-post-form" phx-submit="new_post" class="adm-inline-form">
+        <.input
+          field={@new_post[:title]}
           type="text"
-          name="title"
           class="adm-input"
           placeholder="A title to file it under"
           autocomplete="off"
           aria-label="Title of the new post"
           required
         />
+        <.input
+          field={@new_post[:kind]}
+          type="select"
+          class="adm-select"
+          aria-label="What the draft starts with"
+          options={
+            Enum.map(Web.Writing.kinds(), fn {kind, label} -> {label, kind} end) ++
+              [{"Blank (the vault's template)", "blank"}]
+          }
+        />
         <button type="submit" class="adm-btn adm-btn--primary">
           <.icon name="hero-plus" class="size-4" /> Start a draft
         </button>
-      </form>
+      </.form>
       <p class="adm-help">
-        Makes a file from the vault's blog template, dated today and marked <code>draft: true</code>, and opens it in the editor. It stays off the site until published.
+        Makes a file dated today and marked <code>draft: true</code>, with the vault template's frontmatter and the outline of the kind you pick already in it: an empty reading list, sections with word goals, and beats. It opens in the editor and stays off the site until published.
       </p>
 
       <details class="adm-outline-import">

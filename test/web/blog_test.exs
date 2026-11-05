@@ -286,7 +286,7 @@ defmodule Web.BlogTest do
 
   describe "create_draft/2" do
     test "starts a post from the built-in template when the vault has none", %{tmp: tmp} do
-      assert {:ok, "tides-out"} = Blog.create_draft("Tide's Out", ~D[2030-03-02])
+      assert {:ok, "tides-out"} = Blog.create_draft("Tide's Out", "essay", ~D[2030-03-02])
 
       text = File.read!(Path.join(tmp, "tides-out.md"))
       assert text =~ ~s(title: "Tide's Out")
@@ -300,6 +300,18 @@ defmodule Web.BlogTest do
       # The template's sample values are not carried into a real post.
       assert post.keywords == []
       refute post.described
+      # The body is the essay's outline, ready to fill.
+      assert text =~ "## Reading List"
+      assert post.outline.beats_total > 3
+      assert post.outline.target_words > 0
+    end
+
+    test "a long essay starts with a twenty-minute outline", %{tmp: tmp} do
+      assert {:ok, "slack-water"} = Blog.create_draft("Slack Water", "long", ~D[2030-03-02])
+      {:ok, post} = Blog.get_post("slack-water", drafts: true)
+
+      assert post.outline.target_words == 4000
+      assert File.read!(Path.join(tmp, "slack-water.md")) =~ "> [!beat] The cold open"
     end
 
     # The same frontmatter a post begun in Obsidian gets, comments and all.
@@ -322,13 +334,20 @@ defmodule Web.BlogTest do
       Opening line from the vault's template.
       """)
 
-      assert {:ok, "a-walk"} = Blog.create_draft("A Walk", ~D[2030-03-02])
+      assert {:ok, "a-walk"} = Blog.create_draft("A Walk", "blank", ~D[2030-03-02])
       text = File.read!(Path.join(vault, "blog/a-walk.md"))
 
       assert text =~ "# a comment the author left for themselves"
       assert text =~ "location:"
       assert text =~ "Opening line from the vault's template."
       refute text =~ "film, darkroom"
+
+      # Any other kind keeps the template's frontmatter and brings its outline.
+      assert {:ok, "a-run"} = Blog.create_draft("A Run", "essay", ~D[2030-03-02])
+      text = File.read!(Path.join(vault, "blog/a-run.md"))
+      assert text =~ "# a comment the author left for themselves"
+      assert text =~ "> [!beat] The thesis"
+      refute text =~ "Opening line from the vault's template."
 
       assert {:ok, %{title: "A Walk", keywords: [], draft: true}} =
                Blog.get_post("a-walk", drafts: true)

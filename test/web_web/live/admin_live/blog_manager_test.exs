@@ -172,11 +172,15 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
 
       assert {:error, {:live_redirect, %{to: "/admin/blog/tides-out/edit"}}} =
-               view |> form("#new-post-form", title: "Tide's Out") |> render_submit()
+               view
+               |> form("#new-post-form", post: %{title: "Tide's Out", kind: "long"})
+               |> render_submit()
 
       text = File.read!(Path.join(tmp, "tides-out.md"))
       assert text =~ ~s(title: "Tide's Out")
       assert text =~ "draft: true"
+      # The outline of the kind picked is already in the file.
+      assert text =~ "## III. The complication (~800 words)"
       assert {:error, :not_found} = Blog.get_post("tides-out")
     end
 
@@ -184,7 +188,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       File.write!(Path.join(tmp, "taken.md"), "Already here.\n")
       {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
 
-      view |> form("#new-post-form", title: "Taken") |> render_submit()
+      view |> form("#new-post-form", post: %{title: "Taken"}) |> render_submit()
 
       assert has_element?(view, "#flash-error", "There is already a taken.md.")
       assert File.read!(Path.join(tmp, "taken.md")) == "Already here.\n"

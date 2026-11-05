@@ -589,11 +589,20 @@ or in the vault's `styles/` folder; without one, Chicago author-date. A
 default and which an export takes its bibliography from, so volume, pages and
 DOI come out exactly as Zotero has them.
 
+**Starting from a skeleton.** **Start a draft** on `/admin/blog` asks for a
+title and a kind, and the new file already holds that kind's outline: an empty
+reading list, sections with word goals, and beats. **Essay** is about 1,500
+words; **Long essay** is about 4,000, a twenty-minute read laid out in
+movements that work as a video's chapters. **Blank** keeps the vault
+template's own body. Either way the frontmatter is the template's, comments
+and all. The preview's **Aloud** line says how long the draft, and its goal,
+take to read aloud at about 150 words a minute, for planning a video.
+
 **Papers.** Writing that is not for the blog lives under Writing → **Papers**
 (`/admin/writing`), in the vault's `writing/` folder. Start one from a title
-and a kind (essay, research article, literature review, specific aims page,
-response to reviewers), which lays out its sections, word goals and beats, or
-from a pasted outline. A paper opens in the same workbench, with the same
+and a kind (essay, long essay, research article, literature review, specific
+aims page, response to reviewers), which lays out its sections, word goals and
+beats, or from a pasted outline. A paper opens in the same workbench, with the same
 reading list, citations and Zotero, has no Publish button, and is never on the
 site; Export is how it leaves.
 

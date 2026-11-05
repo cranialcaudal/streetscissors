@@ -28,7 +28,8 @@ defmodule Web.Writing do
   """
   def kinds do
     [
-      {"essay", "Essay"},
+      {"essay", "Essay (~1,500 words)"},
+      {"long", "Long essay (~4,000 words, a 20-minute read)"},
       {"article", "Research article (IMRaD)"},
       {"review", "Literature review"},
       {"aims", "Specific aims page"},
@@ -174,6 +175,58 @@ defmodule Web.Writing do
     > [!beat] Comment 2.1
 
     > [!beat] Comment 2.2
+    """
+  end
+
+  # Long enough to read for twenty minutes, and to talk through for an hour:
+  # each movement is a chapter of the video.
+  def skeleton("long") do
+    """
+    ## Reading List
+
+    ## Introduction (~400 words)
+
+    > [!beat] The cold open
+    > A scene, a screen, a sentence: the thing that makes someone stay.
+
+    > [!beat] The question
+
+    > [!beat] The thesis
+    > In two sentences, and the map of what follows.
+
+    ## I. The ground (~800 words)
+
+    > [!beat] What everyone already believes
+
+    > [!beat] The evidence that it is incomplete
+    > Cited.
+
+    ## II. The case (~900 words)
+
+    > [!beat] The first move
+
+    > [!beat] The second move
+
+    > [!beat] The example that carries it
+
+    ## III. The complication (~800 words)
+
+    > [!beat] The strongest objection
+    > The best version of the other side, cited.
+
+    > [!beat] The answer
+
+    ## IV. The synthesis (~600 words)
+
+    > [!beat] What the parts say together
+
+    > [!beat] What it changes
+
+    ## Conclusion (~500 words)
+
+    > [!beat] Back to the cold open
+
+    > [!beat] The decision it asks for
     """
   end
 

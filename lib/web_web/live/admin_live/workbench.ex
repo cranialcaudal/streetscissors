@@ -513,6 +513,14 @@ defmodule WebWeb.AdminLive.Workbench do
 
   defp lf(text), do: String.replace(text || "", "\r\n", "\n")
 
+  # Read aloud for a video: about 150 words a minute, against the 200 the
+  # site counts for reading on the page.
+  @aloud_wpm 150
+  defp aloud_min(words) when is_integer(words) and words > 0,
+    do: max(1, round(words / @aloud_wpm))
+
+  defp aloud_min(_), do: 0
+
   defp export_path(Web.Writing.Papers, slug, format),
     do: ~p"/admin/writing/#{slug}/export/#{format}"
 
@@ -1295,6 +1303,15 @@ defmodule WebWeb.AdminLive.Workbench do
                     </span>
                     words, <span class="adm-figure">{@post.read_min}</span>
                     min
+                  </dd>
+                </div>
+                <div id="post-aloud">
+                  <dt>Aloud</dt>
+                  <dd>
+                    <span class="adm-figure">{aloud_min(@post.word_count)}</span>
+                    min read aloud<span :if={@post.outline.target_words}>,
+                    <span class="adm-figure">{aloud_min(@post.outline.target_words)}</span>
+                    at the goal</span>
                   </dd>
                 </div>
                 <div>

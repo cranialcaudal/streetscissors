@@ -352,7 +352,9 @@ defmodule Web.Writing.Citations do
     %{
       "id" => key,
       "type" => type,
-      "title" => parsed.title,
+      # A title written as a link (`"[Title](https://…),"`) keeps its words;
+      # the address is the item's URL.
+      "title" => String.replace(parsed.title, ~r/\[([^\]]+)\]\([^)\s]+\)/, "\\1"),
       "author" => csl_names(parsed.authors),
       "issued" => parsed.year && %{"date-parts" => [[String.to_integer(parsed.year)]]},
       if(type in ["article-journal", "article-newspaper"],

@@ -48,6 +48,20 @@ defmodule Web.Writing.ExportTest do
       assert ortiz["DOI"] == "10.1234/harbors.2019"
     end
 
+    test "a title written as a link keeps its words, and its address is the URL" do
+      [item] =
+        Web.Writing.Outline.analyze("""
+        ## Reading List
+
+        - [ ] **Harbor Gazette.** "[Ferries return to the narrows](https://example.org/ferries)," *Harbor Gazette* (Nov. 3, 2030). ^gazette2030
+        """).research.items
+        |> Citations.csl_items(["gazette2030"])
+
+      assert item["title"] == "Ferries return to the narrows"
+      assert item["URL"] == "https://example.org/ferries"
+      assert item["issued"] == %{"date-parts" => [[2030]]}
+    end
+
     test "prefers Zotero's own CSL item, matched by title" do
       items = Web.Writing.Outline.analyze(@paper).research.items
       zotero = [%{"id" => "ZKEY", "title" => "Tide tables of the sound", "page" => "19-40"}]
