@@ -139,7 +139,8 @@ Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `ab
 - **Reading** (`Web.Writing.Zotero.Reader`, `AdminLive.ZoteroReaderComponent`): an item's PDF
   or EPUB stored in Zotero, read in the admin beside its annotations and notes, all written back
   through the Web API (the key needs write access). The reader is a component with two homes:
-  the workbench's first panel, beside the draft (**Read** in the Zotero list, or in **PDFs &
+  the workbench's first panel, in place of the Zotero list with the other three panels left
+  open (**Read** in the Zotero list, or in **PDFs &
   EPUBs**, `Reader.files/2`: every stored file in the root folder and the folders inside it, under
   its parent's title, never the rest of the library), where **Quote in draft** sends the passage
   to the workbench to type at the cursor, cited with its page; and a page of its own

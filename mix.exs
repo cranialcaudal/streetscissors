@@ -101,20 +101,19 @@ defmodule Web.MixProject do
   # priv/ wholesale. That shipped 4 MB of dead JavaScript, twice, before this
   # existed.
   #
-  # Only chunks are pruned, and only ones the freshly built app.js does not
-  # import. app.js keeps its own previous digested copies, which is the grace
-  # `phx.digest.clean --keep 1` in redeploy.sh relies on.
+  # Only chunks are pruned, and only ones the freshly built app.js cannot
+  # reach: what it imports, what those import, and so on. A chunk two lazy
+  # views share (the Zotero reader's PDF and EPUB views) is imported by them,
+  # never by app.js; pruning on app.js's own imports alone deleted it, and
+  # every file failed to open. app.js keeps its own previous digested copies,
+  # which is the grace `phx.digest.clean --keep 1` in redeploy.sh relies on.
   defp prune_stale_chunks(_args) do
     dir = Path.join(~w(priv static assets js))
-    entry = Path.join(dir, "app.js")
 
-    if File.regular?(entry) do
-      imported =
-        ~r/["']\.\/([\w.\-]+\.js)["']/
-        |> Regex.scan(File.read!(entry))
-        |> MapSet.new(fn [_whole, name] -> name end)
+    if File.regular?(Path.join(dir, "app.js")) do
+      reachable = reachable_js(dir, ["app.js"], MapSet.new())
 
-      for name <- File.ls!(dir), chunk?(name), not MapSet.member?(imported, name) do
+      for name <- File.ls!(dir), chunk?(name), not MapSet.member?(reachable, name) do
         # The chunk and any digested or gzipped copy of it.
         [Path.join(dir, name) | Path.wildcard(Path.join(dir, Path.rootname(name) <> "-*"))]
         |> Enum.each(&File.rm/1)
@@ -125,6 +124,25 @@ defmodule Web.MixProject do
     end
 
     :ok
+  end
+
+  # Every file in `dir` that loading `pending` pulls in, static or dynamic
+  # (`from"./x.js"`, `import"./x.js"`, `import("./x.js")`), followed through.
+  defp reachable_js(_dir, [], seen), do: seen
+
+  defp reachable_js(dir, [name | rest], seen) do
+    path = Path.join(dir, name)
+
+    if MapSet.member?(seen, name) or not File.regular?(path) do
+      reachable_js(dir, rest, seen)
+    else
+      imports =
+        ~r/["']\.\/([\w.\-]+\.js)["']/
+        |> Regex.scan(File.read!(path), capture: :all_but_first)
+        |> List.flatten()
+
+      reachable_js(dir, imports ++ rest, MapSet.put(seen, name))
+    end
   end
 
   # An esbuild chunk ends in its own 8-character hash. A phx.digest copy ends

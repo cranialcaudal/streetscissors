@@ -600,12 +600,13 @@ take to read aloud at about 150 words a minute, for planning a video.
 
 **Reading in Zotero's files.** In the workbench's Zotero panel, **Read**
 beside an item opens its PDF or EPUB (the copy stored in Zotero) right there
-in the first panel, beside the draft: the panel widens, and the outline and
-the preview fold away until you press **Back to Zotero**. Only items with a
-file stored in Zotero have **Read**. A record with no file attached has
-nothing to open, so **PDFs & EPUBs**, beside the folders, lists every PDF and
-EPUB in the site's Zotero folder and the folders inside it, under its item's
-title; the rest of the library stays out of it. Its search looks through the
+in the first panel, in place of the Zotero list, until you press **Back to
+Zotero**. The outline, the draft and the preview stay open beside it (the
+panel widens a little); fold any of them to give the page more room. Only
+items with a file stored in Zotero have **Read**. A record with no file
+attached has nothing to open, so **PDFs & EPUBs**, beside the folders, lists
+every PDF and EPUB in the site's Zotero folder and the folders inside it,
+under its item's title; the rest of the library stays out of it. Its search looks through the
 files' text too.
 
 Select text in the document and the toolbar above it takes it: pick one of

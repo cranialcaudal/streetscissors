@@ -338,8 +338,9 @@
   margin: 0;
 }
 
-/* The workbench's first panel, while it reads: wider than the draft
-   beside it (1.25), so a page is legible and the draft still writable. */
+/* The workbench's first panel, while it reads: a little wider than the
+   draft and the preview (1.25), so a page is legible with all four panels
+   open and the draft still writable. */
 .admin-layout #post-zotero[data-reading="true"][data-collapsed="false"] {
   flex: 1.6 1 0%;
 }

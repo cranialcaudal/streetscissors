@@ -179,14 +179,14 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
     assert has_element?(view, "#zotero-item-LOOSE001", "on its own")
     refute has_element?(view, "#zotero-item-LINK0001")
 
-    # Read opens it beside the draft; the outline and the preview fold away.
+    # Read opens it in the first panel; the other three stay open beside it.
     view |> element("#zotero-item-PDF00001 button", "Read") |> render_click()
     render_async(view)
 
     assert has_element?(view, "#post-zotero[data-reading=true]")
-    assert has_element?(view, "#post-outline-progress[data-collapsed=true]")
-    assert has_element?(view, "#post-preview[data-collapsed=true]")
+    assert has_element?(view, "#post-outline-progress[data-collapsed=false]")
     assert has_element?(view, "#panel-draft[data-collapsed=false]")
+    assert has_element?(view, "#post-preview[data-collapsed=false]")
     assert has_element?(view, "#post-zotero .adm-reader-head", "Tide Tables of the Sound")
     assert has_element?(view, "#reader-PDF00001[phx-hook=ZoteroReader]")
     assert has_element?(view, "#ann-ANN00001", "Slack water holds")
@@ -219,7 +219,7 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
       text: "“Slack water holds for eleven minutes.” [@" <> _
     })
 
-    # Closing brings the panels back as they were.
+    # Closing brings the Zotero list back, the other panels untouched.
     view |> element("#reader-close") |> render_click()
     assert has_element?(view, "#post-zotero[data-reading=false]")
     assert has_element?(view, "#post-outline-progress[data-collapsed=false]")

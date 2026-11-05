@@ -212,6 +212,29 @@ for _ in $(seq 1 30); do
       fi
     done
 
+    # A lazy view (the Zotero reader's PDF and EPUB) loads chunks of its own,
+    # and a chunk two views share is imported by them, never by app.js. When
+    # one was pruned, every page still rendered and only opening a file failed.
+    # So follow every relative import from the JS a browser loads, through each
+    # chunk it reaches, and fetch every file.
+    js_dir=${js_href%/*}
+    js_imports() { { grep -oE "[\"']\./[A-Za-z0-9_.-]+\.js[\"']" || true; } | tr -d "\"'" | sed 's|^\./||'; }
+    pending=$(js_imports <<< "$served_js" | sort -u)
+    fetched=""
+    while [ -n "$pending" ]; do
+      found=""
+      for name in $pending; do
+        if ! chunk=$(curl -s --compressed --fail --max-time 30 "http://localhost:4000${js_dir}/${name}"); then
+          echo "    !! ${js_dir}/${name} is imported but not served — was a chunk pruned?"
+          exit 1
+        fi
+        fetched="${fetched}${name}"$'\n'
+        found="${found}$(js_imports <<< "$chunk")"$'\n'
+      done
+      pending=$(printf '%s' "$found" | sort -u | { grep -vxF -f <(printf '%s' "$fetched") || true; })
+    done
+    echo "    every imported chunk is served ($(printf '%s' "$fetched" | grep -c . || true) files)"
+
     # The release reads its database from DATABASE_PATH in the unit file. If
     # that ever resolves somewhere unexpected, SQLite silently creates an empty
     # file and the site comes up looking wiped rather than failing — so assert

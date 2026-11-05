@@ -7,10 +7,11 @@ defmodule WebWeb.AdminLive.Workbench do
        toggles, `> [!thought]` notes, citation keys and **Cite**, which types
        `[@key]` at the editor's cursor (`Web.Writing.Citations`). **PDFs &
        EPUBs** lists every file in the root folder and the folders inside
-       it (never the rest of the library); **Read** opens one here (`WebWeb.AdminLive.ZoteroReaderComponent`),
-       twice as wide, with the outline and the preview folded away until it
-       is closed. Its **Quote in draft** types the passage at the cursor,
-       cited with its page (`“…” [@key, p. 3]`).
+       it (never the rest of the library); **Read** opens one here
+       (`WebWeb.AdminLive.ZoteroReaderComponent`), in place of the list and a
+       little wider, with the other three panels left as they were. Its
+       **Quote in draft** types the passage at the cursor, cited with its
+       page (`“…” [@key, p. 3]`).
     2. **Outline** (`#post-outline-progress`): section word targets, beats,
        paired phrasings, and **Use my phrasings**.
     3. **Draft** (`#panel-draft`): `WebWeb.DocumentEditor` over the whole file.
@@ -99,8 +100,7 @@ defmodule WebWeb.AdminLive.Workbench do
          zotero_query: "",
          zotero_error: nil,
          zotero_files?: false,
-         reading: nil,
-         reading_restore: nil
+         reading: nil
        )
        |> open(assigns.slug)
        |> then(fn s -> if configured?, do: load_zotero(s, ""), else: s end)}
@@ -284,21 +284,14 @@ defmodule WebWeb.AdminLive.Workbench do
 
   # ── Reading ───────────────────────────────────────────────────────────
 
-  # A Zotero item or file, opened in the first panel beside the draft: the
-  # outline and the preview fold away while it is open, and come back as
-  # they were when it is closed.
+  # A Zotero item or file, opened in the first panel in place of the Zotero
+  # list. The outline, the draft and the preview stay as the author left them.
   def handle_event("read", %{"key" => key}, socket) do
     if Reader.key?(key) do
-      %{collapsed_panels: collapsed, reading_restore: restore} = socket.assigns
-
       {:noreply,
        assign(socket,
          reading: key,
-         reading_restore: restore || collapsed,
-         collapsed_panels:
-           collapsed
-           |> MapSet.union(MapSet.new(~w(outline preview)))
-           |> MapSet.difference(MapSet.new(~w(articles draft)))
+         collapsed_panels: MapSet.delete(socket.assigns.collapsed_panels, "articles")
        )}
     else
       {:noreply, socket}
@@ -306,10 +299,7 @@ defmodule WebWeb.AdminLive.Workbench do
   end
 
   def handle_event("close_reader", _params, socket) do
-    %{collapsed_panels: collapsed, reading_restore: restore} = socket.assigns
-
-    {:noreply,
-     assign(socket, reading: nil, reading_restore: nil, collapsed_panels: restore || collapsed)}
+    {:noreply, assign(socket, :reading, nil)}
   end
 
   # From the reader's Quote: the passage typed at the cursor, cited to its
