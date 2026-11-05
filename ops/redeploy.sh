@@ -216,9 +216,14 @@ for _ in $(seq 1 30); do
     # and a chunk two views share is imported by them, never by app.js. When
     # one was pruned, every page still rendered and only opening a file failed.
     # So follow every relative import from the JS a browser loads, through each
-    # chunk it reaches, and fetch every file.
+    # chunk it reaches, and fetch every file. Only import statements count
+    # (`from"./x.js"`, `import"./x.js"`, `import("./x.js")`): PDF.js carries
+    # "./qcms_bg.js" as a plain object key, which is no file to fetch.
     js_dir=${js_href%/*}
-    js_imports() { { grep -oE "[\"']\./[A-Za-z0-9_.-]+\.js[\"']" || true; } | tr -d "\"'" | sed 's|^\./||'; }
+    js_imports() {
+      { grep -oE "(from|import)[[:space:]]*\(?[[:space:]]*[\"']\./[A-Za-z0-9_.-]+\.js[\"']" \
+          | grep -oE "\./[A-Za-z0-9_.-]+\.js" || true; } | sed 's|^\./||'
+    }
     pending=$(js_imports <<< "$served_js" | sort -u)
     fetched=""
     while [ -n "$pending" ]; do
