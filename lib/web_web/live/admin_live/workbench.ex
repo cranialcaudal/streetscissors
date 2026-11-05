@@ -48,6 +48,8 @@ defmodule WebWeb.AdminLive.Workbench do
   alias Web.Writing.Outline
   alias Web.Writing.{Citations, Document, Export}
   alias Web.Writing.Zotero
+  require Logger
+
   alias Web.Writing.Zotero.Reader
   alias WebWeb.AdminLive.ZoteroReaderComponent
   alias WebWeb.DocumentEditor
@@ -57,8 +59,10 @@ defmodule WebWeb.AdminLive.Workbench do
 
   @doc """
   Readies a host LiveView for the workbench, in its `mount/3`: the editor's
-  completions (`WebWeb.DocumentEditor.attach/1`) and the workbench's flash
-  messages, which the layout shows.
+  completions (`WebWeb.DocumentEditor.attach/1`), the workbench's flash
+  messages, which the layout shows, and a quiet end for the reader's events
+  that reach the page rather than the reader (a tab still running the script
+  from before a deploy sent them so, and each one crashed the page).
   """
   def attach(socket) do
     socket
@@ -69,6 +73,10 @@ defmodule WebWeb.AdminLive.Workbench do
 
       _other, socket ->
         {:cont, socket}
+    end)
+    |> Phoenix.LiveView.attach_hook(:stray_reader_events, :handle_event, fn
+      event, _params, socket when event in ["reader_ready", "selection"] -> {:halt, socket}
+      _event, _params, socket -> {:cont, socket}
     end)
   end
 
@@ -304,17 +312,17 @@ defmodule WebWeb.AdminLive.Workbench do
 
   # From the reader's Quote: the passage typed at the cursor, cited to its
   # item (put in the reading list if it is not there yet), with its page.
+  # The item is fetched in a task, so typing is never held up behind Zotero;
+  # the button blurs the draft first, which sends any typing still waiting
+  # on its debounce, so the text the reading list goes into is the latest.
   def handle_event("reader_quote", %{"item" => key, "text" => text} = params, socket)
-      when key != "" and text != "" do
-    case Zotero.fetch_item_with_notes(key) do
-      {:ok, item} ->
-        added = Outline.insert_reading_items(socket.assigns.content, [item])
-        {next, cite_key} = Outline.reading_key_for_title(added, item.title)
-        {:noreply, socket |> apply_text(next) |> quote_at_cursor(cite_key, text, params["page"])}
+      when is_binary(key) and is_binary(text) and key != "" and text != "" do
+    page = params["page"]
 
-      {:error, _} ->
-        {:noreply, flash(socket, :error, "Could not fetch that item from Zotero.")}
-    end
+    {:noreply,
+     start_async(socket, :reader_quote, fn ->
+       {Zotero.fetch_item_with_notes(key), text, page}
+     end)}
   end
 
   def handle_event("reader_quote", _params, socket) do
@@ -428,6 +436,23 @@ defmodule WebWeb.AdminLive.Workbench do
       {:error, _} ->
         {:noreply, assign(socket, :zotero_error, "Could not fetch that collection from Zotero.")}
     end
+  end
+
+  # The reader's Quote, once Zotero has answered (see "reader_quote").
+  @impl true
+  def handle_async(:reader_quote, {:ok, {{:ok, item}, text, page}}, socket) do
+    added = Outline.insert_reading_items(socket.assigns.content, [item])
+    {next, cite_key} = Outline.reading_key_for_title(added, item.title)
+    {:noreply, socket |> apply_text(next) |> quote_at_cursor(cite_key, text, page)}
+  end
+
+  def handle_async(:reader_quote, {:ok, {{:error, _}, _text, _page}}, socket) do
+    {:noreply, flash(socket, :error, "Could not fetch that item from Zotero.")}
+  end
+
+  def handle_async(:reader_quote, {:exit, reason}, socket) do
+    Logger.error("Workbench: quoting crashed: #{inspect(reason)}")
+    {:noreply, flash(socket, :error, "Not quoted: something broke on the server.")}
   end
 
   # ── Helpers ───────────────────────────────────────────────────────────
@@ -801,7 +826,13 @@ defmodule WebWeb.AdminLive.Workbench do
             }
           />
 
-          <%= if @reading && !MapSet.member?(@collapsed_panels, "articles") do %>
+          <%!-- Folding the panel hides the reader rather than closing it, so
+               the page, its place and a half-typed comment are still there. --%>
+          <div
+            :if={@reading}
+            class="adm-reading-wrap"
+            hidden={MapSet.member?(@collapsed_panels, "articles")}
+          >
             <div class="adm-panel-head">
               <h2 class="adm-panel-title">1. Reading</h2>
               <div class="adm-panel-actions">
@@ -837,9 +868,10 @@ defmodule WebWeb.AdminLive.Workbench do
                 id={"wb-reader-#{@reading}"}
                 item_key={@reading}
                 quote_target={@myself}
+                quote_flush="#post-source-input"
               />
             </div>
-          <% end %>
+          </div>
 
           <%= if !@reading && !MapSet.member?(@collapsed_panels, "articles") do %>
             <div class="adm-panel-head">

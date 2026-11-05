@@ -50,6 +50,13 @@ defmodule WebWeb.AdminLive.ZoteroReader do
     {:noreply, put_flash(socket, kind, message)}
   end
 
+  def handle_info(_message, socket), do: {:noreply, socket}
+
+  # The reader's events belong to the reader; a tab still running the script
+  # from before a deploy sent them here, and each one crashed the page.
+  def handle_event(event, _params, socket) when event in ["reader_ready", "selection"],
+    do: {:noreply, socket}
+
   def render(assigns) do
     ~H"""
     <.page_head slug="Writing / Zotero / Read" title={@title}>

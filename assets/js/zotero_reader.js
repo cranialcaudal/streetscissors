@@ -6,7 +6,8 @@
 //
 // The viewer (reader/pdf_view.js with PDF.js, reader/epub_view.js with
 // epub.js) is fetched on first mount as its own chunk, so no other page
-// loads either library.
+// loads either library. A hook destroyed while its file is still loading
+// stops the load (an AbortSignal) rather than finishing it for no one.
 //
 // To the component (pushEventTo, so it reaches the reader wherever it is
 // rendered): "reader_ready" once the document is open (the reply is the
@@ -16,9 +17,12 @@
 // From the server: "reader:annotations" (redraw), "reader:jump" (scroll to
 // one), "reader:clear_selection" (after a highlight is saved).
 
+const failed = (where) => (error) => console.warn(`[ZoteroReader] ${where}`, error)
+
 export const ZoteroReader = {
   async mounted() {
     const { kind, src } = this.el.dataset
+    this.abort = new AbortController()
     try {
       const view = kind === "epub"
         ? await import("./reader/epub_view.js")
@@ -27,6 +31,7 @@ export const ZoteroReader = {
       this.view = await view.open({
         el: this.el,
         src,
+        signal: this.abort.signal,
         onSelect: (selection) => this.pushEventTo(this.el, "selection", selection || { text: "" }),
       })
     } catch (error) {
@@ -38,16 +43,31 @@ export const ZoteroReader = {
       this.el.replaceChildren(p)
       return
     }
-    if (this.gone) return this.view.destroy()
+    if (this.gone) return this.close()
 
-    this.handleEvent("reader:annotations", ({ annotations }) => this.view.setAnnotations(annotations || []))
-    this.handleEvent("reader:jump", ({ key }) => this.view.jump(key))
-    this.handleEvent("reader:clear_selection", () => this.view.clearSelection())
-    this.pushEventTo(this.el, "reader_ready", {}, (reply) => this.view.setAnnotations((reply && reply.annotations) || []))
+    const guard = (where, fn) => (payload) => {
+      try {
+        const out = fn(payload)
+        if (out && typeof out.catch === "function") out.catch(failed(where))
+      } catch (error) {
+        failed(where)(error)
+      }
+    }
+    this.handleEvent("reader:annotations", guard("annotations", ({ annotations }) => this.view.setAnnotations(annotations || [])))
+    this.handleEvent("reader:jump", guard("jump", ({ key }) => this.view.jump(key)))
+    this.handleEvent("reader:clear_selection", guard("clear_selection", () => this.view.clearSelection()))
+    this.pushEventTo(this.el, "reader_ready", {}, guard("reader_ready", (reply) => this.view.setAnnotations((reply && reply.annotations) || [])))
+  },
+
+  close() {
+    const view = this.view
+    this.view = null
+    if (view) Promise.resolve(view.destroy()).catch(failed("destroy"))
   },
 
   destroyed() {
     this.gone = true
-    if (this.view) this.view.destroy()
+    if (this.abort) this.abort.abort()
+    this.close()
   },
 }

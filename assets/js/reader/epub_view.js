@@ -14,7 +14,7 @@ import { pad, debounce, flatten, textOffset } from "./util.js"
 
 const CFI = "http://www.idpf.org/epub/linking/cfi/epub-cfi.html"
 
-export async function open({ el, src, onSelect }) {
+export async function open({ el, src, onSelect, signal }) {
   const bar = document.createElement("div")
   bar.className = "adm-reader-epub-bar"
   const prev = button("Previous")
@@ -27,7 +27,18 @@ export async function open({ el, src, onSelect }) {
   el.replaceChildren(bar, box)
 
   const book = ePub(src, { openAs: "epub" })
-  await book.ready
+  // A reader closed while the book is still loading stops it there.
+  const abort = () => book.destroy()
+  signal?.addEventListener("abort", abort, { once: true })
+  try {
+    await book.ready
+    if (signal?.aborted) throw new Error("closed")
+  } catch (error) {
+    book.destroy()
+    throw error
+  } finally {
+    signal?.removeEventListener("abort", abort)
+  }
   const rendition = book.renderTo(box, {
     width: "100%",
     height: "100%",
@@ -37,12 +48,15 @@ export async function open({ el, src, onSelect }) {
 
   let annotations = []
   let shown = [] // [cfi, type] drawn now
+  let selected = false
+  const unhooks = [] // each section's mouseup, taken off when the reader closes
 
   rendition.on("selected", (cfiRange, contents) => {
     const range = contents.range(cfiRange)
     const text = flatten(range && range.toString())
     if (!text) return
     const offset = textOffset(contents.document.body, range.startContainer, range.startOffset)
+    selected = true
     onSelect({
       text,
       position: { type: "FragmentSelector", conformsTo: CFI, value: cfiRange },
@@ -51,12 +65,21 @@ export async function open({ el, src, onSelect }) {
     })
   })
 
-  // A click in the book that leaves nothing selected clears the selection.
+  // A click in the book that leaves nothing selected clears the selection,
+  // once.
   rendition.hooks.content.register((contents) => {
-    contents.document.addEventListener("mouseup", debounce(() => {
+    const up = debounce(() => {
       const s = contents.window.getSelection()
-      if (!s || s.isCollapsed) onSelect(null)
-    }, 50))
+      if ((!s || s.isCollapsed) && selected) {
+        selected = false
+        onSelect(null)
+      }
+    }, 50)
+    contents.document.addEventListener("mouseup", up)
+    unhooks.push(() => {
+      up.cancel()
+      contents.document.removeEventListener("mouseup", up)
+    })
   })
 
   rendition.on("relocated", (location) => {
@@ -85,7 +108,7 @@ export async function open({ el, src, onSelect }) {
 
   return {
     setAnnotations(list) {
-      annotations = list
+      annotations = list || []
       draw()
     },
     async jump(key) {
@@ -93,12 +116,14 @@ export async function open({ el, src, onSelect }) {
       if (a && a.position && a.position.value) await rendition.display(a.position.value)
     },
     clearSelection() {
+      selected = false
       for (const c of rendition.getContents()) {
         const s = c.window.getSelection()
         if (s) s.removeAllRanges()
       }
     },
     destroy() {
+      unhooks.splice(0).forEach((off) => off())
       book.destroy()
     },
   }

@@ -191,6 +191,29 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
     assert has_element?(view, "#reader-PDF00001[phx-hook=ZoteroReader]")
     assert has_element?(view, "#ann-ANN00001", "Slack water holds")
 
+    # Typing in the draft and folding the panel leave the reader open: folded,
+    # it is hidden, not closed, and unfolding shows the same reader.
+    view |> form("#post-editor", content: "Typed meanwhile.") |> render_change()
+    assert has_element?(view, "#reader-PDF00001[phx-hook=ZoteroReader]")
+
+    view
+    |> element("#post-zotero .adm-panel-actions button[phx-value-panel=articles]")
+    |> render_click()
+
+    assert has_element?(view, "#post-zotero[data-collapsed=true]")
+    assert has_element?(view, "#post-zotero .adm-reading-wrap[hidden] #reader-PDF00001")
+
+    view |> element("#post-zotero .adm-pipeline-rail-btn") |> render_click()
+    assert has_element?(view, "#post-zotero[data-collapsed=false]")
+    refute has_element?(view, "#post-zotero .adm-reading-wrap[hidden]")
+    assert has_element?(view, "#ann-ANN00001", "Slack water holds")
+
+    # A reader event that reaches the page, as an old tab's script sent it,
+    # is let go rather than crashing the page.
+    render_hook(view, "reader_ready", %{})
+    render_hook(view, "selection", %{"text" => ""})
+    assert has_element?(view, "#reader-PDF00001")
+
     assert has_element?(
              view,
              ~s(#reader-full-page[href="/admin/zotero/PDF00001?back=%2Fadmin%2Fblog%2Fessay%2Fedit"])
@@ -208,12 +231,14 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
     })
 
     view |> element("#reader-quote-selection") |> render_click()
+    render_async(view)
 
     assert_push_event(view, "editor:insert", %{id: "post-source", text: quoted})
     assert [_, key] = Regex.run(~r/^“The ferries wait\.” \[@([\w-]+), p\. 3\]$/u, quoted)
 
     # An annotation already made is quoted the same way.
     view |> element("#ann-ANN00001 button", "Quote") |> render_click()
+    render_async(view)
 
     assert_push_event(view, "editor:insert", %{
       text: "“Slack water holds for eleven minutes.” [@" <> _

@@ -155,6 +155,14 @@ Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `ab
   `pdf-worker.txt`) or epub.js (`assets/vendor/epub.js`, bundled with xmldom stubbed out; the
   book's scripts never run), each fetched as its own chunk on that page only. Zotero's file
   redirects are signed S3 addresses, so the client does not log redirects.
+  What keeps it standing: every Zotero call from the reader runs in `start_async`, one write at a
+  time, never in an event handler (a slow api.zotero.org held the LiveView past the browser's
+  30 s and the page reloaded); each reader has its own PDF.js worker, ended when it closes; at
+  most 6 pages stay drawn and 2 are drawn at once, no canvas over 4096×4096 pixels, and a canvas
+  let go is shrunk to nothing (Safari frees canvas memory only then). Folding panel 1 hides the
+  reader rather than closing it. The reader's events that reach a page instead of the reader (an
+  old tab's script) are let go there: `Workbench.attach/1` and `AdminLive.ZoteroReader`. The admin
+  is not reloaded on new assets (`WebWeb.FreshAssets` is public pages only).
 - **Papers** (`Web.Writing.Papers`, `/admin/writing`): pieces that are never published, in
   `WRITING_PATH` (default `writing/` beside the blog folder). Started from a skeleton
   (`Web.Writing.kinds/0`: essay, long essay, IMRaD article, literature review, specific aims,

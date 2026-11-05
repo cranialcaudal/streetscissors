@@ -63,8 +63,8 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
   }
 
   # A library of one book, one PDF and its one highlight. Writes are sent to
-  # the test process to look at.
-  defp library(test) do
+  # the test process to look at; with `refuse: true` Zotero answers them 500.
+  defp library(test, opts \\ []) do
     Req.Test.stub(Web.Writing.Zotero, fn conn ->
       case {conn.method, conn.request_path, conn.query_params["itemType"]} do
         {"GET", "/users/12345/items/BOOK0001", _} ->
@@ -92,9 +92,16 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           send(test, {:write, method, path, body})
 
-          if method == "POST",
-            do: Req.Test.json(conn, %{"successful" => %{"0" => %{"key" => "NEW00001"}}}),
-            else: Plug.Conn.send_resp(conn, 204, "")
+          cond do
+            opts[:refuse] ->
+              Plug.Conn.send_resp(conn, 500, "down")
+
+            method == "POST" ->
+              Req.Test.json(conn, %{"successful" => %{"0" => %{"key" => "NEW00001"}}})
+
+            true ->
+              Plug.Conn.send_resp(conn, 204, "")
+          end
       end
     end)
   end
@@ -167,6 +174,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     |> form("#annotate-form", highlight: %{color: "green", comment: "Tie to the hook."})
     |> render_submit(%{"type" => "underline"})
 
+    render_async(view)
     assert_received {:write, "POST", "/users/12345/items", body}
 
     assert [
@@ -184,6 +192,47 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     assert_push_event(view, "reader:clear_selection", %{})
     assert has_element?(view, "#flash-info", "Saved to Zotero.")
     assert has_element?(view, "#annotate-form button[disabled]", "Highlight")
+    # The comment box comes back empty, in the colour last used.
+    refute has_element?(view, ~s(#annotate-form input[value="Tie to the hook."]))
+    assert has_element?(view, ~s(#annotate-form input[value=green][checked]))
+  end
+
+  test "a save Zotero refuses is said so, and the toolbar is usable again", %{conn: conn} do
+    library(self(), refuse: true)
+
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    render_async(view)
+
+    view
+    |> element("#reader-PDF00001")
+    |> render_hook("selection", %{
+      "text" => "The ferries wait.",
+      "position" => %{"pageIndex" => 2, "rects" => [[10, 20, 30, 40]]},
+      "sort_index" => "00002|000050|00100",
+      "page_label" => "3"
+    })
+
+    view
+    |> form("#annotate-form", highlight: %{color: "red", comment: "Keep me."})
+    |> render_submit()
+
+    render_async(view)
+
+    assert has_element?(view, "#flash-error", "Not saved")
+    # The selection and the comment are still there to try again.
+    refute has_element?(view, "#annotate-form button[disabled]", "Highlight")
+    assert has_element?(view, ~s(#annotate-form input[value="Keep me."]))
+  end
+
+  test "a reader event that reaches the page is let go, not a crash", %{conn: conn} do
+    library(self())
+    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    render_async(view)
+
+    render_hook(view, "reader_ready", %{})
+    render_hook(view, "selection", %{"text" => "x"})
+    send(view.pid, :something_else)
+    assert has_element?(view, "#reader-PDF00001")
   end
 
   test "an emptied selection takes the offer away", %{conn: conn} do
@@ -211,6 +260,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     render_async(view)
 
     view |> form("#ann-ANN00001 form", comment: "Open on this.") |> render_submit()
+    render_async(view)
     assert_received {:write, "PATCH", "/users/12345/items/ANN00001", patch}
     assert Jason.decode!(patch) == %{"annotationComment" => "Open on this."}
 
@@ -218,11 +268,15 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     assert_push_event(view, "reader:jump", %{key: "ANN00001"})
 
     view |> element("#ann-ANN00001 button", "Delete") |> render_click()
+    render_async(view)
     assert_received {:write, "DELETE", "/users/12345/items/ANN00001", _}
 
     view |> form("#note-form", note: %{text: "Pull this into Section I."}) |> render_submit()
+    render_async(view)
     assert_received {:write, "POST", "/users/12345/items", note}
     assert [%{"itemType" => "note", "parentItem" => "BOOK0001"}] = Jason.decode!(note)
+    assert has_element?(view, "#flash-info", "Note saved to Zotero.")
+    refute has_element?(view, "#note-form textarea", "Pull this into Section I.")
   end
 
   test "the file is served to the admin, whole or by the range asked for", %{conn: conn} do

@@ -345,6 +345,17 @@
   flex: 1.6 1 0%;
 }
 
+/* The reading panel's head and body sit in a wrapper that keeps the reader
+   mounted while the panel is folded: laid out as the panel's own children,
+   and gone (but not destroyed) when folded. */
+.admin-layout .adm-reading-wrap {
+  display: contents;
+}
+
+.admin-layout .adm-reading-wrap[hidden] {
+  display: none;
+}
+
 .admin-layout .adm-reader-quote {
   margin: 0;
   padding-left: var(--st-space-3);

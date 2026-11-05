@@ -7,15 +7,23 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
   can be read beside the draft it is for. Attributes: `item_key` (an item, or
   one of its files), `attachment_key` (the file to open first, optional),
   `full_page` (the reading page: the document's title is the page's, sent up
-  as `{:reader_opened, title}`), and `quote_target` (the workbench: where
+  as `{:reader_opened, title}`), `quote_target` (the workbench: where
   **Quote in draft** sends `"reader_quote"` with the item, the text and its
-  page).
+  page) and `quote_flush` (the draft's input, blurred first so typing still
+  on its debounce reaches the server before the quote).
 
   Selecting text in the document fills the toolbar; **Highlight** or
   **Underline** saves it in Zotero in the chosen colour, with the comment.
   Each annotation can be commented, shown, quoted or deleted, and a note can
   be added to the item. Everything goes through `Web.Writing.Zotero.Reader`.
   The toolbar is always there, so the page does not move under a selection.
+
+  **Nothing waits on Zotero in an event handler.** Every read and write runs
+  in `start_async/3`, one at a time (`busy`, which disables the controls): a
+  handler held up by a slow api.zotero.org stalled the whole LiveView, and the
+  browser reloads a page whose events go 30 s unanswered. A failure is told
+  as what it was (refused, conflict, not found, an HTTP status, unreachable);
+  a crash in the task is logged and said to be one.
 
   The document is drawn by the `ZoteroReader` hook (`assets/js/zotero_reader.js`:
   PDF.js for a PDF, epub.js for an EPUB) inside an element it owns
@@ -26,6 +34,8 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
 
   use WebWeb, :live_component
 
+  require Logger
+
   alias Web.Writing.Zotero.Reader
 
   @impl true
@@ -33,6 +43,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
     socket =
       assign(socket,
         quote_target: Map.get(assigns, :quote_target),
+        quote_flush: Map.get(assigns, :quote_flush),
         full_page: Map.get(assigns, :full_page, false)
       )
 
@@ -51,6 +62,9 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
           annotation_count: 0,
           marks: [],
           note_count: 0,
+          busy: false,
+          # Bumped after a save, so the comment and note boxes come back empty.
+          form_rev: 0,
           highlight_form: to_form(%{"comment" => "", "color" => "yellow"}, as: :highlight),
           note_form: to_form(%{"text" => ""}, as: :note)
         )
@@ -110,8 +124,93 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
     {:noreply, assign(socket, error: describe(reason))}
   end
 
-  def handle_async(:load, {:exit, _reason}, socket) do
-    {:noreply, assign(socket, error: "Could not reach api.zotero.org.")}
+  def handle_async(:load, {:exit, reason}, socket) do
+    Logger.error("Zotero reader: loading #{socket.assigns.item_key} crashed: #{inspect(reason)}")
+    {:noreply, assign(socket, error: crashed())}
+  end
+
+  # Another of the item's files: its marks. A later pick wins.
+  def handle_async(:marks, {:ok, {key, annotations}}, socket) do
+    if socket.assigns.attachment && socket.assigns.attachment.key == key,
+      do: {:noreply, put_annotations(socket, annotations)},
+      else: {:noreply, socket}
+  end
+
+  def handle_async(:marks, {:exit, reason}, socket) do
+    Logger.error("Zotero reader: annotations crashed: #{inspect(reason)}")
+    {:noreply, flash(socket, :error, "The annotations could not be read: " <> crashed())}
+  end
+
+  def handle_async(:annotate, {:ok, {{:ok, _annotation}, annotations}}, socket) do
+    color = socket.assigns.highlight_form[:color].value
+
+    {:noreply,
+     socket
+     |> assign(
+       busy: false,
+       selection: nil,
+       form_rev: socket.assigns.form_rev + 1,
+       highlight_form: to_form(%{"comment" => "", "color" => color}, as: :highlight)
+     )
+     |> push_event("reader:clear_selection", %{})
+     |> put_annotations(annotations)
+     |> flash(:info, "Saved to Zotero.")}
+  end
+
+  def handle_async(:annotate, {:ok, {{:error, reason}, _}}, socket) do
+    {:noreply, socket |> assign(:busy, false) |> flash(:error, "Not saved: " <> describe(reason))}
+  end
+
+  def handle_async(:comment, {:ok, {result, annotations}}, socket) do
+    socket = socket |> assign(:busy, false) |> put_annotations(annotations)
+
+    case result do
+      :ok -> {:noreply, flash(socket, :info, "Saved to Zotero.")}
+      {:error, reason} -> {:noreply, flash(socket, :error, "Not saved: " <> describe(reason))}
+    end
+  end
+
+  def handle_async(:delete, {:ok, {result, annotations}}, socket) do
+    socket = socket |> assign(:busy, false) |> put_annotations(annotations)
+
+    case result do
+      :ok -> {:noreply, flash(socket, :info, "Deleted in Zotero.")}
+      {:error, reason} -> {:noreply, flash(socket, :error, "Not deleted: " <> describe(reason))}
+    end
+  end
+
+  def handle_async(:add_note, {:ok, {:ok, notes}}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       busy: false,
+       form_rev: socket.assigns.form_rev + 1,
+       note_form: to_form(%{"text" => ""}, as: :note)
+     )
+     |> put_notes(notes)
+     |> flash(:info, "Note saved to Zotero.")}
+  end
+
+  def handle_async(:add_note, {:ok, {{:error, :blank}, _}}, socket) do
+    {:noreply, socket |> assign(:busy, false) |> flash(:error, "Write the note first.")}
+  end
+
+  def handle_async(:add_note, {:ok, {{:error, reason}, _}}, socket) do
+    {:noreply, socket |> assign(:busy, false) |> flash(:error, "Not saved: " <> describe(reason))}
+  end
+
+  def handle_async(name, {:exit, reason}, socket) do
+    Logger.error("Zotero reader: #{name} crashed: #{inspect(reason)}")
+    {:noreply, socket |> assign(:busy, false) |> flash(:error, "Not saved: " <> crashed())}
+  end
+
+  # One write at a time: the next waits for this one's answer.
+  defp write(socket, name, fun) do
+    if socket.assigns.busy do
+      {:noreply, flash(socket, :error, "Still waiting on Zotero for the last change.")}
+    else
+      {:noreply, socket |> assign(:busy, true) |> start_async(name, fun)}
+    end
   end
 
   # The hook is told the marks to draw as they change, and asks for them
@@ -131,10 +230,6 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
 
   # What the hook draws: no text or comment, only where and how.
   defp for_hook(a), do: Map.take(a, [:key, :type, :color_name, :position])
-
-  defp reload_annotations(socket) do
-    put_annotations(socket, load_annotations(socket.assigns.attachment))
-  end
 
   # Flash is the layout's, so the host LiveView puts it.
   defp flash(socket, kind, message) do
@@ -172,7 +267,8 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
         {:noreply,
          socket
          |> assign(attachment: attachment, selection: nil)
-         |> put_annotations(load_annotations(attachment))}
+         |> put_annotations([])
+         |> start_async(:marks, fn -> {attachment.key, load_annotations(attachment)} end)}
     end
   end
 
@@ -189,21 +285,15 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
           "comment" => form["comment"]
         })
 
-      case Reader.create_annotation(attachment, attrs) do
-        {:ok, _annotation} ->
-          {:noreply,
-           socket
-           |> assign(
-             selection: nil,
-             highlight_form: to_form(%{"comment" => "", "color" => form["color"]}, as: :highlight)
-           )
-           |> push_event("reader:clear_selection", %{})
-           |> reload_annotations()
-           |> flash(:info, "Saved to Zotero.")}
+      socket =
+        assign(socket,
+          highlight_form:
+            to_form(%{"comment" => form["comment"], "color" => form["color"]}, as: :highlight)
+        )
 
-        {:error, reason} ->
-          {:noreply, flash(socket, :error, "Not saved: " <> describe(reason))}
-      end
+      write(socket, :annotate, fn ->
+        {Reader.create_annotation(attachment, attrs), load_annotations(attachment)}
+      end)
     else
       {:noreply, flash(socket, :error, "Select some text in the document first.")}
     end
@@ -211,26 +301,19 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
 
   def handle_event("comment", %{"key" => key, "version" => version} = params, socket) do
     changes = Map.take(params, ~w(comment color))
+    attachment = socket.assigns.attachment
 
-    case Reader.update_annotation(key, version, changes) do
-      :ok ->
-        {:noreply, socket |> reload_annotations() |> flash(:info, "Saved to Zotero.")}
-
-      {:error, reason} ->
-        {:noreply,
-         socket |> reload_annotations() |> flash(:error, "Not saved: " <> describe(reason))}
-    end
+    write(socket, :comment, fn ->
+      {Reader.update_annotation(key, version, changes), load_annotations(attachment)}
+    end)
   end
 
   def handle_event("delete", %{"key" => key, "version" => version}, socket) do
-    case Reader.delete_annotation(key, version) do
-      :ok ->
-        {:noreply, socket |> reload_annotations() |> flash(:info, "Deleted in Zotero.")}
+    attachment = socket.assigns.attachment
 
-      {:error, reason} ->
-        {:noreply,
-         socket |> reload_annotations() |> flash(:error, "Not deleted: " <> describe(reason))}
-    end
+    write(socket, :delete, fn ->
+      {Reader.delete_annotation(key, version), load_annotations(attachment)}
+    end)
   end
 
   def handle_event("jump", %{"key" => key}, socket) do
@@ -245,20 +328,14 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
         {:noreply, flash(socket, :error, "A standalone file has no item to hold notes.")}
 
       key ->
-        case Reader.create_note(key, text) do
-          :ok ->
-            {:noreply,
-             socket
-             |> assign(note_form: to_form(%{"text" => ""}, as: :note))
-             |> put_notes(load_notes(key))
-             |> flash(:info, "Note saved to Zotero.")}
+        socket = assign(socket, note_form: to_form(%{"text" => text}, as: :note))
 
-          {:error, :blank} ->
-            {:noreply, flash(socket, :error, "Write the note first.")}
-
-          {:error, reason} ->
-            {:noreply, flash(socket, :error, "Not saved: " <> describe(reason))}
-        end
+        write(socket, :add_note, fn ->
+          case Reader.create_note(key, text) do
+            :ok -> {:ok, load_notes(key)}
+            {:error, reason} -> {{:error, reason}, []}
+          end
+        end)
     end
   end
 
@@ -275,7 +352,21 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
   defp describe(reason) when reason in [:bad_position, :bad_sort_index, :bad_type, :no_text],
     do: "the selection could not be placed on the page; select it again."
 
-  defp describe(_), do: "could not reach api.zotero.org."
+  defp describe(:create_failed), do: "Zotero did not take it; try again."
+  defp describe(:not_readable), do: "Zotero holds no PDF or EPUB for it."
+  defp describe({:http, status}), do: "Zotero answered HTTP #{status}."
+
+  defp describe(%{__exception__: true} = e),
+    do: "could not reach api.zotero.org (#{Exception.message(e)})."
+
+  defp describe(reason) when is_atom(reason), do: "could not reach api.zotero.org (#{reason})."
+
+  defp describe(reason) do
+    Logger.warning("Zotero reader: unexpected error #{inspect(reason)}")
+    "Zotero gave an answer this page does not understand; the server log has it."
+  end
+
+  defp crashed, do: "something broke on the server while asking Zotero; the server log has it."
 
   defp file_url(attachment),
     do: ~p"/admin/zotero/file/#{attachment.key}/#{attachment.md5 || "none"}"
@@ -284,6 +375,13 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
   defp where(_), do: nil
 
   defp kind_label(attachment), do: attachment.kind |> to_string() |> String.upcase()
+
+  # Quote: the draft's typing sent first (a blur flushes its debounce), then
+  # the quote, in that order on the socket.
+  defp quote_js(target, flush, item, text, page) do
+    js = if flush, do: JS.dispatch("blur", to: flush, bubbles: false), else: %JS{}
+    JS.push(js, "reader_quote", target: target, value: %{item: item, text: text, page: page})
+  end
 
   # Quoting needs an item to cite: a file standing alone has none.
   defp can_quote?(quote_target, doc),
@@ -358,7 +456,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
               <span class="adm-reader-color-name">{name}</span>
             </label>
           </fieldset>
-          <div class="adm-reader-bar-comment">
+          <div id={"reader-comment-box-#{@form_rev}"} class="adm-reader-bar-comment">
             <.input
               field={@highlight_form[:comment]}
               type="text"
@@ -373,7 +471,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
               name="type"
               value="highlight"
               class="adm-btn adm-btn--small adm-btn--primary"
-              disabled={is_nil(@selection)}
+              disabled={is_nil(@selection) or @busy}
             >
               Highlight
             </button>
@@ -382,7 +480,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
               name="type"
               value="underline"
               class="adm-btn adm-btn--small"
-              disabled={is_nil(@selection)}
+              disabled={is_nil(@selection) or @busy}
             >
               Underline
             </button>
@@ -390,11 +488,15 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
               :if={@quote_target}
               id="reader-quote-selection"
               type="button"
-              phx-click="reader_quote"
-              phx-target={@quote_target}
-              phx-value-item={@doc.notes_key}
-              phx-value-text={@selection && @selection["text"]}
-              phx-value-page={@selection && @selection["page_label"]}
+              phx-click={
+                quote_js(
+                  @quote_target,
+                  @quote_flush,
+                  @doc.notes_key,
+                  @selection && @selection["text"],
+                  @selection && @selection["page_label"]
+                )
+              }
               class="adm-btn adm-btn--small"
               disabled={is_nil(@selection) or not can_quote?(@quote_target, @doc)}
               title="Type it at the draft's cursor, cited"
@@ -442,11 +544,9 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
                     <button
                       :if={can_quote?(@quote_target, @doc) and a.text != ""}
                       type="button"
-                      phx-click="reader_quote"
-                      phx-target={@quote_target}
-                      phx-value-item={@doc.notes_key}
-                      phx-value-text={a.text}
-                      phx-value-page={a.page_label}
+                      phx-click={
+                        quote_js(@quote_target, @quote_flush, @doc.notes_key, a.text, a.page_label)
+                      }
                       class="adm-btn adm-btn--small adm-btn--quiet"
                       title="Type it at the draft's cursor, cited"
                     >
@@ -466,7 +566,9 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
                     placeholder="Comment…"
                   >{a.comment}</textarea>
                   <div class="adm-form-actions">
-                    <button type="submit" class="adm-btn adm-btn--small">Save comment</button>
+                    <button type="submit" class="adm-btn adm-btn--small" disabled={@busy}>
+                      Save comment
+                    </button>
                     <button
                       type="button"
                       phx-click="delete"
@@ -474,6 +576,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
                       phx-value-version={a.version}
                       phx-target={@myself}
                       class="adm-btn adm-btn--small adm-btn--quiet adm-act-danger"
+                      disabled={@busy}
                       data-confirm="Delete this annotation in Zotero?"
                     >
                       Delete
@@ -484,37 +587,71 @@ defmodule WebWeb.AdminLive.ZoteroReaderComponent do
             </ol>
           </section>
 
-          <section id="reader-notes" class="adm-reader-box">
-            <h3 class="adm-outline-label">Notes<span class="adm-count">{@note_count}</span></h3>
-            <ol id="notes" phx-update="stream" class="adm-reader-list">
-              <li :for={{id, n} <- @streams.notes} id={id} class="adm-reader-note">{n.text}</li>
-            </ol>
-            <.form
-              :if={@doc.notes_key}
-              for={@note_form}
-              id="note-form"
-              phx-submit="add_note"
-              phx-target={@myself}
-              class="adm-reader-annotate"
-            >
-              <.input
-                field={@note_form[:text]}
-                type="textarea"
-                rows="4"
-                class="adm-input adm-input--small"
-                placeholder="A note on this reading…"
-                aria-label="New note"
-              />
-              <div class="adm-form-actions">
-                <button type="submit" class="adm-btn adm-btn--small adm-btn--primary">
-                  Add note
-                </button>
-              </div>
-            </.form>
-          </section>
+          <.notes
+            doc={@doc}
+            streams={@streams}
+            note_count={@note_count}
+            note_form={@note_form}
+            form_rev={@form_rev}
+            busy={@busy}
+            myself={@myself}
+          />
         </aside>
       </div>
+
+      <aside
+        :if={@doc && is_nil(@attachment) && @doc.notes_key}
+        class="adm-reader-side"
+        aria-label="Notes"
+      >
+        <.notes
+          doc={@doc}
+          streams={@streams}
+          note_count={@note_count}
+          note_form={@note_form}
+          form_rev={@form_rev}
+          busy={@busy}
+          myself={@myself}
+        />
+      </aside>
     </div>
+    """
+  end
+
+  # The item's notes and the box for a new one: beside the document, or on
+  # their own when the item has no file.
+  defp notes(assigns) do
+    ~H"""
+    <section id="reader-notes" class="adm-reader-box">
+      <h3 class="adm-outline-label">Notes<span class="adm-count">{@note_count}</span></h3>
+      <ol id="notes" phx-update="stream" class="adm-reader-list">
+        <li :for={{id, n} <- @streams.notes} id={id} class="adm-reader-note">{n.text}</li>
+      </ol>
+      <.form
+        :if={@doc.notes_key}
+        for={@note_form}
+        id="note-form"
+        phx-submit="add_note"
+        phx-target={@myself}
+        class="adm-reader-annotate"
+      >
+        <div id={"reader-note-box-#{@form_rev}"}>
+          <.input
+            field={@note_form[:text]}
+            type="textarea"
+            rows="4"
+            class="adm-input adm-input--small"
+            placeholder="A note on this reading…"
+            aria-label="New note"
+          />
+        </div>
+        <div class="adm-form-actions">
+          <button type="submit" class="adm-btn adm-btn--small adm-btn--primary" disabled={@busy}>
+            Add note
+          </button>
+        </div>
+      </.form>
+    </section>
     """
   end
 end
