@@ -126,7 +126,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     assert has_element?(view, ~s(a[href="/admin/blog/essay/edit"]), "Back")
 
     # The hook, once the document is open, is given the marks to draw.
-    assert render_hook(view, "reader_ready", %{}) =~ ""
+    view |> element("#reader-PDF00001") |> render_hook("reader_ready", %{})
 
     assert_reply(view, %{
       annotations: [%{key: "ANN00001", color_name: "yellow", position: %{"pageIndex" => 18}}]
@@ -144,16 +144,24 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     library(self())
     {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
     render_async(view)
-    refute has_element?(view, "#annotate-form")
 
-    render_hook(view, "selection", %{
+    # The toolbar is there all along, idle until something is selected.
+    assert has_element?(view, "#annotate-form button[disabled]", "Highlight")
+    assert has_element?(view, "#reader-picked", "Select text in the document")
+
+    view
+    |> element("#reader-PDF00001")
+    |> render_hook("selection", %{
       "text" => "The ferries  wait.",
       "position" => %{"pageIndex" => 2, "rects" => [[10, 20, 30, 40]]},
       "sort_index" => "00002|000050|00100",
       "page_label" => "3"
     })
 
-    assert has_element?(view, "#annotate-form blockquote", "The ferries wait.")
+    assert has_element?(view, "#reader-picked", "“The ferries wait.”")
+    refute has_element?(view, "#annotate-form button[disabled]", "Highlight")
+    # The reading page is not a draft: nothing to quote into.
+    refute has_element?(view, "#reader-quote-selection")
 
     view
     |> form("#annotate-form", highlight: %{color: "green", comment: "Tie to the hook."})
@@ -175,7 +183,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
     assert_push_event(view, "reader:clear_selection", %{})
     assert has_element?(view, "#flash-info", "Saved to Zotero.")
-    refute has_element?(view, "#annotate-form")
+    assert has_element?(view, "#annotate-form button[disabled]", "Highlight")
   end
 
   test "an emptied selection takes the offer away", %{conn: conn} do
@@ -183,16 +191,18 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
-    render_hook(view, "selection", %{
+    reader = element(view, "#reader-PDF00001")
+
+    render_hook(reader, "selection", %{
       "text" => "x",
       "position" => %{},
       "sort_index" => "",
       "page_label" => ""
     })
 
-    assert has_element?(view, "#annotate-form")
-    render_hook(view, "selection", %{"text" => ""})
-    refute has_element?(view, "#annotate-form")
+    refute has_element?(view, "#annotate-form button[disabled]", "Highlight")
+    render_hook(reader, "selection", %{"text" => ""})
+    assert has_element?(view, "#annotate-form button[disabled]", "Highlight")
   end
 
   test "a comment, a jump, a delete and a note each go to Zotero", %{conn: conn} do

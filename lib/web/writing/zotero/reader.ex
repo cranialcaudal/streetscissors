@@ -104,6 +104,89 @@ defmodule Web.Writing.Zotero.Reader do
     end
   end
 
+  @doc """
+  The PDF and EPUB files in the Zotero folders `collections` (keys: the
+  workbench passes its root folder and every folder inside it), most
+  recently changed first, each as an item the workbench can list: `%{key,
+  file_key, kind, title, authors, year, call_number, standalone?}`. `key` is
+  the item a citation or a note belongs to (the file's parent, or the file
+  itself when it stands alone), and `file_key` the file to open. A folder's
+  files include those filed under its items, but not its subfolders', so
+  each folder is asked for. A non-empty `q` searches the files' titles and,
+  where Zotero has indexed it, their full text. No folders, no files: the
+  rest of the library is never listed.
+  """
+  def files(collections, q \\ "") when is_list(collections) do
+    q = q |> to_string() |> String.trim()
+
+    with {:ok, client} <- Zotero.client(),
+         {:ok, raws} <- folder_files(client, Enum.filter(collections, &key?/1), q) do
+      files =
+        raws
+        |> Enum.uniq_by(& &1["key"])
+        |> Enum.sort_by(&get_in(&1, ["data", "dateModified"]), :desc)
+        |> readable()
+
+      with {:ok, parents} <- parents(client, files) do
+        {:ok, Enum.map(files, &listing(&1, Map.get(parents, &1.parent_key)))}
+      end
+    end
+  end
+
+  defp folder_files(client, collections, q) do
+    params =
+      [itemType: "attachment", sort: "dateModified", direction: "desc", limit: 100] ++
+        if(q != "", do: [q: q, qmode: "everything"], else: [])
+
+    Enum.reduce_while(collections, {:ok, []}, fn key, {:ok, acc} ->
+      case Req.get(client.req,
+             url: "/users/#{client.user_id}/collections/#{key}/items",
+             params: params
+           ) do
+        {:ok, %{status: 200, body: raws}} when is_list(raws) -> {:cont, {:ok, acc ++ raws}}
+        {:ok, %{status: status}} -> {:halt, {:error, http_error(status)}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  # The files' parent items, fifty keys to a request (Zotero's limit).
+  defp parents(client, files) do
+    files
+    |> Enum.map(& &1.parent_key)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.chunk_every(50)
+    |> Enum.reduce_while({:ok, %{}}, fn keys, {:ok, acc} ->
+      case Req.get(client.req,
+             url: "/users/#{client.user_id}/items",
+             params: [itemKey: Enum.join(keys, ","), limit: 50]
+           ) do
+        {:ok, %{status: 200, body: raws}} when is_list(raws) ->
+          {:cont, {:ok, Enum.reduce(raws, acc, &Map.put(&2, &1["key"], Zotero.from_api(&1)))}}
+
+        {:ok, %{status: status}} ->
+          {:halt, {:error, http_error(status)}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp listing(file, parent) do
+    %{
+      key: (parent && parent.key) || file.key,
+      file_key: file.key,
+      kind: file.kind,
+      title: (parent && parent.title) || file.filename || file.title,
+      authors: (parent && parent.authors) || "",
+      year: parent && parent.year,
+      call_number: parent && parent.call_number,
+      standalone?: is_nil(file.parent_key)
+    }
+  end
+
   defp readable(raws) do
     Enum.flat_map(raws, fn raw ->
       data = raw["data"] || %{}

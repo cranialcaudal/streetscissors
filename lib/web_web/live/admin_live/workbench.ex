@@ -5,7 +5,12 @@ defmodule WebWeb.AdminLive.Workbench do
     1. **Articles & Zotero** (`#post-zotero`): the author's Zotero folders and
        documents beside the draft's top reading list, with read/to-read
        toggles, `> [!thought]` notes, citation keys and **Cite**, which types
-       `[@key]` at the editor's cursor (`Web.Writing.Citations`).
+       `[@key]` at the editor's cursor (`Web.Writing.Citations`). **PDFs &
+       EPUBs** lists every file in the root folder and the folders inside
+       it (never the rest of the library); **Read** opens one here (`WebWeb.AdminLive.ZoteroReaderComponent`),
+       twice as wide, with the outline and the preview folded away until it
+       is closed. Its **Quote in draft** types the passage at the cursor,
+       cited with its page (`“…” [@key, p. 3]`).
     2. **Outline** (`#post-outline-progress`): section word targets, beats,
        paired phrasings, and **Use my phrasings**.
     3. **Draft** (`#panel-draft`): `WebWeb.DocumentEditor` over the whole file.
@@ -42,6 +47,8 @@ defmodule WebWeb.AdminLive.Workbench do
   alias Web.Writing.Outline
   alias Web.Writing.{Citations, Document, Export}
   alias Web.Writing.Zotero
+  alias Web.Writing.Zotero.Reader
+  alias WebWeb.AdminLive.ZoteroReaderComponent
   alias WebWeb.DocumentEditor
 
   @editor "post-source"
@@ -90,7 +97,10 @@ defmodule WebWeb.AdminLive.Workbench do
          zotero_selected_collection: nil,
          zotero_items: [],
          zotero_query: "",
-         zotero_error: nil
+         zotero_error: nil,
+         zotero_files?: false,
+         reading: nil,
+         reading_restore: nil
        )
        |> open(assigns.slug)
        |> then(fn s -> if configured?, do: load_zotero(s, ""), else: s end)}
@@ -262,7 +272,64 @@ defmodule WebWeb.AdminLive.Workbench do
      |> load_zotero_items(socket.assigns.zotero_query, selected)}
   end
 
-  def handle_event("zotero_search", %{"q" => q}, socket), do: {:noreply, load_zotero(socket, q)}
+  def handle_event("zotero_search", %{"q" => q}, socket) do
+    if socket.assigns.zotero_files?,
+      do: {:noreply, load_zotero_files(socket, q)},
+      else: {:noreply, load_zotero(socket, q)}
+  end
+
+  def handle_event("zotero_files", _params, socket) do
+    {:noreply, load_zotero_files(socket, socket.assigns.zotero_query)}
+  end
+
+  # ── Reading ───────────────────────────────────────────────────────────
+
+  # A Zotero item or file, opened in the first panel beside the draft: the
+  # outline and the preview fold away while it is open, and come back as
+  # they were when it is closed.
+  def handle_event("read", %{"key" => key}, socket) do
+    if Reader.key?(key) do
+      %{collapsed_panels: collapsed, reading_restore: restore} = socket.assigns
+
+      {:noreply,
+       assign(socket,
+         reading: key,
+         reading_restore: restore || collapsed,
+         collapsed_panels:
+           collapsed
+           |> MapSet.union(MapSet.new(~w(outline preview)))
+           |> MapSet.difference(MapSet.new(~w(articles draft)))
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_reader", _params, socket) do
+    %{collapsed_panels: collapsed, reading_restore: restore} = socket.assigns
+
+    {:noreply,
+     assign(socket, reading: nil, reading_restore: nil, collapsed_panels: restore || collapsed)}
+  end
+
+  # From the reader's Quote: the passage typed at the cursor, cited to its
+  # item (put in the reading list if it is not there yet), with its page.
+  def handle_event("reader_quote", %{"item" => key, "text" => text} = params, socket)
+      when key != "" and text != "" do
+    case Zotero.fetch_item_with_notes(key) do
+      {:ok, item} ->
+        added = Outline.insert_reading_items(socket.assigns.content, [item])
+        {next, cite_key} = Outline.reading_key_for_title(added, item.title)
+        {:noreply, socket |> apply_text(next) |> quote_at_cursor(cite_key, text, params["page"])}
+
+      {:error, _} ->
+        {:noreply, flash(socket, :error, "Could not fetch that item from Zotero.")}
+    end
+  end
+
+  def handle_event("reader_quote", _params, socket) do
+    {:noreply, flash(socket, :error, "Select a passage of a file filed under a Zotero item.")}
+  end
 
   def handle_event("zotero_create_folder", %{"name" => name}, socket) do
     parent = socket.assigns.zotero_selected_collection || :root
@@ -404,6 +471,14 @@ defmodule WebWeb.AdminLive.Workbench do
     push_event(socket, "editor:insert", %{id: @editor, text: "[@#{key}]"})
   end
 
+  defp quote_at_cursor(socket, nil, _text, _page), do: cite(socket, nil)
+
+  defp quote_at_cursor(socket, key, text, page) do
+    locator = if is_binary(page) and String.trim(page) != "", do: ", p. #{String.trim(page)}"
+    passage = text |> String.replace(~r/\s+/u, " ") |> String.trim()
+    push_event(socket, "editor:insert", %{id: @editor, text: "“#{passage}” [@#{key}#{locator}]"})
+  end
+
   defp save(socket, opts) do
     %{slug: slug, content: content, revision: revision} = socket.assigns
 
@@ -501,7 +576,40 @@ defmodule WebWeb.AdminLive.Workbench do
   defp load_zotero_items(socket, q, collection) do
     case Zotero.search_items(q: q, collection: collection) do
       {:ok, items} ->
-        assign(socket, zotero_items: items, zotero_query: q, zotero_error: nil)
+        assign(socket,
+          zotero_items: items,
+          zotero_query: q,
+          zotero_error: nil,
+          zotero_files?: false
+        )
+
+      {:error, :auth_failed} ->
+        assign(socket, zotero_error: "Zotero rejected ZOTERO_USER_ID or ZOTERO_API_KEY.")
+
+      {:error, _} ->
+        assign(socket, zotero_error: "Could not reach api.zotero.org.")
+    end
+  end
+
+  # Every PDF and EPUB in the root folder (`streetscissors`) and the folders
+  # inside it: never the rest of the library.
+  defp load_zotero_files(socket, q) do
+    folders =
+      if socket.assigns.zotero_collections == [],
+        do: refresh_zotero_collections(),
+        else: socket.assigns.zotero_collections
+
+    keys = for %{in_root?: true, key: key} <- folders, do: key
+
+    case Reader.files(keys, q) do
+      {:ok, files} ->
+        assign(socket,
+          zotero_collections: folders,
+          zotero_items: files,
+          zotero_query: q,
+          zotero_error: nil,
+          zotero_files?: true
+        )
 
       {:error, :auth_failed} ->
         assign(socket, zotero_error: "Zotero rejected ZOTERO_USER_ID or ZOTERO_API_KEY.")
@@ -526,15 +634,19 @@ defmodule WebWeb.AdminLive.Workbench do
 
   defp export_path(_blog, slug, format), do: ~p"/admin/blog/#{slug}/export/#{format}"
 
-  # A file of its own, or an item with children (its PDF, most likely); the
-  # reader says so if there turns out to be none.
-  defp readable?(%{item_type: "attachment", content_type: type}),
-    do: type in ["application/pdf", "application/epub+zip"]
+  # What Read opens: a listed file; a file of its own; or an item with
+  # children (its PDF, most likely: the reader says so if there is none).
+  defp read_key(%{file_key: key}), do: key
 
-  defp readable?(%{num_children: n}) when is_integer(n), do: n > 0
-  defp readable?(_), do: false
+  defp read_key(%{item_type: "attachment", content_type: type, key: key})
+       when type in ["application/pdf", "application/epub+zip"],
+       do: key
 
-  # Where the reader's Back returns to.
+  defp read_key(%{item_type: "attachment"}), do: nil
+  defp read_key(%{num_children: n, key: key}) when is_integer(n) and n > 0, do: key
+  defp read_key(_), do: nil
+
+  # Where the reading page's Back returns to.
   defp here(Web.Writing.Papers, _mode, slug), do: ~p"/admin/writing/#{slug}"
   defp here(_blog, "desk", _slug), do: ~p"/admin/blog"
   defp here(_blog, _mode, slug), do: ~p"/admin/blog/#{slug}/edit"
@@ -685,16 +797,61 @@ defmodule WebWeb.AdminLive.Workbench do
           id="post-zotero"
           class="adm-panel adm-pipeline-col"
           data-collapsed={to_string(MapSet.member?(@collapsed_panels, "articles"))}
-          aria-label="Zotero reading list"
+          data-reading={to_string(@reading != nil)}
+          aria-label={if @reading, do: "Reading", else: "Zotero reading list"}
         >
           <.fold_rail
             :if={MapSet.member?(@collapsed_panels, "articles")}
             panel="articles"
             target={@myself}
-            label={"1. Articles & Zotero (#{@post.outline.research.total})"}
+            label={
+              if @reading,
+                do: "1. Reading",
+                else: "1. Articles & Zotero (#{@post.outline.research.total})"
+            }
           />
 
-          <%= if !MapSet.member?(@collapsed_panels, "articles") do %>
+          <%= if @reading && !MapSet.member?(@collapsed_panels, "articles") do %>
+            <div class="adm-panel-head">
+              <h2 class="adm-panel-title">1. Reading</h2>
+              <div class="adm-panel-actions">
+                <button
+                  type="button"
+                  id="reader-close"
+                  phx-click="close_reader"
+                  phx-target={@myself}
+                  class="adm-btn adm-btn--small"
+                >
+                  Back to Zotero
+                </button>
+                <.link
+                  id="reader-full-page"
+                  navigate={~p"/admin/zotero/#{@reading}?#{[back: here(@store, @mode, @slug)]}"}
+                  class="adm-btn adm-btn--small adm-btn--quiet"
+                  data-confirm={@dirty && "Leave #{@slug}.md without saving?"}
+                >
+                  Full page
+                </.link>
+                <a
+                  href={"zotero://select/library/items/#{@reading}"}
+                  class="adm-btn adm-btn--small adm-btn--quiet"
+                >
+                  Open in Zotero
+                </a>
+                <.fold_button panel="articles" target={@myself} />
+              </div>
+            </div>
+            <div class="adm-pipeline-col-body">
+              <.live_component
+                module={ZoteroReaderComponent}
+                id={"wb-reader-#{@reading}"}
+                item_key={@reading}
+                quote_target={@myself}
+              />
+            </div>
+          <% end %>
+
+          <%= if !@reading && !MapSet.member?(@collapsed_panels, "articles") do %>
             <div class="adm-panel-head">
               <h2 class="adm-panel-title">
                 1. Articles &amp; Zotero<span class="adm-count">{@post.outline.research.total}</span>
@@ -746,20 +903,31 @@ defmodule WebWeb.AdminLive.Workbench do
               <div :if={@zotero_configured} class="adm-zotero-subpanel">
                 <p :if={@zotero_error} class="adm-zotero-error" role="alert">{@zotero_error}</p>
 
-                <div :if={@zotero_collections != []} class="adm-zotero-collections">
+                <div class="adm-zotero-collections">
                   <span class="adm-zotero-label">Zotero folders:</span>
                   <button
                     type="button"
                     phx-click="zotero_select_collection"
                     phx-value-key=""
                     phx-target={@myself}
-                    aria-pressed={to_string(is_nil(@zotero_selected_collection))}
+                    aria-pressed={to_string(is_nil(@zotero_selected_collection) and !@zotero_files?)}
                     class={[
                       "adm-btn adm-btn--small adm-btn--quiet",
-                      is_nil(@zotero_selected_collection) && "is-active"
+                      is_nil(@zotero_selected_collection) && !@zotero_files? && "is-active"
                     ]}
                   >
                     All library
+                  </button>
+                  <button
+                    type="button"
+                    id="zotero-files"
+                    phx-click="zotero_files"
+                    phx-target={@myself}
+                    aria-pressed={to_string(@zotero_files?)}
+                    class={["adm-btn adm-btn--small adm-btn--quiet", @zotero_files? && "is-active"]}
+                    title={"Every PDF and EPUB in #{@zotero_root_target} and the folders inside it"}
+                  >
+                    PDFs &amp; EPUBs
                   </button>
                   <button
                     :for={
@@ -772,10 +940,12 @@ defmodule WebWeb.AdminLive.Workbench do
                     phx-click="zotero_select_collection"
                     phx-value-key={col.key}
                     phx-target={@myself}
-                    aria-pressed={to_string(@zotero_selected_collection == col.key)}
+                    aria-pressed={
+                      to_string(@zotero_selected_collection == col.key and !@zotero_files?)
+                    }
                     class={[
                       "adm-btn adm-btn--small adm-btn--quiet",
-                      @zotero_selected_collection == col.key && "is-active"
+                      @zotero_selected_collection == col.key && !@zotero_files? && "is-active"
                     ]}
                     title={"Open #{col.path}"}
                   >
@@ -795,8 +965,12 @@ defmodule WebWeb.AdminLive.Workbench do
                       name="q"
                       value={@zotero_query}
                       class="adm-input adm-input--small"
-                      placeholder="Search Zotero…"
-                      aria-label="Search Zotero library"
+                      placeholder={if @zotero_files?, do: "Search the files…", else: "Search Zotero…"}
+                      aria-label={
+                        if @zotero_files?,
+                          do: "Search the library's files",
+                          else: "Search Zotero library"
+                      }
                     />
                     <button type="submit" class="adm-btn adm-btn--small">Search</button>
                   </form>
@@ -886,10 +1060,29 @@ defmodule WebWeb.AdminLive.Workbench do
                   </form>
                 </details>
 
+                <p
+                  :if={
+                    !@zotero_files? and @zotero_items != [] and
+                      not Enum.any?(@zotero_items, &read_key/1)
+                  }
+                  id="zotero-no-files"
+                  class="adm-help"
+                >
+                  None of these has a PDF or EPUB stored in Zotero. <strong>PDFs &amp; EPUBs</strong>
+                  lists every file in {@zotero_root_target} and the folders inside it.
+                </p>
+                <p
+                  :if={@zotero_files? and @zotero_items == []}
+                  id="zotero-files-none"
+                  class="adm-help"
+                >
+                  No PDF or EPUB in {@zotero_root_target} or the folders inside it.
+                </p>
+
                 <ul :if={@zotero_items != []} class="adm-zotero-items">
                   <li
                     :for={item <- @zotero_items}
-                    id={"zotero-item-#{item.key}"}
+                    id={"zotero-item-#{item[:file_key] || item.key}"}
                     class="adm-zotero-item"
                   >
                     <div class="adm-zotero-item-main">
@@ -897,6 +1090,10 @@ defmodule WebWeb.AdminLive.Workbench do
                       <span class="adm-zotero-item-meta">
                         {item.authors}{if item.year, do: " (#{item.year})"}
                         <span :if={item.call_number} class="adm-figure"> · {item.call_number}</span>
+                        <span :if={item[:kind]} class="adm-figure">
+                          · {item.kind |> to_string() |> String.upcase()}{if item[:standalone?],
+                            do: ", on its own"}
+                        </span>
                       </span>
                     </div>
                     <div class="adm-zotero-item-actions">
@@ -919,14 +1116,17 @@ defmodule WebWeb.AdminLive.Workbench do
                       >
                         Cite
                       </button>
-                      <.link
-                        :if={readable?(item)}
-                        navigate={~p"/admin/zotero/#{item.key}?#{[back: here(@store, @mode, @slug)]}"}
-                        class="adm-btn adm-btn--small adm-btn--quiet"
-                        title="Open its PDF or EPUB to read and annotate"
+                      <button
+                        :if={read_key(item)}
+                        type="button"
+                        phx-click="read"
+                        phx-value-key={read_key(item)}
+                        phx-target={@myself}
+                        class="adm-btn adm-btn--small adm-btn--primary"
+                        title="Open its PDF or EPUB here, beside the draft"
                       >
                         Read
-                      </.link>
+                      </button>
                     </div>
                   </li>
                 </ul>

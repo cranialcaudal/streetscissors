@@ -599,17 +599,29 @@ and all. The preview's **Aloud** line says how long the draft, and its goal,
 take to read aloud at about 150 words a minute, for planning a video.
 
 **Reading in Zotero's files.** In the workbench's Zotero panel, **Read**
-beside an item opens its PDF or EPUB (the copy stored in Zotero) on a page of
-its own, with its annotations and notes beside it. Select text to highlight
-or underline it in one of Zotero's eight colours, with a comment if you like;
-each annotation can be commented, shown in the document, or deleted, and a
-note can be added to the item. All of it is saved in Zotero itself, so it
-appears in Zotero's own reader after a sync, and the highlights made there
-appear here. **Back** returns to the draft you came from; **Open in Zotero**
-opens the item in the desktop app. A standalone file (a PDF with no parent
-item) can be read and highlighted, but notes need a parent item. The first
-opening of a large file takes a few seconds while it is fetched; after that
-it is kept on this machine.
+beside an item opens its PDF or EPUB (the copy stored in Zotero) right there
+in the first panel, beside the draft: the panel widens, and the outline and
+the preview fold away until you press **Back to Zotero**. Only items with a
+file stored in Zotero have **Read**. A record with no file attached has
+nothing to open, so **PDFs & EPUBs**, beside the folders, lists every PDF and
+EPUB in the site's Zotero folder and the folders inside it, under its item's
+title; the rest of the library stays out of it. Its search looks through the
+files' text too.
+
+Select text in the document and the toolbar above it takes it: pick one of
+Zotero's eight colours, add a comment if you like, and **Highlight** or
+**Underline**. **Quote in draft** types the passage at the draft's cursor,
+cited with its page, as `“…” [@key, p. 3]`, and adds the source to the
+reading list if it is not there yet. Each annotation beside the document can
+be commented, shown, quoted or deleted, and a note can be added to the item.
+All of it is saved in Zotero itself, so it appears in Zotero's own reader
+after a sync, and the highlights made there appear here. **Full page** opens
+the reader at the width of the screen, and **Open in Zotero** opens the item
+in the desktop app. A PDF dropped into Zotero on its own, with no item around
+it, can be read and highlighted, but it cannot hold notes or be cited: in
+Zotero, drag it onto its item to file it there. The first opening of a large
+file takes a few seconds while it is fetched; after that it is kept on this
+machine.
 
 **Papers.** Writing that is not for the blog lives under Writing → **Papers**
 (`/admin/writing`), in the vault's `writing/` folder. Start one from a title

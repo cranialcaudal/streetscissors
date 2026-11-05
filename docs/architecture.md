@@ -136,9 +136,15 @@ Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `ab
 - **Zotero** (`Web.Writing.Zotero`, `ZOTERO_USER_ID` / `ZOTERO_API_KEY`): collections, items,
   child notes and PDF annotations into the reading list; the reading list back out; a folder's
   CSL JSON for exports.
-- **Reading** (`Web.Writing.Zotero.Reader`, `AdminLive.ZoteroReader` at `/admin/zotero/:item`):
-  an item's PDF or EPUB stored in Zotero, read in the admin beside its annotations and notes, all
-  written back through the Web API (the key needs write access). Highlights and underlines are
+- **Reading** (`Web.Writing.Zotero.Reader`, `AdminLive.ZoteroReaderComponent`): an item's PDF
+  or EPUB stored in Zotero, read in the admin beside its annotations and notes, all written back
+  through the Web API (the key needs write access). The reader is a component with two homes:
+  the workbench's first panel, beside the draft (**Read** in the Zotero list, or in **PDFs &
+  EPUBs**, `Reader.files/2`: every stored file in the root folder and the folders inside it, under
+  its parent's title, never the rest of the library), where **Quote in draft** sends the passage
+  to the workbench to type at the cursor, cited with its page; and a page of its own
+  (`AdminLive.ZoteroReader`, `/admin/zotero/:item`). The hook pushes to the component
+  (`pushEventTo`), so the same hook serves both. Highlights and underlines are
   Zotero's own annotation items, with Zotero's positions (PDF: page index and rects in points;
   EPUB: a CFI `FragmentSelector`) and sort indexes, so they show in Zotero after a sync and its
   own show here; a selection is checked before anything is written. Files are fetched once into

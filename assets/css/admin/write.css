@@ -726,6 +726,21 @@
   gap: 0.75rem;
 }
 
+/* A folder's path or a post's slug is one long word: it wraps inside the
+   panel rather than widen it (a grid track grows to its widest child, and a
+   button does not wrap by default). */
+.admin-layout .adm-zotero-body,
+.admin-layout .adm-zotero-subpanel {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-zotero-body .adm-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
 .admin-layout .adm-zotero-error {
   margin: 0;
   color: var(--st-fail);

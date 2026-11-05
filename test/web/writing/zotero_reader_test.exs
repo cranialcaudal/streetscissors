@@ -329,6 +329,82 @@ defmodule Web.Writing.Zotero.ReaderTest do
     end
   end
 
+  describe "files/2" do
+    test "lists the stored PDFs and EPUBs in the folders given, under their items' titles" do
+      test = self()
+
+      at = fn key, attrs, modified ->
+        attachment(key, Map.put(attrs, "dateModified", modified))
+      end
+
+      Req.Test.stub(Web.Writing.Zotero, fn conn ->
+        send(test, {:asked, conn.request_path, conn.query_params})
+
+        case conn.request_path do
+          "/users/12345/collections/ROOT0001/items" ->
+            Req.Test.json(conn, [
+              at.("LOOSE001", %{"filename" => "harbor-notes.pdf"}, "2026-10-02T00:00:00Z"),
+              at.("PDF00001", %{"parentItem" => "BOOK0001"}, "2026-10-01T00:00:00Z"),
+              at.("LINK0001", %{"linkMode" => "linked_file"}, "2026-10-04T00:00:00Z"),
+              at.("HTML0001", %{"contentType" => "text/html"}, "2026-10-04T00:00:00Z")
+            ])
+
+          # A file under an item in two folders comes back from both.
+          "/users/12345/collections/SUB00001/items" ->
+            Req.Test.json(conn, [
+              at.(
+                "EPUB0001",
+                %{"parentItem" => "BOOK0001", "contentType" => "application/epub+zip"},
+                "2026-10-03T00:00:00Z"
+              ),
+              at.("PDF00001", %{"parentItem" => "BOOK0001"}, "2026-10-01T00:00:00Z")
+            ])
+
+          "/users/12345/items" ->
+            Req.Test.json(conn, [@book])
+        end
+      end)
+
+      assert {:ok, [epub, loose, pdf]} = Reader.files(["ROOT0001", "SUB00001"], "  tides ")
+
+      assert %{
+               key: "BOOK0001",
+               file_key: "PDF00001",
+               kind: :pdf,
+               title: "Tide Tables of the Sound",
+               year: "2021",
+               standalone?: false
+             } = pdf
+
+      assert pdf.authors =~ "Vance"
+      assert %{key: "BOOK0001", file_key: "EPUB0001", kind: :epub} = epub
+
+      assert %{
+               key: "LOOSE001",
+               file_key: "LOOSE001",
+               title: "harbor-notes.pdf",
+               standalone?: true
+             } =
+               loose
+
+      for folder <- ["ROOT0001", "SUB00001"] do
+        path = "/users/12345/collections/#{folder}/items"
+
+        assert_received {:asked, ^path,
+                         %{"itemType" => "attachment", "q" => "tides", "qmode" => "everything"}}
+      end
+
+      # The parents are asked for once, together; the library as a whole never.
+      assert_received {:asked, "/users/12345/items", %{"itemKey" => "BOOK0001"}}
+      refute_received {:asked, _, _}
+    end
+
+    test "no folders, no files, and nothing asked" do
+      Req.Test.stub(Web.Writing.Zotero, fn _conn -> raise "asked Zotero" end)
+      assert {:ok, []} = Reader.files([])
+    end
+  end
+
   describe "notes" do
     test "a note is written as escaped paragraphs under the item" do
       test = self()

@@ -1,5 +1,6 @@
 // The ZoteroReader hook: a Zotero PDF or EPUB, read and annotated in the
-// admin (WebWeb.AdminLive.ZoteroReader renders the element it owns:
+// admin (WebWeb.AdminLive.ZoteroReaderComponent renders the element it owns,
+// on the reading page or in the workbench's first panel:
 // <div id="reader-KEY" phx-hook="ZoteroReader" phx-update="ignore"
 //      data-kind="pdf|epub" data-src="/admin/zotero/file/KEY/MD5">).
 //
@@ -7,7 +8,8 @@
 // epub.js) is fetched on first mount as its own chunk, so no other page
 // loads either library.
 //
-// To the server: "reader_ready" once the document is open (the reply is the
+// To the component (pushEventTo, so it reaches the reader wherever it is
+// rendered): "reader_ready" once the document is open (the reply is the
 // annotations to draw), and "selection" as the reader selects text, with
 // where it is in Zotero's terms (position, sort index, page label), or with
 // no text when the selection is gone.
@@ -25,7 +27,7 @@ export const ZoteroReader = {
       this.view = await view.open({
         el: this.el,
         src,
-        onSelect: (selection) => this.pushEvent("selection", selection || { text: "" }),
+        onSelect: (selection) => this.pushEventTo(this.el, "selection", selection || { text: "" }),
       })
     } catch (error) {
       if (this.gone) return
@@ -41,7 +43,7 @@ export const ZoteroReader = {
     this.handleEvent("reader:annotations", ({ annotations }) => this.view.setAnnotations(annotations || []))
     this.handleEvent("reader:jump", ({ key }) => this.view.jump(key))
     this.handleEvent("reader:clear_selection", () => this.view.clearSelection())
-    this.pushEvent("reader_ready", {}, (reply) => this.view.setAnnotations((reply && reply.annotations) || []))
+    this.pushEventTo(this.el, "reader_ready", {}, (reply) => this.view.setAnnotations((reply && reply.annotations) || []))
   },
 
   destroyed() {

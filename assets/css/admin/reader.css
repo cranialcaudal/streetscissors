@@ -1,26 +1,129 @@
 /* ───────────────────────────────────────────────────────────────────
-   THE READER — a Zotero PDF or EPUB beside its annotations
-   (WebWeb.AdminLive.ZoteroReader, assets/js/zotero_reader.js).
+   THE READER — a Zotero PDF or EPUB under its highlighting toolbar,
+   beside its annotations (WebWeb.AdminLive.ZoteroReaderComponent,
+   assets/js/zotero_reader.js), on its own page or in the writing
+   workbench's first panel.
 
-   The document scrolls in its own box; the sidebar (selection,
-   annotations, notes) beside it on a wide screen, under it on a narrow
-   one. A PDF page is a canvas, the annotations over it, and PDF.js's
-   transparent text layer on top, for selecting: its rules below follow
-   PDF.js's own viewer, which sizes the text by --total-scale-factor (set
-   on each page by the hook).
+   The document scrolls in its own box. How the rest sits is by the
+   reader's own width (a container query), not the screen's: beside the
+   document when there is room, as on the reading page; under it in the
+   workbench's panel. The toolbar is always there, so a selection never
+   moves the page. A PDF page is a canvas, the annotations over it, and
+   PDF.js's transparent text layer on top, for selecting: its rules below
+   follow PDF.js's own viewer, which sizes the text by
+   --total-scale-factor (set on each page by the hook).
    ─────────────────────────────────────────────────────────────────── */
+
+.admin-layout .adm-reader-wrap {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--st-space-3);
+}
+
+.admin-layout .adm-reader-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--st-space-1) var(--st-space-3);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-reader-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--st-space-2);
+}
+
+.admin-layout .adm-reader-files .adm-btn.is-active {
+  border-color: var(--st-accent);
+  color: var(--st-accent);
+}
 
 .admin-layout .adm-reader {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-  gap: var(--st-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "bar" "view" "side";
+  gap: var(--st-space-3);
   align-items: start;
 }
 
+@container (min-width: 60rem) {
+  .admin-layout .adm-reader {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "bar side" "view side";
+    gap: var(--st-space-3) var(--st-space-4);
+  }
+
+  .admin-layout .adm-reader-side {
+    align-self: stretch;
+    max-height: calc(100dvh - 11rem);
+    overflow: auto;
+  }
+}
+
+/* ── The toolbar ─────────────────────────────────────────────────── */
+
+.admin-layout .adm-reader-bar {
+  grid-area: bar;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--st-space-2);
+  min-width: 0;
+  padding: var(--st-space-2) var(--st-space-3);
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+}
+
+/* One line, whatever is selected, so the toolbar keeps its height. */
+.admin-layout .adm-reader-picked {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--st-fs-sm);
+  color: var(--st-ink-2);
+}
+
+.admin-layout .adm-reader-picked.is-picked {
+  font-family: var(--st-font-display);
+  color: var(--st-ink);
+}
+
+.admin-layout .adm-reader-bar-comment {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.admin-layout .adm-reader-bar-comment .fieldset {
+  margin: 0;
+}
+
+.admin-layout .adm-reader-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--st-space-2);
+}
+
+.admin-layout .adm-reader-bar-actions .adm-btn {
+  min-height: 40px;
+}
+
+.admin-layout .adm-reader-bar-actions .adm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── The document ────────────────────────────────────────────────── */
+
 .admin-layout .adm-reader-view {
+  grid-area: view;
   position: relative;
-  height: calc(100dvh - 11rem);
-  min-height: 28rem;
+  height: clamp(24rem, calc(100dvh - 22rem), 64rem);
   overflow: auto;
   background: var(--st-bay);
   border: 1px solid var(--st-line);
@@ -206,18 +309,39 @@
   height: 100%;
 }
 
-/* ── The sidebar ─────────────────────────────────────────────────── */
+/* The reading page gives the document the height of the screen. */
+.admin-layout .adm-reader--page .adm-reader-view {
+  height: calc(100dvh - 15rem);
+  min-height: 28rem;
+}
+
+/* ── Annotations and notes ───────────────────────────────────────── */
 
 .admin-layout .adm-reader-side {
+  grid-area: side;
   display: grid;
-  gap: var(--st-space-4);
-  max-height: calc(100dvh - 11rem);
-  overflow: auto;
+  align-content: start;
+  gap: var(--st-space-5);
+  min-width: 0;
+  padding: var(--st-space-3);
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
 }
 
 .admin-layout .adm-reader-box {
   display: grid;
   gap: var(--st-space-3);
+}
+
+.admin-layout .adm-reader-box > h3 {
+  margin: 0;
+}
+
+/* The workbench's first panel, while it reads: wider than the draft
+   beside it (1.25), so a page is legible and the draft still writable. */
+.admin-layout #post-zotero[data-reading="true"][data-collapsed="false"] {
+  flex: 1.6 1 0%;
 }
 
 .admin-layout .adm-reader-quote {
@@ -311,7 +435,9 @@
   gap: var(--st-space-2);
 }
 
-.admin-layout .adm-reader-ann-head .adm-btn {
+.admin-layout .adm-reader-ann-acts {
+  display: flex;
+  gap: var(--st-space-1);
   margin-left: auto;
 }
 
@@ -322,15 +448,9 @@
 }
 
 @media (max-width: 900px) {
-  .admin-layout .adm-reader {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-layout .adm-reader-view {
-    height: 75dvh;
-  }
-
-  .admin-layout .adm-reader-side {
-    max-height: none;
+  .admin-layout .adm-reader-view,
+  .admin-layout .adm-reader--page .adm-reader-view {
+    height: 70dvh;
+    min-height: 20rem;
   }
 }
