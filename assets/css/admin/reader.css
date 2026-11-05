@@ -1,0 +1,336 @@
+/* ───────────────────────────────────────────────────────────────────
+   THE READER — a Zotero PDF or EPUB beside its annotations
+   (WebWeb.AdminLive.ZoteroReader, assets/js/zotero_reader.js).
+
+   The document scrolls in its own box; the sidebar (selection,
+   annotations, notes) beside it on a wide screen, under it on a narrow
+   one. A PDF page is a canvas, the annotations over it, and PDF.js's
+   transparent text layer on top, for selecting: its rules below follow
+   PDF.js's own viewer, which sizes the text by --total-scale-factor (set
+   on each page by the hook).
+   ─────────────────────────────────────────────────────────────────── */
+
+.admin-layout .adm-reader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: var(--st-space-4);
+  align-items: start;
+}
+
+.admin-layout .adm-reader-view {
+  position: relative;
+  height: calc(100dvh - 11rem);
+  min-height: 28rem;
+  overflow: auto;
+  background: var(--st-bay);
+  border: 1px solid var(--st-line);
+  border-radius: var(--st-radius-sm);
+}
+
+.admin-layout .adm-reader-view > .adm-help {
+  padding: var(--st-space-4);
+}
+
+.admin-layout .adm-reader-pages {
+  display: grid;
+  justify-items: center;
+  gap: var(--st-space-4);
+  padding: var(--st-space-4);
+}
+
+.admin-layout .adm-reader-page {
+  position: relative;
+  background: var(--st-page);
+  box-shadow: var(--st-shadow);
+}
+
+.admin-layout .adm-reader-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* Annotations: under the text, over the page, multiplied so the print
+   shows through. */
+.admin-layout .adm-reader-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.admin-layout .adm-reader-marks .adm-reader-hl {
+  position: absolute;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+}
+
+.admin-layout .adm-reader-marks .adm-reader-hl.is-underline {
+  opacity: 1;
+  background: none;
+  border-bottom: 2px solid var(--adm-ann);
+}
+
+.admin-layout .adm-reader-marks .adm-reader-hl.is-note {
+  opacity: 0.85;
+  border-radius: 3px;
+}
+
+.admin-layout .adm-reader-marks .adm-reader-hl.is-flash {
+  opacity: 0.75;
+  outline: 2px solid var(--adm-ann);
+  outline-offset: 2px;
+}
+
+/* Each colour once, for a page's marks, an EPUB's (an SVG group), and a
+   swatch in the sidebar. */
+.admin-layout .adm-ann--yellow { --adm-ann: var(--st-ann-yellow); }
+.admin-layout .adm-ann--red { --adm-ann: var(--st-ann-red); }
+.admin-layout .adm-ann--green { --adm-ann: var(--st-ann-green); }
+.admin-layout .adm-ann--blue { --adm-ann: var(--st-ann-blue); }
+.admin-layout .adm-ann--purple { --adm-ann: var(--st-ann-purple); }
+.admin-layout .adm-ann--magenta { --adm-ann: var(--st-ann-magenta); }
+.admin-layout .adm-ann--orange { --adm-ann: var(--st-ann-orange); }
+.admin-layout .adm-ann--gray,
+.admin-layout .adm-ann--other { --adm-ann: var(--st-ann-gray); }
+
+.admin-layout .adm-reader-hl,
+.admin-layout .adm-reader-swatch {
+  background: var(--adm-ann);
+}
+
+/* An EPUB's marks are SVG groups (marks-pane) with the colour as their one
+   class: `adm-ann--green`, hence |= below. */
+.admin-layout .adm-reader-epub g[class|="adm-ann"][data-mark="highlight"] {
+  fill: var(--adm-ann);
+  fill-opacity: 0.4;
+  mix-blend-mode: multiply;
+}
+
+.admin-layout .adm-reader-epub g[class|="adm-ann"][data-mark="underline"] {
+  fill-opacity: 0;
+  stroke: var(--adm-ann);
+  stroke-opacity: 1;
+  stroke-width: 2;
+}
+
+/* ── PDF.js's text layer ─────────────────────────────────────────── */
+
+.admin-layout .adm-reader-text {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: clip;
+  text-align: initial;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.admin-layout .adm-reader-text :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+
+.admin-layout .adm-reader-text > :not(.markedContent),
+.admin-layout .adm-reader-text .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.admin-layout .adm-reader-text .markedContent {
+  display: contents;
+}
+
+.admin-layout .adm-reader-text ::selection {
+  background: color-mix(in srgb, var(--st-ann-blue), transparent 60%);
+  color: transparent;
+}
+
+.admin-layout .adm-reader-text br::selection {
+  background: transparent;
+}
+
+.admin-layout .adm-reader-text .adm-reader-text-end {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.admin-layout .adm-reader-text.is-selecting .adm-reader-text-end {
+  top: 0;
+}
+
+/* ── EPUB ────────────────────────────────────────────────────────── */
+
+.admin-layout .adm-reader-view:has(.adm-reader-epub) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--st-page);
+}
+
+.admin-layout .adm-reader-epub-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--st-space-2);
+  padding: var(--st-space-2);
+  background: var(--st-surface);
+  border-bottom: 1px solid var(--st-line);
+}
+
+.admin-layout .adm-reader-epub {
+  min-height: 0;
+  height: 100%;
+}
+
+/* ── The sidebar ─────────────────────────────────────────────────── */
+
+.admin-layout .adm-reader-side {
+  display: grid;
+  gap: var(--st-space-4);
+  max-height: calc(100dvh - 11rem);
+  overflow: auto;
+}
+
+.admin-layout .adm-reader-box {
+  display: grid;
+  gap: var(--st-space-3);
+}
+
+.admin-layout .adm-reader-quote {
+  margin: 0;
+  padding-left: var(--st-space-3);
+  border-left: 3px solid var(--st-line-strong);
+  font-family: var(--st-font-display);
+  color: var(--st-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .adm-reader-annotate,
+.admin-layout .adm-reader-comment {
+  display: grid;
+  gap: var(--st-space-2);
+}
+
+.admin-layout .adm-reader-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--st-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-layout .adm-reader-colors legend {
+  margin-bottom: var(--st-space-1);
+}
+
+.admin-layout .adm-reader-color {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: var(--st-radius-sm);
+  cursor: pointer;
+}
+
+.admin-layout .adm-reader-color input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.admin-layout .adm-reader-color:has(input:checked) {
+  outline: 2px solid var(--st-accent);
+}
+
+.admin-layout .adm-reader-color:has(input:focus-visible) {
+  outline: 2px solid var(--st-ink);
+}
+
+.admin-layout .adm-reader-color-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.admin-layout .adm-reader-swatch {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  border-radius: 4px;
+}
+
+.admin-layout .adm-reader-list {
+  display: grid;
+  gap: var(--st-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-layout .adm-reader-ann {
+  display: grid;
+  gap: var(--st-space-2);
+  padding-bottom: var(--st-space-3);
+  border-bottom: 1px solid var(--st-line);
+}
+
+.admin-layout .adm-reader-ann-head {
+  display: flex;
+  align-items: center;
+  gap: var(--st-space-2);
+}
+
+.admin-layout .adm-reader-ann-head .adm-btn {
+  margin-left: auto;
+}
+
+.admin-layout .adm-reader-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--st-ink-2);
+}
+
+@media (max-width: 900px) {
+  .admin-layout .adm-reader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-layout .adm-reader-view {
+    height: 75dvh;
+  }
+
+  .admin-layout .adm-reader-side {
+    max-height: none;
+  }
+}

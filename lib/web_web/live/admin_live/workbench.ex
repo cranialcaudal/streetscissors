@@ -526,6 +526,19 @@ defmodule WebWeb.AdminLive.Workbench do
 
   defp export_path(_blog, slug, format), do: ~p"/admin/blog/#{slug}/export/#{format}"
 
+  # A file of its own, or an item with children (its PDF, most likely); the
+  # reader says so if there turns out to be none.
+  defp readable?(%{item_type: "attachment", content_type: type}),
+    do: type in ["application/pdf", "application/epub+zip"]
+
+  defp readable?(%{num_children: n}) when is_integer(n), do: n > 0
+  defp readable?(_), do: false
+
+  # Where the reader's Back returns to.
+  defp here(Web.Writing.Papers, _mode, slug), do: ~p"/admin/writing/#{slug}"
+  defp here(_blog, "desk", _slug), do: ~p"/admin/blog"
+  defp here(_blog, _mode, slug), do: ~p"/admin/blog/#{slug}/edit"
+
   # ── Render ────────────────────────────────────────────────────────────
 
   @impl true
@@ -906,6 +919,14 @@ defmodule WebWeb.AdminLive.Workbench do
                       >
                         Cite
                       </button>
+                      <.link
+                        :if={readable?(item)}
+                        navigate={~p"/admin/zotero/#{item.key}?#{[back: here(@store, @mode, @slug)]}"}
+                        class="adm-btn adm-btn--small adm-btn--quiet"
+                        title="Open its PDF or EPUB to read and annotate"
+                      >
+                        Read
+                      </.link>
                     </div>
                   </li>
                 </ul>

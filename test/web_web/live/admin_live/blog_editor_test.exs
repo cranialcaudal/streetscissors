@@ -412,6 +412,13 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       assert has_element?(view, "#post-zotero", "Harbor Ledger (1)")
       assert has_element?(view, "#zotero-item-ZITEM1", "Tide Tables of the Sound")
 
+      # It has a child (its PDF), so it can be read, and the reader comes back here.
+      assert has_element?(
+               view,
+               ~s(#zotero-item-ZITEM1 a[href="/admin/zotero/ZITEM1?back=%2Fadmin%2Fblog%2Fessay%2Fedit"]),
+               "Read"
+             )
+
       view |> element("#zotero-item-ZITEM1 button", "Add to reading list") |> render_click()
 
       assert has_element?(

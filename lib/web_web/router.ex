@@ -208,6 +208,10 @@ defmodule WebWeb.Router do
       live "/admin/writing/:slug", AdminLive.PaperEditor
       get "/admin/writing/:slug/export/:format", WritingExportController, :paper
       get "/admin/blog/:slug/export/:format", WritingExportController, :post
+      # A Zotero document read and annotated (Web.Writing.Zotero.Reader); its
+      # file is served to the admin alone.
+      live "/admin/zotero/:item", AdminLive.ZoteroReader
+      get "/admin/zotero/file/:key/:md5", ZoteroFileController, :show
       live "/admin/keywords", AdminLive.Keywords
       live "/admin/health", AdminLive.ContentHealth
       live "/admin/logs", AdminLive.LogsManager

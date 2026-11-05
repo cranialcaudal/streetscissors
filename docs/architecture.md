@@ -136,6 +136,18 @@ Zotero folder by name, `csl:` its citation style, `author:`, `affiliation:`, `ab
 - **Zotero** (`Web.Writing.Zotero`, `ZOTERO_USER_ID` / `ZOTERO_API_KEY`): collections, items,
   child notes and PDF annotations into the reading list; the reading list back out; a folder's
   CSL JSON for exports.
+- **Reading** (`Web.Writing.Zotero.Reader`, `AdminLive.ZoteroReader` at `/admin/zotero/:item`):
+  an item's PDF or EPUB stored in Zotero, read in the admin beside its annotations and notes, all
+  written back through the Web API (the key needs write access). Highlights and underlines are
+  Zotero's own annotation items, with Zotero's positions (PDF: page index and rects in points;
+  EPUB: a CFI `FragmentSelector`) and sort indexes, so they show in Zotero after a sync and its
+  own show here; a selection is checked before anything is written. Files are fetched once into
+  a private cache (`:zotero_cache_path`, default under the temp dir, mode 700) named by key and
+  MD5, and served only to the admin with byte ranges (`ZoteroFileController`). The page is drawn
+  by the `ZoteroReader` hook: PDF.js (`assets/vendor/pdf.mjs`, its worker run from a blob of
+  `pdf-worker.txt`) or epub.js (`assets/vendor/epub.js`, bundled with xmldom stubbed out; the
+  book's scripts never run), each fetched as its own chunk on that page only. Zotero's file
+  redirects are signed S3 addresses, so the client does not log redirects.
 - **Papers** (`Web.Writing.Papers`, `/admin/writing`): pieces that are never published, in
   `WRITING_PATH` (default `writing/` beside the blog folder). Started from a skeleton
   (`Web.Writing.kinds/0`: essay, long essay, IMRaD article, literature review, specific aims,

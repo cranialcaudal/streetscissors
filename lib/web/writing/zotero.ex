@@ -31,6 +31,9 @@ defmodule Web.Writing.Zotero do
           call_number: String.t() | nil,
           url: String.t() | nil,
           citation_key: String.t() | nil,
+          item_type: String.t() | nil,
+          content_type: String.t() | nil,
+          num_children: non_neg_integer(),
           notes: [String.t()]
         }
 
@@ -360,7 +363,9 @@ defmodule Web.Writing.Zotero do
           limit: limit,
           sort: "dateModified",
           direction: "desc",
-          itemType: "-attachment || note || annotation"
+          # Standalone notes are left out; a standalone PDF or EPUB (an
+          # attachment with no parent) is a document, and can be read.
+          itemType: "-note"
         ] ++ if(q != "", do: [q: q, qmode: "everything"], else: [])
 
       case Req.get(req(auth), url: path, params: params) do
@@ -940,6 +945,9 @@ defmodule Web.Writing.Zotero do
       call_number: call_number,
       url: url,
       citation_key: citation_key,
+      item_type: data["itemType"],
+      content_type: presence(data["contentType"]),
+      num_children: get_in(raw, ["meta", "numChildren"]) || 0,
       notes: []
     }
   end
@@ -1027,8 +1035,25 @@ defmodule Web.Writing.Zotero do
         {"zotero-api-key", auth.api_key}
       ],
       retry: false,
-      receive_timeout: 15_000
+      receive_timeout: 15_000,
+      # A file is a redirect to a signed S3 address; it is not for the log.
+      redirect_log_level: false
     )
     |> Req.merge(Application.get_env(:web, :zotero_req_options, []))
+  end
+
+  @doc "An item as the Web API returns it, as the map `search_items/1` gives."
+  def from_api(raw) when is_map(raw), do: parse_item(raw)
+
+  @doc """
+  An authenticated request for the Zotero Web API and the library's user
+  id, for the modules beside this one (`Web.Writing.Zotero.Reader`):
+  `{:ok, %{req: Req.Request.t(), user_id: String.t()}}` or
+  `{:error, :not_configured}`.
+  """
+  def client do
+    with {:ok, auth} <- fetch_auth() do
+      {:ok, %{req: req(auth), user_id: auth.user_id}}
+    end
   end
 end

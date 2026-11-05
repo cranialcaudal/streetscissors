@@ -598,6 +598,19 @@ template's own body. Either way the frontmatter is the template's, comments
 and all. The preview's **Aloud** line says how long the draft, and its goal,
 take to read aloud at about 150 words a minute, for planning a video.
 
+**Reading in Zotero's files.** In the workbench's Zotero panel, **Read**
+beside an item opens its PDF or EPUB (the copy stored in Zotero) on a page of
+its own, with its annotations and notes beside it. Select text to highlight
+or underline it in one of Zotero's eight colours, with a comment if you like;
+each annotation can be commented, shown in the document, or deleted, and a
+note can be added to the item. All of it is saved in Zotero itself, so it
+appears in Zotero's own reader after a sync, and the highlights made there
+appear here. **Back** returns to the draft you came from; **Open in Zotero**
+opens the item in the desktop app. A standalone file (a PDF with no parent
+item) can be read and highlighted, but notes need a parent item. The first
+opening of a large file takes a few seconds while it is fetched; after that
+it is kept on this machine.
+
 **Papers.** Writing that is not for the blog lives under Writing → **Papers**
 (`/admin/writing`), in the vault's `writing/` folder. Start one from a title
 and a kind (essay, long essay, research article, literature review, specific

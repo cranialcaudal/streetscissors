@@ -44,6 +44,18 @@
   --st-dk-writing: #7aaeff;
   --st-dk-training: #5ec8c1;
   --st-dk-mail: #5bc794;
+  /* Zotero's eight annotation colours (Web.Writing.Zotero.Reader), as its
+     own reader draws them, and the white of a printed page: the same in
+     either theme, since they are the document's, not the admin's. */
+  --st-ann-yellow: #ffd400;
+  --st-ann-red: #ff6666;
+  --st-ann-green: #5fb236;
+  --st-ann-blue: #2ea8e5;
+  --st-ann-purple: #a28ae5;
+  --st-ann-magenta: #e56eee;
+  --st-ann-orange: #f19837;
+  --st-ann-gray: #aaaaaa;
+  --st-page: #ffffff;
 }
 
 /* Dark, the default. Zero specificity, so the light set below and the

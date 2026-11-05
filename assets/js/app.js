@@ -28,6 +28,7 @@ import "./trail"
 import { GymRoutine } from "./gym_routine"
 import { PcTerminal, AutoScroll } from "./pc_terminal"
 import { DocumentEditor } from "./document_editor"
+import { ZoteroReader } from "./zotero_reader"
 import { initEmissionsControls } from "./emissions_controls"
 import { initChrist } from "./christ"
 import { initHomePreviews } from "./home_previews"
@@ -46,7 +47,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll, DocumentEditor },
+  hooks: { ...colocatedHooks, GymRoutine, PcTerminal, AutoScroll, DocumentEditor, ZoteroReader },
 })
 
 // Show progress bar on live navigation and form submits
