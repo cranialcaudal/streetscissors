@@ -34,7 +34,8 @@ defmodule WebWeb.FitnessLive.Index do
   1. **Opening a page** (`mount/3`, `mount_day/4`, `mount_session/3`,
      `handle_params/3`): a day or a session, and its plan.
   2. **Logging** (`handle_event/3`): opening, filling, saving, editing and
-     removing a log entry, and the set chips. Admin only; each event checks.
+     removing a log entry, and the set chips. Admin only: the first clause
+     turns away every event a visitor sends but the two in `@visitor_events`.
      An entry is filed under today unless the form names an earlier day.
   3. **Saving an entry** (`save/5`, and `save_sets/4` for the chips).
   4. **Targets** (`assign_coach/1` to `format_n/1`): what the plan's own
@@ -214,6 +215,21 @@ defmodule WebWeb.FitnessLive.Index do
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
+  # ── Events: whose they are ────────────────────────────────────────────────
+
+  # The events a visitor may send. Both close the log form, which only the
+  # admin can open, so for a visitor they do nothing. Every other event is the
+  # admin's (the log, the set chips, the session), and this clause, which has
+  # to stay first, turns a visitor's away: an event added below is closed to
+  # visitors without being listed anywhere, and one a visitor is to have is
+  # added here.
+  @visitor_events ~w(close_log log_key)
+
+  @impl true
+  def handle_event(event, _params, %{assigns: %{is_admin: false}} = socket)
+      when event not in @visitor_events,
+      do: {:noreply, socket}
+
   # ── Logging: the form's buttons ───────────────────────────────────────────
 
   # Fired by the inline "Log" button that Web.Fitness.Vault stitches onto any
@@ -221,11 +237,6 @@ defmodule WebWeb.FitnessLive.Index do
   # Vault.render_markdown/1's ⟦LOG:slug⟧ marker). Any exercise the wiki has
   # can be logged (`Fitness.loggable_exercise/1`); the form opens showing the
   # last entry for it, which is the number to beat.
-  @impl true
-  def handle_event("open_log", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
-
   def handle_event("open_log", %{"slug" => slug}, socket) do
     case Fitness.loggable_exercise(slug) do
       {:ok, exercise} ->
@@ -248,10 +259,6 @@ defmodule WebWeb.FitnessLive.Index do
   def handle_event("log_key", %{"key" => "Escape"}, socket), do: {:noreply, close_log(socket)}
   def handle_event("log_key", _params, socket), do: {:noreply, socket}
 
-  def handle_event("save_log", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
-
   def handle_event(
         "save_log",
         %{"log" => params},
@@ -269,13 +276,9 @@ defmodule WebWeb.FitnessLive.Index do
   def handle_event("save_log", _params, socket), do: {:noreply, socket}
 
   # One tap: the set the plan (or the target) asks for, logged as done. From
-  # the "Done" button under a line, or the form's "Done as planned".
-  def handle_event("log_planned", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
-
-  # A lift with set chips gets the sets still to do, so a tick or a Done
-  # after two logged sets makes three, not six. A held lift is not logged.
+  # the "Done" button under a line, or the form's "Done as planned". A lift
+  # with set chips gets the sets still to do, so a tick or a Done after two
+  # logged sets makes three, not six. A held lift is not logged.
   def handle_event("log_planned", %{"slug" => slug}, socket) do
     with {:ok, exercise} <- Fitness.loggable_exercise(slug) do
       plan = plan_for(socket, slug, exercise.name)
@@ -305,12 +308,7 @@ defmodule WebWeb.FitnessLive.Index do
   # to do logs that set (the first makes today's entry, each after it adds to
   # it) and starts the rest timer; a tap on a logged chip opens its stepper;
   # once the planned sets are in, one tap gives the last set's RPE.
-  def handle_event(event, _params, %{assigns: %{is_admin: false}} = socket)
-      when event in ~w(set_done set_open set_close set_adjust set_remove set_rpe circuit_done
-                       set_view focus_step focus_to finish_session close_summary show_figure close_figure
-                       draft_adjust),
-      do: {:noreply, socket}
-
+  #
   # The set logged is the one the card's Next set line shows: what the
   # admin dialled in, else today's last set again, else the target.
   def handle_event("set_done", %{"slug" => slug}, socket) do
@@ -483,10 +481,6 @@ defmodule WebWeb.FitnessLive.Index do
   end
 
   # An entry already made opens the same form, its fields at what it says.
-  def handle_event("edit_log", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
-  end
-
   def handle_event("edit_log", %{"id" => id}, socket) do
     with {id, ""} <- Integer.parse(id),
          %{exercise: exercise} = log <- Fitness.get_exercise_log(id) do
@@ -503,10 +497,6 @@ defmodule WebWeb.FitnessLive.Index do
     else
       _ -> {:noreply, put_flash(socket, :error, "That entry is not there any more.")}
     end
-  end
-
-  def handle_event("delete_log", _params, %{assigns: %{is_admin: false}} = socket) do
-    {:noreply, socket}
   end
 
   def handle_event("delete_log", %{"id" => id}, socket) do

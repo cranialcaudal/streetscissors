@@ -89,7 +89,8 @@ Where Phoenix's generator defaults disagree, this list wins.
   **and a new admin controller route in the `:admin_only` scope** under it, which answers the
   site's 404. No action checks the session itself, and `router_admin_test.exs` fails for an admin
   address in neither block. `SetCurrentUser` does not protect routes. Public pages with admin
-  actions gate each event on the session flag.
+  actions gate each event on the session flag; on `/fitness` the first `handle_event/3` clause
+  does it for all of them, and has to stay first.
 - The `:browser` pipeline reads nothing from the database per request.
 - **Prefetch must not count:** speculation rules prefetch, never prerender; the Analytics plug skips
   `Sec-Purpose: prefetch`; `app.js` posts `/seen`. Who counts is `WebWeb.Visitor.counted?/3`.

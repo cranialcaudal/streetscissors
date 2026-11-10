@@ -617,6 +617,55 @@ defmodule WebWeb.FitnessLandingTest do
 
       assert [%{metrics: %{"result" => "3 x 12"}}] = Web.Fitness.list_exercise_logs()
     end
+
+    # Closed unless listed: the page names the events a visitor may send, and
+    # every other one it handles is the admin's, the next to be written
+    # included. So the events are read from the page's own source.
+    test "a visitor's page takes none of the admin's events, nor one nobody wrote",
+         %{conn: conn} do
+      {:ok, exercise} = Web.Fitness.loggable_exercise("push-ups")
+
+      {:ok, log} =
+        Web.Fitness.create_exercise_log(%{
+          exercise_id: exercise.id,
+          date: Web.Clock.local_today(),
+          metrics: %{"result" => "3 x 12"}
+        })
+
+      handled =
+        ~r/def handle_event\(\s*"(\w+)"/
+        |> Regex.scan(File.read!("lib/web_web/live/fitness_live/index.ex"),
+          capture: :all_but_first
+        )
+        |> List.flatten()
+        |> Enum.uniq()
+
+      assert "set_done" in handled and "delete_log" in handled and "set_view" in handled
+
+      # Enough for any of them to act on, were it let through.
+      params = %{
+        "slug" => "push-ups",
+        "id" => to_string(log.id),
+        "i" => "0",
+        "field" => "w",
+        "by" => "5",
+        "view" => "list",
+        "rpe" => "8",
+        "rounds" => 3,
+        "seconds" => 60,
+        "log" => %{"result" => "9 x 99"}
+      }
+
+      {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
+      before = {render(view), Web.Fitness.list_exercise_logs()}
+
+      for event <- ["an_event_nobody_wrote" | handled -- ~w(close_log log_key)] do
+        render_click(view, event, params)
+
+        assert {render(view), Web.Fitness.list_exercise_logs()} == before,
+               "a visitor's #{event} changed the page or the log"
+      end
+    end
   end
 
   test "landing shows no ride card, only the Activities tab", %{conn: conn} do

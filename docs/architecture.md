@@ -42,7 +42,9 @@ for an admin address that is in neither. `WebWeb.AdminNav` runs second and feeds
 it skips views the router didn't mount (`socket.router == nil`), because the root layout's sticky
 newsletter overlay inherits the session's hooks. The `SetCurrentUser` plug only exposes
 `@admin_mode` to templates and **does not protect routes**. Public pages with admin-only actions
-(the fitness log buttons) gate each event on the session flag.
+gate their events on the session flag. `/fitness`, which has the most of them (the log, the set
+chips, the session), does it once: the first `handle_event/3` clause refuses a visitor every event
+that is not in `@visitor_events`, so an event added later is closed without being listed.
 
 ## Requests, processes, jobs
 
