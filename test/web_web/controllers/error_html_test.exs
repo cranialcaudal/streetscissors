@@ -22,6 +22,9 @@ defmodule WebWeb.ErrorHTMLTest do
       assert body =~ "Lost in the cut."
       assert body =~ ~s(<meta name="robots" content="noindex")
       assert body =~ ~s(href="/blog")
+      # Everything the page loads, and everywhere it links, is on this site:
+      # a reader who followed a dead link is not reported to anyone else.
+      refute body =~ ~r{(?:href|src)="(?:https?:)?//}
       true
     end
 
