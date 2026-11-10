@@ -57,6 +57,20 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       assert post.keywords == ["ferry"]
     end
 
+    test "a dropped file whose name is no slug is not posted, and the page says so",
+         %{conn: conn, tmp: tmp} do
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
+
+      view
+      |> file_input("#markdown-upload-form", :markdown, [
+        %{name: "?!.md", content: "Body.\n", type: "text/markdown"}
+      ])
+      |> render_upload("?!.md")
+
+      assert File.ls!(tmp) == []
+      assert has_element?(view, ".adm-results li", "was not posted")
+    end
+
     test "a post with no keywords is flagged as unfilterable", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "unfiled.md"), "Body with no frontmatter.")
 
@@ -107,6 +121,21 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       view |> element("button[phx-click=delete_post][phx-value-slug=doomed]") |> render_click()
 
       refute File.exists?(Path.join(tmp, "doomed.md"))
+      assert has_element?(view, "#flash-info", "Deleted doomed.md.")
+    end
+
+    # The slug comes back from the browser, so it is not taken on trust.
+    test "a delete that names a file outside the blog removes nothing and says so",
+         %{conn: conn, tmp: tmp} do
+      outside = tmp <> "-outside.md"
+      File.write!(outside, "not a post")
+      on_exit(fn -> File.rm(outside) end)
+
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
+      render_click(view, "delete_post", %{"slug" => "../" <> Path.basename(outside, ".md")})
+
+      assert File.read!(outside) == "not a post"
+      assert has_element?(view, "#flash-error", "to delete")
     end
   end
 

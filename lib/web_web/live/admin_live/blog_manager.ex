@@ -122,8 +122,14 @@ defmodule WebWeb.AdminLive.BlogManager do
   end
 
   def handle_event("delete_post", %{"slug" => slug}, socket) do
-    Blog.delete_post(slug)
-    {:noreply, socket |> load_posts() |> put_flash(:info, "Deleted #{slug}.md.")}
+    socket =
+      case Blog.delete_post(slug) do
+        :ok -> put_flash(socket, :info, "Deleted #{slug}.md.")
+        {:error, :not_found} -> put_flash(socket, :error, "There is no #{slug}.md to delete.")
+        {:error, _} -> put_flash(socket, :error, "Could not delete #{slug}.md.")
+      end
+
+    {:noreply, load_posts(socket)}
   end
 
   def handle_event("delete_image", %{"name" => name}, socket) do
@@ -136,8 +142,11 @@ defmodule WebWeb.AdminLive.BlogManager do
       results =
         consume_uploaded_entries(socket, :markdown, fn %{path: path}, meta ->
           slug = meta.client_name |> Path.basename(".md") |> Web.Keywords.slugify()
-          Blog.create_post(slug, File.read!(path))
-          {:ok, {:post, slug}}
+
+          case Blog.create_post(slug, File.read!(path)) do
+            :ok -> {:ok, {:post, slug}}
+            {:error, reason} -> {:ok, {:refused, meta.client_name, refusal(reason)}}
+          end
         end)
 
       {:noreply, socket |> load_posts() |> assign(:uploaded, results ++ socket.assigns.uploaded)}
@@ -181,6 +190,9 @@ defmodule WebWeb.AdminLive.BlogManager do
 
     post && post.slug
   end
+
+  defp refusal(:invalid_slug), do: "its name has no letter or number to file it under"
+  defp refusal(_reason), do: "the file could not be written"
 
   defp upload_error_message(:too_large), do: "File is too large."
   defp upload_error_message(:not_accepted), do: "That file type is not accepted."
@@ -284,6 +296,8 @@ defmodule WebWeb.AdminLive.BlogManager do
           <%= case result do %>
             <% {:post, slug} -> %>
               ✓ posted <code>{slug}.md</code>
+            <% {:refused, name, why} -> %>
+              ✗ <code>{name}</code> was not posted: {why}
             <% {:image, path} -> %>
               ✓ image at <code>{path}</code>
           <% end %>

@@ -122,9 +122,17 @@ defmodule Web.Blog do
     end
   end
 
+  @doc """
+  Writes `content` as the post `slug`, over a post of that name if there is one: the admin's batch upload.
+
+  Returns `:ok`, or `{:error, :invalid_slug}` for a slug that is empty or that
+  names a file outside the blog's directory, and then nothing is written.
+  """
   def create_post(slug, content) do
-    File.mkdir_p!(base_path())
-    File.write(Path.join(base_path(), slug <> ".md"), content)
+    with {:ok, path} <- post_path(slug) do
+      File.mkdir_p!(base_path())
+      File.write(path, content)
+    end
   end
 
   @doc """
@@ -278,13 +286,29 @@ defmodule Web.Blog do
     end
   end
 
+  @doc """
+  Removes the post `slug` from the vault, for good.
+
+  Returns `:ok`, or `{:error, :not_found}` when the blog's directory holds no
+  post of that name, which is also the answer for a slug that names a file
+  anywhere else.
+  """
   def delete_post(slug) do
-    File.rm(Path.join(base_path(), slug <> ".md"))
+    with {:ok, path} <- resolve_path(slug), do: File.rm(path)
+  end
+
+  # Where the post `slug` is, or would be. A slug that names a file outside the
+  # blog's directory is refused here, because `Path.join/2` on its own follows
+  # `../` wherever it leads; so is an empty one, which would name `.md`.
+  defp post_path(slug) do
+    case Path.safe_relative(slug <> ".md") do
+      {:ok, rel} when slug != "" -> {:ok, Path.join(base_path(), rel)}
+      _ -> {:error, :invalid_slug}
+    end
   end
 
   defp resolve_path(slug) do
-    with {:ok, rel} <- Path.safe_relative(slug <> ".md"),
-         path = Path.join(base_path(), rel),
+    with {:ok, path} <- post_path(slug),
          true <- File.regular?(path) do
       {:ok, path}
     else

@@ -360,6 +360,41 @@ defmodule Web.BlogTest do
     end
   end
 
+  describe "create_post/2 and delete_post/1" do
+    test "write a post into the blog's directory and take it out again", %{tmp: tmp} do
+      assert :ok = Blog.create_post("a-note", "---\ntitle: A Note\n---\n\nBody.\n")
+      assert {:ok, %{title: "A Note"}} = Blog.get_post("a-note")
+
+      assert :ok = Blog.delete_post("a-note")
+      refute File.exists?(Path.join(tmp, "a-note.md"))
+      assert {:error, :not_found} = Blog.delete_post("a-note")
+    end
+
+    # Path.join/2 follows `../` out of the directory it was given.
+    test "refuse a slug that leaves the blog's directory", %{tmp: tmp} do
+      outside = tmp <> "-outside.md"
+      slug = "../" <> Path.basename(outside, ".md")
+      on_exit(fn -> File.rm(outside) end)
+
+      assert {:error, :invalid_slug} = Blog.create_post(slug, "written outside the vault")
+      refute File.exists?(outside)
+
+      File.write!(outside, "not a post")
+      assert {:error, :not_found} = Blog.delete_post(slug)
+      assert File.read!(outside) == "not a post"
+
+      # However it is dressed: from deeper in, or as an absolute path.
+      assert {:error, :invalid_slug} = Blog.create_post("deep/../../" <> slug, "x")
+      assert {:error, :invalid_slug} = Blog.create_post(Path.rootname(outside), "x")
+      assert File.read!(outside) == "not a post"
+    end
+
+    test "refuse a slug that is nothing, which would name a file called .md", %{tmp: tmp} do
+      assert {:error, :invalid_slug} = Blog.create_post("", "x")
+      assert File.ls!(tmp) == []
+    end
+  end
+
   describe "editing a post's source" do
     setup do
       vault = Path.join(System.tmp_dir!(), "vault-#{System.unique_integer([:positive])}")
