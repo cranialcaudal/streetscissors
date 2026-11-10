@@ -157,12 +157,23 @@ defmodule WebWeb.PageControllerTest do
       assert build_conn() |> get("/search/suggest?q[]=x") |> json_response(200) == []
     end
 
+    # The limit is counted within a minute of the clock, so a burst that
+    # straddles the turn of one is counted in two halves and all of it gets
+    # through. That failed this test on GitHub once. Such a burst is sent
+    # again, since the second cannot straddle a minute as well.
     test "one address may not search without limit", %{conn: conn} do
-      Web.RateLimit.reset_all()
-      for _ <- 1..30, do: conn |> get(~p"/search?q=push") |> html_response(200)
+      {statuses, last} = search_burst(conn)
+      {statuses, last} = if 429 in statuses, do: {statuses, last}, else: search_burst(conn)
 
-      assert conn |> get(~p"/search?q=push") |> html_response(429) =~ "a lot of searching"
+      assert statuses == List.duplicate(200, 30) ++ [429]
+      assert last =~ "a lot of searching"
       Web.RateLimit.reset_all()
+    end
+
+    defp search_burst(conn) do
+      Web.RateLimit.reset_all()
+      replies = for _ <- 1..31, do: get(conn, ~p"/search?q=push")
+      {Enum.map(replies, & &1.status), List.last(replies).resp_body}
     end
   end
 

@@ -271,6 +271,9 @@ defmodule WebWeb.NegativesLiveTest do
   # observed crossing between a sheet that has frames and one that doesn't.
   defp fixture_archive(opts \\ []) do
     tmp = Path.join(System.tmp_dir!(), "neg_live_#{System.unique_integer([:positive])}")
+    # The name is unique within one run only, and not every test here clears
+    # its archive away: start from nothing, whatever an earlier run left.
+    File.rm_rf!(tmp)
     roll_dir = Path.join(tmp, "120 Film/roll013")
     File.mkdir_p!(Path.join(tmp, "Contact Sheets"))
     File.mkdir_p!(roll_dir)

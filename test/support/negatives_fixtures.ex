@@ -35,6 +35,13 @@ defmodule Web.NegativesFixtures do
   @doc """
   Creates an empty archive in a tmp directory, points the app at it, and puts
   it back the way it was when the test ends. Returns the archive root.
+
+  Whatever is at that path already is removed first. The name is unique
+  within one run of the suite and no further, and an earlier run can have
+  left a folder of the same name behind: a preview still being drawn when its
+  test ended writes into the archive after it was cleared away. A test handed
+  that folder found a roll on the bench where it had asked for an empty
+  archive.
   """
   def archive!(rows \\ []) do
     root =
@@ -43,6 +50,7 @@ defmodule Web.NegativesFixtures do
         "negatives_fixture_#{System.unique_integer([:positive])}"
       )
 
+    File.rm_rf!(root)
     File.mkdir_p!(Path.join(root, "Contact Sheets"))
     write_catalog!(root, rows)
 
