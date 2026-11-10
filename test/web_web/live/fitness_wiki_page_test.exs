@@ -149,7 +149,7 @@ defmodule WebWeb.FitnessWikiPageTest do
     end
 
     test "the admin sees the record and its line", %{conn: conn} do
-      conn = Plug.Test.init_test_session(conn, %{"admin_user" => true})
+      conn = log_in_admin(conn)
       {:ok, _view, html} = live(conn, ~p"/fitness/wiki/push-ups")
 
       assert html =~ ~s(id="wiki-history")

@@ -70,7 +70,7 @@ defmodule WebWeb.FitnessSessionViewTest do
   end
 
   defp admin(conn, path) do
-    {:ok, view, html} = conn |> init_test_session(%{"admin_user" => true}) |> live(path)
+    {:ok, view, html} = conn |> log_in_admin() |> live(path)
     {view, html}
   end
 

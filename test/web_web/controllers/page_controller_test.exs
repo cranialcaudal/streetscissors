@@ -195,7 +195,7 @@ defmodule WebWeb.PageControllerTest do
     assert conn |> get("/admin/fitness/calendar") |> html_response(404)
     assert conn |> get("/calendar-markdown") |> html_response(404)
 
-    admin = conn |> init_test_session(%{"admin_user" => true}) |> get("/admin/fitness/calendar")
+    admin = conn |> log_in_admin() |> get("/admin/fitness/calendar")
     assert html_response(admin, 404)
   end
 
@@ -208,7 +208,7 @@ defmodule WebWeb.PageControllerTest do
 
     test "renders the kitchen from the fitness vault's meals.md", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       assert html =~ "The Kitchen"
       # Markdown actually went through Earmark rather than reaching the page raw.
@@ -220,7 +220,7 @@ defmodule WebWeb.PageControllerTest do
     # has to land on a heading meals.md actually has.
     test "the week strip comes from meals-week.json and jumps to real headings", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       assert html =~ "A fixture kitchen for the test suite."
       assert html =~ "Batch Cook"
@@ -238,7 +238,7 @@ defmodule WebWeb.PageControllerTest do
     # the plan is unreadable.
     test "renders the macro tables as real tables", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       assert html =~ "<table>"
       refute html =~ "|---|"
@@ -249,7 +249,7 @@ defmodule WebWeb.PageControllerTest do
     # shopping list renders as prose beginning with a literal "[ ]".
     test "renders the shopping list as real checkboxes", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       assert html =~ ~s(<li class="task"><input type="checkbox" />)
       refute html =~ "[ ]"
@@ -257,7 +257,7 @@ defmodule WebWeb.PageControllerTest do
 
     test "every link in the contents rail points at a heading that exists", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       [_, rail] = Regex.run(~r{<ol class="meals-contents-list">(.*?)</ol>}s, html)
 
@@ -273,7 +273,7 @@ defmodule WebWeb.PageControllerTest do
     # and a crawler that guesses the path must be told not to index it.
     test "is unlisted — noindex, and nothing links back to it", %{conn: conn} do
       html =
-        conn |> init_test_session(%{"admin_user" => true}) |> get(~p"/food") |> html_response(200)
+        conn |> log_in_admin() |> get(~p"/food") |> html_response(200)
 
       assert html =~ ~s(<meta name="robots" content="noindex, nofollow")
 

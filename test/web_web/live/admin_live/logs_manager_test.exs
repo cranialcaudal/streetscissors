@@ -8,8 +8,6 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
   alias Web.Logs.Log
   alias Web.Uploads
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   # Stands in for the recorder handing LiveView a blob, or for a file dropped
   # onto the theater — both arrive through the same upload.
   defp attach(view, name \\ "take.webm", type \\ "video/webm") do
@@ -24,7 +22,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
   describe "the theater" do
     test "renders a screen, a record control and both modes", %{conn: conn} do
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/logs")
 
       assert html =~ ~s(class="theater-screen")
       assert html =~ ~s(data-role="record")
@@ -33,12 +31,12 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "the review controls start hidden — there is nothing to review yet", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       assert has_element?(view, ~s([data-role="review"][hidden]))
     end
 
     test "carries every element the recorder hook reaches for", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       # The hook works entirely through these data-roles. The recorder this
       # replaced broke precisely this way — it reached for ids that had moved,
@@ -52,7 +50,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "the camera picker and the error line are their own elements", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       # The picker is hidden in audio mode by the hook, so it needs a wrapper
       # of its own rather than the hook hiding the <select> and orphaning its
@@ -69,7 +67,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
     test "the file input sits inside the form, which is what makes uploads work",
          %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       # Not decoration: `this.upload/2` puts the file on this input and relies
       # on the form's phx-change to allocate an entry. Outside a form it is
@@ -81,7 +79,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
   describe "ingest" do
     test "an arriving recording is written down immediately, queued, and not yet public",
          %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       render_upload(attach(view), "take.webm")
 
@@ -95,7 +93,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "it is titled and addressed by the day it arrived", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       render_upload(attach(view), "take.webm")
 
       [log] = Logs.list_logs()
@@ -107,10 +105,10 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "a second recording the same day gets the next address", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       render_upload(attach(view, "one.webm"), "one.webm")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       render_upload(attach(view, "two.webm"), "two.webm")
 
       today = Date.to_iso8601(Web.Clock.local_today())
@@ -119,7 +117,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
 
     test "the recorder's trim and poster survive the change event the upload triggers",
          %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       # What the hook pushes before it sends a single byte.
       render_hook(view, "stage", %{
@@ -139,7 +137,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "an audio file dropped in is filed as audio, whatever the form says", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       render_upload(attach(view, "voice.m4a", "audio/mp4"), "voice.m4a")
 
@@ -147,7 +145,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     end
 
     test "metadata typed before the take travels with it", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       view
       |> form("#log-form", log: %{caption: "Under way", keywords: "Ferry, Bowling Green"})
@@ -171,7 +169,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
         transcode_error: "ffmpeg exited 1"
       )
 
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/logs")
 
       assert html =~ "Ready"
       assert html =~ "Failed"
@@ -181,7 +179,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     test "flags a finished entry with no keywords", %{conn: conn} do
       log_fixture(status: "ready", keywords: nil)
 
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/logs")
 
       assert html =~ "No keywords"
     end
@@ -189,7 +187,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     test "publishing is a separate decision that can be made while it encodes", %{conn: conn} do
       log = log_fixture(published: false)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       view
       |> element(~s(button[phx-click="toggle_published"][phx-value-id="#{log.id}"]))
@@ -201,7 +199,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     test "editing changes the metadata without touching the media", %{conn: conn} do
       log = log_fixture(media_dir: "2026-09-18-abc12345", caption: "First pass")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       view |> element(~s(button[phx-click="edit"][phx-value-id="#{log.id}"])) |> render_click()
 
       view
@@ -219,7 +217,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       File.write!(Path.join(Uploads.entry_dir!(dir), "poster.jpg"), "jpeg")
       log = log_fixture(media_dir: dir)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       view |> element(~s(button[phx-click="delete"][phx-value-id="#{log.id}"])) |> render_click()
 
       assert Logs.list_logs() == []
@@ -230,7 +228,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
       source = Uploads.stage_upload!(media_upload_fixture(), "take.webm")
       log = log_fixture(status: "failed", source_path: source)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       html =
         view |> element(~s(button[phx-click="retry"][phx-value-id="#{log.id}"])) |> render_click()
@@ -243,7 +241,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
          %{conn: conn} do
       log = log_fixture(status: "failed", source_path: nil)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
 
       html =
         view |> element(~s(button[phx-click="retry"][phx-value-id="#{log.id}"])) |> render_click()
@@ -256,7 +254,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     test "a progress broadcast reaches the page", %{conn: conn} do
       log = log_fixture(status: "processing")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       send(view.pid, {:transcode_progress, log.id, 42})
 
       assert render(view) =~ "42%"
@@ -265,7 +263,7 @@ defmodule WebWeb.AdminLive.LogsManagerTest do
     test "finishing clears the bar and reloads the row", %{conn: conn} do
       log = log_fixture(status: "processing")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/logs")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/logs")
       send(view.pid, {:transcode_progress, log.id, 42})
       assert render(view) =~ "42%"
 

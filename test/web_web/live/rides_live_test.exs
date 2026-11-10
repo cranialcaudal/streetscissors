@@ -12,7 +12,7 @@ defmodule WebWeb.RidesLiveTest do
   # live embed and its link. What a visitor is shown is under "a visitor".
   setup %{conn: conn} do
     File.rm_rf!(Thumbs.dir())
-    %{conn: init_test_session(conn, %{"admin_user" => true})}
+    %{conn: log_in_admin(conn)}
   end
 
   describe "a visitor" do

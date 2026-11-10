@@ -6,8 +6,6 @@ defmodule WebWeb.AdminLive.TasteTest do
 
   alias Web.Darkroom.Taste
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   test "anonymous visitors are sent away", %{conn: conn} do
     assert {:error, {:redirect, _}} = live(conn, ~p"/admin/darkroom/taste")
   end
@@ -28,7 +26,7 @@ defmodule WebWeb.AdminLive.TasteTest do
     end
 
     test "two grades of a print are shown, and the one chosen is kept", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/taste")
+      {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/taste")
       assert render(view) =~ "0 choices so far"
 
       render_async(view)
@@ -45,7 +43,7 @@ defmodule WebWeb.AdminLive.TasteTest do
     end
 
     test "the arrow keys choose and pass", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/taste")
+      {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/taste")
       render_async(view)
       wait_until(view, ~s(img[alt="The second grade"]))
 

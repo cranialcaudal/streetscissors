@@ -6,8 +6,6 @@ defmodule WebWeb.AdminLive.DarkroomTest do
 
   alias Web.Darkroom
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     root = archive!()
     folder = put_roll!(root, roll: "007", format: "35mm", color: "color")
@@ -26,7 +24,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
   end
 
   test "Taste is reached from the Prints page", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom")
 
     assert has_element?(view, ~s(#taste-link[href="/admin/darkroom/taste"]), "Teach taste")
   end
@@ -34,7 +32,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
   test "the prints of a roll, the edited ones marked", %{conn: conn, folder: folder} do
     :ok = Darkroom.save(folder, 3, %{controls: %{"light.exposure" => 0.4}, crop: nil})
 
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom?roll=007")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom?roll=007")
     assert has_element?(view, ~s|a[href="/admin/darkroom/007/2"]|)
     assert has_element?(view, "#print-3", "edited")
     refute has_element?(view, "#print-2", "edited")
@@ -42,7 +40,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
 
   test "the bench draws LightCraft's sliders and shows each new picture",
        %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
 
     assert has_element?(view, ~s|input[type=range][name="light.exposure"]|)
     assert has_element?(view, ~s|input[name="effects.clarity"]|)
@@ -54,12 +52,12 @@ defmodule WebWeb.AdminLive.DarkroomTest do
 
     picture = wait_for_picture(view)
     assert picture =~ ~r|^/admin/darkroom/picture/[a-f0-9]{32}/p-\d+\.jpg$|
-    assert conn |> admin_conn() |> get(picture) |> response(200)
+    assert conn |> log_in_admin() |> get(picture) |> response(200)
     assert conn |> get(picture) |> response(404)
   end
 
   test "a picture is served by its token and its own name only", %{conn: conn} do
-    conn = admin_conn(conn)
+    conn = log_in_admin(conn)
 
     assert conn
            |> get("/admin/darkroom/picture/#{String.duplicate("a", 32)}/p-1.jpg")
@@ -73,7 +71,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
   end
 
   test "Save prints the recipe and Revert puts the print back", %{conn: conn, folder: folder} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
 
     view |> form("#adjust", %{"light.exposure" => "-1.5"}) |> render_change()
     view |> element("button", "Save") |> render_click()
@@ -90,7 +88,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
   end
 
   test "Undo takes back one change at a time, a dragged slider being one", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
     assert has_element?(view, "#undo[disabled]")
 
     view |> form("#adjust", %{"light.exposure" => "0.5"}) |> render_change()
@@ -111,7 +109,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
        %{conn: conn, folder: folder} do
     :ok = Darkroom.save(folder, 2, %{controls: %{"light.exposure" => 0.4}, crop: nil, spots: []})
 
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
     view |> form("#adjust", %{"light.exposure" => "-1.5"}) |> render_change()
 
     view |> element("button", "Copy sliders") |> render_click()
@@ -131,7 +129,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
 
   test "the crop opens on the whole picture and is kept when it is closed",
        %{conn: conn, folder: folder} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
 
     view |> element("button", "Crop") |> render_click()
     assert has_element?(view, "#crop-box[data-rect='0.0,0.0,1.0,1.0']")
@@ -149,7 +147,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
   end
 
   test "dust is found by LightCraft, healed, and taken off by hand", %{conn: conn, folder: folder} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
 
     view |> element("button", "Dust") |> render_click()
     assert has_element?(view, "#dust-box")
@@ -178,7 +176,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
       print = Path.join([folder, "frames", "03.png"])
       {_, 0} = System.cmd("magick", ["-size", "30x20", "gradient:white-gray", print])
 
-      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+      {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
       view |> element("button", "Repair") |> render_click()
       assert has_element?(view, "#repair-box canvas")
       assert has_element?(view, "button[phx-click=lama][disabled]")
@@ -186,7 +184,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
       view |> element("button", "Find scanner lines") |> render_click()
       render_async(view)
       assert render(view) =~ "Found a scanner line; it is marked."
-      assert conn |> admin_conn() |> get(~p"/admin/darkroom/mask/007/3") |> response(200)
+      assert conn |> log_in_admin() |> get(~p"/admin/darkroom/mask/007/3") |> response(200)
       assert conn |> get(~p"/admin/darkroom/mask/007/3") |> response(404)
 
       view |> element("button", "Repair what is marked") |> render_click()
@@ -215,7 +213,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
       print = Path.join([folder, "frames", "03.png"])
       {_, 0} = System.cmd("magick", ["-size", "30x20", "gradient:white-gray", print])
 
-      {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/darkroom/007/3")
+      {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/darkroom/007/3")
       view |> element("button", "Repair") |> render_click()
       assert has_element?(view, "button[phx-click=diffuse][disabled]")
       view |> element("button", "Find scanner lines") |> render_click()
@@ -226,7 +224,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
       assert render(view) =~ "Stable Diffusion filled 1 place."
       assert has_element?(view, ~s|#candidate-box img[src^="/admin/darkroom/candidate/007/3"]|)
       refute has_element?(view, "#repair-box")
-      assert conn |> admin_conn() |> get(~p"/admin/darkroom/candidate/007/3") |> response(200)
+      assert conn |> log_in_admin() |> get(~p"/admin/darkroom/candidate/007/3") |> response(200)
       assert conn |> get(~p"/admin/darkroom/candidate/007/3") |> response(404)
 
       view |> element("button", "Show before") |> render_click()
@@ -247,7 +245,7 @@ defmodule WebWeb.AdminLive.DarkroomTest do
 
   test "an unknown print is not a page", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: "/admin/darkroom"}}} =
-             live(admin_conn(conn), ~p"/admin/darkroom/007/9")
+             live(log_in_admin(conn), ~p"/admin/darkroom/007/9")
   end
 
   # The picture arrives as a message from the session; the view renders it

@@ -14,8 +14,6 @@ defmodule WebWeb.AdminLive.BlockReportTest do
     :ok
   end
 
-  defp admin(conn), do: init_test_session(conn, %{"admin_user" => true})
-
   test "anonymous visitors are sent away, from the page and from a photograph", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/"}}} = live(conn, "/admin/fitness/block")
 
@@ -25,10 +23,10 @@ defmodule WebWeb.AdminLive.BlockReportTest do
 
     assert conn |> get("/admin/fitness/photos/2026-10-26/01.jpg") |> response(404)
 
-    assert admin(conn) |> get("/admin/fitness/photos/2026-10-26/01.jpg") |> response(200) ==
+    assert log_in_admin(conn) |> get("/admin/fitness/photos/2026-10-26/01.jpg") |> response(200) ==
              "jpeg"
 
-    assert admin(conn) |> get("/admin/fitness/photos/2026-10-26/02.jpg") |> response(404)
+    assert log_in_admin(conn) |> get("/admin/fitness/photos/2026-10-26/02.jpg") |> response(404)
   end
 
   test "the report has the framing, the weeks and the lifts", %{conn: conn} do
@@ -43,7 +41,7 @@ defmodule WebWeb.AdminLive.BlockReportTest do
 
     {:ok, _} = Web.Fitness.save_checkin(%{date: Web.Clock.local_today(), pain: 3})
 
-    {:ok, view, html} = live(admin(conn), "/admin/fitness/block")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/fitness/block")
 
     assert html =~ "Test Block"
     assert html =~ "An invented block"
@@ -57,7 +55,7 @@ defmodule WebWeb.AdminLive.BlockReportTest do
     today = Web.Clock.local_today()
     {:ok, _} = Web.Fitness.save_checkin(%{"date" => today, "answers" => %{"shoulder" => "sore"}})
 
-    {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/block")
 
     view |> form("#measure-form", measure: %{bodyweight: "182.5"}) |> render_submit()
 
@@ -69,7 +67,7 @@ defmodule WebWeb.AdminLive.BlockReportTest do
   end
 
   test "an empty measure, or one that is not a number, saves nothing", %{conn: conn} do
-    {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/block")
 
     view |> form("#measure-form", measure: %{bodyweight: ""}) |> render_submit()
     assert has_element?(view, "#flash-error", "Nothing to save.")
@@ -80,7 +78,7 @@ defmodule WebWeb.AdminLive.BlockReportTest do
   end
 
   test "a photograph is uploaded, shown, and set aside", %{conn: conn} do
-    {:ok, view, _html} = live(admin(conn), "/admin/fitness/block")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/block")
 
     photo =
       file_input(view, "#photo-form", :photos, [

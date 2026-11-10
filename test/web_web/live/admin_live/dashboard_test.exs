@@ -8,8 +8,6 @@ defmodule WebWeb.AdminLive.DashboardTest do
   alias Web.Backup
   alias Web.Contact
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   # The queue lists posts without keywords, and the committed fixture posts
   # are not all keyworded, so tests that need an empty queue use an empty
   # blog. They also need a fresh database snapshot and a content backup that
@@ -58,7 +56,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     guestbook_entry_fixture(%{approved: false})
     {:ok, _} = Contact.create_message(%{name: "Ada", email: "ada@example.com", message: "Hi"})
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(
              view,
@@ -73,7 +71,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     setup :quiet_site
 
     test "the queue says so when nothing is waiting", %{conn: conn} do
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/dashboard")
       assert html =~ "Nothing needs you."
     end
   end
@@ -82,7 +80,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     {:ok, _} = Backup.Content.run()
     on_exit(fn -> File.rm_rf!(Backup.Content.backup_dir()) end)
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(view, "#system", "Database snapshots")
     assert has_element?(view, "#system", "Written content")
@@ -108,7 +106,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
       })
     )
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(view, "#needs-you", "Certificate: 6 days left — renewal is failing")
     refute has_element?(view, "#needs-you", "Disk")
@@ -121,7 +119,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
     Web.RidesFixtures.ride_fixture(%{stranger_view: "exposed"})
 
-    {:ok, view, html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(
              view,
@@ -134,7 +132,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
   end
 
   test "having no address for alerts is itself something to fix", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(
              view,
@@ -145,7 +143,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
   test "an overdue content backup is something that needs you", %{conn: conn} do
     File.rm_rf!(Backup.Content.backup_dir())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(view, "#needs-you", "The content backup is overdue")
   end
@@ -154,7 +152,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     guestbook_entry_fixture(%{approved: false})
     guestbook_entry_fixture(%{approved: false})
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
     assert has_element?(view, ~s(#adm-rail a[href="/admin/dashboard"][aria-current="page"]))
     refute has_element?(view, ~s(#adm-rail a[href="/admin/blog"][aria-current="page"]))
@@ -164,7 +162,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
   # The indicator is in the root layout, so these read the dead render. The
   # login sets the flag to a real `true`, which is what SetCurrentUser checks.
   test "the admin indicator shows on public pages but not in the admin", %{conn: conn} do
-    conn = init_test_session(conn, %{"admin_user" => true})
+    conn = log_in_admin(conn)
 
     assert conn |> get("/blog") |> html_response(200) =~ ~s(id="admin-indicator")
     refute conn |> get("/admin/dashboard") |> html_response(200) =~ ~s(id="admin-indicator")
@@ -173,7 +171,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
   describe "the program cards" do
     test "each program has a card, with its first action filled in", %{conn: conn} do
       archive!()
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       for {id, title, action, href} <- [
             {"program-darkroom", "Darkroom", "Scan", "/admin/scanner"},
@@ -189,7 +187,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
     test "a darkroom with nothing in it says so and offers Scan", %{conn: conn} do
       archive!()
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       assert card_text(view, "program-darkroom") =~
                "Nothing on the bench and no prints yet. Scan a roll to begin."
@@ -214,7 +212,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
         Jason.encode!(%{"frames" => %{"2" => %{"chosen" => true}}})
       )
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       assert card_text(view, "program-darkroom") =~
                "Roll 066 on the bench, 3 strips, 1 single still to scan"
@@ -229,7 +227,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
       File.mkdir_p!(Path.join(folder, "edits"))
       File.write!(Path.join([folder, "edits", "06.json"]), "{}")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       assert has_element?(view, ~s(#program-darkroom img[src^="/negatives/frame/65/6"]))
       assert card_text(view, "program-darkroom") =~ "1 print edited, the last just now"
@@ -257,7 +255,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
         ~s(---\ntitle: "Finished"\ndate: "2026-10-03"\n---\n\nText.\n)
       )
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
       text = card_text(view, "program-writing")
 
       assert text =~ "1 draft, the newest Half a thought"
@@ -279,7 +277,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
 
       guestbook_entry_fixture(%{approved: false})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
       text = card_text(view, "program-mail")
 
       assert text =~ "1 message open"
@@ -294,7 +292,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
       on_exit(fn -> File.rm_rf(Web.Cuts.bin(cut.id)) end)
       Web.AudioFixtures.log_fixture(%{published: false})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
       text = card_text(view, "program-cuts")
 
       assert text =~ "Sunday log, nothing on the timeline yet"
@@ -323,7 +321,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
         })
       )
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       assert has_element?(view, "#figures", "all well")
       refute has_element?(view, "#figures .st-strip-item--warn")
@@ -347,7 +345,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
         })
       )
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       # The strip says so once, in the failing tone; the check itself is named
       # under "Needs you", not repeated in the strip.
@@ -358,7 +356,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     end
 
     test "the counts on file are links, and traffic arrives after the page is up", %{conn: conn} do
-      {:ok, view, html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, html} = live(log_in_admin(conn), "/admin/dashboard")
 
       assert has_element?(view, ~s(#figures a[href="/admin/blog"]), "Posts")
       assert has_element?(view, ~s(#figures a[href="/admin/guestbook"]), "Signatures")
@@ -372,7 +370,7 @@ defmodule WebWeb.AdminLive.DashboardTest do
     end
 
     test "the full machine and the views are there, closed", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
       render_async(view)
 
       assert has_element?(view, "details#machine > summary", "The machine in full")

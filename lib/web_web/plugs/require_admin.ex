@@ -1,17 +1,18 @@
 defmodule WebWeb.Plugs.RequireAdmin do
   @moduledoc """
-  Halts a request unless the session carries an admin flag.
+  Halts a request with the site's 404 unless the session carries the admin flag.
 
-  This exists as a **runtime** backstop for the `/dev` scope (LiveDashboard and
-  the Swoosh mailbox preview). Those routes are normally compiled out via
-  `dev_routes`, but that is a compile-time flag read from the environment — a
-  stale build, or a server started without `.env`, would silently ship them to
-  the public again. It has happened: `/dev/dashboard` was reachable
-  unauthenticated on the live site.
+  The router's `:admin_only` pipeline is this plug. It stands in front of the
+  admin's controller routes, which a `live_session`'s `on_mount` hooks do not
+  cover, and in front of the `/dev` scope (LiveDashboard and the Swoosh mailbox
+  preview). `/dev` is compiled out wherever `dev_routes` is off, but that is a
+  compile-time flag: a stale build, or a server started without `.env`, would
+  serve those pages, so the session is checked at run time as well.
 
-  `SetCurrentUser` deliberately does *not* protect routes (it only exposes
-  `@admin_mode` to templates), so this is a separate plug rather than a change
-  to that one.
+  The answer is `WebWeb.NotFound.render/1`, so an admin address asked for
+  without a session looks like an address that does not exist.
+  `WebWeb.Plugs.SetCurrentUser` does not protect routes: it only tells the
+  templates whether the admin is looking.
   """
 
   import Plug.Conn

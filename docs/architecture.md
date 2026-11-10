@@ -27,8 +27,13 @@ fresh clone still builds and boots. Examples:
 
 Login (`AdminSessionController`) checks one password via `Plug.Crypto.secure_compare` against
 `:admin_password` and sets `session["admin_user"] = true`. The `/admin/*` LiveViews sit in
-`live_session :admin` with `on_mount {WebWeb.AdminAuth, :ensure_admin}`, which halts non-admins.
-**New admin routes belong in that live_session.** `WebWeb.AdminNav` runs second and feeds the rail;
+`live_session :admin` with `on_mount {WebWeb.AdminAuth, :ensure_admin}`, which sends non-admins
+home. A `live_session` guards pages only, so the admin's controller routes (the downloads, and the
+files only the admin's pages show) sit in a scope of their own piped through `:admin_only`
+(`WebWeb.Plugs.RequireAdmin`), which answers the site's 404 before the action runs: no action
+checks the session itself. **A new admin page belongs in that live_session and a new admin
+controller route in that scope**; `test/web_web/router_admin_test.exs` walks the router and fails
+for an admin address that is in neither. `WebWeb.AdminNav` runs second and feeds the rail;
 it skips views the router didn't mount (`socket.router == nil`), because the root layout's sticky
 newsletter overlay inherits the session's hooks. The `SetCurrentUser` plug only exposes
 `@admin_mode` to templates and **does not protect routes**. Public pages with admin-only actions

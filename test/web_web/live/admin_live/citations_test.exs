@@ -5,8 +5,6 @@ defmodule WebWeb.AdminLive.CitationsTest do
   alias Web.Repo
   alias Web.Webmentions.Webmention
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   defp held(attrs \\ %{}) do
     %Webmention{
       source: "https://example.org/notes/#{System.unique_integer([:positive])}",
@@ -27,7 +25,7 @@ defmodule WebWeb.AdminLive.CitationsTest do
   test "an approved citation shows under its piece as Cited by", %{conn: conn} do
     mention = held()
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/citations")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/citations")
     assert has_element?(view, ~s(#adm-rail a[href="/admin/citations"] .adm-badge), "1")
 
     view |> element("#citation-#{mention.id} button[phx-click=approve]") |> render_click()
@@ -74,7 +72,7 @@ defmodule WebWeb.AdminLive.CitationsTest do
       told = sent(%{status: "sent", detail: "answered 202"})
       none = sent(%{target: "https://example.net/b", status: "no_endpoint"})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/citations?show=sent")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/citations?show=sent")
 
       assert has_element?(view, "#sent-#{told.id}", "https://example.org/a")
       assert has_element?(view, "#sent-#{told.id} .adm-pill--live", "Told")
@@ -86,7 +84,7 @@ defmodule WebWeb.AdminLive.CitationsTest do
 
     test "try again queues the mention once more", %{conn: conn} do
       failed = sent(%{status: "failed", detail: "could not connect: timeout"})
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/citations?show=sent")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/citations?show=sent")
 
       view |> element("#sent-#{failed.id} button", "Try again") |> render_click()
 
@@ -95,7 +93,7 @@ defmodule WebWeb.AdminLive.CitationsTest do
     end
 
     test "says so when no post has linked anywhere yet", %{conn: conn} do
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/citations?show=sent")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/citations?show=sent")
       assert html =~ "No post has linked to another site yet."
     end
   end

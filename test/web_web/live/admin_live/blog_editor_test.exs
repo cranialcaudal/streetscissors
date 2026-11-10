@@ -4,8 +4,6 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
   alias Web.Blog
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   # A whole throwaway vault, since a forced save writes to the .trash beside
   # the blog folder.
   setup do
@@ -43,11 +41,11 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
   test "a post that is not there sends you back to the blog", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: "/admin/blog"}}} =
-             live(admin_conn(conn), "/admin/blog/no-such-post/edit")
+             live(log_in_admin(conn), "/admin/blog/no-such-post/edit")
   end
 
   test "opens the whole file, with the page it makes beside it", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     # The field the form posts, and the editor over it (WebWeb.DocumentEditor).
     assert has_element?(view, "#post-source[phx-hook=DocumentEditor][data-complete=blog]")
@@ -69,7 +67,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
   end
 
   test "the preview follows the text as it is typed, frontmatter included", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     view
     |> form("#post-editor", content: "---\ntitle: Retitled\n---\n\nA **new** opening.\n")
@@ -84,7 +82,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
   end
 
   test "saving writes the file back", %{conn: conn, path: path} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     view
     |> form("#post-editor", content: "---\ntitle: Saved\ndraft: true\n---\n\nSaved body.\n")
@@ -96,7 +94,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
   end
 
   test "save and publish takes the draft line out as it saves", %{conn: conn, path: path} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
     assert {:error, :not_found} = Blog.get_post("essay")
 
     view
@@ -112,7 +110,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
   end
 
   test "[[ in the editor offers the blog's pieces", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     render_hook(view, "editor_complete", %{"q" => "essay", "kind" => "link", "scope" => "blog"})
     assert_reply(view, %{items: [%{insert: "[An Essay](/blog/essay)", detail: "draft"} | _]})
@@ -122,7 +120,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
        %{conn: conn, path: path} do
     crlf = "---\r\ntitle: Windows\r\n---\r\n\r\n![[roll012/3]] \r\nBody.\r\n"
     File.write!(path, crlf)
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     # What a browser sends back: the same text with \n.
     sent = String.replace(crlf, "\r\n", "\n")
@@ -135,7 +133,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
   describe "when the file changed on disk while the page was open" do
     setup %{conn: conn, path: path} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
       File.write!(path, "Edited in Obsidian.\n")
 
       view |> form("#post-editor", content: "Edited in the admin.\n") |> render_submit()
@@ -214,7 +212,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       > Fifty wool coats steamed in the turnstile queue while the deckhands coiled wet hemp.
       """)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
       # Outline progress strip shows beats, sources, and reading notes, while the preview prose is empty
       assert has_element?(view, "#post-outline-progress", "0/2")
@@ -404,7 +402,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
       > Open on the fog horn before sunrise.
       """)
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
       assert has_element?(view, "#toggle-zotero")
       view |> element("#toggle-zotero") |> render_click()
@@ -454,7 +452,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
     test "the preview renders citations and References; the panel names a key with no source",
          %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
       assert has_element?(
                view,
@@ -470,7 +468,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
 
     test "Cite on a source with no key gives it one and types [@key] at the cursor",
          %{conn: conn, path: path} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
       view |> element("#reading-1 button", "Cite") |> render_click()
 
@@ -484,7 +482,7 @@ defmodule WebWeb.AdminLive.BlogEditorTest do
     end
 
     test "Give sources a key keys every source without one", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
       view |> element("#key-reading-items") |> render_click()
 

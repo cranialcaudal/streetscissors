@@ -5,14 +5,12 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
   # Runs against the invented vault in test/support/fixtures/fitness. Nothing
   # here saves, so the committed fixtures are never rewritten.
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   test "anonymous visitors are redirected away", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/"}}} = live(conn, "/admin/fitness")
   end
 
   test "the wiki and the regimen are each an address", %{conn: conn} do
-    {:ok, view, html} = live(admin_conn(conn), "/admin/fitness")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/fitness")
     assert html =~ "Push-ups"
 
     html = view |> element(~s(.adm-tabs a[href="/admin/fitness?tab=regimen"])) |> render_click()
@@ -22,7 +20,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
   end
 
   test "the name filter narrows the wiki", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness")
 
     html = view |> form("#exercise-filter", query: "squat") |> render_change()
     refute html =~ "Push-ups"
@@ -33,7 +31,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
   end
 
   test "an exercise opens in the page, and its markdown previews", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness")
 
     view
     |> element(~s(button[phx-click=edit_exercise][phx-value-slug="push-ups"]))
@@ -50,7 +48,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
 
   test "the editor is the document editor, and its preview reads [[wiki]] links as the site does",
        %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness")
 
     view
     |> element(~s(button[phx-click=edit_exercise][phx-value-slug="push-ups"]))
@@ -75,7 +73,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
   end
 
   test "deleting asks first", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness")
     assert has_element?(view, "button[phx-click=delete_exercise][data-confirm]")
   end
 
@@ -89,7 +87,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
         metrics: %{"weight" => "20 lbs", "sets" => "3", "reps" => "10"}
       })
 
-    {:ok, _view, html} = live(admin_conn(conn), "/admin/fitness?tab=progress")
+    {:ok, _view, html} = live(log_in_admin(conn), "/admin/fitness?tab=progress")
 
     assert html =~ "Test Block"
     assert html =~ ~s(id="chart-e1rm")
@@ -100,7 +98,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
   end
 
   test "the check-in tab is gone, and its old address lands on the wiki", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness?tab=checkin")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness?tab=checkin")
 
     refute has_element?(view, ~s(a[href="/admin/fitness?tab=checkin"]))
     refute has_element?(view, "#checkin-form")
@@ -112,7 +110,7 @@ defmodule WebWeb.AdminLive.FitnessManagerTest do
     file = Path.join([Web.Fitness.Vault.base_path(), "blocks", "test-block.md"])
     before = File.read!(file)
 
-    {:ok, view, html} = live(admin_conn(conn), "/admin/fitness?tab=files")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/fitness?tab=files")
     assert html =~ "Reads as:"
     assert has_element?(view, ~s(a[href="/admin/fitness?tab=files&file=block%3Atest-block"]))
 

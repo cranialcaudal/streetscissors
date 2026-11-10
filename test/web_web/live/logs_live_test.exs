@@ -386,7 +386,7 @@ defmodule WebWeb.LogsLiveTest do
 
     test "the admin watching an entry back is not a view", %{conn: conn} do
       log = log_fixture()
-      conn = Plug.Test.init_test_session(conn, admin_user: true)
+      conn = log_in_admin(conn)
 
       {:ok, view, _html} = live(conn, "/logs/#{log.slug}")
       render_hook(view, "track_play", %{"id" => to_string(log.id), "viewer" => @this_browser})

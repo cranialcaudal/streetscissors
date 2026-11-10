@@ -8,8 +8,6 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
   @report_wait 10_000
   import Phoenix.LiveViewTest
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     vault = Path.join(System.tmp_dir!(), "health-admin-#{System.unique_integer([:positive])}")
     blog = Path.join(vault, "blog")
@@ -38,7 +36,7 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
     [Gone](/blog/renamed-away) and ![[roll999]].
     """)
 
-    {:ok, view, html} = live(admin_conn(conn), "/admin/health")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/health")
     assert html =~ "Reading the vault"
 
     html = render_async(view, @report_wait)
@@ -62,7 +60,7 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
     [The manual](/how-to).
     """)
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/health")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/health")
     render_async(view, @report_wait)
 
     assert has_element?(view, "#health-broken", "Every link on the site leads somewhere.")
@@ -71,7 +69,7 @@ defmodule WebWeb.AdminLive.ContentHealthTest do
   end
 
   test "check again reads the vault as it is now", %{conn: conn, blog: blog} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/health")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/health")
     render_async(view, @report_wait)
     refute has_element?(view, "#broken code", "/blog/renamed-away")
 

@@ -2,8 +2,6 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
   use WebWeb.ConnCase
   import Phoenix.LiveViewTest
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => true})
-
   setup do
     tmp = Path.join(System.tmp_dir!(), "writing-desk-#{System.unique_integer([:positive])}")
     dir = Path.join(tmp, "writing")
@@ -50,7 +48,7 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
   end
 
   test "lists the papers and starts a new one from a skeleton", %{conn: conn, dir: dir} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/writing")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/writing")
 
     assert has_element?(view, "#paper-slack-water", "Slack Water")
 
@@ -63,7 +61,7 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
   end
 
   test "a paper opens in the workbench, never with a publish button", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/writing/slack-water")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/writing/slack-water")
 
     assert has_element?(view, ".adm-title", "Slack Water")
     assert has_element?(view, "#post-source[phx-hook=DocumentEditor]")
@@ -77,7 +75,7 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
   end
 
   test "a thought on a source is carried to a beat, cited", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/writing/slack-water")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/writing/slack-water")
 
     view
     |> form("#to-beat-0-0", %{"beat" => "The narrows"})
@@ -91,12 +89,12 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
 
   test "a missing paper sends you back to the list", %{conn: conn} do
     assert {:error, {:live_redirect, %{to: "/admin/writing"}}} =
-             live(admin_conn(conn), "/admin/writing/nope")
+             live(log_in_admin(conn), "/admin/writing/nope")
   end
 
   @tag :pandoc
   test "exports the saved paper as Word, to the admin", %{conn: conn} do
-    conn = get(admin_conn(conn), "/admin/writing/slack-water/export/docx")
+    conn = get(log_in_admin(conn), "/admin/writing/slack-water/export/docx")
 
     assert conn.status == 200
 
@@ -107,6 +105,6 @@ defmodule WebWeb.AdminLive.WritingDeskTest do
   end
 
   test "an unknown format is a 404", %{conn: conn} do
-    assert get(admin_conn(conn), "/admin/writing/slack-water/export/rtf").status == 404
+    assert get(log_in_admin(conn), "/admin/writing/slack-water/export/rtf").status == 404
   end
 end

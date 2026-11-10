@@ -36,4 +36,15 @@ defmodule WebWeb.ConnCase do
     Web.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc """
+  The connection with the admin's session, as a correct password leaves it
+  (`WebWeb.AdminSessionController`).
+
+      conn = log_in_admin(conn)
+
+  Every test that needs the admin logs in through here, so the flag is
+  spelled once: the boolean `true`, which is what the site's own checks read.
+  """
+  def log_in_admin(conn), do: Plug.Test.init_test_session(conn, %{"admin_user" => true})
 end

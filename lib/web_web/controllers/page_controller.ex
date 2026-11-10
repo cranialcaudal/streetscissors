@@ -265,17 +265,10 @@ defmodule WebWeb.PageController do
     )
   end
 
-  # Admin only: it holds private planning. A plain `get` is not covered by the
-  # session's on_mount hooks, so the check is made here.
-  def food(conn, params) do
-    if get_session(conn, "admin_user") do
-      render_food(conn, params)
-    else
-      WebWeb.NotFound.render(conn)
-    end
-  end
-
-  defp render_food(conn, _params) do
+  # Admin only: it holds private planning. The route is in the router's
+  # `:admin_only` scope, which answers the site's 404 to anyone else before
+  # this runs.
+  def food(conn, _params) do
     # `content/`, not `docs/`: the kitchen is the author's own diet, so both its
     # plan (meals.md) and its week strip and description (meals-week.json) live
     # in the fitness vault rather than in code. They sit at the vault's *root*,

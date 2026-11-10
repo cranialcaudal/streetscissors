@@ -4,8 +4,6 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   @md5 "0123456789abcdef0123456789abcdef"
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => true})
-
   setup do
     original = Application.get_env(:web, :zotero)
     original_cache = Application.get_env(:web, :zotero_cache_path)
@@ -115,7 +113,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
     library(self())
 
     {:ok, view, _html} =
-      live(admin_conn(conn), "/admin/zotero/BOOK0001?back=/admin/blog/essay/edit")
+      live(log_in_admin(conn), "/admin/zotero/BOOK0001?back=/admin/blog/essay/edit")
 
     render_async(view)
 
@@ -142,14 +140,17 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   test "a return address outside the admin is not followed", %{conn: conn} do
     library(self())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001?back=https://example.org")
+
+    {:ok, view, _html} =
+      live(log_in_admin(conn), "/admin/zotero/BOOK0001?back=https://example.org")
+
     render_async(view)
     assert has_element?(view, ~s(a[href="/admin/blog"]), "Back")
   end
 
   test "a selection in the document is offered as a highlight, and saved to Zotero", %{conn: conn} do
     library(self())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
     # The toolbar is there all along, idle until something is selected.
@@ -200,7 +201,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
   test "a save Zotero refuses is said so, and the toolbar is usable again", %{conn: conn} do
     library(self(), refuse: true)
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
     view
@@ -226,7 +227,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   test "a reader event that reaches the page is let go, not a crash", %{conn: conn} do
     library(self())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
     render_hook(view, "reader_ready", %{})
@@ -237,7 +238,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   test "an emptied selection takes the offer away", %{conn: conn} do
     library(self())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
     reader = element(view, "#reader-PDF00001")
@@ -256,7 +257,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   test "a comment, a jump, a delete and a note each go to Zotero", %{conn: conn} do
     library(self())
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/zotero/BOOK0001")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/zotero/BOOK0001")
     render_async(view)
 
     view |> form("#ann-ANN00001 form", comment: "Open on this.") |> render_submit()
@@ -281,7 +282,7 @@ defmodule WebWeb.AdminLive.ZoteroReaderTest do
 
   test "the file is served to the admin, whole or by the range asked for", %{conn: conn} do
     library(self())
-    conn = admin_conn(conn)
+    conn = log_in_admin(conn)
 
     whole = get(conn, "/admin/zotero/file/PDF00001/#{@md5}")
     assert whole.status == 200

@@ -2,8 +2,6 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
   use WebWeb.ConnCase
   import Phoenix.LiveViewTest
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     vault = Path.join(System.tmp_dir!(), "vault-reading-#{System.unique_integer([:positive])}")
     blog = Path.join(vault, "blog")
@@ -163,7 +161,7 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
   test "a file in the site's Zotero folders is read in the first panel and quoted into the draft",
        %{conn: conn} do
     library()
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
 
     # The folder's record has no file, and the panel says where the files are.
     assert has_element?(view, "#zotero-item-LIST0001", "Ferries at Dusk")
@@ -264,7 +262,7 @@ defmodule WebWeb.AdminLive.WorkbenchReaderTest do
       end
     end)
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/blog/essay/edit")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog/essay/edit")
     view |> element("#zotero-item-LOOSE001 button", "Read") |> render_click()
     render_async(view)
 

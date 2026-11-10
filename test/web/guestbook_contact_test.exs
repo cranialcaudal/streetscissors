@@ -200,7 +200,7 @@ defmodule Web.GuestbookContactTest do
 
   describe "the admin" do
     setup %{conn: conn} do
-      {:ok, conn: Plug.Test.init_test_session(conn, admin_user: true)}
+      {:ok, conn: log_in_admin(conn)}
     end
 
     test "sees that one was left, and the contact only on asking", %{conn: conn} do

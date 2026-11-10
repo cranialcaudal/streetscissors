@@ -1,8 +1,10 @@
 defmodule WebWeb.DarkroomController do
   @moduledoc """
-  The print editor's pictures (`Web.Darkroom.Session`), to the admin session
-  alone. A picture is asked for by its session's token and its own name, each
-  held to the only shape it has, so nothing else on disk can be named.
+  The print editor's pictures (`Web.Darkroom.Session`), to the admin session alone.
+
+  The router's `:admin_only` scope turns anyone else away. A picture is asked
+  for by its session's token and its own name, each held to the only shape it
+  has, so nothing else on disk can be named.
   """
 
   use WebWeb, :controller
@@ -10,8 +12,7 @@ defmodule WebWeb.DarkroomController do
   alias Web.Darkroom.Session
 
   def picture(conn, %{"token" => token, "file" => file}) do
-    with true <- !!get_session(conn, "admin_user"),
-         {:ok, dir} <- Session.dir(token),
+    with {:ok, dir} <- Session.dir(token),
          true <- Regex.match?(~r/\A(?:p-\d+|before)\.jpg\z/, file),
          path = Path.join(dir, file),
          true <- File.regular?(path) do
@@ -26,8 +27,7 @@ defmodule WebWeb.DarkroomController do
 
   @doc "A frame's repair mask, to the admin, for the editor to paint on."
   def mask(conn, %{"roll" => roll, "frame" => frame}) do
-    with true <- !!get_session(conn, "admin_user"),
-         {:ok, dir} <- Web.Negatives.roll_dir(roll),
+    with {:ok, dir} <- Web.Negatives.roll_dir(roll),
          {frame, ""} <- Integer.parse(frame),
          path = Web.Darkroom.mask_path(dir, frame),
          true <- File.regular?(path) do
@@ -55,8 +55,7 @@ defmodule WebWeb.DarkroomController do
   def candidate(conn, params), do: send_scaled(conn, params, &Web.Darkroom.candidate_path/2)
 
   defp send_scaled(conn, %{"roll" => roll, "frame" => frame}, path_of) do
-    with true <- !!get_session(conn, "admin_user"),
-         {:ok, dir} <- Web.Negatives.roll_dir(roll),
+    with {:ok, dir} <- Web.Negatives.roll_dir(roll),
          {frame, ""} <- Integer.parse(frame),
          path = path_of.(dir, frame),
          true <- File.regular?(path),

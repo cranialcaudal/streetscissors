@@ -109,14 +109,14 @@ defmodule WebWeb.FitnessLandingTest do
                live(conn, "/fitness/session/wednesday")
 
       {:ok, _view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live("/fitness/session/wednesday")
+        conn |> log_in_admin() |> live("/fitness/session/wednesday")
 
       assert html =~ ~s(data-day="wednesday")
     end
 
     test "nothing on the admin's page scores the week", %{conn: conn} do
       {:ok, view, html} =
-        conn |> init_test_session(%{"admin_user" => true}) |> live(~p"/fitness")
+        conn |> log_in_admin() |> live(~p"/fitness")
 
       assert has_element?(view, "#other-sessions", "Other sessions")
       refute html =~ "week-totals"
@@ -192,7 +192,7 @@ defmodule WebWeb.FitnessLandingTest do
     # 17 of the wiki's 126 exercises, and the Log button on every other line
     # answered "not wired up for logging".
     setup %{conn: conn} do
-      conn = init_test_session(conn, %{"admin_user" => true})
+      conn = log_in_admin(conn)
       {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday?view=list")
 
       render_click(view, "open_log", %{"slug" => "push-ups"})
@@ -414,7 +414,7 @@ defmodule WebWeb.FitnessLandingTest do
   # push-ups are 3 x 12 at bodyweight, so the chips read "12 reps".
   describe "logging a lift set by set, as the admin" do
     setup %{conn: conn} do
-      conn = init_test_session(conn, %{"admin_user" => true})
+      conn = log_in_admin(conn)
       {:ok, view, _html} = live(conn, ~p"/fitness/day/tuesday")
       %{view: view}
     end
@@ -498,7 +498,7 @@ defmodule WebWeb.FitnessLandingTest do
   # fixture's Thursday has one: 3 rounds, 2 minutes between, one 25 lb bell.
   describe "a circuit, as the admin" do
     setup %{conn: conn} do
-      conn = init_test_session(conn, %{"admin_user" => true})
+      conn = log_in_admin(conn)
       {:ok, view, _html} = live(conn, ~p"/fitness/day/thursday?view=list")
       %{view: view}
     end

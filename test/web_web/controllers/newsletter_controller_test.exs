@@ -7,7 +7,7 @@ defmodule WebWeb.NewsletterControllerTest do
   test "admin can export subscribers as CSV", %{conn: conn} do
     Repo.insert!(%Subscriber{email: "export@example.com", active: true})
 
-    conn = init_test_session(conn, %{"admin_user" => "true"})
+    conn = log_in_admin(conn)
     conn = get(conn, "/admin/subscribers/export")
 
     assert response_content_type(conn, :csv)
@@ -15,8 +15,12 @@ defmodule WebWeb.NewsletterControllerTest do
     assert conn.resp_body =~ "export@example.com,active"
   end
 
-  test "a non-admin is redirected instead of getting the export", %{conn: conn} do
-    conn = get(conn, "/admin/subscribers/export")
-    assert redirected_to(conn) == "/"
+  test "anyone else gets the site's 404 and not one address", %{conn: conn} do
+    Repo.insert!(%Subscriber{email: "export@example.com", active: true})
+
+    body = conn |> get("/admin/subscribers/export") |> html_response(404)
+
+    assert body =~ "Lost in the cut."
+    refute body =~ "export@example.com"
   end
 end

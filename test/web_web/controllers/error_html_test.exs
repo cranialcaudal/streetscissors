@@ -46,10 +46,10 @@ defmodule WebWeb.ErrorHTMLTest do
 
     # A route that exists but will not say so answers exactly as one that
     # does not exist.
-    test "for an admin page asked for without a session", %{conn: conn} do
-      body = conn |> get("/admin/fitness/calendar") |> html_response(404)
+    test "for an admin download asked for without a session", %{conn: conn} do
+      body = conn |> get("/admin/subscribers/export") |> html_response(404)
       assert whole_document?(body)
-      refute body =~ "Calendar"
+      refute body =~ "email,status,joined"
     end
   end
 

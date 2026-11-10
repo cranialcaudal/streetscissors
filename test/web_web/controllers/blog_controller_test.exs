@@ -210,7 +210,7 @@ defmodule WebWeb.BlogControllerTest do
     test "opens for the author, marked as a draft and kept out of indexes", %{conn: conn} do
       html =
         conn
-        |> init_test_session(%{"admin_user" => true})
+        |> log_in_admin()
         |> get(~p"/blog/draft-post")
         |> html_response(200)
 
@@ -225,7 +225,7 @@ defmodule WebWeb.BlogControllerTest do
     test "a published post carries none of that, even for the author", %{conn: conn} do
       html =
         conn
-        |> init_test_session(%{"admin_user" => true})
+        |> log_in_admin()
         |> get(~p"/blog/keyworded-post")
         |> html_response(200)
 

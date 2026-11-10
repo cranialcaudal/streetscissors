@@ -85,9 +85,11 @@ Where Phoenix's generator defaults disagree, this list wins.
 
 ### Admin and requests
 
-- **New admin routes go in `live_session :admin`** (`on_mount {WebWeb.AdminAuth, :ensure_admin}`).
-  `SetCurrentUser` does not protect routes. Public pages with admin actions gate each event on the
-  session flag.
+- **A new admin page goes in `live_session :admin`** (`on_mount {WebWeb.AdminAuth, :ensure_admin}`)
+  **and a new admin controller route in the `:admin_only` scope** under it, which answers the
+  site's 404. No action checks the session itself, and `router_admin_test.exs` fails for an admin
+  address in neither block. `SetCurrentUser` does not protect routes. Public pages with admin
+  actions gate each event on the session flag.
 - The `:browser` pipeline reads nothing from the database per request.
 - **Prefetch must not count:** speculation rules prefetch, never prerender; the Analytics plug skips
   `Sec-Purpose: prefetch`; `app.js` posts `/seen`. Who counts is `WebWeb.Visitor.counted?/3`.

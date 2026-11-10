@@ -4,8 +4,6 @@ defmodule WebWeb.AdminLive.InboxTest do
 
   alias Web.Contact
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   defp message(attrs) do
     {:ok, msg} =
       attrs
@@ -23,7 +21,7 @@ defmodule WebWeb.AdminLive.InboxTest do
     message(%{name: "New sender"})
     message(%{name: "Old sender", status: "archive"})
 
-    {:ok, view, html} = live(admin_conn(conn), "/admin/inbox")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/inbox")
     assert html =~ "New sender"
     refute html =~ "Old sender"
 
@@ -36,14 +34,14 @@ defmodule WebWeb.AdminLive.InboxTest do
   test "opens on flagged messages when there are any", %{conn: conn} do
     message(%{name: "Flagged sender", status: "attention"})
 
-    {:ok, _view, html} = live(admin_conn(conn), "/admin/inbox")
+    {:ok, _view, html} = live(log_in_admin(conn), "/admin/inbox")
     assert html =~ "Flagged sender"
   end
 
   test "archiving moves a message and updates the rail's count", %{conn: conn} do
     msg = message(%{})
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox?box=inbox")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox?box=inbox")
     assert has_element?(view, ~s(#adm-rail a[href="/admin/inbox"] .adm-badge), "1")
 
     view
@@ -58,7 +56,7 @@ defmodule WebWeb.AdminLive.InboxTest do
   test "only an archived message can be deleted", %{conn: conn} do
     msg = message(%{status: "archive"})
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox?box=archive")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox?box=archive")
     view |> element("#message-#{msg.id} button[phx-click=delete_message]") |> render_click()
 
     assert Contact.list_messages() == []
@@ -67,7 +65,7 @@ defmodule WebWeb.AdminLive.InboxTest do
   test "a message offers a reply by email", %{conn: conn} do
     msg = message(%{email: "reply@example.com"})
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox")
     assert has_element?(view, ~s(#message-#{msg.id} a[href="mailto:reply@example.com"]))
   end
 
@@ -88,7 +86,7 @@ defmodule WebWeb.AdminLive.InboxTest do
     test "a letter names the piece it is about", %{conn: conn} do
       msg = letter(%{})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox")
 
       assert has_element?(
                view,
@@ -101,7 +99,7 @@ defmodule WebWeb.AdminLive.InboxTest do
       private = letter(%{})
       open = letter(%{"may_publish" => "true", "name" => "Grace"})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox")
       refute has_element?(view, "#message-#{private.id} button[phx-click=publish_letter]")
 
       view |> element("#message-#{open.id} button[phx-click=publish_letter]") |> render_click()

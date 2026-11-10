@@ -5,8 +5,6 @@ defmodule WebWeb.AdminLive.KeywordsTest do
 
   alias Web.Blog
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     tmp = Path.join(System.tmp_dir!(), "keywords-admin-#{System.unique_integer([:positive])}")
     File.mkdir_p!(tmp)
@@ -34,7 +32,7 @@ defmodule WebWeb.AdminLive.KeywordsTest do
 
   test "lists every keyword with what carries it, across both sections", %{conn: conn} do
     log_fixture(keywords: "film", recorded_on: ~D[2030-03-02])
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/keywords")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/keywords")
 
     assert has_element?(view, "#keyword-film", "2 posts")
     assert has_element?(view, "#keyword-film", "1 log")
@@ -45,7 +43,7 @@ defmodule WebWeb.AdminLive.KeywordsTest do
   end
 
   test "the used-once tab narrows to keywords one piece carries", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/keywords?show=once")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/keywords?show=once")
 
     assert has_element?(view, "#keyword-nyc")
     assert has_element?(view, "#keyword-new-york")
@@ -53,7 +51,7 @@ defmodule WebWeb.AdminLive.KeywordsTest do
   end
 
   test "renaming rewrites the files and says how many", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/keywords")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/keywords")
 
     view |> element("#keyword-film button", "Rename or merge") |> render_click()
     view |> form("#rename-film", to: "Analog") |> render_submit()
@@ -65,7 +63,7 @@ defmodule WebWeb.AdminLive.KeywordsTest do
   end
 
   test "renaming to an existing keyword says it merged them", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/keywords")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/keywords")
 
     view |> element("#keyword-nyc button", "Rename or merge") |> render_click()
     view |> form("#rename-nyc", to: "new york") |> render_submit()
@@ -76,7 +74,7 @@ defmodule WebWeb.AdminLive.KeywordsTest do
   end
 
   test "a name that is nothing is refused and nothing is written", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/keywords")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/keywords")
 
     view |> element("#keyword-film button", "Rename or merge") |> render_click()
     view |> form("#rename-film", to: "?!") |> render_submit()

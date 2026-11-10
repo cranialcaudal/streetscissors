@@ -6,8 +6,6 @@ defmodule WebWeb.AdminComponentsTest do
 
   alias WebWeb.{AdminComponents, AdminNav}
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   describe "the rail's groups" do
     test "are the studio, the five programs and settings, in that order" do
       assert Enum.map(AdminNav.sections(), & &1.id) ==
@@ -49,18 +47,18 @@ defmodule WebWeb.AdminComponentsTest do
     end
 
     test "the layout puts the program on .adm-main", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/inbox")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/inbox")
       assert has_element?(view, "main#adm-main.adm-main.st-program--mail")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/darkroom/taste")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/darkroom/taste")
       assert has_element?(view, "main#adm-main.st-program--darkroom")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
       assert has_element?(view, "main#adm-main.st-program--studio")
     end
 
     test "the rail's groups each carry their program's accent", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/dashboard")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/dashboard")
 
       for program <- [:darkroom, :cuts, :writing, :training, :mail] do
         assert has_element?(view, "#adm-nav-#{program}.st-program--#{program} .adm-nav-mark")

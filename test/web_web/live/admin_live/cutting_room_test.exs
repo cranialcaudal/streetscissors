@@ -6,8 +6,6 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
 
   alias Web.Cuts
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     root = archive!()
     folder = put_roll!(root, roll: "065", format: "35mm", color: "color")
@@ -30,7 +28,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
   end
 
   test "a cut is begun from the list", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/cuts")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/cuts")
 
     assert {:error, {:live_redirect, %{to: "/admin/cuts/" <> id}}} =
              view |> form("#new-cut", %{"name" => "Low tide"}) |> render_submit()
@@ -41,7 +39,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
   test "a take dropped in the bin goes on the picture track; a print and a title join it",
        %{conn: conn} do
     cut = new_cut()
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/cuts/#{cut.id}")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/cuts/#{cut.id}")
 
     take =
       file_input(view, "#upload-form", :media, [
@@ -80,7 +78,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
         Web.Cuts.Timeline.add_take(Web.Cuts.Timeline.empty(), Web.Repo.reload!(take))
       )
 
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/cuts/#{cut.id}")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/cuts/#{cut.id}")
 
     render_hook(view, "split", %{"at" => 4000})
     [first, second] = Cuts.get_cut(cut.id).timeline["clips"]
@@ -111,7 +109,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
       |> Web.Cuts.Timeline.add_sound(song, 20_000)
 
     {:ok, cut} = Cuts.save_timeline(cut, timeline)
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/cuts/#{cut.id}")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/cuts/#{cut.id}")
 
     html = render(view)
     assert html =~ "--lanes: 2"
@@ -132,7 +130,7 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
         Web.Cuts.Timeline.add_take(Web.Cuts.Timeline.empty(), Web.Repo.reload!(take))
       )
 
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/cuts/#{cut.id}")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/cuts/#{cut.id}")
 
     view
     |> form("#publish-form", %{"recorded_on" => "2026-10-12", "caption" => ""})
@@ -151,19 +149,19 @@ defmodule WebWeb.AdminLive.CuttingRoomTest do
     path = ~p"/admin/cuts/#{cut.id}/media/#{take.proxy}"
 
     assert conn |> get(path) |> response(404)
-    assert conn |> admin_conn() |> get(path) |> response(200) == "stub-media"
+    assert conn |> log_in_admin() |> get(path) |> response(200) == "stub-media"
 
-    ranged = conn |> admin_conn() |> put_req_header("range", "bytes=0-3") |> get(path)
+    ranged = conn |> log_in_admin() |> put_req_header("range", "bytes=0-3") |> get(path)
     assert response(ranged, 206) == "stub"
 
     # The file as it came is never served, nor anything outside the bin.
     assert conn
-           |> admin_conn()
+           |> log_in_admin()
            |> get(~p"/admin/cuts/#{cut.id}/media/#{take.file}")
            |> response(404)
 
     assert conn
-           |> admin_conn()
+           |> log_in_admin()
            |> get("/admin/cuts/#{cut.id}/media/..%2F..%2Fsecret")
            |> response(404)
   end

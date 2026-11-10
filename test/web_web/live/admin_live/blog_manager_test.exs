@@ -4,8 +4,6 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
 
   alias Web.Blog
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   # The suite's fixture posts are committed, so tests that write use their own
   # throwaway blog dir.
   defp with_tmp_blog(_context) do
@@ -27,12 +25,12 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
   end
 
   test "/admin/content permanently redirects to the blog manager", %{conn: conn} do
-    conn = get(admin_conn(conn), "/admin/content")
+    conn = get(log_in_admin(conn), "/admin/content")
     assert redirected_to(conn, 301) == "/admin/blog"
   end
 
   test "the archive lists posts and links to the logs manager", %{conn: conn} do
-    {:ok, _view, html} = live(admin_conn(conn), "/admin/blog")
+    {:ok, _view, html} = live(log_in_admin(conn), "/admin/blog")
 
     assert html =~ "Fixture Post With Frontmatter"
     assert html =~ "/admin/logs"
@@ -42,7 +40,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     setup :with_tmp_blog
 
     test "dropping markdown files posts them", %{conn: conn, tmp: tmp} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view
       |> file_input("#markdown-upload-form", :markdown, [
@@ -62,14 +60,14 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     test "a post with no keywords is flagged as unfilterable", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "unfiled.md"), "Body with no frontmatter.")
 
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/blog")
       assert html =~ "no keywords"
     end
 
     test "keywords typed in the admin are written into the vault file", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "unfiled.md"), "---\ntitle: Unfiled\n---\n\nBody.\n")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view |> element("button[phx-click=edit_keywords][phx-value-slug=unfiled]") |> render_click()
 
@@ -97,7 +95,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
 
       File.write!(Path.join(tmp, "unfiled.md"), "---\ntitle: Unfiled\n---\n\nBody.\n")
 
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/blog?filter=missing")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/blog?filter=missing")
       assert html =~ "Unfiled"
       refute html =~ "post-filed"
     end
@@ -105,7 +103,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     test "a post can be deleted", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "doomed.md"), "---\ntitle: Doomed\n---\n\nBody.\n")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
       view |> element("button[phx-click=delete_post][phx-value-slug=doomed]") |> render_click()
 
       refute File.exists?(Path.join(tmp, "doomed.md"))
@@ -130,12 +128,12 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     end
 
     test "are listed with the posts, marked, and have a tab of their own", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       assert has_element?(view, "#post-wip .adm-pill--draft", "draft")
       refute has_element?(view, "#post-out .adm-pill--draft")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog?filter=drafts")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog?filter=drafts")
       assert has_element?(view, "#post-wip")
       refute has_element?(view, "#post-out")
     end
@@ -143,13 +141,13 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     # A draft cannot be reached through the public filters either way, so it
     # is not nagged about keywords until it is published.
     test "are not counted as missing keywords", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog?filter=missing")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog?filter=missing")
       refute has_element?(view, "#post-wip")
       assert render(view) =~ "Every published post has keywords."
     end
 
     test "publish puts a draft on the site, and unpublish takes it off", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view |> element("#post-wip button", "Publish") |> render_click()
       assert {:ok, %{draft: false}} = Blog.get_post("wip")
@@ -160,7 +158,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     end
 
     test "every post links to the editor", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
       assert has_element?(view, ~s(#post-out a[href="/admin/blog/out/edit"]), "Edit")
     end
   end
@@ -169,7 +167,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     setup :with_tmp_blog
 
     test "makes a dated draft and opens it in the editor", %{conn: conn, tmp: tmp} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       assert {:error, {:live_redirect, %{to: "/admin/blog/tides-out/edit"}}} =
                view
@@ -186,7 +184,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
 
     test "refuses a title that is already a file", %{conn: conn, tmp: tmp} do
       File.write!(Path.join(tmp, "taken.md"), "Already here.\n")
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view |> form("#new-post-form", post: %{title: "Taken"}) |> render_submit()
 
@@ -198,7 +196,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
       conn: conn,
       tmp: tmp
     } do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       blueprint = """
       ### Master Essay Blueprint (~500 Words)
@@ -245,7 +243,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     end
 
     test "opens the outlined draft in the workbench, with the editor over it", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       assert has_element?(view, "#wb-pick-harbor.is-active")
       assert has_element?(view, "#post-source[phx-hook=DocumentEditor]")
@@ -253,7 +251,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
     end
 
     test "picking another post loads it into the editor", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view |> element("#wb-pick-other") |> render_click()
 
@@ -264,7 +262,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
 
     test "a panel action changes the draft but writes nothing until Save", %{conn: conn, tmp: tmp} do
       path = Path.join(tmp, "harbor.md")
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       view |> element("#reading-0 button[phx-click=toggle_reading_item]") |> render_click()
       refute File.read!(path) =~ "- [x]"
@@ -279,7 +277,7 @@ defmodule WebWeb.AdminLive.BlogManagerTest do
 
     test "Save refuses to write over a file that changed on disk", %{conn: conn, tmp: tmp} do
       path = Path.join(tmp, "harbor.md")
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/blog")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/blog")
 
       File.write!(path, "Edited in Obsidian.\n")
       view |> form("#post-editor", content: "Edited on the desk.\n") |> render_submit()

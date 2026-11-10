@@ -127,7 +127,7 @@ defmodule WebWeb.SpeedTest do
       assert Web.Repo.aggregate(Hit, :count) == 0
 
       # The admin's own reading is never a hit, by this door or the other.
-      admin = Plug.Test.init_test_session(conn, admin_user: true)
+      admin = log_in_admin(conn)
       seen.(admin, "http://www.example.com", "/about")
       # Nor is the admin's own side of the site.
       seen.(conn, "http://www.example.com", "/admin/dashboard")

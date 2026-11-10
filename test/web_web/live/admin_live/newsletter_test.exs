@@ -13,7 +13,7 @@ defmodule WebWeb.AdminLive.NewsletterTest do
     Repo.insert!(%Subscriber{email: "sub2@example.com", active: true})
 
     # Cheat auth
-    conn = init_test_session(conn, %{"admin_user" => "true"})
+    conn = log_in_admin(conn)
 
     {:ok, view, _html} = live(conn, "/admin/newsletter")
 
@@ -45,7 +45,7 @@ defmodule WebWeb.AdminLive.NewsletterTest do
 
   describe "composing" do
     setup %{conn: conn} do
-      {:ok, conn: init_test_session(conn, %{"admin_user" => "true"})}
+      {:ok, conn: log_in_admin(conn)}
     end
 
     test "the preview shows the message inside the email's own shell", %{conn: conn} do

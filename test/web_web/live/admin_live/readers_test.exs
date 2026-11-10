@@ -6,8 +6,6 @@ defmodule WebWeb.AdminLive.ReadersTest do
   alias Web.Analytics.{Hit, Owner}
   alias Web.Repo
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     cache_path = Application.get_env(:web, :reader_geo_cache_path)
     if is_binary(cache_path), do: File.rm(cache_path)
@@ -83,7 +81,7 @@ defmodule WebWeb.AdminLive.ReadersTest do
       })
     end
 
-    {:ok, view, html} = live(admin_conn(conn), "/admin/readers")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/readers")
 
     assert html =~ "Readers"
     render_async(view)
@@ -125,7 +123,7 @@ defmodule WebWeb.AdminLive.ReadersTest do
 
       assert Analytics.count_hits_today() == 3
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/readers")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/readers")
       render_async(view)
 
       badge = String.slice(hash, 0, 6)
@@ -161,7 +159,7 @@ defmodule WebWeb.AdminLive.ReadersTest do
 
       Owner.add(hash, source: "manual")
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/readers")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/readers")
       render_async(view)
 
       view |> element("a.adm-tab", "Mine") |> render_click()
@@ -172,7 +170,7 @@ defmodule WebWeb.AdminLive.ReadersTest do
     end
 
     test "the Mine tab says how to fill itself when it is empty", %{conn: conn} do
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/readers?show=mine")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/readers?show=mine")
       render_async(view)
 
       assert render(view) =~ "Find my own addresses"
@@ -214,7 +212,7 @@ defmodule WebWeb.AdminLive.ReadersTest do
       })
     end
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/readers")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/readers")
     render_async(view)
 
     assert has_element?(view, "#reader-AAAAAA")

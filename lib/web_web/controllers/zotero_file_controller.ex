@@ -5,8 +5,9 @@ defmodule WebWeb.ZoteroFileController do
   `/admin/zotero/file/:key/:md5` serves the cached copy for that MD5, fetching
   it from Zotero's storage the first time. PDF.js asks for byte ranges of a
   long file rather than the whole of it, so a single `Range: bytes=a-b` is
-  answered with 206. Anyone else, an unknown key, or an attachment with no
-  file in Zotero gets the site's 404. Never cached by the browser or a proxy.
+  answered with 206. The router's `:admin_only` scope turns anyone else away;
+  an unknown key, or an attachment with no file in Zotero, gets the site's
+  404. Never cached by the browser or a proxy.
   """
   use WebWeb, :controller
 
@@ -15,8 +16,7 @@ defmodule WebWeb.ZoteroFileController do
   @types %{pdf: "application/pdf", epub: "application/epub+zip"}
 
   def show(conn, %{"key" => key, "md5" => md5}) do
-    with true <- get_session(conn, "admin_user") == true,
-         true <- Reader.key?(key) and (Reader.md5?(md5) or md5 == "none"),
+    with true <- Reader.key?(key) and (Reader.md5?(md5) or md5 == "none"),
          {:ok, path, kind} <- locate(key, md5) do
       serve(conn, path, kind)
     else

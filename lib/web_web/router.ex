@@ -11,9 +11,15 @@ defmodule WebWeb.Router do
      site's settings, plus Phoenix's own session and CSRF protection.
   2. **The public site** (`scope "/"` with `pipe_through :browser`): every page
      anyone can visit, then the old addresses that redirect.
-  3. **The admin** (`live_session :admin`): every `/admin` page. The
-     `on_mount {WebWeb.AdminAuth, :ensure_admin}` line turns away anyone not
-     logged in, so **a new admin page must go inside this block**.
+  3. **The admin**, in two blocks, one after the other. `live_session :admin`
+     holds every `/admin` page: its `on_mount {WebWeb.AdminAuth, :ensure_admin}`
+     line turns away anyone not logged in. A `live_session` guards pages only,
+     so the admin's controller routes (downloads, and files served to the admin
+     alone) are in the scope below it, piped through `:admin_only`, which
+     answers the site's 404 before any action runs. **A new admin page goes in
+     the first block and a new admin controller route in the second**:
+     `test/web_web/router_admin_test.exs` fails for an `/admin` address that is
+     in neither.
   4. **Addresses for other programs**, each in its own small scope with only
      what it needs: one-click unsubscribe, webmentions, the `/seen` beacon,
      `/health` and the share pictures. Most have no session and set no cookie.
@@ -45,6 +51,13 @@ defmodule WebWeb.Router do
     put_session(conn, "csrf_token", token)
   end
 
+  # What the admin's controller routes pass through after :browser. A plain
+  # `get` gets nothing from a `live_session`'s `on_mount` hooks, so without
+  # this each action would have to ask the session itself.
+  pipeline :admin_only do
+    plug WebWeb.Plugs.RequireAdmin
+  end
+
   scope "/", WebWeb do
     pipe_through :browser
 
@@ -66,7 +79,7 @@ defmodule WebWeb.Router do
       get "/about", PageController, :about
       # The prayer pages (WebWeb.ChristController): the liturgical day, the
       # Hours, the readings at Mass, the Rosary and the Bible they are read
-      # from. Unlisted like /food below.
+      # from. Unlisted: out of the sitemap and `noindex`, yet searchable.
       get "/Christ", ChristController, :index
       get "/Christ/hours/:hour", ChristController, :hour
       get "/Christ/angelus", ChristController, :angelus
@@ -106,15 +119,6 @@ defmodule WebWeb.Router do
       get "/almanac", LegacyRedirectController, :almanac
       get "/almanac/*rest", LegacyRedirectController, :almanac
 
-      # The kitchen, rendered from content/fitness/meals.md. Deliberately
-      # unlisted: nothing links to it, it is out of the sitemap and robots.txt,
-      # and it sends `noindex, nofollow`. It used to live at /fitness/meals and
-      # in the fitness tab row; that route is gone, so the old path now falls
-      # through the /fitness/:slug catch-all and 301s to the blog like any other
-      # retired fitness URL. Admin only: the action answers 404 to anyone
-      # without the admin session (it holds body figures and the household's
-      # schedule), and it still sends `noindex, nofollow`.
-      get "/food", PageController, :food
       live "/contact", NewsletterLive, :contact
       live "/newsletter", NewsletterLive, :newsletter
 
@@ -170,8 +174,6 @@ defmodule WebWeb.Router do
       live "/fitness/wiki/:slug", FitnessLive.Show, :show
       get "/fitness/regimen", LegacyRedirectController, :fitness_regimen
 
-      get "/fitness/export/csv", FitnessController, :export_csv
-
       # Rides — must stay above the /fitness/:slug catch-all
       live "/fitness/rides", RidesLive.Index, :index
       # The live page is gone — above :id so old links redirect rather than 404
@@ -202,53 +204,73 @@ defmodule WebWeb.Router do
       # logs each own their ingestion now.
       live "/admin/blog", AdminLive.BlogManager
       live "/admin/blog/:slug/edit", AdminLive.BlogEditor
-      # Papers (Web.Writing.Papers): the same workbench, never published, and
-      # Pandoc's Word/PDF/LaTeX of a paper or a post, to the admin alone.
+      # Papers (Web.Writing.Papers): the same workbench, never published.
       live "/admin/writing", AdminLive.WritingDesk
       live "/admin/writing/:slug", AdminLive.PaperEditor
-      get "/admin/writing/:slug/export/:format", WritingExportController, :paper
-      get "/admin/blog/:slug/export/:format", WritingExportController, :post
-      # A Zotero document read and annotated (Web.Writing.Zotero.Reader); its
-      # file is served to the admin alone.
+      # A Zotero document read and annotated (Web.Writing.Zotero.Reader).
       live "/admin/zotero/:item", AdminLive.ZoteroReader
-      get "/admin/zotero/file/:key/:md5", ZoteroFileController, :show
       live "/admin/keywords", AdminLive.Keywords
       live "/admin/health", AdminLive.ContentHealth
       live "/admin/logs", AdminLive.LogsManager
       # The cutting room (Web.Cuts): a log assembled from takes, prints, titles
-      # and sound. Its proxies are served by the action to the admin alone.
+      # and sound.
       live "/admin/cuts", AdminLive.Cuts
       live "/admin/cuts/:id", AdminLive.CuttingRoom
-      get "/admin/cuts/:id/media/:file", CutMediaController, :show
       live "/admin/fitness", AdminLive.FitnessManager
       live "/admin/fitness/fueling", AdminLive.Fueling
-      # The training block's report, and its progress photographs, which the
-      # action serves to the admin session alone (Web.Fitness.Photos).
+      # The training block's report, with its progress photographs.
       live "/admin/fitness/block", AdminLive.BlockReport
-      get "/admin/fitness/photos/:date/:file", FitnessPhotoController, :show
-      # The weekly Quarto report (Web.Fitness.Report), to the admin alone.
-      get "/admin/fitness/report", FitnessReportController, :show
-      get "/admin/fitness/report/:date", FitnessReportController, :show
       live "/admin/scanner", AdminLive.Scanner
-      # The print editor (Web.Darkroom): the prints roll by roll, one print on
-      # the bench, and the bench's pictures, which the action serves only to
-      # the admin session.
+      # The print editor (Web.Darkroom): the prints roll by roll, and one print
+      # on the bench.
       live "/admin/darkroom", AdminLive.Darkroom
       # Two grades of one print and a choice, to teach Web.Darkroom.Taste.
       live "/admin/darkroom/taste", AdminLive.Taste
       live "/admin/darkroom/:roll/:frame", AdminLive.DarkroomEditor
-      get "/admin/darkroom/picture/:token/:file", DarkroomController, :picture
-      get "/admin/darkroom/mask/:roll/:frame", DarkroomController, :mask
-      get "/admin/darkroom/developed/:roll/:frame", DarkroomController, :developed
-      get "/admin/darkroom/candidate/:roll/:frame", DarkroomController, :candidate
       live "/admin/inbox", AdminLive.Inbox
       live "/admin/guestbook", AdminLive.GuestbookManager
       live "/admin/citations", AdminLive.Citations
       live "/admin/newsletter", AdminLive.Newsletter
-      get "/admin/subscribers/export", NewsletterController, :export_csv
       live "/admin/rides", AdminLive.RidesManager
       live "/admin/settings", AdminLive.Settings
     end
+  end
+
+  # The admin's controller routes: what the admin downloads, and the files the
+  # admin's pages show. :admin_only answers the site's 404 to anyone without
+  # the admin session before the action runs, so no action here asks again.
+  scope "/", WebWeb do
+    pipe_through [:browser, :admin_only]
+
+    # Pandoc's Word, PDF or LaTeX of a paper or a post (Web.Writing.Export).
+    get "/admin/writing/:slug/export/:format", WritingExportController, :paper
+    get "/admin/blog/:slug/export/:format", WritingExportController, :post
+    # A Zotero attachment's file, for the reader (Web.Writing.Zotero.Reader).
+    get "/admin/zotero/file/:key/:md5", ZoteroFileController, :show
+    # The cutting room's proxies (Web.Cuts).
+    get "/admin/cuts/:id/media/:file", CutMediaController, :show
+    # Progress photographs (Web.Fitness.Photos) and the weekly Quarto report
+    # (Web.Fitness.Report): the newest, or one by its date.
+    get "/admin/fitness/photos/:date/:file", FitnessPhotoController, :show
+    get "/admin/fitness/report", FitnessReportController, :show
+    get "/admin/fitness/report/:date", FitnessReportController, :show
+    # The print editor's pictures (Web.Darkroom): the bench's, a frame's repair
+    # mask, the frame as developed, and Stable Diffusion's fill of it.
+    get "/admin/darkroom/picture/:token/:file", DarkroomController, :picture
+    get "/admin/darkroom/mask/:roll/:frame", DarkroomController, :mask
+    get "/admin/darkroom/developed/:roll/:frame", DarkroomController, :developed
+    get "/admin/darkroom/candidate/:roll/:frame", DarkroomController, :candidate
+    # The subscriber list and the training log, as CSV.
+    get "/admin/subscribers/export", NewsletterController, :export_csv
+    get "/fitness/export/csv", FitnessController, :export_csv
+
+    # The kitchen, rendered from content/fitness/meals.md. Admin only because
+    # it holds body figures and the household's schedule. Unlisted as well:
+    # nothing links to it, it is out of the sitemap, robots.txt and the search,
+    # and it sends `noindex, nofollow`. Its first address, /fitness/meals,
+    # falls through the /fitness/:slug catch-all and redirects to the blog
+    # like any other retired fitness address.
+    get "/food", PageController, :food
   end
 
   # RFC 8058 one-click unsubscribe. The POST comes from a mail client or the
@@ -317,7 +339,7 @@ defmodule WebWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through [:browser, WebWeb.Plugs.RequireAdmin]
+      pipe_through [:browser, :admin_only]
 
       live_dashboard "/dashboard",
         metrics: WebWeb.Telemetry,

@@ -9,8 +9,6 @@ defmodule WebWeb.AdminLive.ScannerTest do
   @epson "device `epkowa:interpreter:001:050' is a Epson Perfection V550 Photo flatbed scanner"
   @webcam "device `v4l:/dev/video0' is a Noname Integrated Camera virtual device"
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   defp with_env(name, value) do
     System.put_env(name, value)
     on_exit(fn -> System.delete_env(name) end)
@@ -24,7 +22,7 @@ defmodule WebWeb.AdminLive.ScannerTest do
   # Mounts the page and waits for the device listing its mount asked for.
   defp open_studio(conn) do
     Bed.subscribe()
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/scanner")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/scanner")
     assert_receive {:scanner, :devices, _devices}, 5_000
     view
   end

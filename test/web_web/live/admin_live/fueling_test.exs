@@ -5,8 +5,6 @@ defmodule WebWeb.AdminLive.FuelingTest do
 
   # The plan is the invented test/support/fixtures/fitness/fueling.json.
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   test "anonymous visitors are redirected away", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/"}}} = live(conn, "/admin/fitness/fueling")
   end
@@ -14,7 +12,7 @@ defmodule WebWeb.AdminLive.FuelingTest do
   test "a day's targets, meals, supplements and staples come from the vault's plan", %{
     conn: conn
   } do
-    {:ok, view, html} = live(admin_conn(conn), "/admin/fitness/fueling?day=tuesday")
+    {:ok, view, html} = live(log_in_admin(conn), "/admin/fitness/fueling?day=tuesday")
 
     assert html =~ "An invented plan for the tests."
     assert has_element?(view, "#fueling-day-summary", "Tuesday — Intervals")
@@ -34,7 +32,7 @@ defmodule WebWeb.AdminLive.FuelingTest do
   end
 
   test "the tabs are the plan's days, in week order, and switch the day", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness/fueling?day=monday")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/fueling?day=monday")
 
     assert has_element?(view, ~s(.adm-tabs a[href="/admin/fitness/fueling?day=saturday"]))
     refute has_element?(view, ~s(.adm-tabs a[href="/admin/fitness/fueling?day=sunday"]))
@@ -49,7 +47,7 @@ defmodule WebWeb.AdminLive.FuelingTest do
   end
 
   test "a day the plan does not have opens one it does", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness/fueling?day=nonsense")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/fueling?day=nonsense")
     assert has_element?(view, "#fueling-day-summary")
   end
 
@@ -64,7 +62,7 @@ defmodule WebWeb.AdminLive.FuelingTest do
       File.rm_rf(empty)
     end)
 
-    {:ok, view, _html} = live(admin_conn(conn), "/admin/fitness/fueling")
+    {:ok, view, _html} = live(log_in_admin(conn), "/admin/fitness/fueling")
     assert has_element?(view, "#fueling-none", "content/fitness/fueling.json")
     refute has_element?(view, "#fueling-day-summary")
   end

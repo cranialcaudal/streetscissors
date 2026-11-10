@@ -3,8 +3,6 @@ defmodule WebWeb.AdminLive.QuickAddTest do
   use WebWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   setup do
     File.rm(Web.Notes.inbox_path())
     :ok
@@ -15,7 +13,7 @@ defmodule WebWeb.AdminLive.QuickAddTest do
   end
 
   test "a set is logged by the exercise's name, under today", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/quick")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/quick")
 
     view
     |> form("#quick-log", log: %{exercise: "Push-ups", sets: "3", reps: "12"})
@@ -30,7 +28,7 @@ defmodule WebWeb.AdminLive.QuickAddTest do
   end
 
   test "a name the wiki does not have is refused", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/quick")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/quick")
     view |> form("#quick-log", log: %{exercise: "Juggling", sets: "3"}) |> render_submit()
 
     assert has_element?(view, "#flash-error", "no exercise by that name")
@@ -38,14 +36,14 @@ defmodule WebWeb.AdminLive.QuickAddTest do
   end
 
   test "there is no check-in tab, and its old address opens the log", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/quick?tab=checkin")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/quick?tab=checkin")
 
     refute has_element?(view, ~s(a[href="/admin/quick?tab=checkin"]))
     refute has_element?(view, "#quick-checkin")
   end
 
   test "a note becomes one dated line in the private inbox", %{conn: conn} do
-    {:ok, view, _html} = live(admin_conn(conn), ~p"/admin/quick?tab=note")
+    {:ok, view, _html} = live(log_in_admin(conn), ~p"/admin/quick?tab=note")
 
     view
     |> form("#quick-note", note: %{text: "Try the 400\nat box speed", keywords: "Film, New York"})

@@ -40,12 +40,14 @@ defmodule Web.Fitness.ExportTest do
              ~s(2026-10-27,44,2026,4,10,Push-ups,upper,20,NA,NA,NA,"felt, strong",push-ups,3,10,8.0,26.7,600.0)
   end
 
-  test "the admin downloads it; anyone else is sent home", %{conn: conn} do
-    assert conn |> get("/fitness/export/csv") |> redirected_to() == "/"
+  test "the admin downloads it; anyone else gets the site's 404", %{conn: conn} do
+    refused = conn |> get("/fitness/export/csv") |> html_response(404)
+    assert refused =~ "Lost in the cut."
+    refute refused =~ "exercise_slug"
 
     body =
       conn
-      |> init_test_session(%{"admin_user" => true})
+      |> log_in_admin()
       |> get("/fitness/export/csv")
       |> response(200)
 

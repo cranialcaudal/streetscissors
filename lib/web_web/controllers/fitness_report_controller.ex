@@ -1,8 +1,10 @@
 defmodule WebWeb.FitnessReportController do
   @moduledoc """
-  The weekly training report (`Web.Fitness.Report`), to the admin session
-  and no one else: the newest at `/admin/fitness/report`, any other by its
-  date. Anyone else, and any date with no report, gets the site's 404.
+  The weekly training report (`Web.Fitness.Report`), to the admin session and no one else.
+
+  The newest is at `/admin/fitness/report`, any other at its date. The router's
+  `:admin_only` scope turns anyone else away, and a date with no report gets
+  the site's 404.
   """
   use WebWeb, :controller
 
@@ -15,15 +17,16 @@ defmodule WebWeb.FitnessReportController do
         other -> other
       end
 
-    with true <- get_session(conn, "admin_user") == true,
-         {:ok, path} <- Report.path(date) do
-      conn
-      |> put_resp_content_type("text/html")
-      |> put_resp_header("cache-control", "private, no-store")
-      |> put_resp_header("x-robots-tag", "noindex, nofollow")
-      |> send_file(200, path)
-    else
-      _ -> WebWeb.NotFound.render(conn)
+    case Report.path(date) do
+      {:ok, path} ->
+        conn
+        |> put_resp_content_type("text/html")
+        |> put_resp_header("cache-control", "private, no-store")
+        |> put_resp_header("x-robots-tag", "noindex, nofollow")
+        |> send_file(200, path)
+
+      _ ->
+        WebWeb.NotFound.render(conn)
     end
   end
 end

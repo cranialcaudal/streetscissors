@@ -22,7 +22,7 @@ defmodule WebWeb.Plugs.OwnerMarkTest do
     test "an admin session marks the browser", %{conn: conn} do
       conn =
         conn
-        |> init_test_session(%{"admin_user" => true})
+        |> log_in_admin()
         |> from_outside()
         |> get("/")
 
@@ -128,7 +128,7 @@ defmodule WebWeb.Plugs.OwnerMarkTest do
 
   defp mark_a_browser(conn) do
     conn
-    |> init_test_session(%{"admin_user" => true})
+    |> log_in_admin()
     |> from_outside()
     |> get("/")
     |> then(& &1.resp_cookies[@cookie].value)

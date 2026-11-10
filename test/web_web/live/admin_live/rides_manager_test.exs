@@ -10,8 +10,6 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
     on_exit(fn -> Application.delete_env(:web, :ride_privacy_zones) end)
   end
 
-  defp admin_conn(conn), do: init_test_session(conn, %{"admin_user" => "true"})
-
   defp text(view, selector) do
     view
     |> element(selector)
@@ -55,7 +53,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
           started_at: ~U[2026-06-10 18:00:00Z]
         })
 
-      {:ok, view, html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, html} = live(log_in_admin(conn), "/admin/rides")
 
       assert has_element?(view, "button[phx-click='sync_komoot']", "Sync now")
       assert has_element?(view, "#rides tr", "Lakes loop")
@@ -82,7 +80,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
     test "says when the last pass ran and what came of it", %{conn: conn} do
       KomootSync.record_run({:error, :auth_failed})
 
-      {:ok, _view, html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, _view, html} = live(log_in_admin(conn), "/admin/rides")
       assert html =~ ":auth_failed"
     end
   end
@@ -92,7 +90,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
     test "with no place on file, Komoot is trusted and the page says so", %{conn: conn} do
       ride_fixture()
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/rides")
       assert text(view, "#privacy-status") =~ "Not checked."
       assert has_element?(view, "#privacy-status .adm-status-dot--warn")
     end
@@ -101,7 +99,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       Application.put_env(:web, :ride_privacy_zones, "45.12345,7.54321")
       ride_fixture()
 
-      {:ok, view, html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, html} = live(log_in_admin(conn), "/admin/rides")
 
       assert text(view, "#privacy-status") =~
                "No activity begins or ends near the private place on file as a stranger is shown it."
@@ -121,7 +119,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       ride_fixture(%{stranger_view: "hidden"})
       ride_fixture(%{stranger_view: "hidden"})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/rides")
 
       status = text(view, "#privacy-status")
       assert status =~ "No activity begins or ends near the private place on file"
@@ -139,7 +137,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       ride_fixture()
       passing = ride_fixture(%{name: "Home for lunch", stranger_view: "passing"})
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/rides")
 
       status = text(view, "#privacy-status")
       assert status =~ "No activity begins or ends near the private place on file"
@@ -157,7 +155,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       ride_fixture(%{name: "Clear"})
       exposed = ride_fixture(%{name: "Past the door", stranger_view: "exposed"})
 
-      {:ok, view, html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, html} = live(log_in_admin(conn), "/admin/rides")
 
       assert text(view, "#privacy-status") =~
                "1 activity still begins or ends at a private place as a stranger is shown it: " <>
@@ -173,7 +171,7 @@ defmodule WebWeb.AdminLive.RidesManagerTest do
       Application.put_env(:web, :ride_privacy_zones, "somewhere nice")
       ride_fixture()
 
-      {:ok, view, _html} = live(admin_conn(conn), "/admin/rides")
+      {:ok, view, _html} = live(log_in_admin(conn), "/admin/rides")
       assert text(view, "#privacy-status") =~ "RIDE_PRIVACY_ZONES can't be read"
       assert has_element?(view, "#privacy-status .adm-status-dot--fail")
     end

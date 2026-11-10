@@ -73,7 +73,7 @@ defmodule WebWeb.FitnessKomootSessionTest do
   test "today's Komoot ride and run fill the session, nothing typed", %{conn: conn} do
     {:ok, view, _} =
       conn
-      |> init_test_session(%{"admin_user" => true})
+      |> log_in_admin()
       |> live(~p"/fitness/day/#{Web.Clock.today_slug()}?view=list")
 
     assert has_element?(view, ".session-brief", "Ride In")
@@ -84,7 +84,7 @@ defmodule WebWeb.FitnessKomootSessionTest do
 
     {:ok, view, _} =
       build_conn()
-      |> init_test_session(%{"admin_user" => true})
+      |> log_in_admin()
       |> live(~p"/fitness/day/#{Web.Clock.today_slug()}?view=list")
 
     assert has_element?(view, "details.session-done", "Ride In")
