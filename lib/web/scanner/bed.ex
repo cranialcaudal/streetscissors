@@ -251,13 +251,22 @@ defmodule Web.Scanner.Bed do
 
   # Closing a port only closes its pipes; scanimage would go on driving the
   # lamp carriage. The OS process has to be told.
+  #
+  # Once told, it may be gone, and its port with it, before the port is closed
+  # here, and closing a closed port raises. Asking first whether it is open is
+  # no help: it can close between the question and the close, and when it did
+  # the bed died in place of saying that the scan had failed.
   defp kill(port) do
     case Port.info(port, :os_pid) do
       {:os_pid, pid} -> System.cmd("kill", ["-TERM", "#{pid}"], stderr_to_stdout: true)
       _ -> :ok
     end
 
-    if Port.info(port), do: Port.close(port)
+    try do
+      Port.close(port)
+    rescue
+      ArgumentError -> :ok
+    end
   end
 
   # One line per finished scan, so how long the scanner takes per mm of glass
