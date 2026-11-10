@@ -278,7 +278,9 @@ defmodule WebWeb.Router do
   # sending provider — no session, no CSRF token, so it cannot go through
   # :browser. The signed token in the URL is what authorises it, and the action
   # is idempotent and only ever removes consent, so there is nothing for a
-  # forged request to gain.
+  # forged request to gain. Its answer is a status with no body, which is why
+  # it carries none of the browser's security headers.
+  # sobelow_skip ["Config.Headers"]
   pipeline :one_click do
     plug :accepts, ["html", "json"]
   end
@@ -301,6 +303,7 @@ defmodule WebWeb.Router do
   # A prefetched page reporting that it was actually shown
   # (WebWeb.SeenController). A beacon has no CSRF token, so it cannot go
   # through :browser; it needs the session only to tell the admin apart.
+  # sobelow_skip ["Config.CSRF"]
   pipeline :beacon do
     plug :fetch_session
   end

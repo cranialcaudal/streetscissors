@@ -1,0 +1,19 @@
+# Sobelow, as `mix lint` and CI run it. `mix sobelow` reads this file itself.
+[
+  # What Sobelow is unsure of is left out: 362 of its first 389 findings here,
+  # 290 of them a `File` call with a computed path, which is how a site that
+  # keeps its content in files reads it. `mix sobelow --threshold low` shows
+  # them all.
+  threshold: :medium,
+  exit: :medium,
+  # A finding that was read and is not a fault is marked where it is: a
+  # `# sobelow_skip` comment above the function or the pipeline, under the
+  # reason. The mark then moves with the code, which the line numbers that
+  # `--mark-skip-all` keeps do not.
+  skip: true,
+  # TLS ends at Caddy and the release listens on loopback only; config/prod.exs
+  # says why `force_ssl` is not set.
+  ignore: ["Config.HTTPS"],
+  # No asking hex.pm for a newer Sobelow on every run.
+  private: true
+]

@@ -11,6 +11,9 @@ defmodule WebWeb.DarkroomController do
 
   alias Web.Darkroom.Session
 
+  # The directory is the one the session has for its token, and the name is
+  # held to the two shapes a bench picture has.
+  # sobelow_skip ["Traversal.SendFile"]
   def picture(conn, %{"token" => token, "file" => file}) do
     with {:ok, dir} <- Session.dir(token),
          true <- Regex.match?(~r/\A(?:p-\d+|before)\.jpg\z/, file),
@@ -26,6 +29,8 @@ defmodule WebWeb.DarkroomController do
   end
 
   @doc "A frame's repair mask, to the admin, for the editor to paint on."
+  # The roll is one `Negatives.roll_dir/1` found and the frame a whole number.
+  # sobelow_skip ["Traversal.SendFile"]
   def mask(conn, %{"roll" => roll, "frame" => frame}) do
     with {:ok, dir} <- Web.Negatives.roll_dir(roll),
          {frame, ""} <- Integer.parse(frame),
@@ -54,6 +59,9 @@ defmodule WebWeb.DarkroomController do
   @doc "Stable Diffusion's fill of a frame, to the admin, to be looked at before it is kept."
   def candidate(conn, params), do: send_scaled(conn, params, &Web.Darkroom.candidate_path/2)
 
+  # ImageMagick is run without a shell, on a path made from a roll that was
+  # found and a whole-number frame.
+  # sobelow_skip ["CI.System"]
   defp send_scaled(conn, %{"roll" => roll, "frame" => frame}, path_of) do
     with {:ok, dir} <- Web.Negatives.roll_dir(roll),
          {frame, ""} <- Integer.parse(frame),

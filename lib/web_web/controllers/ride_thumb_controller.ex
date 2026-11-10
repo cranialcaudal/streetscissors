@@ -14,6 +14,9 @@ defmodule WebWeb.RideThumbController do
   alias Web.Rides
   alias Web.Rides.Thumbs
 
+  # The file is named for the id of a ride that was found and a hash of its
+  # map's address, not for anything the request spelled out.
+  # sobelow_skip ["Traversal.SendFile"]
   def show(conn, %{"id" => id}) do
     with %{} = ride <- Rides.get_ride(id),
          true <- Rides.thumb?(ride) do

@@ -10,6 +10,8 @@ defmodule WebWeb.FitnessReportController do
 
   alias Web.Fitness.Report
 
+  # `Report.path/1` answers for a real date and nothing else.
+  # sobelow_skip ["Traversal.SendFile"]
   def show(conn, params) do
     date =
       case params["date"] || List.first(Report.list()) do

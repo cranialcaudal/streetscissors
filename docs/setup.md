@@ -80,7 +80,9 @@ elixir --version
 You should see `Elixir 1.19` or newer (the project needs at least 1.15; it is developed on 1.19).
 If your system's Elixir is older, install a newer one with
 [asdf](https://asdf-vm.com) or [mise](https://mise.jdx.dev), or with Nix as the cloud setup script
-does (`.claude/hooks/session-start.sh`).
+does (`.claude/hooks/session-start.sh`). The exact Elixir and Erlang the site runs on, and the
+ones the tests on GitHub run on, are in `.tool-versions` at the top of the checkout; asdf and mise
+read that file by themselves.
 
 **Ubuntu / Debian:** the packaged Elixir is usually too old. Use one of the version managers
 above.
@@ -134,6 +136,16 @@ mix precommit
 
 It compiles with warnings treated as errors, removes unused libraries from the lock file, formats
 the code, and runs every test.
+
+A second command reports on the code as a whole and is not part of that check:
+
+```bash
+mix lint
+```
+
+It runs Credo (style and likely mistakes, set up in `.credo.exs`), Sobelow (a security scan, set up
+in `.sobelow-conf`), and two audits of the libraries in `mix.lock` against the known advisories.
+Each prints what it found; the command fails if any of them found something.
 
 ---
 

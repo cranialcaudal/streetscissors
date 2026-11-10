@@ -121,6 +121,9 @@ defmodule WebWeb.NegativesController do
     end
   end
 
+  # Every path that reaches here is one `Web.Negatives` found for a name it
+  # checked, and the type is one of the few below.
+  # sobelow_skip ["Traversal.SendFile", "XSS.ContentType"]
   defp send_body(conn, path) do
     content_type =
       case Path.extname(path) |> String.downcase() do

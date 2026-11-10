@@ -59,6 +59,7 @@ integrations (Komoot, mail).
 
 ```bash
 mix precommit      # the gate before any change is done: warnings-as-errors, format, full suite
+mix lint           # reports, not a gate: Credo, Sobelow and the two dependency audits
 ```
 
 ## Deploying

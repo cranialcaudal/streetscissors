@@ -28,12 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The live machine's versions (docs/how-to.md, "The stack, by name and
-      # version"). Change them together.
+      # The live machine's Elixir and Erlang, to the patch, from .tool-versions:
+      # the one place they are written. When the machine's change, change that
+      # file, and this installs the same.
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "26"
-          elixir-version: "1.19"
+          version-file: .tool-versions
+          version-type: strict
 
       - name: Restore dependencies and build
         uses: actions/cache@v6
@@ -41,7 +42,7 @@ jobs:
           path: |
             deps
             _build
-          key: mix-${{ runner.os }}-${{ hashFiles('mix.lock') }}
+          key: mix-${{ runner.os }}-${{ hashFiles('.tool-versions', 'mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
       - name: Fetch dependencies
@@ -58,6 +59,26 @@ jobs:
 
       - name: The suite
         run: mix test
+
+      # What `mix lint` runs, a step each. These report and do not fail the
+      # build: every one had findings on the day it was switched on, and the
+      # build should not go red for what was already there. Take
+      # `continue-on-error` off a step once its report is clean.
+      - name: Credo
+        run: mix credo
+        continue-on-error: true
+
+      - name: Sobelow
+        run: mix sobelow
+        continue-on-error: true
+
+      - name: Dependencies against the advisory database
+        run: mix deps.audit
+        continue-on-error: true
+
+      - name: Retired packages and Hex's advisories
+        run: mix hex.audit
+        continue-on-error: true
 
   # The film tools' known-answer tests (tools/film/test-model): the colour
   # model checks itself, then film-develop is run on the rolls it writes.

@@ -43,6 +43,9 @@ defmodule WebWeb.ShareController do
     end
   end
 
+  # The path is a card `Web.ShareCard` drew for a piece it looked up first,
+  # and the type is written out by each caller above.
+  # sobelow_skip ["Traversal.SendFile", "XSS.ContentType"]
   defp send_card(conn, path, type) do
     conn
     |> put_resp_content_type(type, nil)

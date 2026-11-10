@@ -94,6 +94,9 @@ defmodule WebWeb.DaybookController do
   def book_epub(conn, params), do: book(conn, params, :epub, "application/epub+zip")
   def book_pdf(conn, params), do: book(conn, params, :pdf, "application/pdf")
 
+  # The type is one of the two written out above, and the file is the one
+  # `Book.path/2` keeps for a whole-number year.
+  # sobelow_skip ["Traversal.SendFile", "XSS.ContentType"]
   defp book(conn, %{"year" => raw}, format, type) do
     with {year, ""} <- Integer.parse(raw),
          "" <> path <- Web.Daybook.Book.path(year, format) do

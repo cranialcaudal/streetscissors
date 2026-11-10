@@ -65,6 +65,9 @@ defmodule WebWeb.PageController do
     |> Enum.map_join(" ", & &1.path)
   end
 
+  # The file's name is written out here, and the HTML the page prints as it
+  # stands is that file's Markdown, which only the author writes.
+  # sobelow_skip ["Traversal.FileModule", "XSS.Raw"]
   def about(conn, params) do
     # Internal path within the project repository
     path = "content/about.md"
@@ -145,6 +148,9 @@ defmodule WebWeb.PageController do
   @how_to_path "docs/how-to.md"
   @how_to_description "How the streetscissors site and the film pipeline behind it work, and how the whole thing is run: in parts, from what it is for to the deploy script."
 
+  # The HTML printed as it stands is docs/how-to.md, rendered: a file of the
+  # repository's own.
+  # sobelow_skip ["XSS.Raw"]
   def how_to(conn, params) do
     # `docs/`, not `content/`: the manual documents the software and is licensed
     # with it, and the same file is what GitHub renders. Read off disk at
@@ -238,6 +244,9 @@ defmodule WebWeb.PageController do
   @roadmap_path "docs/roadmap.md"
   @roadmap_description "The plan for finishing the streetscissors site: what already stands, what gets built next, and in what order."
 
+  # The HTML printed as it stands is docs/roadmap.md, rendered: a file of the
+  # repository's own.
+  # sobelow_skip ["XSS.Raw"]
   def roadmap(conn, params) do
     # Same shell as the manual: docs/roadmap.md is read off disk at request
     # time, so edits go live without a redeploy.
@@ -267,7 +276,9 @@ defmodule WebWeb.PageController do
 
   # Admin only: it holds private planning. The route is in the router's
   # `:admin_only` scope, which answers the site's 404 to anyone else before
-  # this runs.
+  # this runs. The one file it reads is named here, and the HTML it prints as
+  # it stands is that file's Markdown, the author's own.
+  # sobelow_skip ["Traversal.FileModule", "XSS.Raw"]
   def food(conn, _params) do
     # `content/`, not `docs/`: the kitchen is the author's own diet, so both its
     # plan (meals.md) and its week strip and description (meals-week.json) live
@@ -300,6 +311,8 @@ defmodule WebWeb.PageController do
   # per day, in the order its h3s appear, so the strip and the anchors it jumps
   # to never drift apart. Each `id` has to match Web.Keywords.slugify/1 of that
   # heading ("Sunday" -> "sunday"), since that's what Web.Docs anchors with.
+  # The file's name is written out here.
+  # sobelow_skip ["Traversal.FileModule"]
   defp meals_week do
     path = Path.join(Web.Fitness.Vault.base_path(), "meals-week.json")
 

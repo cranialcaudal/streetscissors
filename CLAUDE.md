@@ -32,12 +32,16 @@ mix test                                    # creates/migrates the test db, then
 mix test test/web/guestbook_test.exs:42     # one test by line
 mix test --failed                           # rerun last failures
 mix precommit                               # compile --warnings-as-errors + deps.unlock --unused + format + test
+mix lint                                    # reports only: credo + sobelow + deps.audit + hex.audit
 mix ecto.gen.migration name_in_snake_case   # always generate migrations this way
 mix assets.build                            # tailwind + esbuild (dev)
 ops/redeploy.sh                             # the deploy (see Deployment)
 ```
 
-**Run `mix precommit` before considering any change done.**
+**Run `mix precommit` before considering any change done.** `mix lint` gates nothing yet: new code
+should add nothing to its reports. A Sobelow finding that was read and is not a fault is marked
+`# sobelow_skip ["Its.Type"]` above the function or pipeline, under a comment that says why;
+`--mark-skip-all` is not used, because it keys on line numbers.
 
 ## Phoenix conventions
 

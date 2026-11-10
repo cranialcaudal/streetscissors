@@ -85,7 +85,12 @@ defmodule Web.MixProject do
       {:earmark, "~> 1.4"},
       {:quantum, "~> 3.0"},
       {:castore, ">= 0.0.0"},
-      {:oban, "~> 2.17"}
+      {:oban, "~> 2.17"},
+      # What `mix lint` runs: style and likely mistakes, a security scan, and
+      # the dependencies against known advisories. None is in the release.
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.18.1", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -178,7 +183,29 @@ defmodule Web.MixProject do
       ],
       # The quick loop: everything but the tests that run ffmpeg, ImageMagick,
       # LightCraft or node (@moduletag :external).
-      "test.fast": ["test --exclude external"]
+      "test.fast": ["test --exclude external"],
+      # Credo, Sobelow and the two audits, each to its end (see lint/1). Not
+      # part of precommit: these report on the whole codebase, a change or not.
+      lint: &lint/1
     ]
+  end
+
+  # `mix lint`: style and likely mistakes (Credo, .credo.exs), a security scan
+  # (Sobelow, .sobelow-conf), and the locked dependencies against the known
+  # advisories and Hex's list of retired packages. Each runs as a `mix` of its
+  # own, so one that finds something does not stop the next, and the task
+  # fails at the end if any did. CI runs the same four as steps of their own.
+  defp lint(_args) do
+    found =
+      for task <- ["credo", "sobelow", "deps.audit", "hex.audit"], report(task) != 0, do: task
+
+    if found != [] do
+      Mix.raise("lint: #{Enum.join(found, ", ")} found something, listed above")
+    end
+  end
+
+  defp report(task) do
+    Mix.shell().info([:bright, "\n==> mix #{task}", :reset])
+    Mix.shell().cmd("mix #{task}")
   end
 end

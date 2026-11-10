@@ -10,6 +10,9 @@ defmodule WebWeb.FitnessPhotoController do
 
   alias Web.Fitness.Photos
 
+  # The path is one `Photos.path/2` found, for a real date and a name of the
+  # shape it stores, and the type is read off that name.
+  # sobelow_skip ["Traversal.SendFile", "XSS.ContentType"]
   def show(conn, %{"date" => date, "file" => file}) do
     case Photos.path(date, file) do
       {:ok, path} ->

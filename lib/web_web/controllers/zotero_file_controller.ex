@@ -37,6 +37,9 @@ defmodule WebWeb.ZoteroFileController do
     end
   end
 
+  # The path is the reader's own copy, for a key and an MD5 each held to its
+  # shape, and the type is one of the two in @types.
+  # sobelow_skip ["Traversal.SendFile", "XSS.ContentType"]
   defp serve(conn, path, kind) do
     size = File.stat!(path).size
 

@@ -30,6 +30,9 @@ defmodule WebWeb.FeedController do
 
   @limit 30
 
+  # The keyword said back in the 404 is the normalised one: letters, digits
+  # and hyphens, with nothing left in it that a browser could read as markup.
+  # sobelow_skip ["XSS.SendResp"]
   def index(conn, %{"keyword" => raw}) when is_binary(raw) and raw != "" do
     keyword = Keywords.normalize(raw)
 
