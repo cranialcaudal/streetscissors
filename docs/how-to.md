@@ -884,13 +884,13 @@ anything, and no container.
 | Layer | What does it | Version on the live machine |
 |---|---|---|
 | Operating system | Fedora Linux | 43 |
-| Language and VM | Elixir on Erlang/OTP | 1.19 on OTP 26 (`mix.exs` asks for `~> 1.15`) |
+| Language and VM | Elixir on Erlang/OTP | 1.19 on OTP 26 (`mix.exs` asks for `~> 1.15`; the exact pair is in `.tool-versions`) |
 | Web framework | Phoenix, with LiveView | 1.8 and 1.2 |
-| HTTP server inside the app | Bandit | 1.12 |
+| HTTP server inside the app | Bandit | 1.14 |
 | Database | SQLite, through `ecto_sqlite3` | one file, in WAL mode; the adapter 0.22 |
 | Queued jobs | Oban, on its SQLite engine (`Oban.Engines.Lite`) | 2.20 |
 | Scheduled jobs | Quantum, a cron inside the VM | 3.5 |
-| Mail | Swoosh, sending through Resend's HTTP API | 1.20 |
+| Mail | Swoosh, sending through Resend's HTTP API | 1.29 |
 | HTTP client | Req | 0.5 |
 | Markdown | Earmark | 1.4 |
 | CSS and JavaScript build | Tailwind 4.1 and esbuild 0.25, as standalone programs `mix` fetches | no Node.js in the build |
@@ -1114,15 +1114,32 @@ password with `ADMIN_PASSWORD` in constant time, and on a match puts
 `admin_user: true` in the session and reissues the cookie. Ten attempts are
 allowed per address per fifteen minutes.
 
+**Logging out** takes the flag out of the cookie, and then tells every page
+that browser has open on the site to drop its connection. An admin page left
+open in another tab loads again within a few seconds and, the flag being gone,
+is sent home. Logging out is asked for with a `DELETE`, which a link or a
+picture on some other page cannot send, so no other page can log the author
+out.
+
 **Every admin page checks the flag.** All `/admin/*` LiveViews sit in one
 `live_session :admin` block in the router, whose `on_mount` hook
 (`WebWeb.AdminAuth`) redirects anyone without the flag before the page mounts.
 A new admin page belongs inside that block, and then it is protected without
 doing anything further.
 
-Two things follow from there being no session store on the server:
+**So does everything the admin downloads.** A `live_session` covers pages and
+nothing else. A file the admin downloads, or one that only an admin page
+shows, is an ordinary route, and those sit together in a second block of the
+router, behind a pipeline named `:admin_only`. Anyone without the flag gets
+the same "not found" page there as for an address that does not exist, before
+any of the route's own code runs. A test walks the router and fails for an
+admin address that is in neither block.
+
+Three things follow from there being no session store on the server:
 
 - Changing `ADMIN_PASSWORD` does not log out a browser that is already in.
+- Logging out ends the session in the browser that asked. Another browser
+  that is logged in stays in.
 - The only way to end every session at once is to change `SECRET_KEY_BASE`
   and restart, which invalidates every cookie ever issued.
 
@@ -2232,8 +2249,9 @@ breaking one tends to fail quietly rather than loudly.
   address, what it is, and other words someone might type for it.
 - **Nothing personal in a source file.** It goes in `content/` or `.env`, and
   the code falls back to something neutral when it is absent.
-- **A new admin page goes inside `live_session :admin`** in the router. That
-  is the whole of its protection.
+- **A new admin page goes inside `live_session :admin`** in the router, and a
+  new admin download in the `:admin_only` block under it. That is the whole
+  of its protection, and a test fails for an admin address in neither.
 - **An external program is reached through a config key** (`:ffmpeg_bin` and
   its cousins), so the tests can put a stub in its place.
 - **A file is written beside its target and renamed over it.** A reader never
@@ -2327,6 +2345,7 @@ it says otherwise.
 | Command | What it does |
 |---|---|
 | `mix precommit` | The gate. Compiles with warnings treated as errors, checks for unused dependencies, formats the code, runs every test. |
+| `mix lint` | Reports, and gates nothing: Credo (style and likely mistakes), Sobelow (a security scan), and two audits of the libraries against known advisories. |
 | `mix test` | Just the tests. |
 | `mix test test/web/blog_test.exs` | One file. |
 | `mix test --failed` | Only what failed last time. |
