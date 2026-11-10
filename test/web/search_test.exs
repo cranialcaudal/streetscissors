@@ -164,7 +164,6 @@ defmodule Web.SearchTest do
   test "every public page in the router is in the search" do
     not_pages = %{
       "/admin/login" => "the admin's door",
-      "/admin/logout" => "the admin's door",
       "/sitemap.xml" => "for crawlers",
       "/indexnow.txt" => "the IndexNow key, for search engines",
       "/Christ/bible/go" => "the citation box's target, a redirect",
@@ -173,11 +172,7 @@ defmodule Web.SearchTest do
       "/fitness/export/csv" => "a download"
     }
 
-    redirects = [
-      WebWeb.LegacyRedirectController,
-      WebWeb.RideRedirectController,
-      WebWeb.AdminSessionController
-    ]
+    redirects = [WebWeb.LegacyRedirectController, WebWeb.RideRedirectController]
 
     searchable = MapSet.new(Search.pages(), & &1.path)
 

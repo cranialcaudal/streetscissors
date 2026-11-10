@@ -26,9 +26,14 @@ fresh clone still builds and boots. Examples:
 ## Admin auth
 
 Login (`AdminSessionController`) checks one password via `Plug.Crypto.secure_compare` against
-`:admin_password` and sets `session["admin_user"] = true`. The `/admin/*` LiveViews sit in
-`live_session :admin` with `on_mount {WebWeb.AdminAuth, :ensure_admin}`, which sends non-admins
-home. A `live_session` guards pages only, so the admin's controller routes (the downloads, and the
+`:admin_password` and sets `session["admin_user"] = true`, with a `live_socket_id` beside it.
+Logout is a `DELETE` only: it removes both and then broadcasts `"disconnect"` to that id, so admin
+pages open in the browser's other tabs drop at once. The cookie is signed and not stored on the
+server, so a logout ends the session in the browser that asked and in no other.
+
+The `/admin/*` LiveViews sit in `live_session :admin` with
+`on_mount {WebWeb.AdminAuth, :ensure_admin}`, which sends non-admins home. A `live_session` guards
+pages only, so the admin's controller routes (the downloads, and the
 files only the admin's pages show) sit in a scope of their own piped through `:admin_only`
 (`WebWeb.Plugs.RequireAdmin`), which answers the site's 404 before the action runs: no action
 checks the session itself. **A new admin page belongs in that live_session and a new admin

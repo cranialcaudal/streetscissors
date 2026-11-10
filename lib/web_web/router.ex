@@ -64,11 +64,12 @@ defmodule WebWeb.Router do
     live_session :default,
       layout: {WebWeb.Layouts, :app},
       on_mount: [{WebWeb.FreshAssets, :default}] do
-      # Admin auth
+      # The admin's door (WebWeb.AdminSessionController). Logging out is a
+      # DELETE and nothing else, so a link or a picture on another page cannot
+      # log the admin out.
       live "/admin/login", AdminLoginLive, :new
-      get "/admin/logout", AdminSessionController, :delete
-      delete "/admin/logout", AdminSessionController, :delete
       post "/admin/login", AdminSessionController, :create
+      delete "/admin/logout", AdminSessionController, :delete
 
       # Feeds & Static
       get "/feed", FeedController, :index
